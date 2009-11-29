@@ -144,8 +144,12 @@ capros_SCSIControl_SCSIHostTemplate capros_host_template = {
 };
 
 /* We will only queue one command at a time, so we can statically allocate
-the srb. */
-struct scsi_cmnd theSRB;
+the srb.
+We only transfer one area at a time, so we statically allocate
+the scatterlist. */
+static struct scatterlist theSG;
+static struct scsi_cmnd theSRB;
+
 unsigned long srbOpaque;
 
 struct {
@@ -1251,7 +1255,7 @@ srb_done(struct scsi_cmnd * srb)
     .snd_code = RC_OK,
     .snd_w1 = srbOpaque,
     .snd_w2 = srb->result,
-    .snd_w3 = srb->request_bufflen - srb->resid,	// transferCount
+    .snd_w3 = scsi_bufflen(srb) - scsi_get_resid(srb),	// transferCount
     .snd_key0 = KR_VOID,
     .snd_key1 = KR_VOID,
     .snd_key2 = KR_VOID,
@@ -1286,11 +1290,16 @@ DoReadWrite(Message * msg, bool write)
 
   // Set up the scsi_cmnd structure for the rest of the code. 
   memset(&theSRB, 0, sizeof(theSRB));
-  memcpy(&theSRB.cmnd, MsgRcvBuf.cmd.cmnd, sc->cmd_len);
+  theSRB.sdb.table.sgl = &theSG;
+  theSRB.sdb.table.nents = 1;
+  theSRB.sdb.table.orig_nents = 1;
+  theSRB.cmnd = &theSRB.__cmd[0];
+  memcpy(theSRB.cmnd, sc->cmnd, sc->cmd_len);
   theSRB.cmd_len = sc->cmd_len;
-  theSRB.request_bufflen = sc->request_bufflen;
+  theSRB.sdb.table.nents = 1;	// only one scatter/gather area
+  theSRB.sdb.length = theSG.length = sc->request_bufflen;
   theSRB.sc_data_direction = write ? DMA_TO_DEVICE : DMA_FROM_DEVICE;
-  theSRB.request_buffer_dma = sc->request_buffer_dma;
+  theSG.dma_address = sc->request_buffer_dma;
   srbOpaque = sc->opaque;
 
   theSRB.device = &theDevice;

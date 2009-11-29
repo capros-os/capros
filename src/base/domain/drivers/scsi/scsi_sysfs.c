@@ -5,6 +5,28 @@
  *
  * Created to pull SCSI mid layer sysfs routines into one file.
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -14,7 +36,7 @@
 #include <scsi/scsi.h>
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_host.h>
-#include <scsi/scsi_tcq.h>
+//#include <scsi/scsi_tcq.h>
 #include <scsi/scsi_transport.h>
 #include <scsi/scsi_driver.h>
 
@@ -23,6 +45,7 @@
 
 static struct device_type scsi_dev_type;
 
+#if 0 // CapROS
 static const struct {
 	enum scsi_device_state	value;
 	char			*name;
@@ -50,6 +73,7 @@ const char *scsi_device_state_name(enum scsi_device_state state)
 	}
 	return name;
 }
+#endif // CapROS
 
 static const struct {
 	enum scsi_host_state	value;
@@ -77,6 +101,7 @@ const char *scsi_host_state_name(enum scsi_host_state state)
 	return name;
 }
 
+#if 0 // CapROS
 static int check_set(unsigned int *val, char *src)
 {
 	char *last;
@@ -347,6 +372,7 @@ static struct class sdev_class = {
 	.name		= "scsi_device",
 	.dev_release	= scsi_device_cls_release,
 };
+#endif // CapROS
 
 /* all probing is done in the individual ->probe routines */
 static int scsi_bus_match(struct device *dev, struct device_driver *gendrv)
@@ -362,6 +388,7 @@ static int scsi_bus_match(struct device *dev, struct device_driver *gendrv)
 	return (sdp->inq_periph_qual == SCSI_INQ_PQ_CON)? 1: 0;
 }
 
+#if 0 // CapROS
 static int scsi_bus_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct scsi_device *sdev;
@@ -838,7 +865,7 @@ static int scsi_target_add(struct scsi_target *starget)
 		put_device(&starget->dev);
 		return error;
 	}
-	transport_add_device(&starget->dev);
+	// transport_add_device(&starget->dev);
 	starget->state = STARGET_RUNNING;
 
 	return 0;
@@ -847,6 +874,7 @@ static int scsi_target_add(struct scsi_target *starget)
 static struct device_attribute sdev_attr_queue_type_rw =
 	__ATTR(queue_type, S_IRUGO | S_IWUSR, show_queue_type_field,
 	       sdev_store_queue_type_rw);
+#endif // CapROS
 
 /**
  * scsi_sysfs_add_sdev - add scsi device to sysfs
@@ -857,13 +885,14 @@ static struct device_attribute sdev_attr_queue_type_rw =
  **/
 int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 {
-	int error, i;
-	struct request_queue *rq = sdev->request_queue;
-	struct scsi_target *starget = sdev->sdev_target;
+	int error;
+	// struct request_queue *rq = sdev->request_queue;
+	// struct scsi_target *starget = sdev->sdev_target;
 
 	if ((error = scsi_device_set_state(sdev, SDEV_RUNNING)) != 0)
 		return error;
 
+#if 0 // CapROS
 	error = scsi_target_add(starget);
 	if (error)
 		return error;
@@ -875,6 +904,15 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 		printk(KERN_INFO "error 1\n");
 		return error;
 	}
+#else
+	if (scsi_bus_match(&sdev->sdev_gendev,
+			   NULL /* not used */ ) != 0) {
+		// Compare with really_probe.
+		extern struct scsi_driver sd_template;
+		error = (*sd_template.gendrv.probe)(&sdev->sdev_gendev);
+	}
+#endif // CapROS
+#if 0 // CapROS
 	error = device_add(&sdev->sdev_dev);
 	if (error) {
 		printk(KERN_INFO "error 2\n");
@@ -883,6 +921,7 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 
 	/* take a reference for the sdev_dev; this is
 	 * released by the sdev_class .release */
+	int i;
 	get_device(&sdev->sdev_gendev);
 
 	/* create queue files, which may be writable, depending on the host */
@@ -935,12 +974,14 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 	device_del(&sdev->sdev_gendev);
 	transport_destroy_device(&sdev->sdev_gendev);
 	put_device(&sdev->sdev_gendev);
+#endif // CapROS
 
 	return error;
 }
 
 void __scsi_remove_device(struct scsi_device *sdev)
 {
+#if 0 // CapROS
 	struct device *dev = &sdev->sdev_gendev;
 
 	if (scsi_device_set_state(sdev, SDEV_CANCEL) != 0)
@@ -955,8 +996,12 @@ void __scsi_remove_device(struct scsi_device *sdev)
 		sdev->host->hostt->slave_destroy(sdev);
 	transport_destroy_device(dev);
 	put_device(dev);
+#else
+  BUG_ON("unimplemented");
+#endif // CapROS
 }
 
+#if 0 // CapROS
 /**
  * scsi_remove_device - unregister a device from the scsi bus
  * @sdev:	scsi_device to unregister
@@ -1062,11 +1107,12 @@ int scsi_sysfs_add_host(struct Scsi_Host *shost)
 	transport_configure_device(&shost->shost_gendev);
 	return 0;
 }
+#endif // CapROS
 
 static struct device_type scsi_dev_type = {
 	.name =		"scsi_device",
-	.release =	scsi_device_dev_release,
-	.groups =	scsi_sdev_attr_groups,
+	.release =	NULL,//scsi_device_dev_release,
+	.groups =	NULL,//scsi_sdev_attr_groups,
 };
 
 void scsi_sysfs_device_initialize(struct scsi_device *sdev)
@@ -1076,29 +1122,35 @@ void scsi_sysfs_device_initialize(struct scsi_device *sdev)
 	struct scsi_target  *starget = sdev->sdev_target;
 
 	device_initialize(&sdev->sdev_gendev);
-	sdev->sdev_gendev.bus = &scsi_bus_type;
+	sdev->sdev_gendev.bus = NULL;////&scsi_bus_type;
 	sdev->sdev_gendev.type = &scsi_dev_type;
 	dev_set_name(&sdev->sdev_gendev, "%d:%d:%d:%d",
 		     sdev->host->host_no, sdev->channel, sdev->id, sdev->lun);
 
+#if 0 // CapROS
 	device_initialize(&sdev->sdev_dev);
 	sdev->sdev_dev.parent = &sdev->sdev_gendev;
 	sdev->sdev_dev.class = &sdev_class;
 	dev_set_name(&sdev->sdev_dev, "%d:%d:%d:%d",
 		     sdev->host->host_no, sdev->channel, sdev->id, sdev->lun);
+#endif // CapROS
 	sdev->scsi_level = starget->scsi_level;
+#if 0 // CapROS
 	transport_setup_device(&sdev->sdev_gendev);
+#endif // CapROS
 	spin_lock_irqsave(shost->host_lock, flags);
 	list_add_tail(&sdev->same_target_siblings, &starget->devices);
 	list_add_tail(&sdev->siblings, &shost->__devices);
 	spin_unlock_irqrestore(shost->host_lock, flags);
 }
 
+#if 0 // CapROS
 int scsi_is_sdev_device(const struct device *dev)
 {
 	return dev->type == &scsi_dev_type;
 }
 EXPORT_SYMBOL(scsi_is_sdev_device);
+#endif // CapROS
 
 /* A blank transport template that is used in drivers that don't
  * yet implement Transport Attributes */

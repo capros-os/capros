@@ -13,13 +13,35 @@
  *	minor  cleanups.
  *	September 30, 2002 Mike Anderson (andmike@us.ibm.com)
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/timer.h>
 #include <linux/string.h>
 #include <linux/kernel.h>
-#include <linux/freezer.h>
+//#include <linux/freezer.h>
 #include <linux/kthread.h>
 #include <linux/interrupt.h>
 #include <linux/blkdev.h>
@@ -36,7 +58,9 @@
 
 #include "scsi_priv.h"
 #include "scsi_logging.h"
-#include "scsi_transport_api.h"
+//#include "scsi_transport_api.h"
+
+#define currentComm "unknown"
 
 #define SENSE_TIMEOUT		(10*HZ)
 
@@ -51,12 +75,13 @@
 void scsi_eh_wakeup(struct Scsi_Host *shost)
 {
 	if (shost->host_busy == shost->host_failed) {
-		wake_up_process(shost->ehandler);
+		wake_up(&shost->error_wait);
 		SCSI_LOG_ERROR_RECOVERY(5,
 				printk("Waking error handler thread\n"));
 	}
 }
 
+#if 0 // CapROS
 /**
  * scsi_schedule_eh - schedule EH for SCSI host
  * @shost:	SCSI host to invoke error handling on.
@@ -78,6 +103,7 @@ void scsi_schedule_eh(struct Scsi_Host *shost)
 	spin_unlock_irqrestore(shost->host_lock, flags);
 }
 EXPORT_SYMBOL_GPL(scsi_schedule_eh);
+#endif // CapROS
 
 /**
  * scsi_eh_scmd_add - add scsi cmd to error handling.
@@ -142,6 +168,7 @@ enum blk_eh_timer_return scsi_times_out(struct request *req)
 	return rtn;
 }
 
+#if 0 // CapROS
 /**
  * scsi_block_when_processing_errors - Prevent cmds from being queued.
  * @sdev:	Device on which we are performing recovery.
@@ -167,6 +194,7 @@ int scsi_block_when_processing_errors(struct scsi_device *sdev)
 	return online;
 }
 EXPORT_SYMBOL(scsi_block_when_processing_errors);
+#endif // CapROS
 
 #ifdef CONFIG_SCSI_LOGGING
 /**
@@ -608,6 +636,7 @@ void scsi_eh_prep_cmnd(struct scsi_cmnd *scmd, struct scsi_eh_save *ses,
 		scmd->sdb.length = min_t(unsigned, SCSI_SENSE_BUFFERSIZE,
 					 sense_bytes);
 		sg_init_one(&ses->sense_sgl, scmd->sense_buffer,
+			    scmd->sense_buffer_dma,
 			    scmd->sdb.length);
 		scmd->sdb.table.sgl = &ses->sense_sgl;
 		scmd->sc_data_direction = DMA_FROM_DEVICE;
@@ -801,7 +830,7 @@ int scsi_eh_get_sense(struct list_head *work_q,
 
 		SCSI_LOG_ERROR_RECOVERY(2, scmd_printk(KERN_INFO, scmd,
 						  "%s: requesting sense\n",
-						  current->comm));
+						  currentComm));
 		rtn = scsi_request_sense(scmd);
 		if (rtn != SUCCESS)
 			continue;
@@ -885,7 +914,7 @@ static int scsi_eh_abort_cmds(struct list_head *work_q,
 		if (!(scmd->eh_eflags & SCSI_EH_CANCEL_CMD))
 			continue;
 		SCSI_LOG_ERROR_RECOVERY(3, printk("%s: aborting cmd:"
-						  "0x%p\n", current->comm,
+						  "0x%p\n", currentComm,
 						  scmd));
 		rtn = scsi_try_to_abort_cmd(scmd);
 		if (rtn == SUCCESS) {
@@ -899,7 +928,7 @@ static int scsi_eh_abort_cmds(struct list_head *work_q,
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: aborting"
 							  " cmd failed:"
 							  "0x%p\n",
-							  current->comm,
+							  currentComm,
 							  scmd));
 	}
 
@@ -960,7 +989,7 @@ static int scsi_eh_stu(struct Scsi_Host *shost,
 			continue;
 
 		SCSI_LOG_ERROR_RECOVERY(3, printk("%s: Sending START_UNIT to sdev:"
-						  " 0x%p\n", current->comm, sdev));
+						  " 0x%p\n", currentComm, sdev));
 
 		if (!scsi_eh_try_stu(stu_scmd)) {
 			if (!scsi_device_online(sdev) ||
@@ -974,7 +1003,7 @@ static int scsi_eh_stu(struct Scsi_Host *shost,
 		} else {
 			SCSI_LOG_ERROR_RECOVERY(3,
 						printk("%s: START_UNIT failed to sdev:"
-						       " 0x%p\n", current->comm, sdev));
+						       " 0x%p\n", currentComm, sdev));
 		}
 	}
 
@@ -1014,7 +1043,7 @@ static int scsi_eh_bus_device_reset(struct Scsi_Host *shost,
 			continue;
 
 		SCSI_LOG_ERROR_RECOVERY(3, printk("%s: Sending BDR sdev:"
-						  " 0x%p\n", current->comm,
+						  " 0x%p\n", currentComm,
 						  sdev));
 		rtn = scsi_try_bus_device_reset(bdr_scmd);
 		if (rtn == SUCCESS) {
@@ -1031,7 +1060,7 @@ static int scsi_eh_bus_device_reset(struct Scsi_Host *shost,
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: BDR"
 							  " failed sdev:"
 							  "0x%p\n",
-							  current->comm,
+							  currentComm,
 							   sdev));
 		}
 	}
@@ -1077,9 +1106,11 @@ static int scsi_eh_target_reset(struct Scsi_Host *shost,
 			/* no more commands, that's it */
 			break;
 
+#if 0 // CapROS
 		SCSI_LOG_ERROR_RECOVERY(3, printk("%s: Sending target reset "
 						  "to target %d\n",
 						  current->comm, id));
+#endif // CapROS
 		rtn = scsi_try_target_reset(tgtr_scmd);
 		if (rtn == SUCCESS) {
 			list_for_each_entry_safe(scmd, next, work_q, eh_entry) {
@@ -1090,10 +1121,14 @@ static int scsi_eh_target_reset(struct Scsi_Host *shost,
 								   done_q);
 			}
 		} else
+#if 0 // CapROS
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: Target reset"
 							  " failed target: "
 							  "%d\n",
 							  current->comm, id));
+#else
+			;
+#endif // CapROS
 		id++;
 	} while(id != 0);
 
@@ -1137,7 +1172,7 @@ static int scsi_eh_bus_reset(struct Scsi_Host *shost,
 		if (!chan_scmd)
 			continue;
 		SCSI_LOG_ERROR_RECOVERY(3, printk("%s: Sending BRST chan:"
-						  " %d\n", current->comm,
+						  " %d\n", currentComm,
 						  channel));
 		rtn = scsi_try_bus_reset(chan_scmd);
 		if (rtn == SUCCESS) {
@@ -1151,7 +1186,7 @@ static int scsi_eh_bus_reset(struct Scsi_Host *shost,
 		} else {
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: BRST"
 							  " failed chan: %d\n",
-							  current->comm,
+							  currentComm,
 							  channel));
 		}
 	}
@@ -1174,7 +1209,7 @@ static int scsi_eh_host_reset(struct list_head *work_q,
 				  struct scsi_cmnd, eh_entry);
 
 		SCSI_LOG_ERROR_RECOVERY(3, printk("%s: Sending HRST\n"
-						  , current->comm));
+						  , currentComm));
 
 		rtn = scsi_try_host_reset(scmd);
 		if (rtn == SUCCESS) {
@@ -1187,7 +1222,7 @@ static int scsi_eh_host_reset(struct list_head *work_q,
 		} else {
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: HRST"
 							  " failed\n",
-							  current->comm));
+							  currentComm));
 		}
 	}
 	return list_empty(work_q);
@@ -1441,6 +1476,7 @@ int scsi_decide_disposition(struct scsi_cmnd *scmd)
 	}
 }
 
+#if 0 // CapROS
 static void eh_lock_door_done(struct request *req, int uptodate)
 {
 	__blk_put_request(req->q, req);
@@ -1490,6 +1526,7 @@ static void scsi_eh_lock_door(struct scsi_device *sdev)
 
 	blk_execute_rq_nowait(req->q, NULL, req, 1, eh_lock_door_done);
 }
+#endif // CapROS
 
 /**
  * scsi_restart_operations - restart io operations to the specified host.
@@ -1501,9 +1538,10 @@ static void scsi_eh_lock_door(struct scsi_device *sdev)
  */
 static void scsi_restart_operations(struct Scsi_Host *shost)
 {
-	struct scsi_device *sdev;
+	//struct scsi_device *sdev;
 	unsigned long flags;
 
+#if 0 // CapROS
 	/*
 	 * If the door was locked, we need to insert a door lock request
 	 * onto the head of the SCSI request queue for the device.  There
@@ -1513,6 +1551,7 @@ static void scsi_restart_operations(struct Scsi_Host *shost)
 		if (scsi_device_online(sdev) && sdev->locked)
 			scsi_eh_lock_door(sdev);
 	}
+#endif // CapROS
 
 	/*
 	 * next free up anything directly waiting upon the host.  this
@@ -1574,7 +1613,7 @@ void scsi_eh_flush_done_q(struct list_head *done_q)
 		    (++scmd->retries <= scmd->allowed)) {
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: flush"
 							  " retry cmd: %p\n",
-							  current->comm,
+							  currentComm,
 							  scmd));
 				scsi_queue_insert(scmd, SCSI_MLQUEUE_EH_RETRY);
 		} else {
@@ -1587,7 +1626,7 @@ void scsi_eh_flush_done_q(struct list_head *done_q)
 				scmd->result |= (DRIVER_TIMEOUT << 24);
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: flush finish"
 							" cmd: %p\n",
-							current->comm, scmd));
+							currentComm, scmd));
 			scsi_finish_command(scmd);
 		}
 	}
@@ -1648,25 +1687,14 @@ int scsi_error_handler(void *data)
 {
 	struct Scsi_Host *shost = data;
 
-	/*
-	 * We use TASK_INTERRUPTIBLE so that the thread is not
-	 * counted against the load average as a running process.
-	 * We never actually get interrupted because kthread_run
-	 * disables signal delivery for the created thread.
-	 */
-	set_current_state(TASK_INTERRUPTIBLE);
 	while (!kthread_should_stop()) {
-		if ((shost->host_failed == 0 && shost->host_eh_scheduled == 0) ||
-		    shost->host_failed != shost->host_busy) {
-			SCSI_LOG_ERROR_RECOVERY(1,
-				printk("Error handler scsi_eh_%d sleeping\n",
-					shost->host_no));
-			schedule();
-			set_current_state(TASK_INTERRUPTIBLE);
-			continue;
-		}
+		wait_event(shost->error_wait,
+			(shost->host_failed != 0
+			 || shost->host_eh_scheduled != 0)
+			&& shost->host_failed == shost->host_busy );
 
-		__set_current_state(TASK_RUNNING);
+		if (kthread_should_stop()) break;
+
 		SCSI_LOG_ERROR_RECOVERY(1,
 			printk("Error handler scsi_eh_%d waking up\n",
 				shost->host_no));
@@ -1689,9 +1717,7 @@ int scsi_error_handler(void *data)
 		 * which are still online.
 		 */
 		scsi_restart_operations(shost);
-		set_current_state(TASK_INTERRUPTIBLE);
 	}
-	__set_current_state(TASK_RUNNING);
 
 	SCSI_LOG_ERROR_RECOVERY(1,
 		printk("Error handler scsi_eh_%d exiting\n", shost->host_no));
@@ -1765,6 +1791,7 @@ void scsi_report_device_reset(struct Scsi_Host *shost, int channel, int target)
 }
 EXPORT_SYMBOL(scsi_report_device_reset);
 
+#if 0 // CapROS
 static void
 scsi_reset_provider_done_command(struct scsi_cmnd *scmd)
 {
@@ -1851,6 +1878,7 @@ scsi_reset_provider(struct scsi_device *dev, int flag)
 	return rtn;
 }
 EXPORT_SYMBOL(scsi_reset_provider);
+#endif // CapROS
 
 /**
  * scsi_normalize_sense - normalize main elements from either fixed or
@@ -1924,6 +1952,7 @@ int scsi_command_normalize_sense(struct scsi_cmnd *cmd,
 }
 EXPORT_SYMBOL(scsi_command_normalize_sense);
 
+#if 0 // CapROS
 /**
  * scsi_sense_desc_find - search for a given descriptor type in	descriptor sense data format.
  * @sense_buffer:	byte array of descriptor format sense data
@@ -2040,3 +2069,4 @@ void scsi_build_sense_buffer(int desc, u8 *buf, u8 key, u8 asc, u8 ascq)
 	}
 }
 EXPORT_SYMBOL(scsi_build_sense_buffer);
+#endif // CapROS

@@ -53,7 +53,7 @@ unsigned long capros_Errno_ErrnoToException(unsigned long errno);
 
 // From block/scsi_ioctl.c:
 /* Command group 3 is reserved and should never be used.  */
-const unsigned char scsi_command_size[8] =
+const unsigned char scsi_command_size_tbl[8] =
 {
         6, 10, 10, 12,
         16, 12, 10, 10

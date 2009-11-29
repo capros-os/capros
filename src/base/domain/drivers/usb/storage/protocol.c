@@ -167,14 +167,13 @@ unsigned int usb_stor_access_xfer_buf(unsigned char *buffer,
 {
 	unsigned int cnt;
 
-	BUG_ON("unsupported");	/* srb->request_buffer is not mapped
-		in this process */
+#if 0 // CapROS
 	/* If not using scatter-gather, just transfer the data directly.
 	 * Make certain it will fit in the available buffer space. */
 	if (srb->use_sg == 0) {
-		if (*offset >= srb->request_bufflen)
+		if (*offset >= scsi_bufflen(srb))
 			return 0;
-		cnt = min(buflen, srb->request_bufflen - *offset);
+		cnt = min(buflen, scsi_bufflen(srb) - *offset);
 		if (dir == TO_XFER_BUF)
 			memcpy((unsigned char *) srb->request_buffer + *offset,
 					buffer, cnt);
@@ -246,6 +245,9 @@ unsigned int usb_stor_access_xfer_buf(unsigned char *buffer,
 		BUG_ON(true);
 #endif
 	}
+#else
+	BUG();	/* srb->request_buffer is not mapped in this process */
+#endif // CapROS
 
 	/* Return the amount actually transferred */
 	return cnt;
@@ -260,6 +262,6 @@ void usb_stor_set_xfer_buf(unsigned char *buffer,
 
 	usb_stor_access_xfer_buf(buffer, buflen, srb, &index, &offset,
 			TO_XFER_BUF);
-	if (buflen < srb->request_bufflen)
-		srb->resid = srb->request_bufflen - buflen;
+	if (buflen < scsi_bufflen(srb))
+		scsi_set_resid(srb, scsi_bufflen(srb) - buflen);
 }

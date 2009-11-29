@@ -360,7 +360,7 @@ struct inodes_stat_t {
 #include <linux/types.h>
 #include <linux/kdev_t.h>
 #include <linux/dcache.h>
-#include <linux/path.h>
+//#include <linux/path.h>
 #include <linux/stat.h>
 #include <linux/cache.h>
 #include <linux/kobject.h>
@@ -372,7 +372,7 @@ struct inodes_stat_t {
 #include <linux/mutex.h>
 #include <linux/capability.h>
 #include <linux/semaphore.h>
-#include <linux/fiemap.h>
+//#include <linux/fiemap.h>
 
 #include <asm/atomic.h>
 #include <asm/byteorder.h>
@@ -797,6 +797,7 @@ enum inode_i_mutex_lock_class
 	I_MUTEX_QUOTA
 };
 
+#if 0 // CapROS
 /*
  * NOTE: in a 32bit arch with a preemptable kernel and
  * an UP compile the i_size_read/write must be atomic
@@ -849,6 +850,7 @@ static inline void i_size_write(struct inode *inode, loff_t i_size)
 	inode->i_size = i_size;
 #endif
 }
+#endif // CapROS
 
 static inline unsigned iminor(const struct inode *inode)
 {
@@ -905,7 +907,9 @@ struct file {
 		struct list_head	fu_list;
 		struct rcu_head 	fu_rcuhead;
 	} f_u;
+#if 0 // CapROS
 	struct path		f_path;
+#endif // CapROS
 #define f_dentry	f_path.dentry
 #define f_vfsmnt	f_path.mnt
 	const struct file_operations	*f_op;
@@ -1728,11 +1732,13 @@ static inline void inode_inc_iversion(struct inode *inode)
 }
 
 extern void touch_atime(struct vfsmount *mnt, struct dentry *dentry);
+#if 0 // CapROS
 static inline void file_accessed(struct file *file)
 {
 	if (!(file->f_flags & O_NOATIME))
 		touch_atime(file->f_path.mnt, file->f_path.dentry);
 }
+#endif // CapROS
 
 int sync_inode(struct inode *inode, struct writeback_control *wbc);
 
@@ -2107,11 +2113,13 @@ static inline void put_write_access(struct inode * inode)
 {
 	atomic_dec(&inode->i_writecount);
 }
+#if 0 // CapROS
 static inline void allow_write_access(struct file *file)
 {
 	if (file)
 		atomic_inc(&file->f_path.dentry->d_inode->i_writecount);
 }
+#endif // CapROS
 extern int do_pipe_flags(int *, int);
 extern struct file *create_read_pipe(struct file *f, int flags);
 extern struct file *create_write_pipe(int flags);
@@ -2391,6 +2399,7 @@ struct simple_transaction_argresp {
 	char data[0];
 };
 
+#if 0 // CapROS
 #define SIMPLE_TRANSACTION_LIMIT (PAGE_SIZE - sizeof(struct simple_transaction_argresp))
 
 char *simple_transaction_get(struct file *file, const char __user *buf,
@@ -2400,6 +2409,7 @@ ssize_t simple_transaction_read(struct file *file, char __user *buf,
 int simple_transaction_release(struct inode *inode, struct file *file);
 
 void simple_transaction_set(struct file *file, size_t n);
+#endif // CapROS
 
 /*
  * simple attribute files

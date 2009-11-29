@@ -24,6 +24,28 @@
  * 		sequentially scan LUNs up until some maximum is reached,
  * 		or a LUN is seen that cannot have a device attached to it.
  */
+/*
+ * Copyright (C) 2008, 2009, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -32,7 +54,7 @@
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
-#include <linux/async.h>
+//#include <linux/async.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
@@ -43,8 +65,12 @@
 #include <scsi/scsi_transport.h>
 #include <scsi/scsi_eh.h>
 
+#include <domain/domdbg.h>
+#include <domain/assert.h>
+
 #include "scsi_priv.h"
 #include "scsi_logging.h"
+#include "disk.h"
 
 #define ALLOC_FAILURE_MSG	KERN_ERR "%s: Allocation failure during" \
 	" SCSI scanning, some SCSI devices might not be configured\n"
@@ -86,7 +112,7 @@ static unsigned int max_scsi_luns = MAX_SCSI_LUNS;
 static unsigned int max_scsi_luns = 1;
 #endif
 
-module_param_named(max_luns, max_scsi_luns, uint, S_IRUGO|S_IWUSR);
+//module_param_named(max_luns, max_scsi_luns, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(max_luns,
 		 "last scsi LUN (should be between 1 and 2^32-1)");
 
@@ -98,7 +124,7 @@ MODULE_PARM_DESC(max_luns,
 
 static char scsi_scan_type[6] = SCSI_SCAN_TYPE_DEFAULT;
 
-module_param_string(scan, scsi_scan_type, sizeof(scsi_scan_type), S_IRUGO);
+//module_param_string(scan, scsi_scan_type, sizeof(scsi_scan_type), S_IRUGO);
 MODULE_PARM_DESC(scan, "sync, async or none");
 
 /*
@@ -110,14 +136,14 @@ MODULE_PARM_DESC(scan, "sync, async or none");
  */
 static unsigned int max_scsi_report_luns = 511;
 
-module_param_named(max_report_luns, max_scsi_report_luns, uint, S_IRUGO|S_IWUSR);
+//module_param_named(max_report_luns, max_scsi_report_luns, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(max_report_luns,
 		 "REPORT LUNS maximum number of LUNS received (should be"
 		 " between 1 and 16384)");
 
 static unsigned int scsi_inq_timeout = SCSI_TIMEOUT/HZ+3;
 
-module_param_named(inq_timeout, scsi_inq_timeout, uint, S_IRUGO|S_IWUSR);
+//module_param_named(inq_timeout, scsi_inq_timeout, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(inq_timeout, 
 		 "Timeout (in seconds) waiting for devices to answer INQUIRY."
 		 " Default is 5. Some non-compliant devices need more.");
@@ -185,6 +211,7 @@ int scsi_complete_async_scans(void)
 
 /* Only exported for the benefit of scsi_wait_scan */
 EXPORT_SYMBOL_GPL(scsi_complete_async_scans);
+#if 0 // CapROS
 
 #ifndef MODULE
 /*
@@ -194,6 +221,7 @@ EXPORT_SYMBOL_GPL(scsi_complete_async_scans);
  */
 late_initcall(scsi_complete_async_scans);
 #endif
+#endif // CapROS
 
 /**
  * scsi_unlock_floptical - unlock device via a special MODE SENSE command
@@ -205,7 +233,8 @@ late_initcall(scsi_complete_async_scans);
  *     Called for BLIST_KEY devices.
  **/
 static void scsi_unlock_floptical(struct scsi_device *sdev,
-				  unsigned char *result)
+				  unsigned char * result,
+				  dma_addr_t result_dma)
 {
 	unsigned char scsi_cmd[MAX_COMMAND_SIZE];
 
@@ -216,7 +245,8 @@ static void scsi_unlock_floptical(struct scsi_device *sdev,
 	scsi_cmd[3] = 0;
 	scsi_cmd[4] = 0x2a;     /* size */
 	scsi_cmd[5] = 0;
-	scsi_execute_req(sdev, scsi_cmd, DMA_FROM_DEVICE, result, 0x2a, NULL,
+	scsi_execute_req(sdev, scsi_cmd, DMA_FROM_DEVICE, result, result_dma,
+                         0x2a, NULL,
 			 SCSI_TIMEOUT, 3, NULL);
 }
 
@@ -261,7 +291,7 @@ static struct scsi_device *scsi_alloc_sdev(struct scsi_target *starget,
 	INIT_LIST_HEAD(&sdev->starved_entry);
 	INIT_LIST_HEAD(&sdev->event_list);
 	spin_lock_init(&sdev->list_lock);
-	INIT_WORK(&sdev->event_work, scsi_evt_thread);
+	// INIT_WORK(&sdev->event_work, scsi_evt_thread);
 
 	sdev->sdev_gendev.parent = get_device(&starget->dev);
 	sdev->sdev_target = starget;
@@ -285,6 +315,7 @@ static struct scsi_device *scsi_alloc_sdev(struct scsi_target *starget,
 	 */
 	sdev->borken = 1;
 
+#if 0 // CapROS temporary
 	sdev->request_queue = scsi_alloc_queue(sdev);
 	if (!sdev->request_queue) {
 		/* release fn is set up in scsi_sysfs_device_initialise, so
@@ -295,6 +326,7 @@ static struct scsi_device *scsi_alloc_sdev(struct scsi_target *starget,
 	}
 
 	sdev->request_queue->queuedata = sdev;
+#endif // CapROS
 	scsi_adjust_queue_depth(sdev, 0, sdev->host->cmd_per_lun);
 
 	scsi_sysfs_device_initialize(sdev);
@@ -316,7 +348,7 @@ static struct scsi_device *scsi_alloc_sdev(struct scsi_target *starget,
 
 out_device_destroy:
 	scsi_device_set_state(sdev, SDEV_DEL);
-	transport_destroy_device(&sdev->sdev_gendev);
+	// transport_destroy_device(&sdev->sdev_gendev);
 	put_device(&sdev->sdev_gendev);
 out:
 	if (display_failure_msg)
@@ -330,7 +362,7 @@ static void scsi_target_destroy(struct scsi_target *starget)
 	struct Scsi_Host *shost = dev_to_shost(dev->parent);
 	unsigned long flags;
 
-	transport_destroy_device(dev);
+	// transport_destroy_device(dev);
 	spin_lock_irqsave(shost->host_lock, flags);
 	if (shost->hostt->target_destroy)
 		shost->hostt->target_destroy(starget);
@@ -353,11 +385,13 @@ static struct device_type scsi_target_type = {
 	.release =	scsi_target_dev_release,
 };
 
+#if 0 // CapROS
 int scsi_is_target_device(const struct device *dev)
 {
 	return dev->type == &scsi_target_type;
 }
 EXPORT_SYMBOL(scsi_is_target_device);
+#endif // CapROS
 
 static struct scsi_target *__scsi_find_target(struct device *parent,
 					      int channel, uint id)
@@ -435,8 +469,10 @@ static struct scsi_target *scsi_alloc_target(struct device *parent,
 
 	list_add_tail(&starget->siblings, &shost->__targets);
 	spin_unlock_irqrestore(shost->host_lock, flags);
+#if 0 // CapROS
 	/* allocate and add */
 	transport_setup_device(dev);
+#endif // CapROS
 	if (shost->hostt->target_alloc) {
 		error = shost->hostt->target_alloc(starget);
 
@@ -472,8 +508,10 @@ static void scsi_target_reap_usercontext(struct work_struct *work)
 	struct scsi_target *starget =
 		container_of(work, struct scsi_target, ew.work);
 
+#if 0 // CapROS
 	transport_remove_device(&starget->dev);
 	device_del(&starget->dev);
+#endif // CapROS
 	scsi_target_destroy(starget);
 }
 
@@ -551,6 +589,7 @@ static void sanitize_inquiry_string(unsigned char *s, int len)
  *     are copied to the scsi_device any flags value is stored in *@bflags.
  **/
 static int scsi_probe_lun(struct scsi_device *sdev, unsigned char *inq_result,
+			  dma_addr_t inq_result_dma,
 			  int result_len, int *bflags)
 {
 	unsigned char scsi_cmd[MAX_COMMAND_SIZE];
@@ -584,7 +623,8 @@ static int scsi_probe_lun(struct scsi_device *sdev, unsigned char *inq_result,
 		memset(inq_result, 0, try_inquiry_len);
 
 		result = scsi_execute_req(sdev,  scsi_cmd, DMA_FROM_DEVICE,
-					  inq_result, try_inquiry_len, &sshdr,
+					  inq_result, inq_result_dma,
+					  try_inquiry_len, &sshdr,
 					  HZ / 2 + HZ * scsi_inq_timeout, 3,
 					  &resid);
 
@@ -635,8 +675,8 @@ static int scsi_probe_lun(struct scsi_device *sdev, unsigned char *inq_result,
 		 * corresponding bit fields in scsi_device, so bflags
 		 * need not be passed as an argument.
 		 */
-		*bflags = scsi_get_device_flags(sdev, &inq_result[8],
-				&inq_result[16]);
+		*bflags = scsi_get_device_flags(sdev, (char *)&inq_result[8],
+				(char *)&inq_result[16]);
 
 		/* When the first pass succeeds we gain information about
 		 * what larger transfer lengths might work. */
@@ -845,7 +885,7 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 		sdev->sdtr = 1;
 
 	sdev_printk(KERN_NOTICE, sdev, "%s %.8s %.16s %.4s PQ: %d "
-			"ANSI: %d%s\n", scsi_device_type(sdev->type),
+			"ANSI: %d%s\n", "Unknown          ",
 			sdev->vendor, sdev->model, sdev->rev,
 			sdev->inq_periph_qual, inq_result[2] & 0x07,
 			(inq_result[3] & 0x0f) == 1 ? " CCS" : "");
@@ -872,12 +912,14 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	if (*bflags & BLIST_SELECT_NO_ATN)
 		sdev->select_no_atn = 1;
 
+#if 0 // CapROS temporary
 	/*
 	 * Maximum 512 sector transfer length
 	 * broken RA4x00 Compaq Disk Array
 	 */
 	if (*bflags & BLIST_MAX_512)
 		blk_queue_max_sectors(sdev->request_queue, 512);
+#endif // CapROS
 
 	/*
 	 * Some devices may not want to have a start command automatically
@@ -923,7 +965,7 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	if (*bflags & BLIST_RETRY_HWERROR)
 		sdev->retry_hwerror = 1;
 
-	transport_configure_device(&sdev->sdev_gendev);
+	// transport_configure_device(&sdev->sdev_gendev);
 
 	if (sdev->host->hostt->slave_configure) {
 		ret = sdev->host->hostt->slave_configure(sdev);
@@ -947,6 +989,8 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	 */
 	if (!async && scsi_sysfs_add_sdev(sdev) != 0)
 		return SCSI_SCAN_NO_RESPONSE;
+	/* Don't mount the disk now, because the read commands
+	and the scanning inquiry commands may overtax some hosts. */
 
 	return SCSI_SCAN_LUN_PRESENT;
 }
@@ -956,7 +1000,7 @@ static inline void scsi_destroy_sdev(struct scsi_device *sdev)
 	scsi_device_set_state(sdev, SDEV_DEL);
 	if (sdev->host->hostt->slave_destroy)
 		sdev->host->hostt->slave_destroy(sdev);
-	transport_destroy_device(&sdev->sdev_gendev);
+	// transport_destroy_device(&sdev->sdev_gendev);
 	put_device(&sdev->sdev_gendev);
 }
 
@@ -1012,6 +1056,7 @@ static int scsi_probe_and_add_lun(struct scsi_target *starget,
 {
 	struct scsi_device *sdev;
 	unsigned char *result;
+	dma_addr_t result_dma;
 	int bflags, res = SCSI_SCAN_NO_RESPONSE, result_len = 256;
 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);
 
@@ -1042,12 +1087,12 @@ static int scsi_probe_and_add_lun(struct scsi_target *starget,
 	if (!sdev)
 		goto out;
 
-	result = kmalloc(result_len, GFP_ATOMIC |
-			((shost->unchecked_isa_dma) ? __GFP_DMA : 0));
+	result = dma_alloc_coherent(shost->shost_gendev.parent,
+				    result_len, &result_dma, 0);
 	if (!result)
 		goto out_free_sdev;
 
-	if (scsi_probe_lun(sdev, result, result_len, &bflags))
+	if (scsi_probe_lun(sdev, result, result_dma, result_len, &bflags))
 		goto out_free_result;
 
 	if (bflagsp)
@@ -1120,12 +1165,13 @@ static int scsi_probe_and_add_lun(struct scsi_target *starget,
 	if (res == SCSI_SCAN_LUN_PRESENT) {
 		if (bflags & BLIST_KEY) {
 			sdev->lockable = 0;
-			scsi_unlock_floptical(sdev, result);
+			scsi_unlock_floptical(sdev, result, result_dma);
 		}
 	}
 
  out_free_result:
-	kfree(result);
+	dma_free_coherent(shost->shost_gendev.parent,
+			  result_len, result, result_dma);
  out_free_sdev:
 	if (res == SCSI_SCAN_LUN_PRESENT) {
 		if (sdevp) {
@@ -1256,6 +1302,7 @@ int scsilun_to_int(struct scsi_lun *scsilun)
 }
 EXPORT_SYMBOL(scsilun_to_int);
 
+#if 0 // CapROS
 /**
  * int_to_scsilun: reverts an int into a scsi_lun
  * @lun:        integer to be reverted
@@ -1287,6 +1334,7 @@ void int_to_scsilun(unsigned int lun, struct scsi_lun *scsilun)
 	}
 }
 EXPORT_SYMBOL(int_to_scsilun);
+#endif // CapROS
 
 /**
  * scsi_report_lun_scan - Scan using SCSI REPORT LUN results
@@ -1318,6 +1366,8 @@ static int scsi_report_lun_scan(struct scsi_target *starget, int bflags,
 	unsigned int retries;
 	int result;
 	struct scsi_lun *lunp, *lun_data;
+	dma_addr_t lun_data_dma;
+	unsigned int lun_data_len;
 	u8 *data;
 	struct scsi_sense_hdr sshdr;
 	struct scsi_device *sdev;
@@ -1362,8 +1412,9 @@ static int scsi_report_lun_scan(struct scsi_target *starget, int bflags,
 	 * prevent us from finding any LUNs on this target.
 	 */
 	length = (max_scsi_report_luns + 1) * sizeof(struct scsi_lun);
-	lun_data = kmalloc(length, GFP_ATOMIC |
-			   (sdev->host->unchecked_isa_dma ? __GFP_DMA : 0));
+	lun_data_len = length;
+	lun_data = dma_alloc_coherent(shost->shost_gendev.parent,
+				      lun_data_len, &lun_data_dma, 0);
 	if (!lun_data) {
 		printk(ALLOC_FAILURE_MSG, __func__);
 		goto out;
@@ -1403,7 +1454,8 @@ static int scsi_report_lun_scan(struct scsi_target *starget, int bflags,
 				retries));
 
 		result = scsi_execute_req(sdev, scsi_cmd, DMA_FROM_DEVICE,
-					  lun_data, length, &sshdr,
+					  lun_data, lun_data_dma,
+					  length, &sshdr,
 					  SCSI_TIMEOUT + 4 * HZ, 3, NULL);
 
 		SCSI_LOG_SCAN_BUS(3, printk (KERN_INFO "scsi scan: REPORT LUNS"
@@ -1464,7 +1516,7 @@ static int scsi_report_lun_scan(struct scsi_target *starget, int bflags,
 			 * integer LUN value.
 			 */
 			printk(KERN_WARNING "scsi: %s lun 0x", devname);
-			data = (char *)lunp->scsi_lun;
+			data = lunp->scsi_lun;
 			for (i = 0; i < sizeof(struct scsi_lun); i++)
 				printk("%02x", data[i]);
 			printk(" has a LUN larger than currently supported.\n");
@@ -1491,7 +1543,8 @@ static int scsi_report_lun_scan(struct scsi_target *starget, int bflags,
 	}
 
  out_err:
-	kfree(lun_data);
+	dma_free_coherent(shost->shost_gendev.parent,
+			  lun_data_len, lun_data, lun_data_dma);
  out:
 	scsi_device_put(sdev);
 	if (scsi_device_created(sdev))
@@ -1502,6 +1555,7 @@ static int scsi_report_lun_scan(struct scsi_target *starget, int bflags,
 	return ret;
 }
 
+#if 0 // CapROS
 struct scsi_device *__scsi_add_device(struct Scsi_Host *shost, uint channel,
 				      uint id, uint lun, void *hostdata)
 {
@@ -1558,6 +1612,7 @@ void scsi_rescan_device(struct device *dev)
 	}
 }
 EXPORT_SYMBOL(scsi_rescan_device);
+#endif // CapROS
 
 static void __scsi_scan_target(struct device *parent, unsigned int channel,
 		unsigned int id, unsigned int lun, int rescan)
@@ -1702,6 +1757,7 @@ int scsi_scan_host_selected(struct Scsi_Host *shost, unsigned int channel,
 	return 0;
 }
 
+#if 0 // CapROS
 static void scsi_sysfs_add_devices(struct Scsi_Host *shost)
 {
 	struct scsi_device *sdev;
@@ -1711,6 +1767,7 @@ static void scsi_sysfs_add_devices(struct Scsi_Host *shost)
 			scsi_destroy_sdev(sdev);
 	}
 }
+#endif // CapROS
 
 /**
  * scsi_prep_async_scan - prepare for an async scan
@@ -1794,7 +1851,7 @@ static void scsi_finish_async_scan(struct async_scan_data *data)
 
 	wait_for_completion(&data->prev_finished);
 
-	scsi_sysfs_add_devices(shost);
+	//scsi_sysfs_add_devices(shost);
 
 	spin_lock_irqsave(shost->host_lock, flags);
 	shost->async_scan = 0;
@@ -1827,6 +1884,22 @@ static void do_scsi_scan_host(struct Scsi_Host *shost)
 	} else {
 		scsi_scan_host_selected(shost, SCAN_WILD_CARD, SCAN_WILD_CARD,
 				SCAN_WILD_CARD, 0);
+	}
+
+	// We wait until scanning is finished to initiate mounting,
+	// to avoid queueing more than one command at a time.
+	struct scsi_device * sdev;
+	int numMounted = 0;
+	list_for_each_entry(sdev, &shost->__devices, siblings) {
+		if (sdev->sdev_state == SDEV_RUNNING) {
+			// Some hosts (USB storage e.g.) say they allow 1 cmd
+			// per lun, but in fact allow only 1 cmd per host.
+			// Therefore we hope there is only one lun:
+			assert(numMounted == 0);
+			numMounted++;
+
+			mount_capros_disk(sdev);
+		}
 	}
 }
 
@@ -1862,6 +1935,7 @@ void scsi_scan_host(struct Scsi_Host *shost)
 }
 EXPORT_SYMBOL(scsi_scan_host);
 
+#if 0 // CapROS
 void scsi_forget_host(struct Scsi_Host *shost)
 {
 	struct scsi_device *sdev;
@@ -1944,4 +2018,4 @@ void scsi_free_host_dev(struct scsi_device *sdev)
 	scsi_destroy_sdev(sdev);
 }
 EXPORT_SYMBOL(scsi_free_host_dev);
-
+#endif // CapROS

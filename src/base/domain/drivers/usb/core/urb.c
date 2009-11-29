@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (C) 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.

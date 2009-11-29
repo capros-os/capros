@@ -204,7 +204,8 @@ static inline void *sg_virt(struct scatterlist *sg)
 struct scatterlist *sg_next(struct scatterlist *);
 struct scatterlist *sg_last(struct scatterlist *s, unsigned int);
 void sg_init_table(struct scatterlist *, unsigned int);
-void sg_init_one(struct scatterlist *, const void *, unsigned int);
+void sg_init_one(struct scatterlist *, const void *, dma_addr_t buf_dma,
+	unsigned int);
 
 typedef struct scatterlist *(sg_alloc_fn)(unsigned int, gfp_t);
 typedef void (sg_free_fn)(struct scatterlist *, unsigned int);

@@ -88,7 +88,7 @@ xferSDev(struct scsi_device * sdev,
   err = scsi_execute_req(sdev, scsi_cmd, data_direction, 
                          buffer, buffer_dma, 
                          nrSects * EROS_SECTOR_SIZE, &sshdr,
-                         10*HZ, 3);
+                         10*HZ, 3, NULL);
   if (err)
     printk("xferSDev got err %d\n", err);
 
@@ -278,8 +278,8 @@ disk_thread(void * arg)
 
     case capros_IOReqQ_RequestType_synchronizeCache:
     {
-      int sd_issue_flush(struct device *, sector_t *);
-      int err = sd_issue_flush(&sdev->sdev_gendev, NULL /* not used */ );
+      int sd_issue_flush(struct device *);
+      int err = sd_issue_flush(&sdev->sdev_gendev);
       if (err)
         printk("Sync cache got err %d\n", err);
 

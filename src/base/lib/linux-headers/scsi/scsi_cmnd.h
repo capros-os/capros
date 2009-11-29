@@ -75,6 +75,7 @@ struct scsi_cmnd {
 
 	int retries;
 	int allowed;
+	int timeout_per_command;
 
 	unsigned char prot_op;
 	unsigned char prot_type;
@@ -82,6 +83,9 @@ struct scsi_cmnd {
 	unsigned short cmd_len;
 	enum dma_data_direction sc_data_direction;
 
+	/* Since we aren't using struct request, move this field from there
+	to here: */
+	unsigned char __cmd[BLK_MAX_CDB];
 	/* These elements define the operation we are about to perform */
 	unsigned char *cmnd;
 
@@ -107,6 +111,7 @@ struct scsi_cmnd {
 				/* obtained by REQUEST SENSE when
 				 * CHECK CONDITION is received on original
 				 * command (auto-sense) */
+	dma_addr_t sense_buffer_dma;
 
 	/* Low-level done function - can be used by low-level driver to point
 	 *        to completion function.  Not used by mid/upper level code. */

@@ -1,11 +1,33 @@
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/blkdev.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/proc_fs.h>
-#include <linux/seq_file.h>
+//#include <linux/proc_fs.h>
+//#include <linux/seq_file.h>
 
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_devinfo.h>
@@ -386,8 +408,8 @@ static int scsi_dev_info_list_add_str(char *dev_list)
  *     the host or global default settings.  Called during scan time.
  **/
 int scsi_get_device_flags(struct scsi_device *sdev,
-			  const unsigned char *vendor,
-			  const unsigned char *model)
+			  const char * vendor,
+			  const char * model)
 {
 	struct scsi_dev_info_list *devinfo;
 	unsigned int bflags;
@@ -533,13 +555,13 @@ static const struct file_operations scsi_devinfo_proc_fops = {
 };
 #endif /* CONFIG_SCSI_PROC_FS */
 
-module_param_string(dev_flags, scsi_dev_flags, sizeof(scsi_dev_flags), 0);
+//module_param_string(dev_flags, scsi_dev_flags, sizeof(scsi_dev_flags), 0);
 MODULE_PARM_DESC(dev_flags,
 	 "Given scsi_dev_flags=vendor:model:flags[,v:m:f] add black/white"
 	 " list entries for vendor and model with an integer value of flags"
 	 " to the scsi device info list");
 
-module_param_named(default_dev_flags, scsi_default_dev_flags, int, S_IRUGO|S_IWUSR);
+//module_param_named(default_dev_flags, scsi_default_dev_flags, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(default_dev_flags,
 		 "scsi default device flag integer value");
 

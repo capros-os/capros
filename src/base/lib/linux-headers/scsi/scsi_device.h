@@ -159,8 +159,10 @@ struct scsi_device {
 	atomic_t iodone_cnt;
 	atomic_t ioerr_cnt;
 
-	struct device		sdev_gendev,
-				sdev_dev;
+	unsigned int threadNum;	// of thread serving IORQ
+
+	struct device		sdev_gendev;
+	// struct device	sdev_dev;
 
 	struct execute_work	ew; /* used to get process context on put */
 
@@ -330,7 +332,8 @@ extern int scsi_track_queue_full(struct scsi_device *, int);
 extern int scsi_set_medium_removal(struct scsi_device *, char);
 
 extern int scsi_mode_sense(struct scsi_device *sdev, int dbd, int modepage,
-			   unsigned char *buffer, int len, int timeout,
+			   unsigned char *buffer, dma_addr_t buffer_dma,
+			   int len, int timeout,
 			   int retries, struct scsi_mode_data *data,
 			   struct scsi_sense_hdr *);
 extern int scsi_mode_select(struct scsi_device *sdev, int pf, int sp,
@@ -364,11 +367,13 @@ extern const char *scsi_device_state_name(enum scsi_device_state);
 extern int scsi_is_sdev_device(const struct device *);
 extern int scsi_is_target_device(const struct device *);
 extern int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
-			int data_direction, void *buffer, unsigned bufflen,
+			int data_direction, void * buffer,
+			dma_addr_t buffer_dma, unsigned bufflen,
 			unsigned char *sense, int timeout, int retries,
 			int flag, int *resid);
 extern int scsi_execute_req(struct scsi_device *sdev, const unsigned char *cmd,
-			    int data_direction, void *buffer, unsigned bufflen,
+			    int data_direction, void * buffer,
+			    dma_addr_t buffer_dma, unsigned bufflen,
 			    struct scsi_sense_hdr *, int timeout, int retries,
 			    int *resid);
 

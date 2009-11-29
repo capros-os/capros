@@ -499,7 +499,7 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 	int result;
 
 	/* send the command to the transport layer */
-	srb->resid = 0;
+	scsi_set_resid(srb, 0);
 	result = us->transport(srb, us);
 
 	/* if the command gets aborted by the higher layers, we need to
@@ -560,7 +560,7 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 	 * A short transfer on a command where we don't expect it
 	 * is unusual, but it doesn't mean we need to auto-sense.
 	 */
-	if ((srb->resid > 0) &&
+	if ((scsi_get_resid(srb) > 0) &&
 	    !((srb->cmnd[0] == REQUEST_SENSE) ||
 	      (srb->cmnd[0] == INQUIRY) ||
 	      (srb->cmnd[0] == MODE_SENSE) ||
@@ -572,9 +572,9 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 	/* Now, if we need to do the auto-sense, let's do it */
 	if (need_auto_sense) {
 		int temp_result;
-		void* old_request_buffer;
+		// void* old_request_buffer;
 		dma_addr_t old_request_buffer_dma;
-		unsigned short old_sg;
+		// unsigned short old_sg;
 		unsigned old_request_bufflen;
 		unsigned char old_sc_data_direction;
 		unsigned char old_cmd_len;
@@ -604,31 +604,31 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 		srb->sc_data_direction = DMA_FROM_DEVICE;
 
 		/* use the new buffer we have */
-		old_request_buffer = srb->request_buffer;
-		old_request_buffer_dma = srb->request_buffer_dma;
-		srb->request_buffer = us->sensebuf;
-		srb->request_buffer_dma = us->sensebuf_dma;
+		// old_request_buffer = srb->request_buffer;
+		old_request_buffer_dma = srb->sdb.table.sgl->dma_address;
+		// srb->request_buffer = us->sensebuf;
+		srb->sdb.table.sgl->dma_address = us->sensebuf_dma;
 
 		/* set the buffer length for transfer */
-		old_request_bufflen = srb->request_bufflen;
-		srb->request_bufflen = US_SENSE_SIZE;
+		old_request_bufflen = scsi_bufflen(srb);
+		srb->sdb.length = US_SENSE_SIZE;
 
 		/* set up for no scatter-gather use */
-		old_sg = srb->use_sg;
-		srb->use_sg = 0;
+		// old_sg = srb->use_sg;
+		// srb->use_sg = 0;
 
 		/* issue the auto-sense command */
-		old_resid = srb->resid;
-		srb->resid = 0;
+		old_resid = scsi_get_resid(srb);
+		scsi_set_resid(srb, 0);
 		temp_result = us->transport(us->srb, us);
 
 		/* let's clean up right away */
 		memcpy(srb->sense_buffer, us->sensebuf, US_SENSE_SIZE);
-		srb->resid = old_resid;
-		srb->request_buffer = old_request_buffer;
-		srb->request_buffer_dma = old_request_buffer_dma;
-		srb->request_bufflen = old_request_bufflen;
-		srb->use_sg = old_sg;
+		scsi_set_resid(srb, old_resid);
+		// srb->request_buffer = old_request_buffer;
+		srb->sdb.table.sgl->dma_address = old_request_buffer_dma;
+		srb->sdb.length = old_request_bufflen;
+		// srb->use_sg = old_sg;
 		srb->sc_data_direction = old_sc_data_direction;
 		srb->cmd_len = old_cmd_len;
 		memcpy(srb->cmnd, old_cmnd, MAX_COMMAND_SIZE);
@@ -683,8 +683,8 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 
 	/* Did we transfer less than the minimum amount required? */
 	if (srb->result == SAM_STAT_GOOD &&
-			srb->request_bufflen - srb->resid < srb->underflow)
-		srb->result = (DID_ERROR << 16) | (SUGGEST_RETRY << 24);
+			scsi_bufflen(srb) - scsi_get_resid(srb) < srb->underflow)
+		srb->result = DID_ERROR << 16;
 
 	return;
 
@@ -774,14 +774,18 @@ commandStage(struct scsi_cmnd * srb, struct us_data * us)
 static int
 dataStage(struct scsi_cmnd * srb, struct us_data * us, unsigned int pipe)
 {
+	int residual;
 	int result;
 	US_DEBUGP("data stage pipe %#x dma %#x len %d\n",
-		pipe, srb->request_buffer_dma, srb->request_bufflen);
+		pipe, srb->sdb.sgl.dma_address, scsi_bufflen(srb));
+	/* Note, usb_stor_bulk_transfer_sg returns residual,
+	while usb_stor_bulk_transfer_sglist returns actual length transferred. */
 	result = usb_stor_bulk_transfer_sg(us, pipe,
-			srb->request_buffer /* this is meaningless */,
-			srb->request_buffer_dma,
-			srb->request_bufflen,
-			srb->use_sg, &srb->resid);
+			NULL /* this is meaningless */,
+			srb->sdb.table.sgl->dma_address,
+			scsi_bufflen(srb),
+			false, &residual);
+	scsi_set_resid(srb, residual);
 	US_DEBUGP("data stage result is 0x%x\n", result);
 	return result;
 }
@@ -802,7 +806,7 @@ int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
 
 	/* DATA STAGE */
 	/* transfer the data payload for this command, if one exists*/
-	if (srb->request_bufflen) {
+	if (scsi_bufflen(srb)) {
 		pipe = srb->sc_data_direction == DMA_FROM_DEVICE ? 
 				us->recv_bulk_pipe : us->send_bulk_pipe;
 		result = dataStage(srb, us, pipe);
@@ -882,7 +886,7 @@ int usb_stor_CB_transport(struct scsi_cmnd *srb, struct us_data *us)
 
 	/* DATA STAGE */
 	/* transfer the data payload for this command, if one exists*/
-	if (srb->request_bufflen) {
+	if (scsi_bufflen(srb)) {
 		unsigned int pipe = srb->sc_data_direction == DMA_FROM_DEVICE ? 
 				us->recv_bulk_pipe : us->send_bulk_pipe;
 		result = dataStage(srb, us, pipe);
@@ -950,7 +954,7 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 {
 	struct bulk_cb_wrap * const bcb = (struct bulk_cb_wrap *) us->iobuf;
 	struct bulk_cs_wrap * const bcs = (struct bulk_cs_wrap *) us->iobuf;
-	unsigned int transfer_length = srb->request_bufflen;
+	unsigned int transfer_length = scsi_bufflen(srb);
 	unsigned int residue;
 	int result;
 	int fake_sense = 0;
@@ -1081,7 +1085,7 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 	if (residue) {
 		if (!(us->flags & US_FL_IGNORE_RESIDUE)) {
 			residue = min(residue, transfer_length);
-			srb->resid = max(srb->resid, (int) residue);
+			scsi_set_resid(srb, max(scsi_get_resid(srb), (int) residue));
 		}
 	}
 

@@ -20,6 +20,28 @@
  *  Restructured scsi_host lists and associated functions.
  *  September 04, 2002 Mike Anderson (andmike@us.ibm.com)
  */
+/*
+ * Copyright (C) 2008, 2009, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
 #include <linux/blkdev.h>
@@ -31,6 +53,7 @@
 #include <linux/completion.h>
 #include <linux/transport_class.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_host.h>
@@ -43,6 +66,7 @@
 static int scsi_host_next_hn;		/* host_no for next new host */
 
 
+#if 0 // CapROS
 static void scsi_host_cls_release(struct device *dev)
 {
 	put_device(&class_to_shost(dev)->shost_gendev);
@@ -52,6 +76,7 @@ static struct class shost_class = {
 	.name		= "scsi_host",
 	.dev_release	= scsi_host_cls_release,
 };
+#endif // CapROS
 
 /**
  *	scsi_host_set_state - Take the given host through the host state model.
@@ -165,17 +190,27 @@ void scsi_remove_host(struct Scsi_Host *shost)
 		}
 	spin_unlock_irqrestore(shost->host_lock, flags);
 	mutex_unlock(&shost->scan_mutex);
+#if 0 //// temporary
 	scsi_forget_host(shost);
+#endif
+#if 0 // CapROS
 	scsi_proc_host_rm(shost);
+#endif // CapROS
 
 	spin_lock_irqsave(shost->host_lock, flags);
 	if (scsi_host_set_state(shost, SHOST_DEL))
 		BUG_ON(scsi_host_set_state(shost, SHOST_DEL_RECOVERY));
 	spin_unlock_irqrestore(shost->host_lock, flags);
 
+#if 0 //// temporary
 	transport_unregister_device(&shost->shost_gendev);
+#endif
+#if 0 // CapROS
 	device_unregister(&shost->shost_dev);
+#endif // CapROS
+#if 0 //// temporary
 	device_del(&shost->shost_gendev);
+#endif
 }
 EXPORT_SYMBOL(scsi_remove_host);
 
@@ -208,16 +243,20 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
 	if (!shost->shost_gendev.parent)
 		shost->shost_gendev.parent = dev ? dev : &platform_bus;
 
+#if 0 //// temporary
 	error = device_add(&shost->shost_gendev);
 	if (error)
 		goto out;
+#endif //// temporary
 
 	scsi_host_set_state(shost, SHOST_RUNNING);
 	get_device(shost->shost_gendev.parent);
 
+#if 0 // CapROS
 	error = device_add(&shost->shost_dev);
 	if (error)
 		goto out_del_gendev;
+#endif // CapROS
 
 	get_device(&shost->shost_gendev);
 
@@ -241,29 +280,38 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
 		}
 	}
 
+#if 0 // CapROS
 	error = scsi_sysfs_add_host(shost);
 	if (error)
 		goto out_destroy_host;
 
 	scsi_proc_host_add(shost);
-	return error;
+#endif // CapROS
+	return 0;
 
+#if 0 // CapROS
  out_destroy_host:
+#endif // CapROS
 	if (shost->work_q)
 		destroy_workqueue(shost->work_q);
  out_free_shost_data:
 	kfree(shost->shost_data);
  out_del_dev:
+#if 0 // CapROS
 	device_del(&shost->shost_dev);
  out_del_gendev:
+#endif // CapROS
+#if 0 //// temporary
 	device_del(&shost->shost_gendev);
  out:
+#endif
 	scsi_destroy_command_freelist(shost);
  fail:
 	return error;
 }
 EXPORT_SYMBOL(scsi_add_host);
 
+#if 0 // CapROS
 static void scsi_host_dev_release(struct device *dev)
 {
 	struct Scsi_Host *shost = dev_to_shost(dev);
@@ -290,10 +338,11 @@ static void scsi_host_dev_release(struct device *dev)
 		put_device(parent);
 	kfree(shost);
 }
+#endif // CapROS
 
 static struct device_type scsi_host_type = {
 	.name =		"scsi_host",
-	.release =	scsi_host_dev_release,
+	.release =	NULL,//scsi_host_dev_release,
 };
 
 /**
@@ -313,7 +362,6 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 {
 	struct Scsi_Host *shost;
 	gfp_t gfp_mask = GFP_KERNEL;
-	int rval;
 
 	if (sht->unchecked_isa_dma && privsize)
 		gfp_mask |= __GFP_DMA;
@@ -330,6 +378,7 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 	INIT_LIST_HEAD(&shost->eh_cmd_q);
 	INIT_LIST_HEAD(&shost->starved_list);
 	init_waitqueue_head(&shost->host_wait);
+	init_waitqueue_head(&shost->error_wait);
 
 	mutex_init(&shost->scan_mutex);
 
@@ -389,29 +438,40 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 		shost->dma_boundary = 0xffffffff;
 
 	device_initialize(&shost->shost_gendev);
+	// dma_mask is maximal, because we share memory via DMA address.
+	shost->shost_gendev.dma_mask = (void *)(dma_addr_t)
+		(shost->shost_gendev.coherent_dma_mask = DMA_BIT_MASK(64));
 	dev_set_name(&shost->shost_gendev, "host%d", shost->host_no);
 #ifndef CONFIG_SYSFS_DEPRECATED
 	shost->shost_gendev.bus = &scsi_bus_type;
 #endif
 	shost->shost_gendev.type = &scsi_host_type;
 
+#if 0 // CapROS
 	device_initialize(&shost->shost_dev);
 	shost->shost_dev.parent = &shost->shost_gendev;
 	shost->shost_dev.class = &shost_class;
 	dev_set_name(&shost->shost_dev, "host%d", shost->host_no);
 	shost->shost_dev.groups = scsi_sysfs_shost_attr_groups;
+#endif // CapROS
 
+#if 0 //// temporary
 	shost->ehandler = kthread_run(scsi_error_handler, shost,
 			"scsi_eh_%d", shost->host_no);
 	if (IS_ERR(shost->ehandler)) {
 		rval = PTR_ERR(shost->ehandler);
 		goto fail_kfree;
 	}
+#endif //// temporary
 
+#if 0 // CapROS
 	scsi_proc_hostdir_add(shost->hostt);
+#endif
 	return shost;
 
+#if 0 //// temporary
  fail_kfree:
+#endif //// temporary
 	kfree(shost);
 	return NULL;
 }
@@ -440,6 +500,7 @@ void scsi_unregister(struct Scsi_Host *shost)
 }
 EXPORT_SYMBOL(scsi_unregister);
 
+#if 0 // CapROS
 static int __scsi_host_match(struct device *dev, void *data)
 {
 	struct Scsi_Host *p;
@@ -474,6 +535,7 @@ struct Scsi_Host *scsi_host_lookup(unsigned short hostnum)
 	return shost;
 }
 EXPORT_SYMBOL(scsi_host_lookup);
+#endif // CapROS
 
 /**
  * scsi_host_get - inc a Scsi_Host ref count
@@ -498,6 +560,7 @@ void scsi_host_put(struct Scsi_Host *shost)
 }
 EXPORT_SYMBOL(scsi_host_put);
 
+#if 0 // CapROS
 int scsi_init_hosts(void)
 {
 	return class_register(&shost_class);
@@ -507,6 +570,7 @@ void scsi_exit_hosts(void)
 {
 	class_unregister(&shost_class);
 }
+#endif // CapROS
 
 int scsi_is_host_device(const struct device *dev)
 {

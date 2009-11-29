@@ -522,6 +522,7 @@ struct Scsi_Host {
 	struct completion     * eh_action; /* Wait for specific actions on the
 					      host. */
 	wait_queue_head_t       host_wait;
+	wait_queue_head_t       error_wait; // for scsi_error_handler thread
 	struct scsi_host_template *hostt;
 	struct scsi_transport_template *transportt;
 
@@ -650,7 +651,8 @@ struct Scsi_Host {
 	enum scsi_host_state shost_state;
 
 	/* ldm bits */
-	struct device		shost_gendev, shost_dev;
+	struct device		shost_gendev;
+	// struct device		shost_dev;
 
 	/*
 	 * List of hosts per template.

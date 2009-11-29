@@ -36,6 +36,7 @@ OPTIM=-O
 DIRS=
 OBJECTS=\
   $(BUILDDIR)/alloc.o \
+  $(BUILDDIR)/async.o \
   $(BUILDDIR)/bus.o \
   $(BUILDDIR)/completion.o \
   $(BUILDDIR)/cpumask.o \
@@ -56,6 +57,7 @@ OBJECTS=\
   $(BUILDDIR)/platform.o \
   $(BUILDDIR)/printk.o \
   $(BUILDDIR)/resource.o \
+  $(BUILDDIR)/scatterlst.o \
   $(BUILDDIR)/sleep.o \
   $(BUILDDIR)/slob.o \
   $(BUILDDIR)/softirq.o \

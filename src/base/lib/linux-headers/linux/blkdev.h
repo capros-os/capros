@@ -17,7 +17,7 @@
 #include <linux/module.h>
 #include <linux/stringify.h>
 #include <linux/gfp.h>
-#include <linux/bsg.h>
+//#include <linux/bsg.h>
 #include <linux/smp.h>
 
 #include <asm/scatterlist.h>
@@ -157,7 +157,9 @@ enum rq_flag_bits {
  */
 struct request {
 	struct list_head queuelist;
+#if 0 // CapROS
 	struct call_single_data csd;
+#endif // CapROS
 	int cpu;
 
 	struct request_queue *q;
@@ -1015,10 +1017,12 @@ typedef struct {struct page *v;} Sector;
 
 unsigned char *read_dev_sector(struct block_device *, sector_t, Sector *);
 
+#if 0 // CapROS
 static inline void put_dev_sector(Sector p)
 {
 	page_cache_release(p.v);
 }
+#endif // CapROS
 
 struct work_struct;
 int kblockd_schedule_work(struct request_queue *q, struct work_struct *work);

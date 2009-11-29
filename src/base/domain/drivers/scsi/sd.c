@@ -31,6 +31,28 @@
  *	Note: when the logging level is set by the user, it must be greater
  *	than the level indicated above to trigger output.	
  */
+/*
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -38,16 +60,16 @@
 #include <linux/mm.h>
 #include <linux/bio.h>
 #include <linux/genhd.h>
-#include <linux/hdreg.h>
+//#include <linux/hdreg.h>
 #include <linux/errno.h>
-#include <linux/idr.h>
+//#include <linux/idr.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/blkdev.h>
-#include <linux/blkpg.h>
+//#include <linux/blkpg.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
-#include <linux/string_helpers.h>
+//#include <linux/string_helpers.h>
 #include <linux/async.h>
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
@@ -60,7 +82,7 @@
 #include <scsi/scsi_eh.h>
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_ioctl.h>
-#include <scsi/scsicam.h>
+//#include <scsi/scsicam.h>
 
 #include "sd.h"
 #include "scsi_logging.h"
@@ -97,25 +119,29 @@ MODULE_ALIAS_SCSI_DEVICE(TYPE_RBC);
 
 static int  sd_revalidate_disk(struct gendisk *);
 static int  sd_probe(struct device *);
+#if 0 // CapROS
 static int  sd_remove(struct device *);
 static void sd_shutdown(struct device *);
 static int sd_suspend(struct device *, pm_message_t state);
 static int sd_resume(struct device *);
 static void sd_rescan(struct device *);
 static int sd_done(struct scsi_cmnd *);
-static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
 static void scsi_disk_release(struct device *cdev);
+#endif // CapROS
 static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
 static void sd_print_result(struct scsi_disk *, int);
 
+#if 0 // CapROS
 static DEFINE_SPINLOCK(sd_index_lock);
 static DEFINE_IDA(sd_index_ida);
+#endif // CapROS
 
 /* This semaphore is used to mediate the 0->1 reference get in the
  * face of object destruction (i.e. we can't allow a get on an
  * object after last put) */
 static DEFINE_MUTEX(sd_ref_mutex);
 
+#if 0 // CapROS
 static const char *sd_cache_types[] = {
 	"write through", "none", "write back",
 	"write back, no read (daft)"
@@ -280,21 +306,23 @@ static struct class sd_disk_class = {
 	.dev_release	= scsi_disk_release,
 	.dev_attrs	= sd_disk_attrs,
 };
+#endif // CapROS
 
-static struct scsi_driver sd_template = {
+struct scsi_driver sd_template = {
 	.owner			= THIS_MODULE,
 	.gendrv = {
 		.name		= "sd",
 		.probe		= sd_probe,
-		.remove		= sd_remove,
-		.suspend	= sd_suspend,
-		.resume		= sd_resume,
-		.shutdown	= sd_shutdown,
+		.remove		= NULL,//sd_remove,
+		.suspend	= NULL,//sd_suspend,
+		.resume		= NULL,//sd_resume,
+		.shutdown	= NULL,//sd_shutdown,
 	},
-	.rescan			= sd_rescan,
-	.done			= sd_done,
+	.rescan			= NULL,//sd_rescan,
+	.done			= NULL,//sd_done,
 };
 
+#if 0 // CapROS
 /*
  * Device no to disk mapping:
  * 
@@ -323,6 +351,7 @@ static int sd_major(int major_idx)
 		return 0;	/* shut up gcc */
 	}
 }
+#endif // CapROS
 
 static struct scsi_disk *__scsi_disk_get(struct gendisk *disk)
 {
@@ -331,13 +360,14 @@ static struct scsi_disk *__scsi_disk_get(struct gendisk *disk)
 	if (disk->private_data) {
 		sdkp = scsi_disk(disk);
 		if (scsi_device_get(sdkp->device) == 0)
-			get_device(&sdkp->dev);
+			; // get_device(&sdkp->dev);
 		else
 			sdkp = NULL;
 	}
 	return sdkp;
 }
 
+#if 0 // CapROS
 static struct scsi_disk *scsi_disk_get(struct gendisk *disk)
 {
 	struct scsi_disk *sdkp;
@@ -347,6 +377,7 @@ static struct scsi_disk *scsi_disk_get(struct gendisk *disk)
 	mutex_unlock(&sd_ref_mutex);
 	return sdkp;
 }
+#endif // CapROS
 
 static struct scsi_disk *scsi_disk_get_from_dev(struct device *dev)
 {
@@ -365,11 +396,12 @@ static void scsi_disk_put(struct scsi_disk *sdkp)
 	struct scsi_device *sdev = sdkp->device;
 
 	mutex_lock(&sd_ref_mutex);
-	put_device(&sdkp->dev);
+	// put_device(&sdkp->dev);
 	scsi_device_put(sdev);
 	mutex_unlock(&sd_ref_mutex);
 }
 
+#if 0 // CapROS
 /**
  *	sd_init_command - build a scsi (read or write) command from
  *	information in the request structure.
@@ -780,6 +812,7 @@ static int sd_ioctl(struct block_device *bdev, fmode_t mode,
 	}
 	return scsi_ioctl(sdp, cmd, p);
 }
+#endif // CapROS
 
 static void set_media_not_present(struct scsi_disk *sdkp)
 {
@@ -788,6 +821,7 @@ static void set_media_not_present(struct scsi_disk *sdkp)
 	sdkp->device->changed = 1;
 }
 
+#if 0 // CapROS
 /**
  *	sd_media_changed - check if our medium changed
  *	@disk: kernel device descriptor 
@@ -867,6 +901,7 @@ out:
 	kfree(sshdr);
 	return retval;
 }
+#endif // CapROS
 
 static int sd_sync_cache(struct scsi_disk *sdkp)
 {
@@ -886,7 +921,7 @@ static int sd_sync_cache(struct scsi_disk *sdkp)
 		 * Leave the rest of the command zero to indicate
 		 * flush everything.
 		 */
-		res = scsi_execute_req(sdp, cmd, DMA_NONE, NULL, 0, &sshdr,
+		res = scsi_execute_req(sdp, cmd, DMA_NONE, NULL, 0, 0, &sshdr,
 				       SD_TIMEOUT, SD_MAX_RETRIES, NULL);
 		if (res == 0)
 			break;
@@ -903,6 +938,21 @@ static int sd_sync_cache(struct scsi_disk *sdkp)
 	return 0;
 }
 
+int sd_issue_flush(struct device *dev)
+{
+	int ret = 0;
+	struct scsi_disk *sdkp = scsi_disk_get_from_dev(dev);
+
+	if (!sdkp)
+               return -ENODEV;
+
+	if (sdkp->WCE)
+		ret = sd_sync_cache(sdkp);
+	scsi_disk_put(sdkp);
+	return ret;
+}
+
+#if 0 // CapROS
 static void sd_prepare_flush(struct request_queue *q, struct request *rq)
 {
 	rq->cmd_type = REQ_TYPE_BLOCK_PC;
@@ -1086,6 +1136,7 @@ static int sd_done(struct scsi_cmnd *SCpnt)
 
 	return good_bytes;
 }
+#endif // CapROS
 
 static int media_not_present(struct scsi_disk *sdkp,
 			     struct scsi_sense_hdr *sshdr)
@@ -1129,7 +1180,7 @@ sd_spinup_disk(struct scsi_disk *sdkp)
 			memset((void *) &cmd[1], 0, 9);
 
 			the_result = scsi_execute_req(sdkp->device, cmd,
-						      DMA_NONE, NULL, 0,
+						      DMA_NONE, NULL, 0, 0,
 						      &sshdr, SD_TIMEOUT,
 						      SD_MAX_RETRIES, NULL);
 
@@ -1184,7 +1235,7 @@ sd_spinup_disk(struct scsi_disk *sdkp)
 				if (sdkp->device->start_stop_pwr_cond)
 					cmd[4] |= 1 << 4;
 				scsi_execute_req(sdkp->device, cmd, DMA_NONE,
-						 NULL, 0, &sshdr,
+						 NULL, 0, 0, &sshdr,
 						 SD_TIMEOUT, SD_MAX_RETRIES,
 						 NULL);
 				spintime_expire = jiffies + 100 * HZ;
@@ -1300,7 +1351,7 @@ static void read_capacity_error(struct scsi_disk *sdkp, struct scsi_device *sdp,
 #endif
 
 static int read_capacity_16(struct scsi_disk *sdkp, struct scsi_device *sdp,
-						unsigned char *buffer)
+				unsigned char *buffer, dma_addr_t buffer_dma)
 {
 	unsigned char cmd[16];
 	struct scsi_sense_hdr sshdr;
@@ -1318,7 +1369,7 @@ static int read_capacity_16(struct scsi_disk *sdkp, struct scsi_device *sdp,
 		memset(buffer, 0, RC16_LEN);
 
 		the_result = scsi_execute_req(sdp, cmd, DMA_FROM_DEVICE,
-					buffer, RC16_LEN, &sshdr,
+					buffer, buffer_dma, RC16_LEN, &sshdr,
 					SD_TIMEOUT, SD_MAX_RETRIES, NULL);
 
 		if (media_not_present(sdkp, &sshdr))
@@ -1363,7 +1414,7 @@ static int read_capacity_16(struct scsi_disk *sdkp, struct scsi_device *sdp,
 }
 
 static int read_capacity_10(struct scsi_disk *sdkp, struct scsi_device *sdp,
-						unsigned char *buffer)
+				unsigned char *buffer, dma_addr_t buffer_dma)
 {
 	unsigned char cmd[16];
 	struct scsi_sense_hdr sshdr;
@@ -1379,7 +1430,7 @@ static int read_capacity_10(struct scsi_disk *sdkp, struct scsi_device *sdp,
 		memset(buffer, 0, 8);
 
 		the_result = scsi_execute_req(sdp, cmd, DMA_FROM_DEVICE,
-					buffer, 8, &sshdr,
+					buffer, buffer_dma, 8, &sshdr,
 					SD_TIMEOUT, SD_MAX_RETRIES, NULL);
 
 		if (media_not_present(sdkp, &sshdr))
@@ -1425,24 +1476,25 @@ static int sd_try_rc16_first(struct scsi_device *sdp)
  * read disk capacity
  */
 static void
-sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer)
+sd_read_capacity(struct scsi_disk *sdkp,
+  unsigned char *buffer, dma_addr_t buffer_dma)
 {
 	int sector_size;
 	struct scsi_device *sdp = sdkp->device;
-	sector_t old_capacity = sdkp->capacity;
+	// sector_t old_capacity = sdkp->capacity;
 
 	if (sd_try_rc16_first(sdp)) {
-		sector_size = read_capacity_16(sdkp, sdp, buffer);
+		sector_size = read_capacity_16(sdkp, sdp, buffer, buffer_dma);
 		if (sector_size == -EOVERFLOW)
 			goto got_data;
 		if (sector_size == -ENODEV)
 			return;
 		if (sector_size < 0)
-			sector_size = read_capacity_10(sdkp, sdp, buffer);
+			sector_size = read_capacity_10(sdkp, sdp, buffer, buffer_dma);
 		if (sector_size < 0)
 			return;
 	} else {
-		sector_size = read_capacity_10(sdkp, sdp, buffer);
+		sector_size = read_capacity_10(sdkp, sdp, buffer, buffer_dma);
 		if (sector_size == -EOVERFLOW)
 			goto got_data;
 		if (sector_size < 0)
@@ -1452,7 +1504,7 @@ sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer)
 			int old_sector_size = sector_size;
 			sd_printk(KERN_NOTICE, sdkp, "Very big device. "
 					"Trying to use READ CAPACITY(16).\n");
-			sector_size = read_capacity_16(sdkp, sdp, buffer);
+			sector_size = read_capacity_16(sdkp, sdp, buffer, buffer_dma);
 			if (sector_size < 0) {
 				sd_printk(KERN_NOTICE, sdkp,
 					"Using 0xffffffff as device size\n");
@@ -1487,6 +1539,7 @@ got_data:
 		sd_printk(KERN_NOTICE, sdkp, "Sector size 0 reported, "
 			  "assuming 512.\n");
 	}
+	BUG_ON(sector_size != 512); // need to fix some code that assumes 512
 
 	if (sector_size != 512 &&
 	    sector_size != 1024 &&
@@ -1510,6 +1563,7 @@ got_data:
 		 */
 		sector_size = 512;
 	}
+#if 0 // CapROS
 	blk_queue_hardsect_size(sdp->request_queue, sector_size);
 
 	{
@@ -1527,6 +1581,7 @@ got_data:
 				  (unsigned long long)sdkp->capacity,
 				  sector_size, cap_str_10, cap_str_2);
 	}
+#endif
 
 	/* Rescale capacity to 512-byte units */
 	if (sector_size == 4096)
@@ -1544,10 +1599,11 @@ got_data:
 /* called with buffer of length 512 */
 static inline int
 sd_do_mode_sense(struct scsi_device *sdp, int dbd, int modepage,
-		 unsigned char *buffer, int len, struct scsi_mode_data *data,
+		 unsigned char *buffer, dma_addr_t buffer_dma, int len,
+		 struct scsi_mode_data *data,
 		 struct scsi_sense_hdr *sshdr)
 {
-	return scsi_mode_sense(sdp, dbd, modepage, buffer, len,
+	return scsi_mode_sense(sdp, dbd, modepage, buffer, buffer_dma, len,
 			       SD_TIMEOUT, SD_MAX_RETRIES, data,
 			       sshdr);
 }
@@ -1557,7 +1613,8 @@ sd_do_mode_sense(struct scsi_device *sdp, int dbd, int modepage,
  * called with buffer of length SD_BUF_SIZE
  */
 static void
-sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
+sd_read_write_protect_flag(struct scsi_disk * sdkp,
+  unsigned char * buffer, dma_addr_t buffer_dma)
 {
 	int res;
 	struct scsi_device *sdp = sdkp->device;
@@ -1571,14 +1628,16 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
 	}
 
 	if (sdp->use_192_bytes_for_3f) {
-		res = sd_do_mode_sense(sdp, 0, 0x3F, buffer, 192, &data, NULL);
+		res = sd_do_mode_sense(sdp, 0, 0x3F, buffer, buffer_dma, 192,
+					 &data, NULL);
 	} else {
 		/*
 		 * First attempt: ask for all pages (0x3F), but only 4 bytes.
 		 * We have to start carefully: some devices hang if we ask
 		 * for more than is available.
 		 */
-		res = sd_do_mode_sense(sdp, 0, 0x3F, buffer, 4, &data, NULL);
+		res = sd_do_mode_sense(sdp, 0, 0x3F, buffer, buffer_dma, 4,
+					 &data, NULL);
 
 		/*
 		 * Second attempt: ask for page 0 When only page 0 is
@@ -1587,13 +1646,15 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
 		 * CDB.
 		 */
 		if (!scsi_status_is_good(res))
-			res = sd_do_mode_sense(sdp, 0, 0, buffer, 4, &data, NULL);
+			res = sd_do_mode_sense(sdp, 0, 0, buffer, buffer_dma, 4,
+					 &data, NULL);
 
 		/*
 		 * Third attempt: ask 255 bytes, as we did earlier.
 		 */
 		if (!scsi_status_is_good(res))
-			res = sd_do_mode_sense(sdp, 0, 0x3F, buffer, 255,
+			res = sd_do_mode_sense(sdp, 0, 0x3F,
+					       buffer, buffer_dma, 255,
 					       &data, NULL);
 	}
 
@@ -1618,7 +1679,8 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
  * called with buffer of length SD_BUF_SIZE
  */
 static void
-sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
+sd_read_cache_type(struct scsi_disk * sdkp,
+  unsigned char * buffer, dma_addr_t buffer_dma)
 {
 	int len = 0, res;
 	struct scsi_device *sdp = sdkp->device;
@@ -1643,7 +1705,8 @@ sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
 	}
 
 	/* cautiously ask */
-	res = sd_do_mode_sense(sdp, dbd, modepage, buffer, 4, &data, &sshdr);
+	res = sd_do_mode_sense(sdp, dbd, modepage, buffer, buffer_dma, 4,
+			 &data, &sshdr);
 
 	if (!scsi_status_is_good(res))
 		goto bad_sense;
@@ -1671,7 +1734,8 @@ sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
 		goto bad_sense;
 
 	/* Get the data */
-	res = sd_do_mode_sense(sdp, dbd, modepage, buffer, len, &data, &sshdr);
+	res = sd_do_mode_sense(sdp, dbd, modepage, buffer, buffer_dma, len,
+			 &data, &sshdr);
 
 	if (scsi_status_is_good(res)) {
 		int offset = data.header_length + data.block_descriptor_length;
@@ -1733,7 +1797,8 @@ defaults:
  * The ATO bit indicates whether the DIF application tag is available
  * for use by the operating system.
  */
-void sd_read_app_tag_own(struct scsi_disk *sdkp, unsigned char *buffer)
+void sd_read_app_tag_own(struct scsi_disk *sdkp,
+  unsigned char *buffer, dma_addr_t buffer_dma)
 {
 	int res, offset;
 	struct scsi_device *sdp = sdkp->device;
@@ -1746,7 +1811,7 @@ void sd_read_app_tag_own(struct scsi_disk *sdkp, unsigned char *buffer)
 	if (sdkp->protection_type == 0)
 		return;
 
-	res = scsi_mode_sense(sdp, 1, 0x0a, buffer, 36, SD_TIMEOUT,
+	res = scsi_mode_sense(sdp, 1, 0x0a, buffer, buffer_dma, 36, SD_TIMEOUT,
 			      SD_MAX_RETRIES, &data, &sshdr);
 
 	if (!scsi_status_is_good(res) || !data.header_length ||
@@ -1785,7 +1850,7 @@ static int sd_revalidate_disk(struct gendisk *disk)
 	struct scsi_disk *sdkp = scsi_disk(disk);
 	struct scsi_device *sdp = sdkp->device;
 	unsigned char *buffer;
-	unsigned ordered;
+	// unsigned ordered;
 
 	SCSI_LOG_HLQUEUE(3, sd_printk(KERN_INFO, sdkp,
 				      "sd_revalidate_disk\n"));
@@ -1797,7 +1862,8 @@ static int sd_revalidate_disk(struct gendisk *disk)
 	if (!scsi_device_online(sdp))
 		goto out;
 
-	buffer = kmalloc(SD_BUF_SIZE, GFP_KERNEL);
+	dma_addr_t buffer_dma;
+	buffer = dma_alloc_coherent(NULL, SD_BUF_SIZE, &buffer_dma, 0);
 	if (!buffer) {
 		sd_printk(KERN_WARNING, sdkp, "sd_revalidate_disk: Memory "
 			  "allocation failure.\n");
@@ -1811,14 +1877,22 @@ static int sd_revalidate_disk(struct gendisk *disk)
 	 * react badly if we do.
 	 */
 	if (sdkp->media_present) {
-		sd_read_capacity(sdkp, buffer);
-		sd_read_write_protect_flag(sdkp, buffer);
-		sd_read_cache_type(sdkp, buffer);
-		sd_read_app_tag_own(sdkp, buffer);
+		sd_read_capacity(sdkp, buffer, buffer_dma);
+		sd_read_write_protect_flag(sdkp, buffer, buffer_dma);
+#if 1 // CapROS
+/* The disk we are testing with returns an error when we attempt to
+ * do sd_read_cache_type, and the Linux error handling code is so
+ * byzantine I don't have time to get it working.
+ * This picks up the defaults: */
+		sdkp->device->skip_ms_page_8 = 1;
+#endif
+		sd_read_cache_type(sdkp, buffer, buffer_dma);
+		sd_read_app_tag_own(sdkp, buffer, buffer_dma);
 	}
 
 	sdkp->first_scan = 0;
 
+#if 0 // CapROS - needed?
 	/*
 	 * We now have all cache related info, determine how we deal
 	 * with ordered requests.  Note that as the current SCSI
@@ -1832,9 +1906,11 @@ static int sd_revalidate_disk(struct gendisk *disk)
 		ordered = QUEUE_ORDERED_DRAIN;
 
 	blk_queue_ordered(sdkp->disk->queue, ordered, sd_prepare_flush);
+#endif
 
 	set_capacity(disk, sdkp->capacity);
-	kfree(buffer);
+	dma_free_coherent(&sdkp->device->sdev_gendev, // is this right?
+                          SD_BUF_SIZE, buffer, buffer_dma);
 
  out:
 	return 0;
@@ -1902,6 +1978,7 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 	index = sdkp->index;
 	dev = &sdp->sdev_gendev;
 
+#if 0 // CapROS
 	if (!sdp->request_queue->rq_timeout) {
 		if (sdp->type != TYPE_MOD)
 			blk_queue_rq_timeout(sdp->request_queue, SD_TIMEOUT);
@@ -1917,15 +1994,18 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 
 	if (device_add(&sdkp->dev))
 		goto out_free_index;
+#endif // CapROS
 
 	get_device(&sdp->sdev_gendev);
 
+#if 0 // CapROS
 	if (index < SD_MAX_DISKS) {
 		gd->major = sd_major((index & 0xf0) >> 4);
 		gd->first_minor = ((index & 0xf) << 4) | (index & 0xfff00);
 		gd->minors = SD_MINORS;
 	}
 	gd->fops = &sd_fops;
+#endif // CapROS
 	gd->private_data = &sdkp->driver;
 	gd->queue = sdkp->device->request_queue;
 
@@ -1941,7 +2021,9 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 
 	sd_revalidate_disk(gd);
 
+#if 0 // CapROS
 	blk_queue_prep_rq(sdp->request_queue, sd_prep_fn);
+#endif // CapROS
 
 	gd->driverfs_dev = &sdp->sdev_gendev;
 	gd->flags = GENHD_FL_EXT_DEVT | GENHD_FL_DRIVERFS;
@@ -1949,7 +2031,7 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 		gd->flags |= GENHD_FL_REMOVABLE;
 
 	dev_set_drvdata(dev, sdkp);
-	add_disk(gd);
+	// add_disk(gd);
 	sd_dif_config_host(sdkp);
 
 	sd_printk(KERN_NOTICE, sdkp, "Attached SCSI %sdisk\n",
@@ -1957,8 +2039,10 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 
 	return;
 
+#if 0 // CapROS
  out_free_index:
 	ida_remove(&sd_index_ida, index);
+#endif // CapROS
 }
 
 /**
@@ -1999,10 +2083,15 @@ static int sd_probe(struct device *dev)
 	if (!sdkp)
 		goto out;
 
+#if 0 // CapROS
 	gd = alloc_disk(SD_MINORS);
+#else
+	gd = kzalloc(sizeof(struct gendisk), GFP_KERNEL);
+#endif
 	if (!gd)
 		goto out_free;
 
+#if 0 // CapROS
 	do {
 		if (!ida_pre_get(&sd_index_ida, GFP_KERNEL))
 			goto out_put;
@@ -2014,6 +2103,9 @@ static int sd_probe(struct device *dev)
 
 	if (error)
 		goto out_put;
+#else
+	index = 0;
+#endif // CapROS
 
 	error = sd_format_disk_name("sd", index, gd->disk_name, DISK_NAME_LEN);
 	if (error)
@@ -2022,7 +2114,7 @@ static int sd_probe(struct device *dev)
 	sdkp->device = sdp;
 	sdkp->driver = &sd_template;
 	sdkp->disk = gd;
-	sdkp->index = index;
+//	sdkp->index = index;
 	sdkp->openers = 0;
 	sdkp->previous_state = 1;
 
@@ -2031,17 +2123,20 @@ static int sd_probe(struct device *dev)
 	return 0;
 
  out_free_index:
+#if 0 // CapROS
 	spin_lock(&sd_index_lock);
 	ida_remove(&sd_index_ida, index);
 	spin_unlock(&sd_index_lock);
  out_put:
 	put_disk(gd);
+#endif // CapROS
  out_free:
 	kfree(sdkp);
  out:
 	return error;
 }
 
+#if 0 // CapROS
 /**
  *	sd_remove - called whenever a scsi disk (previously recognized by
  *	sd_probe) is detached from the system. It is called (potentially
@@ -2110,7 +2205,7 @@ static int sd_start_stop_device(struct scsi_disk *sdkp, int start)
 	if (!scsi_device_online(sdp))
 		return -ENODEV;
 
-	res = scsi_execute_req(sdp, cmd, DMA_NONE, NULL, 0, &sshdr,
+	res = scsi_execute_req(sdp, cmd, DMA_NONE, NULL, 0, 0, &sshdr,
 			       SD_TIMEOUT, SD_MAX_RETRIES, NULL);
 	if (res) {
 		sd_printk(KERN_WARNING, sdkp, "START_STOP FAILED\n");
@@ -2245,19 +2340,27 @@ static void __exit exit_sd(void)
 
 module_init(init_sd);
 module_exit(exit_sd);
+#endif // CapROS
 
 static void sd_print_sense_hdr(struct scsi_disk *sdkp,
 			       struct scsi_sense_hdr *sshdr)
 {
+#if 0 // CapROS
 	sd_printk(KERN_INFO, sdkp, "");
 	scsi_show_sense_hdr(sshdr);
 	sd_printk(KERN_INFO, sdkp, "");
 	scsi_show_extd_sense(sshdr->asc, sshdr->ascq);
+#else
+	printk("sd_print_sense_hdr unimplemented!");
+#endif
 }
 
 static void sd_print_result(struct scsi_disk *sdkp, int result)
 {
+#if 0 // CapROS
 	sd_printk(KERN_INFO, sdkp, "");
 	scsi_show_result(result);
+#else
+	printk("sd_print_result unimplemented!");
+#endif
 }
-
