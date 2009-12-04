@@ -30,44 +30,69 @@ Approved for public release, distribution unlimited. */
 #include <linux/slab.h>
 #include <linux/semaphore.h>
 
+//#define KMALLOC_DEBUG
+#define ALIGN_BYTES 4
+
 // malloc is protected by:
 DECLARE_MUTEX(mallocLock);
 
 void
 kfree(const void * p)
 {
-  down(&mallocLock);
-  free((void *)p);
-  up(&mallocLock);
+  if (p) {
+    char * pToFree = (char *)p;
+#ifdef KMALLOC_DEBUG
+    pToFree -= ALIGN_BYTES;
+    assert(*((uint32_t *)pToFree) == 0xdeadbeef);
+    *((uint32_t *)pToFree) = 0xbadbadac;	// mark as unallocated
+#endif
+    down(&mallocLock);
+    free((void *)pToFree);
+    up(&mallocLock);
+  }
 }
 
 void *
 __kmalloc_node(size_t size, gfp_t flags, int node)
 {
-  void * p = NULL;
-
 #ifdef CONFIG_SPINLOCK_USES_IRQ
 #error
 /* We must handle GFP_ATOMIC without the possibility of getting
 preempted. That means we must not use the semaphore mallocLock
 and must not use the VCSK. */
 #endif
+
   // Sorry, but since we are using malloc, we have to ignore SLAB_HWCACHE_ALIGN:
   flags &= ~SLAB_HWCACHE_ALIGN;
+
   gfp_t flagsNotZero = flags & ~__GFP_ZERO;
   if (flagsNotZero == GFP_KERNEL
       || flagsNotZero == GFP_ATOMIC
       || flagsNotZero == GFP_NOIO
       || flagsNotZero == 0) {
+    void * p = NULL;
+    size_t sizeToAlloc = size;
+#ifdef KMALLOC_DEBUG
+    sizeToAlloc += ALIGN_BYTES;
+#endif
+
     down(&mallocLock);
-    p = malloc(size);	// allocate in heap
+    p = malloc(sizeToAlloc);	// allocate in heap
     up(&mallocLock);
-    if ((flags & __GFP_ZERO) && p)
-      memset(p, 0, size);
+    if (p) {
+      char * pToReturn = p;
+#ifdef KMALLOC_DEBUG
+      pToReturn += ALIGN_BYTES;
+      *((uint32_t *)p) = 0xdeadbeef;	// mark as allocated
+#endif
+      if (flags & __GFP_ZERO)
+        memset(pToReturn, 0, size);
+      return pToReturn;
+    }
   }
   else {
     kprintf(KR_OSTREAM, "__kmalloc flags 0x%x\n", flags);
     assert(((void)"unimplemented malloc pool", false));
   }
-  return p;
+  return NULL;
 }
