@@ -48,7 +48,15 @@
 	US_FLAG(IGNORE_DEVICE,	0x00000800)			\
 		/* Don't claim device */			\
 	US_FLAG(CAPACITY_HEURISTICS,	0x00001000)		\
-		/* sometimes sizes is too big */
+		/* sometimes sizes is too big */		\
+	US_FLAG(MAX_SECTORS_MIN,0x00002000)			\
+		/* Sets max_sectors to arch min */		\
+	US_FLAG(BULK_IGNORE_TAG,0x00004000)			\
+		/* Ignore tag mismatch in bulk operations */    \
+	US_FLAG(SANE_SENSE,     0x00008000)			\
+		/* Sane Sense (> 18 bytes) */			\
+	US_FLAG(CAPACITY_OK,	0x00010000)			\
+		/* READ CAPACITY response is correct */
 
 #define US_FLAG(name, value)	US_FL_##name = value ,
 enum { US_DO_ALL_FLAGS };
@@ -77,10 +85,10 @@ enum { US_DO_ALL_FLAGS };
 #define US_SC_UFI	0x04		/* Floppy */
 #define US_SC_8070	0x05		/* Removable media */
 #define US_SC_SCSI	0x06		/* Transparent */
-#define US_SC_ISD200    0x07		/* ISD200 ATA */
-#define US_SC_MIN	US_SC_RBC
-#define US_SC_MAX	US_SC_ISD200
+#define US_SC_LOCKABLE	0x07		/* Password-protected */
 
+#define US_SC_ISD200    0xf0		/* ISD200 ATA */
+#define US_SC_CYP_ATACB 0xf1		/* Cypress ATACB */
 #define US_SC_DEVICE	0xff		/* Use device's value */
 
 /* Protocols */
@@ -88,39 +96,26 @@ enum { US_DO_ALL_FLAGS };
 #define US_PR_CBI	0x00		/* Control/Bulk/Interrupt */
 #define US_PR_CB	0x01		/* Control/Bulk w/o interrupt */
 #define US_PR_BULK	0x50		/* bulk only */
-#ifdef CONFIG_USB_STORAGE_USBAT
+
 #define US_PR_USBAT	0x80		/* SCM-ATAPI bridge */
-#endif
-#ifdef CONFIG_USB_STORAGE_SDDR09
 #define US_PR_EUSB_SDDR09	0x81	/* SCM-SCSI bridge for SDDR-09 */
-#endif
-#ifdef CONFIG_USB_STORAGE_SDDR55
 #define US_PR_SDDR55	0x82		/* SDDR-55 (made up) */
-#endif
 #define US_PR_DPCM_USB  0xf0		/* Combination CB/SDDR09 */
-#ifdef CONFIG_USB_STORAGE_FREECOM
 #define US_PR_FREECOM   0xf1		/* Freecom */
-#endif
-#ifdef CONFIG_USB_STORAGE_DATAFAB
 #define US_PR_DATAFAB   0xf2		/* Datafab chipsets */
-#endif
-#ifdef CONFIG_USB_STORAGE_JUMPSHOT
 #define US_PR_JUMPSHOT  0xf3		/* Lexar Jumpshot */
-#endif
-#ifdef CONFIG_USB_STORAGE_ALAUDA
 #define US_PR_ALAUDA    0xf4		/* Alauda chipsets */
-#endif
-#ifdef CONFIG_USB_STORAGE_KARMA
 #define US_PR_KARMA     0xf5		/* Rio Karma */
-#endif
 
 #define US_PR_DEVICE	0xff		/* Use device's value */
 
 /*
  */
+extern int usb_usual_ignore_device(struct usb_interface *intf);
+extern struct usb_device_id usb_storage_usb_ids[];
+
 #ifdef CONFIG_USB_LIBUSUAL
 
-extern struct usb_device_id storage_usb_ids[];
 extern void usb_usual_set_present(int type);
 extern void usb_usual_clear_present(int type);
 extern int usb_usual_check_type(const struct usb_device_id *, int type);
