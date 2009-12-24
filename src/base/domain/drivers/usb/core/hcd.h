@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2001-2002 by David Brownell
- * Copyright (C) 2008, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,11 +15,15 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
+
+#ifndef __USB_CORE_HCD_H
+#define __USB_CORE_HCD_H
 
 #ifdef __KERNEL__
+
+#include <linux/rwsem.h>
+
+#define MAX_TOPO_LEVEL		6
 
 /* This file contains declarations of usbcore internals that are mostly
  * used or exposed by Host Controller Drivers.
@@ -29,7 +32,7 @@ Approved for public release, distribution unlimited. */
 /*
  * USB Packet IDs (PIDs)
  */
-#define USB_PID_UNDEF_0			0xf0
+#define USB_PID_EXT			0xf0	/* USB 2.0 LPM ECN */
 #define USB_PID_OUT			0xe1
 #define USB_PID_ACK			0xd2
 #define USB_PID_DATA0			0xc3
@@ -54,6 +57,12 @@ Approved for public release, distribution unlimited. */
  *
  * Since "struct usb_bus" is so thin, you can't share much code in it.
  * This framework is a layer over that, and should be more sharable.
+ *
+ * @authorized_default: Specifies if new devices are authorized to
+ *                      connect by default or they require explicit
+ *                      user space authorization; this bit is settable
+ *                      through /sys/class/usb_host/X/authorized_default.
+ *                      For the rest is RO, so we don't lock to r/w it.
  */
 
 /*-------------------------------------------------------------------------*/
@@ -93,6 +102,8 @@ struct usb_hcd {
 	unsigned		poll_rh:1;	/* poll for rh status? */
 	unsigned		poll_pending:1;	/* status has changed? */
 	unsigned		wireless:1;	/* Wireless USB HCD */
+	unsigned		authorized_default:1;
+	unsigned		has_tt:1;	/* Integrated TT in root hub */
 
 	int			irq;		/* irq allocated */
 	void __iomem		*regs;		/* device memory/io */
@@ -119,7 +130,7 @@ struct usb_hcd {
 
 	/* more shared queuing code would be good; it should support
 	 * smarter scheduling, handle transaction translators, etc;
-	 * input size of periodic table to an interrupt scheduler. 
+	 * input size of periodic table to an interrupt scheduler.
 	 * (ohci 32, uhci 1024, ehci 256/512/1024).
 	 */
 
@@ -127,16 +138,16 @@ struct usb_hcd {
 	 * this structure.
 	 */
 	unsigned long hcd_priv[0]
-			__attribute__ ((aligned (sizeof(unsigned long))));
+			__attribute__ ((aligned(sizeof(unsigned long))));
 };
 
 /* 2.4 does this a bit differently ... */
-static inline struct usb_bus *hcd_to_bus (struct usb_hcd *hcd)
+static inline struct usb_bus *hcd_to_bus(struct usb_hcd *hcd)
 {
 	return &hcd->self;
 }
 
-static inline struct usb_hcd *bus_to_hcd (struct usb_bus *bus)
+static inline struct usb_hcd *bus_to_hcd(struct usb_bus *bus)
 {
 	return container_of(bus, struct usb_hcd, self);
 }
@@ -159,6 +170,7 @@ struct hc_driver {
 
 	int	flags;
 #define	HCD_MEMORY	0x0001		/* HC regs use memory (else I/O) */
+#define	HCD_LOCAL_MEM	0x0002		/* HC needs local memory */
 #define	HCD_USB11	0x0010		/* USB 1.1 */
 #define	HCD_USB2	0x0020		/* USB 2.0 */
 
@@ -170,10 +182,10 @@ struct hc_driver {
 	 * a whole, not just the root hub; they're for PCI bus glue.
 	 */
 	/* called after suspending the hub, before entering D3 etc */
-	int	(*suspend) (struct usb_hcd *hcd, pm_message_t message);
+	int	(*pci_suspend) (struct usb_hcd *hcd, pm_message_t message);
 
 	/* called after entering D0 (etc), before resuming the hub */
-	int	(*resume) (struct usb_hcd *hcd);
+	int	(*pci_resume) (struct usb_hcd *hcd);
 
 	/* cleanly make HCD stop writing memory and doing I/O */
 	void	(*stop) (struct usb_hcd *hcd);
@@ -185,78 +197,101 @@ struct hc_driver {
 	int	(*get_frame_number) (struct usb_hcd *hcd);
 
 	/* manage i/o requests, device state */
-	int	(*urb_enqueue) (struct usb_hcd *hcd,
-					struct usb_host_endpoint *ep,
-					struct urb *urb,
-					gfp_t mem_flags);
-	int	(*urb_dequeue) (struct usb_hcd *hcd, struct urb *urb);
+	int	(*urb_enqueue)(struct usb_hcd *hcd,
+				struct urb *urb, gfp_t mem_flags);
+	int	(*urb_dequeue)(struct usb_hcd *hcd,
+				struct urb *urb, int status);
 
 	/* hw synch, freeing endpoint resources that urb_dequeue can't */
 	void 	(*endpoint_disable)(struct usb_hcd *hcd,
 			struct usb_host_endpoint *ep);
 
+	/* (optional) reset any endpoint state such as sequence number
+	   and current window */
+	void 	(*endpoint_reset)(struct usb_hcd *hcd,
+			struct usb_host_endpoint *ep);
+
 	/* root hub support */
-	int		(*hub_status_data) (struct usb_hcd *hcd, char *buf);
-	int		(*hub_control) (struct usb_hcd *hcd,
+	int	(*hub_status_data) (struct usb_hcd *hcd, char *buf);
+	int	(*hub_control) (struct usb_hcd *hcd,
 				u16 typeReq, u16 wValue, u16 wIndex,
-				u8 * buf, u16 wLength);
-	int		(*bus_suspend)(struct usb_hcd *);
-	int		(*bus_resume)(struct usb_hcd *);
-	int		(*start_port_reset)(struct usb_hcd *, unsigned port_num);
-	void		(*hub_irq_enable)(struct usb_hcd *);
-		/* Needed only if port-change IRQs are level-triggered */
+				char *buf, u16 wLength);
+	int	(*bus_suspend)(struct usb_hcd *);
+	int	(*bus_resume)(struct usb_hcd *);
+	int	(*start_port_reset)(struct usb_hcd *, unsigned port_num);
+
+		/* force handover of high-speed port to full-speed companion */
+	void	(*relinquish_port)(struct usb_hcd *, int);
+		/* has a port been handed over to a companion? */
+	int	(*port_handed_over)(struct usb_hcd *, int);
 };
 
-extern int usb_hcd_submit_urb (struct urb *urb, gfp_t mem_flags);
-extern int usb_hcd_unlink_urb (struct urb *urb, int status);
-extern void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb);
-extern void usb_hcd_endpoint_disable (struct usb_device *udev,
-		struct usb_host_endpoint *ep);
-void epUnlinkQueuedUrbs(struct usb_host_endpoint * ep,
-        struct usb_hcd * hcd, int status);
-extern int usb_hcd_get_frame_number (struct usb_device *udev);
+extern int usb_hcd_link_urb_to_ep(struct usb_hcd *hcd, struct urb *urb);
+extern int usb_hcd_check_unlink_urb(struct usb_hcd *hcd, struct urb *urb,
+		int status);
+extern void usb_hcd_unlink_urb_from_ep(struct usb_hcd *hcd, struct urb *urb);
 
-extern struct usb_hcd *usb_create_hcd (const struct hc_driver *driver,
-		struct device *dev, char *bus_name);
-extern struct usb_hcd *usb_get_hcd (struct usb_hcd *hcd);
-extern void usb_put_hcd (struct usb_hcd *hcd);
+extern int usb_hcd_submit_urb(struct urb *urb, gfp_t mem_flags);
+extern int usb_hcd_unlink_urb(struct urb *urb, int status);
+extern void usb_hcd_giveback_urb(struct usb_hcd *hcd, struct urb *urb,
+		int status);
+extern void usb_hcd_flush_endpoint(struct usb_device *udev,
+		struct usb_host_endpoint *ep);
+extern void usb_hcd_disable_endpoint(struct usb_device *udev,
+		struct usb_host_endpoint *ep);
+extern void usb_hcd_reset_endpoint(struct usb_device *udev,
+		struct usb_host_endpoint *ep);
+extern void usb_hcd_synchronize_unlinks(struct usb_device *udev);
+extern int usb_hcd_get_frame_number(struct usb_device *udev);
+
+extern struct usb_hcd *usb_create_hcd(const struct hc_driver *driver,
+		struct device *dev, const char *bus_name);
+extern struct usb_hcd *usb_get_hcd(struct usb_hcd *hcd);
+extern void usb_put_hcd(struct usb_hcd *hcd);
 extern int usb_add_hcd(struct usb_hcd *hcd,
 		unsigned int irqnum, unsigned long irqflags);
 extern void usb_remove_hcd(struct usb_hcd *hcd);
 
 struct platform_device;
-extern void usb_hcd_platform_shutdown(struct platform_device* dev);
+extern void usb_hcd_platform_shutdown(struct platform_device *dev);
 
 #ifdef CONFIG_PCI
 struct pci_dev;
 struct pci_device_id;
-extern int usb_hcd_pci_probe (struct pci_dev *dev,
+extern int usb_hcd_pci_probe(struct pci_dev *dev,
 				const struct pci_device_id *id);
-extern void usb_hcd_pci_remove (struct pci_dev *dev);
+extern void usb_hcd_pci_remove(struct pci_dev *dev);
 
 #ifdef CONFIG_PM
-extern int usb_hcd_pci_suspend (struct pci_dev *dev, pm_message_t state);
-extern int usb_hcd_pci_resume (struct pci_dev *dev);
+extern int usb_hcd_pci_suspend(struct pci_dev *dev, pm_message_t msg);
+extern int usb_hcd_pci_resume(struct pci_dev *dev);
 #endif /* CONFIG_PM */
 
-extern void usb_hcd_pci_shutdown (struct pci_dev *dev);
+extern void usb_hcd_pci_shutdown(struct pci_dev *dev);
 
 #endif /* CONFIG_PCI */
 
 /* pci-ish (pdev null is ok) buffer alloc/mapping support */
-int hcd_buffer_create (struct usb_hcd *hcd);
-void hcd_buffer_destroy (struct usb_hcd *hcd);
+int hcd_buffer_create(struct usb_hcd *hcd);
+void hcd_buffer_destroy(struct usb_hcd *hcd);
 
-void *hcd_buffer_alloc (struct usb_bus *bus, size_t size,
+void *hcd_buffer_alloc(struct usb_bus *bus, size_t size,
 	gfp_t mem_flags, dma_addr_t *dma);
-void hcd_buffer_free (struct usb_bus *bus, size_t size,
+void hcd_buffer_free(struct usb_bus *bus, size_t size,
 	void *addr, dma_addr_t dma);
 
 /* generic bus glue, needed for host controllers that don't use PCI */
-extern irqreturn_t usb_hcd_irq (int irq, void *__hcd);
+extern irqreturn_t usb_hcd_irq(int irq, void *__hcd);
 
-extern void usb_hc_died (struct usb_hcd *hcd);
+extern void usb_hc_died(struct usb_hcd *hcd);
 extern void usb_hcd_poll_rh_status(struct usb_hcd *hcd);
+
+/* The D0/D1 toggle bits ... USE WITH CAUTION (they're almost hcd-internal) */
+#define usb_gettoggle(dev, ep, out) (((dev)->toggle[out] >> (ep)) & 1)
+#define	usb_dotoggle(dev, ep, out)  ((dev)->toggle[out] ^= (1 << (ep)))
+#define usb_settoggle(dev, ep, out, bit) \
+		((dev)->toggle[out] = ((dev)->toggle[out] & ~(1 << (ep))) | \
+		 ((bit) << (ep)))
 
 /* -------------------------------------------------------------------------- */
 
@@ -308,9 +343,9 @@ extern void usb_destroy_configuration(struct usb_device *dev);
  * Generic bandwidth allocation constants/support
  */
 #define FRAME_TIME_USECS	1000L
-#define BitTime(bytecount)  (7 * 8 * bytecount / 6)  /* with integer truncation */
+#define BitTime(bytecount) (7 * 8 * bytecount / 6) /* with integer truncation */
 		/* Trying not to use worst-case bit-stuffing
-                   of (7/6 * 8 * bytecount) = 9.33 * bytecount */
+		 * of (7/6 * 8 * bytecount) = 9.33 * bytecount */
 		/* bytecount = data payload byte count */
 
 #define NS_TO_US(ns)	((ns + 500L) / 1000L)
@@ -322,9 +357,9 @@ extern void usb_destroy_configuration(struct usb_device *dev);
  */
 #define BW_HOST_DELAY	1000L		/* nanoseconds */
 #define BW_HUB_LS_SETUP	333L		/* nanoseconds */
-                        /* 4 full-speed bit times (est.) */
+			/* 4 full-speed bit times (est.) */
 
-#define FRAME_TIME_BITS         12000L		/* frame = 1 millisecond */
+#define FRAME_TIME_BITS			12000L	/* frame = 1 millisecond */
 #define FRAME_TIME_MAX_BITS_ALLOC	(90L * FRAME_TIME_BITS / 100L)
 #define FRAME_TIME_MAX_USECS_ALLOC	(90L * FRAME_TIME_USECS / 100L)
 
@@ -334,16 +369,16 @@ extern void usb_destroy_configuration(struct usb_device *dev);
  * to preallocate bandwidth)
  */
 #define USB2_HOST_DELAY	5	/* nsec, guess */
-#define HS_NSECS(bytes) ( ((55 * 8 * 2083) \
+#define HS_NSECS(bytes) (((55 * 8 * 2083) \
 	+ (2083UL * (3 + BitTime(bytes))))/1000 \
 	+ USB2_HOST_DELAY)
-#define HS_NSECS_ISO(bytes) ( ((38 * 8 * 2083) \
+#define HS_NSECS_ISO(bytes) (((38 * 8 * 2083) \
 	+ (2083UL * (3 + BitTime(bytes))))/1000 \
 	+ USB2_HOST_DELAY)
 #define HS_USECS(bytes) NS_TO_US (HS_NSECS(bytes))
 #define HS_USECS_ISO(bytes) NS_TO_US (HS_NSECS_ISO(bytes))
 
-extern long usb_calc_bus_time (int speed, int is_input,
+extern long usb_calc_bus_time(int speed, int is_input,
 			int isoc, int bytecount);
 
 /*-------------------------------------------------------------------------*/
@@ -359,34 +394,20 @@ extern struct list_head usb_bus_list;
 extern struct mutex usb_bus_list_lock;
 extern wait_queue_head_t usb_kill_urb_queue;
 
-extern void usb_enable_root_hub_irq (struct usb_bus *bus);
-
-extern int usb_find_interface_driver (struct usb_device *dev,
+extern int usb_find_interface_driver(struct usb_device *dev,
 	struct usb_interface *interface);
 
 #define usb_endpoint_out(ep_dir)	(!((ep_dir) & USB_DIR_IN))
 
-
-
 #ifdef CONFIG_PM
-extern void usb_hcd_resume_root_hub (struct usb_hcd *hcd);
-extern void usb_root_hub_lost_power (struct usb_device *rhdev);
-extern int hcd_bus_suspend (struct usb_bus *bus);
-extern int hcd_bus_resume (struct usb_bus *bus);
+extern void usb_hcd_resume_root_hub(struct usb_hcd *hcd);
+extern void usb_root_hub_lost_power(struct usb_device *rhdev);
+extern int hcd_bus_suspend(struct usb_device *rhdev, pm_message_t msg);
+extern int hcd_bus_resume(struct usb_device *rhdev, pm_message_t msg);
 #else
 static inline void usb_hcd_resume_root_hub(struct usb_hcd *hcd)
 {
 	return;
-}
-
-static inline int hcd_bus_suspend(struct usb_bus *bus)
-{
-	return 0;
-}
-
-static inline int hcd_bus_resume (struct usb_bus *bus)
-{
-	return 0;
 }
 #endif /* CONFIG_PM */
 
@@ -400,13 +421,13 @@ static inline int hcd_bus_resume (struct usb_bus *bus)
  * these are expected to be called from the USB core/hub thread
  * with the kernel lock held
  */
-extern void usbfs_update_special (void);
+extern void usbfs_update_special(void);
 extern int usbfs_init(void);
 extern void usbfs_cleanup(void);
 
 #else /* CONFIG_USB_DEVICEFS */
 
-static inline void usbfs_update_special (void) {}
+static inline void usbfs_update_special(void) {}
 static inline int usbfs_init(void) { return 0; }
 static inline void usbfs_cleanup(void) { }
 
@@ -414,12 +435,12 @@ static inline void usbfs_cleanup(void) { }
 
 /*-------------------------------------------------------------------------*/
 
-#if defined(CONFIG_USB_MON)
+#if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
 
 struct usb_mon_operations {
 	void (*urb_submit)(struct usb_bus *bus, struct urb *urb);
 	void (*urb_submit_error)(struct usb_bus *bus, struct urb *urb, int err);
-	void (*urb_complete)(struct usb_bus *bus, struct urb *urb);
+	void (*urb_complete)(struct usb_bus *bus, struct urb *urb, int status);
 	/* void (*urb_unlink)(struct usb_bus *bus, struct urb *urb); */
 };
 
@@ -438,10 +459,11 @@ static inline void usbmon_urb_submit_error(struct usb_bus *bus, struct urb *urb,
 		(*mon_ops->urb_submit_error)(bus, urb, error);
 }
 
-static inline void usbmon_urb_complete(struct usb_bus *bus, struct urb *urb)
+static inline void usbmon_urb_complete(struct usb_bus *bus, struct urb *urb,
+		int status)
 {
 	if (bus->monitored)
-		(*mon_ops->urb_complete)(bus, urb);
+		(*mon_ops->urb_complete)(bus, urb, status);
 }
 
 int usb_mon_register(struct usb_mon_operations *ops);
@@ -452,14 +474,15 @@ void usb_mon_deregister(void);
 static inline void usbmon_urb_submit(struct usb_bus *bus, struct urb *urb) {}
 static inline void usbmon_urb_submit_error(struct usb_bus *bus, struct urb *urb,
     int error) {}
-static inline void usbmon_urb_complete(struct usb_bus *bus, struct urb *urb) {}
+static inline void usbmon_urb_complete(struct usb_bus *bus, struct urb *urb,
+		int status) {}
 
-#endif /* CONFIG_USB_MON */
+#endif /* CONFIG_USB_MON || CONFIG_USB_MON_MODULE */
 
 /*-------------------------------------------------------------------------*/
 
 /* hub.h ... DeviceRemovable in 2.4.2-ac11, gone in 2.4.10 */
-// bleech -- resurfaced in 2.4.11 or 2.4.12
+/* bleech -- resurfaced in 2.4.11 or 2.4.12 */
 #define bitmap 	DeviceRemovable
 
 
@@ -467,9 +490,21 @@ static inline void usbmon_urb_complete(struct usb_bus *bus, struct urb *urb) {}
 
 /* random stuff */
 
-#define	RUN_CONTEXT (in_irq () ? "in_irq" \
-		: (in_interrupt () ? "in_interrupt" : "can sleep"))
+#define	RUN_CONTEXT (in_irq() ? "in_irq" \
+		: (in_interrupt() ? "in_interrupt" : "can sleep"))
 
+
+/* This rwsem is for use only by the hub driver and ehci-hcd.
+ * Nobody else should touch it.
+ */
+extern struct rw_semaphore ehci_cf_port_reset_rwsem;
+
+/* Keep track of which host controller drivers are loaded */
+#define USB_UHCI_LOADED		0
+#define USB_OHCI_LOADED		1
+#define USB_EHCI_LOADED		2
+extern unsigned long usb_hcds_loaded;
 
 #endif /* __KERNEL__ */
 
+#endif /* __USB_CORE_HCD_H */

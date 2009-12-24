@@ -1,26 +1,3 @@
-/*
- * Copyright (C) 2008, Strawberry Development Group
- *
- * This file is part of the CapROS Operating System.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2,
- * or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
-
 #include <linux/usb.h>
 #include <linux/usb/ch9.h>
 #include <linux/module.h>
@@ -28,7 +5,6 @@ Approved for public release, distribution unlimited. */
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <asm/byteorder.h>
-#include <idl/capros/SuperNode.h>
 #include "usb.h"
 #include "hcd.h"
 
@@ -109,15 +85,21 @@ static int usb_parse_endpoint(struct device *ddev, int cfgno, int inum,
 	memcpy(&endpoint->desc, d, n);
 	INIT_LIST_HEAD(&endpoint->urb_list);
 
-	/* If the bInterval value is outside the legal range,
-	 * set it to a default value: 32 ms */
+	/* Fix up bInterval values outside the legal range. Use 32 ms if no
+	 * proper value can be guessed. */
 	i = 0;		/* i = min, j = max, n = default */
 	j = 255;
 	if (usb_endpoint_xfer_int(d)) {
 		i = 1;
 		switch (to_usb_device(ddev)->speed) {
 		case USB_SPEED_HIGH:
-			n = 9;		/* 32 ms = 2^(9-1) uframes */
+			/* Many device manufacturers are using full-speed
+			 * bInterval values in high-speed interrupt endpoint
+			 * descriptors. Try to fix those and fall back to a
+			 * 32 ms default value otherwise. */
+			n = fls(d->bInterval*8);
+			if (n == 0)
+				n = 9;	/* 32 ms = 2^(9-1) uframes */
 			j = 16;
 			break;
 		default:		/* USB_SPEED_FULL or _LOW */
@@ -146,6 +128,38 @@ static int usb_parse_endpoint(struct device *ddev, int cfgno, int inum,
 		    cfgno, inum, asnum,
 		    d->bEndpointAddress, d->bInterval, n);
 		endpoint->desc.bInterval = n;
+	}
+
+	/* Some buggy low-speed devices have Bulk endpoints, which is
+	 * explicitly forbidden by the USB spec.  In an attempt to make
+	 * them usable, we will try treating them as Interrupt endpoints.
+	 */
+	if (to_usb_device(ddev)->speed == USB_SPEED_LOW &&
+			usb_endpoint_xfer_bulk(d)) {
+		dev_warn(ddev, "config %d interface %d altsetting %d "
+		    "endpoint 0x%X is Bulk; changing to Interrupt\n",
+		    cfgno, inum, asnum, d->bEndpointAddress);
+		endpoint->desc.bmAttributes = USB_ENDPOINT_XFER_INT;
+		endpoint->desc.bInterval = 1;
+		if (le16_to_cpu(endpoint->desc.wMaxPacketSize) > 8)
+			endpoint->desc.wMaxPacketSize = cpu_to_le16(8);
+	}
+
+	/*
+	 * Some buggy high speed devices have bulk endpoints using
+	 * maxpacket sizes other than 512.  High speed HCDs may not
+	 * be able to handle that particular bug, so let's warn...
+	 */
+	if (to_usb_device(ddev)->speed == USB_SPEED_HIGH
+			&& usb_endpoint_xfer_bulk(d)) {
+		unsigned maxp;
+
+		maxp = le16_to_cpu(endpoint->desc.wMaxPacketSize) & 0x07ff;
+		if (maxp != 512)
+			dev_warn(ddev, "config %d interface %d altsetting %d "
+				"bulk endpoint 0x%X has invalid maxpacket %d\n",
+				cfgno, inum, asnum, d->bEndpointAddress,
+				maxp);
 	}
 
 	/* Skip over any Class Specific or Vendor Specific descriptors;
@@ -241,7 +255,7 @@ static int usb_parse_interface(struct device *ddev, int cfgno,
 
 	/* Allocate space for the right(?) number of endpoints */
 	num_ep = num_ep_orig = alt->desc.bNumEndpoints;
-	alt->desc.bNumEndpoints = 0;		// Use as a counter
+	alt->desc.bNumEndpoints = 0;		/* Use as a counter */
 	if (num_ep > USB_MAXENDPOINTS) {
 		dev_warn(ddev, "too many endpoints for config %d interface %d "
 		    "altsetting %d: %d, using maximum allowed: %d\n",
@@ -249,7 +263,8 @@ static int usb_parse_interface(struct device *ddev, int cfgno,
 		num_ep = USB_MAXENDPOINTS;
 	}
 
-	if (num_ep > 0) {	/* Can't allocate 0 bytes */
+	if (num_ep > 0) {
+		/* Can't allocate 0 bytes */
 		len = sizeof(struct usb_host_endpoint) * num_ep;
 		alt->endpoint = kzalloc(len, GFP_KERNEL);
 		if (!alt->endpoint)
@@ -298,6 +313,7 @@ static int usb_parse_configuration(struct device *ddev, int cfgidx,
 	struct usb_descriptor_header *header;
 	int len, retval;
 	u8 inums[USB_MAXINTERFACES], nalts[USB_MAXINTERFACES];
+	unsigned iad_num = 0;
 
 	memcpy(&config->desc, buffer, USB_DT_CONFIG_SIZE);
 	if (config->desc.bDescriptorType != USB_DT_CONFIG ||
@@ -373,6 +389,20 @@ static int usb_parse_configuration(struct device *ddev, int cfgidx,
 				inums[n] = inum;
 				nalts[n] = 1;
 				++n;
+			}
+
+		} else if (header->bDescriptorType ==
+				USB_DT_INTERFACE_ASSOCIATION) {
+			if (iad_num == USB_MAXIADS) {
+				dev_warn(ddev, "found more Interface "
+					       "Association Descriptors "
+					       "than allocated for in "
+					       "configuration %d\n", cfgno);
+			} else {
+				config->intf_assoc[iad_num] =
+					(struct usb_interface_assoc_descriptor
+					*)header;
+				iad_num++;
 			}
 
 		} else if (header->bDescriptorType == USB_DT_DEVICE ||
@@ -463,8 +493,9 @@ static int usb_parse_configuration(struct device *ddev, int cfgidx,
 	return 0;
 }
 
-// hub-only!! ... and only exported for reset/reinit path.
-// otherwise used internally on disconnect/destroy path
+/* hub-only!! ... and only exported for reset/reinit path.
+ * otherwise used internally on disconnect/destroy path
+ */
 void usb_destroy_configuration(struct usb_device *dev)
 {
 	int c, i;
@@ -473,12 +504,8 @@ void usb_destroy_configuration(struct usb_device *dev)
 		return;
 
 	if (dev->rawdescriptors) {
-		for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
-			struct dma_block_descriptor * bd
-				= &dev->rawdescriptors[i];
-			usb_buffer_free(dev, bd->buf_size,
-					bd->buf, bd->buf_dma);
-		}
+		for (i = 0; i < dev->descriptor.bNumConfigurations; i++)
+			kfree(dev->rawdescriptors[i]);
 
 		kfree(dev->rawdescriptors);
 		dev->rawdescriptors = NULL;
@@ -488,34 +515,41 @@ void usb_destroy_configuration(struct usb_device *dev)
 		struct usb_host_config *cf = &dev->config[c];
 
 		kfree(cf->string);
-		int const nintf = cf->desc.bNumInterfaces;
-		for (i = 0; i < nintf; i++) {
+		for (i = 0; i < cf->desc.bNumInterfaces; i++) {
 			if (cf->intf_cache[i])
-				kref_put(&cf->intf_cache[i]->ref, 
+				kref_put(&cf->intf_cache[i]->ref,
 					  usb_release_interface_cache);
 		}
-		capros_SuperNode_deallocateRange(KR_KEYSTORE,
-			driverSlot(dev, 0), driverSlot(dev, nintf)-1 );
 	}
 	kfree(dev->config);
 	dev->config = NULL;
 }
 
 
-// hub-only!! ... and only in reset path, or usb_new_device()
-// (used by real hubs and virtual root hubs)
+/*
+ * Get the USB config descriptors, cache and parse'em
+ *
+ * hub-only!! ... and only in reset path, or usb_new_device()
+ * (used by real hubs and virtual root hubs)
+ *
+ * NOTE: if this is a WUSB device and is not authorized, we skip the
+ *       whole thing. A non-authorized USB device has no
+ *       configurations.
+ */
 int usb_get_configuration(struct usb_device *dev)
 {
 	struct device *ddev = &dev->dev;
 	int ncfg = dev->descriptor.bNumConfigurations;
-	int result = -ENOMEM;
+	int result = 0;
 	unsigned int cfgno, length;
 	unsigned char *buffer;
-	dma_addr_t buffer_dma;
 	unsigned char *bigbuffer;
-	dma_addr_t bigbuffer_dma;
- 	struct usb_config_descriptor *desc;
+	struct usb_config_descriptor *desc;
 
+	cfgno = 0;
+	if (dev->authorized == 0)	/* Not really an error */
+		goto out_not_authorized;
+	result = -ENOMEM;
 	if (ncfg > USB_MAXCONFIG) {
 		dev_warn(ddev, "too many configurations: %d, "
 		    "using maximum allowed: %d\n", ncfg, USB_MAXCONFIG);
@@ -532,25 +566,25 @@ int usb_get_configuration(struct usb_device *dev)
 	if (!dev->config)
 		goto err2;
 
-	length = ncfg * sizeof(*dev->rawdescriptors);
+	length = ncfg * sizeof(char *);
 	dev->rawdescriptors = kzalloc(length, GFP_KERNEL);
 	if (!dev->rawdescriptors)
 		goto err2;
 
-	buffer = usb_buffer_alloc(dev, USB_DT_CONFIG_SIZE, GFP_KERNEL,
-			&buffer_dma);
+	buffer = kmalloc(USB_DT_CONFIG_SIZE, GFP_KERNEL);
 	if (!buffer)
 		goto err2;
 	desc = (struct usb_config_descriptor *)buffer;
 
-	for (cfgno = 0; cfgno < ncfg; cfgno++) {
+	result = 0;
+	for (; cfgno < ncfg; cfgno++) {
 		/* We grab just the first descriptor so we know how long
 		 * the whole configuration is */
-		result = usb_get_descriptor_dma(dev, USB_DT_CONFIG, cfgno,
-		    buffer, buffer_dma, USB_DT_CONFIG_SIZE);
+		result = usb_get_descriptor(dev, USB_DT_CONFIG, cfgno,
+		    buffer, USB_DT_CONFIG_SIZE);
 		if (result < 0) {
 			dev_err(ddev, "unable to read config index %d "
-			    "descriptor/%s\n", cfgno, "start");
+			    "descriptor/%s: %d\n", cfgno, "start", result);
 			dev_err(ddev, "chopping to %d config(s)\n", cfgno);
 			dev->descriptor.bNumConfigurations = cfgno;
 			break;
@@ -565,31 +599,26 @@ int usb_get_configuration(struct usb_device *dev)
 		    USB_DT_CONFIG_SIZE);
 
 		/* Now that we know the length, get the whole thing */
-		bigbuffer = usb_buffer_alloc(dev, length, GFP_KERNEL,
-				&bigbuffer_dma);
+		bigbuffer = kmalloc(length, GFP_KERNEL);
 		if (!bigbuffer) {
 			result = -ENOMEM;
 			goto err;
 		}
-		result = usb_get_descriptor_dma(dev, USB_DT_CONFIG, cfgno,
-		    bigbuffer, bigbuffer_dma, length);
+		result = usb_get_descriptor(dev, USB_DT_CONFIG, cfgno,
+		    bigbuffer, length);
 		if (result < 0) {
 			dev_err(ddev, "unable to read config index %d "
 			    "descriptor/%s\n", cfgno, "all");
-			usb_buffer_free(dev, length, bigbuffer, bigbuffer_dma);
+			kfree(bigbuffer);
 			goto err;
 		}
-
-		struct dma_block_descriptor * bd = &dev->rawdescriptors[cfgno];
-		bd->buf = bigbuffer;
-		bd->buf_dma = bigbuffer_dma;
-		bd->buf_size = length;
-
 		if (result < length) {
 			dev_warn(ddev, "config index %d descriptor too short "
 			    "(expected %i, got %i)\n", cfgno, length, result);
 			length = result;
 		}
+
+		dev->rawdescriptors[cfgno] = bigbuffer;
 
 		result = usb_parse_configuration(&dev->dev, cfgno,
 		    &dev->config[cfgno], bigbuffer, length);
@@ -601,7 +630,8 @@ int usb_get_configuration(struct usb_device *dev)
 	result = 0;
 
 err:
-	usb_buffer_free(dev, USB_DT_CONFIG_SIZE, buffer, buffer_dma);
+	kfree(buffer);
+out_not_authorized:
 	dev->descriptor.bNumConfigurations = cfgno;
 err2:
 	if (result == -ENOMEM)

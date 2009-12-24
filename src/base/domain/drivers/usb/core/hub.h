@@ -41,9 +41,10 @@
  */
 #define USB_PORT_FEAT_CONNECTION	0
 #define USB_PORT_FEAT_ENABLE		1
-#define USB_PORT_FEAT_SUSPEND		2
+#define USB_PORT_FEAT_SUSPEND		2	/* L2 suspend */
 #define USB_PORT_FEAT_OVER_CURRENT	3
 #define USB_PORT_FEAT_RESET		4
+#define USB_PORT_FEAT_L1		5	/* L1 suspend */
 #define USB_PORT_FEAT_POWER		8
 #define USB_PORT_FEAT_LOWSPEED		9
 #define USB_PORT_FEAT_HIGHSPEED		10
@@ -54,17 +55,18 @@
 #define USB_PORT_FEAT_C_RESET		20
 #define USB_PORT_FEAT_TEST              21
 #define USB_PORT_FEAT_INDICATOR         22
+#define USB_PORT_FEAT_C_PORT_L1         23
 
-/* 
+/*
  * Hub Status and Hub Change results
  * See USB 2.0 spec Table 11-19 and Table 11-20
  */
 struct usb_port_status {
 	__le16 wPortStatus;
-	__le16 wPortChange;	
+	__le16 wPortChange;
 } __attribute__ ((packed));
 
-/* 
+/*
  * wPortStatus bit field
  * See USB 2.0 spec Table 11-21
  */
@@ -73,7 +75,8 @@ struct usb_port_status {
 #define USB_PORT_STAT_SUSPEND		0x0004
 #define USB_PORT_STAT_OVERCURRENT	0x0008
 #define USB_PORT_STAT_RESET		0x0010
-/* bits 5 to 7 are reserved */
+#define USB_PORT_STAT_L1		0x0020
+/* bits 6 to 7 are reserved */
 #define USB_PORT_STAT_POWER		0x0100
 #define USB_PORT_STAT_LOW_SPEED		0x0200
 #define USB_PORT_STAT_HIGH_SPEED        0x0400
@@ -81,7 +84,7 @@ struct usb_port_status {
 #define USB_PORT_STAT_INDICATOR         0x1000
 /* bits 13 to 15 are reserved */
 
-/* 
+/*
  * wPortChange bit field
  * See USB 2.0 spec Table 11-22
  * Bits 0 to 4 shown, bits 5 to 15 are reserved
@@ -91,9 +94,10 @@ struct usb_port_status {
 #define USB_PORT_STAT_C_SUSPEND		0x0004
 #define USB_PORT_STAT_C_OVERCURRENT	0x0008
 #define USB_PORT_STAT_C_RESET		0x0010
+#define USB_PORT_STAT_C_L1		0x0020
 
 /*
- * wHubCharacteristics (masks) 
+ * wHubCharacteristics (masks)
  * See USB 2.0 spec Table 11-13, offset 3
  */
 #define HUB_CHAR_LPSM		0x0003 /* D1 .. D0 */
@@ -119,8 +123,8 @@ struct usb_hub_status {
 #define HUB_CHANGE_OVERCURRENT	0x0002
 
 
-/* 
- * Hub descriptor 
+/*
+ * Hub descriptor
  * See USB 2.0 spec Table 11-13
  */
 
@@ -134,7 +138,7 @@ struct usb_hub_descriptor {
 	__le16 wHubCharacteristics;
 	__u8  bPwrOn2PwrGood;
 	__u8  bHubContrCurrent;
-	    	/* add 1 bit for hub status change; round to bytes */
+		/* add 1 bit for hub status change; round to bytes */
 	__u8  DeviceRemovable[(USB_MAXCHILDREN + 1 + 7) / 8];
 	__u8  PortPwrCtrlMask[(USB_MAXCHILDREN + 1 + 7) / 8];
 } __attribute__ ((packed));
@@ -190,6 +194,7 @@ struct usb_tt_clear {
 	u16			devinfo;
 };
 
-extern void usb_hub_tt_clear_buffer (struct usb_device *dev, int pipe);
+extern void usb_hub_tt_clear_buffer(struct usb_device *dev, int pipe);
+extern void usb_ep0_reinit(struct usb_device *);
 
 #endif /* __LINUX_HUB_H */
