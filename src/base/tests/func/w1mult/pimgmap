@@ -32,7 +32,7 @@ Approved for public release, distribution unlimited. */
 
 #include <w1mult.map>
 
-w1usbconfig = program segtree LIBDIR "w1usbconfig";
+w1usbconfig = program segtree LIBDIR "config/w1usbconfig";
 W1Mult(usb, w1usbconfig)
 #define ds9490r_notifyee usbw1mult
 
