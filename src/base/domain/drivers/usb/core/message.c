@@ -1,53 +1,36 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
- *
- * This file is part of the CapROS Operating System.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2,
- * or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
-
-/*
  * message.c - synchronous message handling
  */
 
-//#define DEBUG
-
-#include <ctype.h>
-//#include <linux/pci.h>	/* for scatterlist macros */
+#include <linux/pci.h>	/* for scatterlist macros */
 #include <linux/usb.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/timer.h>
+#include <linux/ctype.h>
 #include <linux/device.h>
+#include <linux/scatterlist.h>
 #include <linux/usb/quirks.h>
 #include <asm/byteorder.h>
-#include <asm/scatterlist.h>
-#include <eros/Invoke.h>
-#include <idl/capros/SuperNode.h>
 
 #include "hcd.h"	/* for usbcore internals */
 #include "usb.h"
 
+static void cancel_async_set_config(struct usb_device *udev);
+
+struct api_context {
+	struct completion	done;
+	int			status;
+};
+
 static void usb_api_blocking_completion(struct urb *urb)
 {
-	complete((struct completion *)urb->context);
+	struct api_context *ctx = urb->context;
+
+	ctx->status = urb->status;
+	complete(&ctx->done);
 }
 
 
@@ -58,48 +41,46 @@ static void usb_api_blocking_completion(struct urb *urb)
  * own interruptible routines.
  */
 static int usb_start_wait_urb(struct urb *urb, int timeout, int *actual_length)
-{ 
-	struct completion done;
+{
+	struct api_context ctx;
 	unsigned long expire;
-	int status;
+	int retval;
 
-	init_completion(&done); 	
-	urb->context = &done;
+	init_completion(&ctx.done);
+	urb->context = &ctx;
 	urb->actual_length = 0;
-	status = usb_submit_urb(urb, GFP_NOIO);
-	if (unlikely(status))
+	retval = usb_submit_urb(urb, GFP_NOIO);
+	if (unlikely(retval))
 		goto out;
 
 	expire = timeout ? msecs_to_jiffies(timeout) : MAX_SCHEDULE_TIMEOUT;
-	if (!wait_for_completion_timeout(&done, expire)) {
+	if (!wait_for_completion_timeout(&ctx.done, expire)) {
+		usb_kill_urb(urb);
+		retval = (ctx.status == -ENOENT ? -ETIMEDOUT : ctx.status);
 
 		dev_dbg(&urb->dev->dev,
-			"timed out on ep%d%s len=%d/%d\n",
-			usb_pipeendpoint(urb->pipe),
-			usb_pipein(urb->pipe) ? "in" : "out",
+			"%s timed out on ep%d%s len=%u/%u\n",
+			current->comm,
+			usb_endpoint_num(&urb->ep->desc),
+			usb_urb_dir_in(urb) ? "in" : "out",
 			urb->actual_length,
 			urb->transfer_buffer_length);
-
-		usb_kill_urb(urb);
-		status = urb->status == -ENOENT ? -ETIMEDOUT : urb->status;
 	} else
-		status = urb->status;
+		retval = ctx.status;
 out:
 	if (actual_length)
 		*actual_length = urb->actual_length;
 
 	usb_free_urb(urb);
-	return status;
+	return retval;
 }
 
 /*-------------------------------------------------------------------*/
-// returns status (negative) or length (positive)
+/* returns status (negative) or length (positive) */
 static int usb_internal_control_msg(struct usb_device *usb_dev,
-				    unsigned int pipe, 
+				    unsigned int pipe,
 				    struct usb_ctrlrequest *cmd,
-				    dma_addr_t setup_dma,
-				    void *data, dma_addr_t data_dma,
-				    int len, int timeout)
+				    void *data, int len, int timeout)
 {
 	struct urb *urb;
 	int retv;
@@ -108,12 +89,9 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
 	urb = usb_alloc_urb(0, GFP_NOIO);
 	if (!urb)
 		return -ENOMEM;
-  
+
 	usb_fill_control_urb(urb, usb_dev, pipe, (unsigned char *)cmd, data,
 			     len, usb_api_blocking_completion, NULL);
-	urb->setup_dma = setup_dma;
-	urb->transfer_dma = data_dma;
-	urb->transfer_flags = URB_NO_SETUP_DMA_MAP | URB_NO_TRANSFER_DMA_MAP;
 
 	retv = usb_start_wait_urb(urb, timeout, &length);
 	if (retv < 0)
@@ -123,72 +101,71 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
 }
 
 /**
- *	usb_control_msg_dma - Builds a control urb, sends it off
-          and waits for completion
- *	@dev: pointer to the usb device to send the message to
- *	@pipe: endpoint "pipe" to send the message to
- *	@request: USB message request value
- *	@requesttype: USB message request type value
- *	@value: USB message value
- *	@index: USB message index value
- *	@data: pointer to the data to send
- *	@size: length in bytes of the data to send
- *	@timeout: time in msecs to wait for the message to complete before
- *		timing out (if 0 the wait is forever)
- *	Context: !in_interrupt ()
+ * usb_control_msg - Builds a control urb, sends it off and waits for completion
+ * @dev: pointer to the usb device to send the message to
+ * @pipe: endpoint "pipe" to send the message to
+ * @request: USB message request value
+ * @requesttype: USB message request type value
+ * @value: USB message value
+ * @index: USB message index value
+ * @data: pointer to the data to send
+ * @size: length in bytes of the data to send
+ * @timeout: time in msecs to wait for the message to complete before timing
+ *	out (if 0 the wait is forever)
  *
- *	This function sends a simple control message to a specified endpoint
- *	and waits for the message to complete, or timeout.
- *	
- *	If successful, it returns the number of bytes transferred, otherwise a negative error number.
+ * Context: !in_interrupt ()
  *
- *	Don't use this function from within an interrupt context, like a
- *	bottom half handler.  If you need an asynchronous message, or need to send
- *	a message from within interrupt context, use usb_submit_urb()
- *      If a thread in your driver uses this call, make sure your disconnect()
- *      method can wait for it to complete.  Since you don't have a handle on
- *      the URB used, you can't cancel the request.
+ * This function sends a simple control message to a specified endpoint and
+ * waits for the message to complete, or timeout.
+ *
+ * If successful, it returns the number of bytes transferred, otherwise a
+ * negative error number.
+ *
+ * Don't use this function from within an interrupt context, like a bottom half
+ * handler.  If you need an asynchronous message, or need to send a message
+ * from within interrupt context, use usb_submit_urb().
+ * If a thread in your driver uses this call, make sure your disconnect()
+ * method can wait for it to complete.  Since you don't have a handle on the
+ * URB used, you can't cancel the request.
  */
-int usb_control_msg_dma(struct usb_device *dev, unsigned int pipe,
-  __u8 request, __u8 requesttype,
-  __u16 value, __u16 index,
-  void *data, dma_addr_t data_dma,
-  __u16 size, int timeout)
+int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
+		    __u8 requesttype, __u16 value, __u16 index, void *data,
+		    __u16 size, int timeout)
 {
-  dma_addr_t ctrldma;
-  struct usb_ctrlrequest * dr
-    = usb_buffer_alloc(dev, sizeof(struct usb_ctrlrequest), GFP_NOIO,
-                       &ctrldma);
-  if (!dr)
-  	return -ENOMEM;
+	struct usb_ctrlrequest *dr;
+	int ret;
 
-  dr->bRequestType= requesttype;
-  dr->bRequest = request;
-  dr->wValue = cpu_to_le16p(&value);
-  dr->wIndex = cpu_to_le16p(&index);
-  dr->wLength = cpu_to_le16p(&size);
+	dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_NOIO);
+	if (!dr)
+		return -ENOMEM;
 
-  //dbg("usb_control_msg");	
+	dr->bRequestType = requesttype;
+	dr->bRequest = request;
+	dr->wValue = cpu_to_le16(value);
+	dr->wIndex = cpu_to_le16(index);
+	dr->wLength = cpu_to_le16(size);
 
-  int ret = usb_internal_control_msg(dev, pipe, dr, ctrldma,
-          data, data_dma, size, timeout);
+	/* dbg("usb_control_msg"); */
 
-  usb_buffer_free(dev, sizeof(struct usb_ctrlrequest), dr, ctrldma);
+	ret = usb_internal_control_msg(dev, pipe, dr, data, size, timeout);
 
-  return ret;
+	kfree(dr);
+
+	return ret;
 }
+EXPORT_SYMBOL_GPL(usb_control_msg);
 
-
-#if 0 // CapROS
 /**
  * usb_interrupt_msg - Builds an interrupt urb, sends it off and waits for completion
  * @usb_dev: pointer to the usb device to send the message to
  * @pipe: endpoint "pipe" to send the message to
  * @data: pointer to the data to send
  * @len: length in bytes of the data to send
- * @actual_length: pointer to a location to put the actual length transferred in bytes
+ * @actual_length: pointer to a location to put the actual length transferred
+ *	in bytes
  * @timeout: time in msecs to wait for the message to complete before
  *	timing out (if 0 the wait is forever)
+ *
  * Context: !in_interrupt ()
  *
  * This function sends a simple interrupt message to a specified endpoint and
@@ -212,38 +189,38 @@ int usb_interrupt_msg(struct usb_device *usb_dev, unsigned int pipe,
 EXPORT_SYMBOL_GPL(usb_interrupt_msg);
 
 /**
- *	usb_bulk_msg - Builds a bulk urb, sends it off and waits for completion
- *	@usb_dev: pointer to the usb device to send the message to
- *	@pipe: endpoint "pipe" to send the message to
- *	@data: pointer to the data to send
- *	@len: length in bytes of the data to send
- *	@actual_length: pointer to a location to put the actual length transferred in bytes
- *	@timeout: time in msecs to wait for the message to complete before
- *		timing out (if 0 the wait is forever)
- *	Context: !in_interrupt ()
+ * usb_bulk_msg - Builds a bulk urb, sends it off and waits for completion
+ * @usb_dev: pointer to the usb device to send the message to
+ * @pipe: endpoint "pipe" to send the message to
+ * @data: pointer to the data to send
+ * @len: length in bytes of the data to send
+ * @actual_length: pointer to a location to put the actual length transferred
+ *	in bytes
+ * @timeout: time in msecs to wait for the message to complete before
+ *	timing out (if 0 the wait is forever)
  *
- *	This function sends a simple bulk message to a specified endpoint
- *	and waits for the message to complete, or timeout.
- *	
- *	If successful, it returns 0, otherwise a negative error number.
- *	The number of actual bytes transferred will be stored in the 
- *	actual_length paramater.
+ * Context: !in_interrupt ()
  *
- *	Don't use this function from within an interrupt context, like a
- *	bottom half handler.  If you need an asynchronous message, or need to
- *	send a message from within interrupt context, use usb_submit_urb()
- *      If a thread in your driver uses this call, make sure your disconnect()
- *      method can wait for it to complete.  Since you don't have a handle on
- *      the URB used, you can't cancel the request.
+ * This function sends a simple bulk message to a specified endpoint
+ * and waits for the message to complete, or timeout.
  *
- *	Because there is no usb_interrupt_msg() and no USBDEVFS_INTERRUPT
- *	ioctl, users are forced to abuse this routine by using it to submit
- *	URBs for interrupt endpoints.  We will take the liberty of creating
- *	an interrupt URB (with the default interval) if the target is an
- *	interrupt endpoint.
+ * If successful, it returns 0, otherwise a negative error number.  The number
+ * of actual bytes transferred will be stored in the actual_length paramater.
+ *
+ * Don't use this function from within an interrupt context, like a bottom half
+ * handler.  If you need an asynchronous message, or need to send a message
+ * from within interrupt context, use usb_submit_urb() If a thread in your
+ * driver uses this call, make sure your disconnect() method can wait for it to
+ * complete.  Since you don't have a handle on the URB used, you can't cancel
+ * the request.
+ *
+ * Because there is no usb_interrupt_msg() and no USBDEVFS_INTERRUPT ioctl,
+ * users are forced to abuse this routine by using it to submit URBs for
+ * interrupt endpoints.  We will take the liberty of creating an interrupt URB
+ * (with the default interval) if the target is an interrupt endpoint.
  */
-int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe, 
-			void *data, int len, int *actual_length, int timeout)
+int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
+		 void *data, int len, int *actual_length, int timeout)
 {
 	struct urb *urb;
 	struct usb_host_endpoint *ep;
@@ -268,29 +245,31 @@ int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
 				usb_api_blocking_completion, NULL);
 
 	return usb_start_wait_urb(urb, timeout, actual_length);
-	... ensure dma present
 }
+EXPORT_SYMBOL_GPL(usb_bulk_msg);
 
 /*-------------------------------------------------------------------*/
 
-static void sg_clean (struct usb_sg_request *io)
+static void sg_clean(struct usb_sg_request *io)
 {
 	if (io->urbs) {
 		while (io->entries--)
-			usb_free_urb (io->urbs [io->entries]);
-		kfree (io->urbs);
+			usb_free_urb(io->urbs [io->entries]);
+		kfree(io->urbs);
 		io->urbs = NULL;
 	}
 	if (io->dev->dev.dma_mask != NULL)
-		usb_buffer_unmap_sg (io->dev, io->pipe, io->sg, io->nents);
+		usb_buffer_unmap_sg(io->dev, usb_pipein(io->pipe),
+				    io->sg, io->nents);
 	io->dev = NULL;
 }
 
-static void sg_complete (struct urb *urb)
+static void sg_complete(struct urb *urb)
 {
-	struct usb_sg_request	*io = urb->context;
+	struct usb_sg_request *io = urb->context;
+	int status = urb->status;
 
-	spin_lock (&io->lock);
+	spin_lock(&io->lock);
 
 	/* In 2.5 we require hcds' endpoint queues not to progress after fault
 	 * reports, until the completion callback (this!) returns.  That lets
@@ -304,42 +283,42 @@ static void sg_complete (struct urb *urb)
 	 */
 	if (io->status
 			&& (io->status != -ECONNRESET
-				|| urb->status != -ECONNRESET)
+				|| status != -ECONNRESET)
 			&& urb->actual_length) {
-		dev_err (io->dev->bus->controller,
+		dev_err(io->dev->bus->controller,
 			"dev %s ep%d%s scatterlist error %d/%d\n",
 			io->dev->devpath,
-			usb_pipeendpoint (urb->pipe),
-			usb_pipein (urb->pipe) ? "in" : "out",
-			urb->status, io->status);
-		// BUG ();
+			usb_endpoint_num(&urb->ep->desc),
+			usb_urb_dir_in(urb) ? "in" : "out",
+			status, io->status);
+		/* BUG (); */
 	}
 
-	if (io->status == 0 && urb->status && urb->status != -ECONNRESET) {
-		int		i, found, status;
+	if (io->status == 0 && status && status != -ECONNRESET) {
+		int i, found, retval;
 
-		io->status = urb->status;
+		io->status = status;
 
 		/* the previous urbs, and this one, completed already.
 		 * unlink pending urbs so they won't rx/tx bad data.
 		 * careful: unlink can sometimes be synchronous...
 		 */
-		spin_unlock (&io->lock);
+		spin_unlock(&io->lock);
 		for (i = 0, found = 0; i < io->entries; i++) {
 			if (!io->urbs [i] || !io->urbs [i]->dev)
 				continue;
 			if (found) {
-				status = usb_unlink_urb (io->urbs [i]);
-				if (status != -EINPROGRESS
-						&& status != -ENODEV
-						&& status != -EBUSY)
-					dev_err (&io->dev->dev,
+				retval = usb_unlink_urb(io->urbs [i]);
+				if (retval != -EINPROGRESS &&
+				    retval != -ENODEV &&
+				    retval != -EBUSY)
+					dev_err(&io->dev->dev,
 						"%s, unlink --> %d\n",
-						__FUNCTION__, status);
+						__func__, retval);
 			} else if (urb == io->urbs [i])
 				found = 1;
 		}
-		spin_lock (&io->lock);
+		spin_lock(&io->lock);
 	}
 	urb->dev = NULL;
 
@@ -347,9 +326,9 @@ static void sg_complete (struct urb *urb)
 	io->bytes += urb->actual_length;
 	io->count--;
 	if (!io->count)
-		complete (&io->complete);
+		complete(&io->complete);
 
-	spin_unlock (&io->lock);
+	spin_unlock(&io->lock);
 }
 
 
@@ -378,28 +357,21 @@ static void sg_complete (struct urb *urb)
  * The request may be canceled with usb_sg_cancel(), either before or after
  * usb_sg_wait() is called.
  */
-int usb_sg_init (
-	struct usb_sg_request	*io,
-	struct usb_device	*dev,
-	unsigned		pipe, 
-	unsigned		period,
-	struct scatterlist	*sg,
-	int			nents,
-	size_t			length,
-	gfp_t			mem_flags
-)
+int usb_sg_init(struct usb_sg_request *io, struct usb_device *dev,
+		unsigned pipe, unsigned	period, struct scatterlist *sg,
+		int nents, size_t length, gfp_t mem_flags)
 {
-	int			i;
-	int			urb_flags;
-	int			dma;
+	int i;
+	int urb_flags;
+	int dma;
 
 	if (!io || !dev || !sg
-			|| usb_pipecontrol (pipe)
-			|| usb_pipeisoc (pipe)
+			|| usb_pipecontrol(pipe)
+			|| usb_pipeisoc(pipe)
 			|| nents <= 0)
 		return -EINVAL;
 
-	spin_lock_init (&io->lock);
+	spin_lock_init(&io->lock);
 	io->dev = dev;
 	io->pipe = pipe;
 	io->sg = sg;
@@ -410,7 +382,8 @@ int usb_sg_init (
 	 */
 	dma = (dev->dev.dma_mask != NULL);
 	if (dma)
-		io->entries = usb_buffer_map_sg (dev, pipe, sg, nents);
+		io->entries = usb_buffer_map_sg(dev, usb_pipein(pipe),
+						sg, nents);
 	else
 		io->entries = nents;
 
@@ -418,80 +391,85 @@ int usb_sg_init (
 	if (io->entries <= 0)
 		return io->entries;
 
-	io->count = io->entries;
-	io->urbs = kmalloc (io->entries * sizeof *io->urbs, mem_flags);
+	io->urbs = kmalloc(io->entries * sizeof *io->urbs, mem_flags);
 	if (!io->urbs)
 		goto nomem;
 
-	urb_flags = URB_NO_TRANSFER_DMA_MAP | URB_NO_INTERRUPT;
-	if (usb_pipein (pipe))
+	urb_flags = URB_NO_INTERRUPT;
+	if (dma)
+		urb_flags |= URB_NO_TRANSFER_DMA_MAP;
+	if (usb_pipein(pipe))
 		urb_flags |= URB_SHORT_NOT_OK;
 
-	for (i = 0; i < io->entries; i++) {
-		unsigned		len;
+	for_each_sg(sg, sg, io->entries, i) {
+		unsigned len;
 
-		io->urbs [i] = usb_alloc_urb (0, mem_flags);
-		if (!io->urbs [i]) {
+		io->urbs[i] = usb_alloc_urb(0, mem_flags);
+		if (!io->urbs[i]) {
 			io->entries = i;
 			goto nomem;
 		}
 
-		io->urbs [i]->dev = NULL;
-		io->urbs [i]->pipe = pipe;
-		io->urbs [i]->interval = period;
-		io->urbs [i]->transfer_flags = urb_flags;
+		io->urbs[i]->dev = NULL;
+		io->urbs[i]->pipe = pipe;
+		io->urbs[i]->interval = period;
+		io->urbs[i]->transfer_flags = urb_flags;
 
-		io->urbs [i]->complete = sg_complete;
-		io->urbs [i]->context = io;
-		io->urbs [i]->status = -EINPROGRESS;
-		io->urbs [i]->actual_length = 0;
+		io->urbs[i]->complete = sg_complete;
+		io->urbs[i]->context = io;
 
 		/*
 		 * Some systems need to revert to PIO when DMA is temporarily
 		 * unavailable.  For their sakes, both transfer_buffer and
 		 * transfer_dma are set when possible.  However this can only
-		 * work on systems without HIGHMEM, since DMA buffers located
-		 * in high memory are not directly addressable by the CPU for
-		 * PIO ... so when HIGHMEM is in use, transfer_buffer is NULL
+		 * work on systems without:
+		 *
+		 *  - HIGHMEM, since DMA buffers located in high memory are
+		 *    not directly addressable by the CPU for PIO;
+		 *
+		 *  - IOMMU, since dma_map_sg() is allowed to use an IOMMU to
+		 *    make virtually discontiguous buffers be "dma-contiguous"
+		 *    so that PIO and DMA need diferent numbers of URBs.
+		 *
+		 * So when HIGHMEM or IOMMU are in use, transfer_buffer is NULL
 		 * to prevent stale pointers and to help spot bugs.
 		 */
 		if (dma) {
-			io->urbs [i]->transfer_dma = sg_dma_address (sg + i);
-			len = sg_dma_len (sg + i);
-#ifdef CONFIG_HIGHMEM
+			io->urbs[i]->transfer_dma = sg_dma_address(sg);
+			len = sg_dma_len(sg);
+#if defined(CONFIG_HIGHMEM) || defined(CONFIG_GART_IOMMU)
 			io->urbs[i]->transfer_buffer = NULL;
 #else
-			io->urbs[i]->transfer_buffer =
-				page_address(sg[i].page) + sg[i].offset;
+			io->urbs[i]->transfer_buffer = sg_virt(sg);
 #endif
 		} else {
 			/* hc may use _only_ transfer_buffer */
-			io->urbs [i]->transfer_buffer =
-				page_address (sg [i].page) + sg [i].offset;
-			len = sg [i].length;
+			io->urbs[i]->transfer_buffer = sg_virt(sg);
+			len = sg->length;
 		}
 
 		if (length) {
-			len = min_t (unsigned, len, length);
+			len = min_t(unsigned, len, length);
 			length -= len;
 			if (length == 0)
 				io->entries = i + 1;
 		}
-		io->urbs [i]->transfer_buffer_length = len;
+		io->urbs[i]->transfer_buffer_length = len;
 	}
-	io->urbs [--i]->transfer_flags &= ~URB_NO_INTERRUPT;
+	io->urbs[--i]->transfer_flags &= ~URB_NO_INTERRUPT;
 
 	/* transaction state */
+	io->count = io->entries;
 	io->status = 0;
 	io->bytes = 0;
-	init_completion (&io->complete);
+	init_completion(&io->complete);
 	return 0;
 
 nomem:
-	sg_clean (io);
+	sg_clean(io);
 	return -ENOMEM;
 }
-
+EXPORT_SYMBOL_GPL(usb_sg_init);
 
 /**
  * usb_sg_wait - synchronously execute scatter/gather request
@@ -532,31 +510,32 @@ nomem:
  * speed interrupt endpoints, which allow at most one packet per millisecond,
  * of at most 8 or 64 bytes (respectively).
  */
-void usb_sg_wait (struct usb_sg_request *io)
+void usb_sg_wait(struct usb_sg_request *io)
 {
-	int		i, entries = io->entries;
+	int i;
+	int entries = io->entries;
 
 	/* queue the urbs.  */
-	spin_lock_irq (&io->lock);
-	for (i = 0; i < entries && !io->status; i++) {
-		int	retval;
+	spin_lock_irq(&io->lock);
+	i = 0;
+	while (i < entries && !io->status) {
+		int retval;
 
-		io->urbs [i]->dev = io->dev;
-		retval = usb_submit_urb (io->urbs [i], GFP_ATOMIC);
+		io->urbs[i]->dev = io->dev;
+		retval = usb_submit_urb(io->urbs [i], GFP_ATOMIC);
 
 		/* after we submit, let completions or cancelations fire;
 		 * we handshake using io->status.
 		 */
-		spin_unlock_irq (&io->lock);
+		spin_unlock_irq(&io->lock);
 		switch (retval) {
 			/* maybe we retrying will recover */
-		case -ENXIO:	// hc didn't queue this one
+		case -ENXIO:	/* hc didn't queue this one */
 		case -EAGAIN:
 		case -ENOMEM:
 			io->urbs[i]->dev = NULL;
 			retval = 0;
-			i--;
-			yield ();
+			yield();
 			break;
 
 			/* no error? continue immediately.
@@ -566,34 +545,36 @@ void usb_sg_wait (struct usb_sg_request *io)
 			 * URBs are queued at once; N milliseconds?
 			 */
 		case 0:
-			cpu_relax ();
+			++i;
+			cpu_relax();
 			break;
 
 			/* fail any uncompleted urbs */
 		default:
-			io->urbs [i]->dev = NULL;
-			io->urbs [i]->status = retval;
-			dev_dbg (&io->dev->dev, "%s, submit --> %d\n",
-				__FUNCTION__, retval);
-			usb_sg_cancel (io);
+			io->urbs[i]->dev = NULL;
+			io->urbs[i]->status = retval;
+			dev_dbg(&io->dev->dev, "%s, submit --> %d\n",
+				__func__, retval);
+			usb_sg_cancel(io);
 		}
-		spin_lock_irq (&io->lock);
+		spin_lock_irq(&io->lock);
 		if (retval && (io->status == 0 || io->status == -ECONNRESET))
 			io->status = retval;
 	}
 	io->count -= entries - i;
 	if (io->count == 0)
-		complete (&io->complete);
-	spin_unlock_irq (&io->lock);
+		complete(&io->complete);
+	spin_unlock_irq(&io->lock);
 
 	/* OK, yes, this could be packaged as non-blocking.
 	 * So could the submit loop above ... but it's easier to
 	 * solve neither problem than to solve both!
 	 */
-	wait_for_completion (&io->complete);
+	wait_for_completion(&io->complete);
 
-	sg_clean (io);
+	sg_clean(io);
 }
+EXPORT_SYMBOL_GPL(usb_sg_wait);
 
 /**
  * usb_sg_cancel - stop scatter/gather i/o issued by usb_sg_wait()
@@ -603,38 +584,38 @@ void usb_sg_wait (struct usb_sg_request *io)
  * It can also prevents one initialized by usb_sg_init() from starting,
  * so that call just frees resources allocated to the request.
  */
-void usb_sg_cancel (struct usb_sg_request *io)
+void usb_sg_cancel(struct usb_sg_request *io)
 {
-	unsigned long	flags;
+	unsigned long flags;
 
-	spin_lock_irqsave (&io->lock, flags);
+	spin_lock_irqsave(&io->lock, flags);
 
 	/* shut everything down, if it didn't already */
 	if (!io->status) {
-		int	i;
+		int i;
 
 		io->status = -ECONNRESET;
-		spin_unlock (&io->lock);
+		spin_unlock(&io->lock);
 		for (i = 0; i < io->entries; i++) {
-			int	retval;
+			int retval;
 
 			if (!io->urbs [i]->dev)
 				continue;
-			retval = usb_unlink_urb (io->urbs [i]);
+			retval = usb_unlink_urb(io->urbs [i]);
 			if (retval != -EINPROGRESS && retval != -EBUSY)
-				dev_warn (&io->dev->dev, "%s, unlink --> %d\n",
-					__FUNCTION__, retval);
+				dev_warn(&io->dev->dev, "%s, unlink --> %d\n",
+					__func__, retval);
 		}
-		spin_lock (&io->lock);
+		spin_lock(&io->lock);
 	}
-	spin_unlock_irqrestore (&io->lock, flags);
+	spin_unlock_irqrestore(&io->lock, flags);
 }
-#endif // CapROS
+EXPORT_SYMBOL_GPL(usb_sg_cancel);
 
 /*-------------------------------------------------------------------*/
 
 /**
- * usb_get_descriptor_dma - issues a generic GET_DESCRIPTOR request
+ * usb_get_descriptor - issues a generic GET_DESCRIPTOR request
  * @dev: the device whose descriptor is being retrieved
  * @type: the descriptor type (USB_DT_*)
  * @index: the number of the descriptor
@@ -655,33 +636,34 @@ void usb_sg_cancel (struct usb_sg_request *io)
  * Returns the number of bytes received on success, or else the status code
  * returned by the underlying usb_control_msg() call.
  */
-int usb_get_descriptor_dma(struct usb_device *dev, unsigned char type,
-  unsigned char index, void *buf, dma_addr_t buf_dma, int size)
+int usb_get_descriptor(struct usb_device *dev, unsigned char type,
+		       unsigned char index, void *buf, int size)
 {
 	int i;
 	int result;
-	
-	memset(buf,0,size);	// Make sure we parse really received data
+
+	memset(buf, 0, size);	/* Make sure we parse really received data */
 
 	for (i = 0; i < 3; ++i) {
 		/* retry on length 0 or error; some devices are flakey */
-		result = usb_control_msg_dma(dev, usb_rcvctrlpipe(dev, 0),
+		result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
 				USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
-				(type << 8) + index, 0, buf, buf_dma, size,
+				(type << 8) + index, 0, buf, size,
 				USB_CTRL_GET_TIMEOUT);
 		if (result <= 0 && result != -ETIMEDOUT)
 			continue;
 		if (result > 1 && ((u8 *)buf)[1] != type) {
-			result = -EPROTO;
+			result = -ENODATA;
 			continue;
 		}
 		break;
 	}
 	return result;
 }
+EXPORT_SYMBOL_GPL(usb_get_descriptor);
 
 /**
- * usb_get_string- gets a string descriptor
+ * usb_get_string - gets a string descriptor
  * @dev: the device whose string descriptor is being retrieved
  * @langid: code for language chosen (from string descriptor zero)
  * @index: the number of the descriptor
@@ -700,23 +682,27 @@ int usb_get_descriptor_dma(struct usb_device *dev, unsigned char type,
  * This call is synchronous, and may not be used in an interrupt context.
  *
  * Returns the number of bytes received on success, or else the status code
- * returned by the underlying usb_control_msg_dma() call.
+ * returned by the underlying usb_control_msg() call.
  */
 static int usb_get_string(struct usb_device *dev, unsigned short langid,
-		  unsigned char index, void *buf, dma_addr_t buf_dma, int size)
+			  unsigned char index, void *buf, int size)
 {
 	int i;
 	int result;
 
 	for (i = 0; i < 3; ++i) {
 		/* retry on length 0 or stall; some devices are flakey */
-		result = usb_control_msg_dma(dev, usb_rcvctrlpipe(dev, 0),
+		result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
 			USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
-			(USB_DT_STRING << 8) + index, langid,
-			buf, buf_dma, size,
+			(USB_DT_STRING << 8) + index, langid, buf, size,
 			USB_CTRL_GET_TIMEOUT);
-		if (!(result == 0 || result == -EPIPE))
-			break;
+		if (result == 0 || result == -EPIPE)
+			continue;
+		if (result > 1 && ((u8 *) buf)[1] != USB_DT_STRING) {
+			result = -ENODATA;
+			continue;
+		}
+		break;
 	}
 	return result;
 }
@@ -736,7 +722,7 @@ static void usb_try_string_workarounds(unsigned char *buf, int *length)
 }
 
 static int usb_string_sub(struct usb_device *dev, unsigned int langid,
-		unsigned int index, unsigned char *buf, dma_addr_t buf_dma)
+			  unsigned int index, unsigned char *buf)
 {
 	int rc;
 
@@ -745,15 +731,14 @@ static int usb_string_sub(struct usb_device *dev, unsigned int langid,
 	if (dev->quirks & USB_QUIRK_STRING_FETCH_255)
 		rc = -EIO;
 	else
-		rc = usb_get_string(dev, langid, index, buf, buf_dma, 255);
+		rc = usb_get_string(dev, langid, index, buf, 255);
 
 	/* If that failed try to read the descriptor length, then
 	 * ask for just that many bytes */
 	if (rc < 2) {
-		rc = usb_get_string(dev, langid, index, buf, buf_dma, 2);
+		rc = usb_get_string(dev, langid, index, buf, 2);
 		if (rc == 2)
-			rc = usb_get_string(dev, langid, index,
-				buf, buf_dma, buf[0]);
+			rc = usb_get_string(dev, langid, index, buf, buf[0]);
 	}
 
 	if (rc >= 2) {
@@ -773,6 +758,48 @@ static int usb_string_sub(struct usb_device *dev, unsigned int langid,
 	return rc;
 }
 
+static int usb_get_langid(struct usb_device *dev, unsigned char *tbuf)
+{
+	int err;
+
+	if (dev->have_langid)
+		return 0;
+
+	if (dev->string_langid < 0)
+		return -EPIPE;
+
+	err = usb_string_sub(dev, 0, 0, tbuf);
+
+	/* If the string was reported but is malformed, default to english
+	 * (0x0409) */
+	if (err == -ENODATA || (err > 0 && err < 4)) {
+		dev->string_langid = 0x0409;
+		dev->have_langid = 1;
+		dev_err(&dev->dev,
+			"string descriptor 0 malformed (err = %d), "
+			"defaulting to 0x%04x\n",
+				err, dev->string_langid);
+		return 0;
+	}
+
+	/* In case of all other errors, we assume the device is not able to
+	 * deal with strings at all. Set string_langid to -1 in order to
+	 * prevent any string to be retrieved from the device */
+	if (err < 0) {
+		dev_err(&dev->dev, "string descriptor 0 read error: %d\n",
+					err);
+		dev->string_langid = -1;
+		return -EPIPE;
+	}
+
+	/* always use the first langid listed */
+	dev->string_langid = tbuf[2] | (tbuf[3] << 8);
+	dev->have_langid = 1;
+	dev_dbg(&dev->dev, "default language 0x%04x\n",
+				dev->string_langid);
+	return 0;
+}
+
 /**
  * usb_string - returns ISO 8859-1 version of a string descriptor
  * @dev: the device whose string descriptor is being retrieved
@@ -780,7 +807,7 @@ static int usb_string_sub(struct usb_device *dev, unsigned int langid,
  * @buf: where to put the string
  * @size: how big is "buf"?
  * Context: !in_interrupt ()
- * 
+ *
  * This converts the UTF-16LE encoded strings returned by devices, from
  * usb_get_string_descriptor(), to null-terminated ISO-8859-1 encoded ones
  * that are more usable in most kernel contexts.  Note that all characters
@@ -795,12 +822,11 @@ static int usb_string_sub(struct usb_device *dev, unsigned int langid,
  *
  * This call is synchronous, and may not be used in an interrupt context.
  *
- * Returns length of the string (>= 0) or usb_control_msg_dma status (< 0).
+ * Returns length of the string (>= 0) or usb_control_msg status (< 0).
  */
 int usb_string(struct usb_device *dev, int index, char *buf, size_t size)
 {
 	unsigned char *tbuf;
-	dma_addr_t tbuf_dma;
 	int err;
 	unsigned int u, idx;
 
@@ -809,32 +835,15 @@ int usb_string(struct usb_device *dev, int index, char *buf, size_t size)
 	if (size <= 0 || !buf || !index)
 		return -EINVAL;
 	buf[0] = 0;
-	tbuf = usb_buffer_alloc(dev, 256, GFP_KERNEL, &tbuf_dma);
+	tbuf = kmalloc(256, GFP_NOIO);
 	if (!tbuf)
 		return -ENOMEM;
 
-	/* get langid for strings if it's not yet known */
-	if (!dev->have_langid) {
-		err = usb_string_sub(dev, 0, 0, tbuf, tbuf_dma);
-		if (err < 0) {
-			dev_err (&dev->dev,
-				"string descriptor 0 read error: %d\n",
-				err);
-			goto errout;
-		} else if (err < 4) {
-			dev_err (&dev->dev, "string descriptor 0 too short\n");
-			err = -EINVAL;
-			goto errout;
-		} else {
-			dev->have_langid = 1;
-			dev->string_langid = tbuf[2] | (tbuf[3]<< 8);
-				/* always use the first langid listed */
-			dev_dbg (&dev->dev, "default language 0x%04x\n",
-				dev->string_langid);
-		}
-	}
-	
-	err = usb_string_sub(dev, dev->string_langid, index, tbuf, tbuf_dma);
+	err = usb_get_langid(dev, tbuf);
+	if (err < 0)
+		goto errout;
+
+	err = usb_string_sub(dev, dev->string_langid, index, tbuf);
 	if (err < 0)
 		goto errout;
 
@@ -851,12 +860,15 @@ int usb_string(struct usb_device *dev, int index, char *buf, size_t size)
 	err = idx;
 
 	if (tbuf[1] != USB_DT_STRING)
-		dev_dbg(&dev->dev, "wrong descriptor type %02x for string %d (\"%s\")\n", tbuf[1], index, buf);
+		dev_dbg(&dev->dev,
+			"wrong descriptor type %02x for string %d (\"%s\")\n",
+			tbuf[1], index, buf);
 
  errout:
-	usb_buffer_free(dev, 256, tbuf, tbuf_dma);
+	kfree(tbuf);
 	return err;
 }
+EXPORT_SYMBOL_GPL(usb_string);
 
 /**
  * usb_cache_string - read a string descriptor and cache it for later use
@@ -872,9 +884,15 @@ char *usb_cache_string(struct usb_device *udev, int index)
 	char *smallbuf = NULL;
 	int len;
 
-	if (index > 0 && (buf = kmalloc(256, GFP_KERNEL)) != NULL) {
-		if ((len = usb_string(udev, index, buf, 256)) > 0) {
-			if ((smallbuf = kmalloc(++len, GFP_KERNEL)) == NULL)
+	if (index <= 0)
+		return NULL;
+
+	buf = kmalloc(256, GFP_KERNEL);
+	if (buf) {
+		len = usb_string(udev, index, buf, 256);
+		if (len > 0) {
+			smallbuf = kmalloc(++len, GFP_KERNEL);
+			if (!smallbuf)
 				return buf;
 			memcpy(smallbuf, buf, len);
 		}
@@ -893,31 +911,29 @@ char *usb_cache_string(struct usb_device *udev, int index)
  * which dedicates space for this purpose.
  *
  * Not exported, only for use by the core.  If drivers really want to read
- * the device descriptor directly, they can call usb_get_descriptor_dma() with
+ * the device descriptor directly, they can call usb_get_descriptor() with
  * type = USB_DT_DEVICE and index = 0.
  *
  * This call is synchronous, and may not be used in an interrupt context.
  *
  * Returns the number of bytes received on success, or else the status code
- * returned by the underlying usb_control_msg_dma() call.
+ * returned by the underlying usb_control_msg() call.
  */
 int usb_get_device_descriptor(struct usb_device *dev, unsigned int size)
 {
 	struct usb_device_descriptor *desc;
-	dma_addr_t desc_dma;
 	int ret;
 
 	if (size > sizeof(*desc))
 		return -EINVAL;
-	desc = usb_buffer_alloc(dev, sizeof(*desc), GFP_NOIO, &desc_dma);
+	desc = kmalloc(sizeof(*desc), GFP_NOIO);
 	if (!desc)
 		return -ENOMEM;
 
-	ret = usb_get_descriptor_dma(dev, USB_DT_DEVICE, 0,
-		desc, desc_dma, size);
-	if (ret >= 0) 
+	ret = usb_get_descriptor(dev, USB_DT_DEVICE, 0, desc, size);
+	if (ret >= 0)
 		memcpy(&dev->descriptor, desc, size);
-	usb_buffer_free(dev, sizeof(*desc), desc, desc_dma);
+	kfree(desc);
 	return ret;
 }
 
@@ -946,21 +962,20 @@ int usb_get_device_descriptor(struct usb_device *dev, unsigned int size)
 int usb_get_status(struct usb_device *dev, int type, int target, void *data)
 {
 	int ret;
-	dma_addr_t status_dma;
-	u16 * status = usb_buffer_alloc(dev, sizeof(*status), GFP_KERNEL,
-		&status_dma);
+	u16 *status = kmalloc(sizeof(*status), GFP_KERNEL);
 
 	if (!status)
 		return -ENOMEM;
 
-	ret = usb_control_msg_dma(dev, usb_rcvctrlpipe(dev, 0),
+	ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
 		USB_REQ_GET_STATUS, USB_DIR_IN | type, 0, target, status,
-		status_dma, sizeof(*status), USB_CTRL_GET_TIMEOUT);
+		sizeof(*status), USB_CTRL_GET_TIMEOUT);
 
 	*(u16 *)data = *status;
-	usb_buffer_free(dev, sizeof(*status), status, status_dma);
+	kfree(status);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(usb_get_status);
 
 /**
  * usb_clear_halt - tells device to clear endpoint halt/stall condition
@@ -983,23 +998,23 @@ int usb_get_status(struct usb_device *dev, int type, int target, void *data)
  * This call is synchronous, and may not be used in an interrupt context.
  *
  * Returns zero on success, or else the status code returned by the
- * underlying usb_control_msg_dma() call.
+ * underlying usb_control_msg() call.
  */
 int usb_clear_halt(struct usb_device *dev, int pipe)
 {
 	int result;
 	int endp = usb_pipeendpoint(pipe);
-	
-	if (usb_pipein (pipe))
+
+	if (usb_pipein(pipe))
 		endp |= USB_DIR_IN;
 
 	/* we don't care if it wasn't halted first. in fact some devices
 	 * (like some ibmcam model 1 units) seem to expect hosts to make
 	 * this request for iso endpoints, which can't halt!
 	 */
-	result = usb_control_msg_dma(dev, usb_sndctrlpipe(dev, 0),
+	result = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
 		USB_REQ_CLEAR_FEATURE, USB_RECIP_ENDPOINT,
-		USB_ENDPOINT_HALT, endp, NULL, 0, 0,
+		USB_ENDPOINT_HALT, endp, NULL, 0,
 		USB_CTRL_SET_TIMEOUT);
 
 	/* don't un-halt or force to DATA0 except on success */
@@ -1014,10 +1029,38 @@ int usb_clear_halt(struct usb_device *dev, int pipe)
 	 * the copy in usb-storage, for as long as we need two copies.
 	 */
 
-	/* toggle was reset by the clear */
-	usb_settoggle(dev, usb_pipeendpoint(pipe), usb_pipeout(pipe), 0);
+	usb_reset_endpoint(dev, endp);
 
 	return 0;
+}
+EXPORT_SYMBOL_GPL(usb_clear_halt);
+
+static int create_intf_ep_devs(struct usb_interface *intf)
+{
+	struct usb_device *udev = interface_to_usbdev(intf);
+	struct usb_host_interface *alt = intf->cur_altsetting;
+	int i;
+
+	if (intf->ep_devs_created || intf->unregistering)
+		return 0;
+
+	for (i = 0; i < alt->desc.bNumEndpoints; ++i)
+		(void) usb_create_ep_devs(&intf->dev, &alt->endpoint[i], udev);
+	intf->ep_devs_created = 1;
+	return 0;
+}
+
+static void remove_intf_ep_devs(struct usb_interface *intf)
+{
+	struct usb_host_interface *alt = intf->cur_altsetting;
+	int i;
+
+	if (!intf->ep_devs_created)
+		return;
+
+	for (i = 0; i < alt->desc.bNumEndpoints; ++i)
+		usb_remove_ep_devs(&alt->endpoint[i]);
+	intf->ep_devs_created = 0;
 }
 
 /**
@@ -1025,14 +1068,15 @@ int usb_clear_halt(struct usb_device *dev, int pipe)
  * @dev: the device whose endpoint is being disabled
  * @epaddr: the endpoint's address.  Endpoint number for output,
  *	endpoint number + USB_DIR_IN for input
+ * @reset_hardware: flag to erase any endpoint state stored in the
+ *	controller hardware
  *
- * Deallocates hcd/hardware state for this endpoint ... and nukes all
- * pending urbs.
- *
- * If the HCD hasn't registered a disable() function, this sets the
- * endpoint's maxpacket size to 0 to prevent further submissions.
+ * Disables the endpoint for URB submission and nukes all pending URBs.
+ * If @reset_hardware is set then also deallocates hcd/hardware state
+ * for the endpoint.
  */
-void usb_disable_endpoint(struct usb_device *dev, unsigned int epaddr)
+void usb_disable_endpoint(struct usb_device *dev, unsigned int epaddr,
+		bool reset_hardware)
 {
 	unsigned int epnum = epaddr & USB_ENDPOINT_NUMBER_MASK;
 	struct usb_host_endpoint *ep;
@@ -1042,34 +1086,68 @@ void usb_disable_endpoint(struct usb_device *dev, unsigned int epaddr)
 
 	if (usb_endpoint_out(epaddr)) {
 		ep = dev->ep_out[epnum];
-		dev->ep_out[epnum] = NULL;
+		if (reset_hardware)
+			dev->ep_out[epnum] = NULL;
 	} else {
 		ep = dev->ep_in[epnum];
-		dev->ep_in[epnum] = NULL;
+		if (reset_hardware)
+			dev->ep_in[epnum] = NULL;
 	}
-	if (ep && dev->bus)
-		usb_hcd_endpoint_disable(dev, ep);
+	if (ep) {
+		ep->enabled = 0;
+		usb_hcd_flush_endpoint(dev, ep);
+		if (reset_hardware)
+			usb_hcd_disable_endpoint(dev, ep);
+	}
 }
+
+/**
+ * usb_reset_endpoint - Reset an endpoint's state.
+ * @dev: the device whose endpoint is to be reset
+ * @epaddr: the endpoint's address.  Endpoint number for output,
+ *	endpoint number + USB_DIR_IN for input
+ *
+ * Resets any host-side endpoint state such as the toggle bit,
+ * sequence number or current window.
+ */
+void usb_reset_endpoint(struct usb_device *dev, unsigned int epaddr)
+{
+	unsigned int epnum = epaddr & USB_ENDPOINT_NUMBER_MASK;
+	struct usb_host_endpoint *ep;
+
+	if (usb_endpoint_out(epaddr))
+		ep = dev->ep_out[epnum];
+	else
+		ep = dev->ep_in[epnum];
+	if (ep)
+		usb_hcd_reset_endpoint(dev, ep);
+}
+EXPORT_SYMBOL_GPL(usb_reset_endpoint);
+
 
 /**
  * usb_disable_interface -- Disable all endpoints for an interface
  * @dev: the device whose interface is being disabled
  * @intf: pointer to the interface descriptor
+ * @reset_hardware: flag to erase any endpoint state stored in the
+ *	controller hardware
  *
  * Disables all the endpoints for the interface's current altsetting.
  */
-void usb_disable_interface(struct usb_device *dev, struct usb_interface *intf)
+void usb_disable_interface(struct usb_device *dev, struct usb_interface *intf,
+		bool reset_hardware)
 {
 	struct usb_host_interface *alt = intf->cur_altsetting;
 	int i;
 
 	for (i = 0; i < alt->desc.bNumEndpoints; ++i) {
 		usb_disable_endpoint(dev,
-				alt->endpoint[i].desc.bEndpointAddress);
+				alt->endpoint[i].desc.bEndpointAddress,
+				reset_hardware);
 	}
 }
 
-/*
+/**
  * usb_disable_device - Disable all the endpoints for a USB device
  * @dev: the device whose endpoints are being disabled
  * @skip_ep0: 0 to disable endpoint 0, 1 to skip it.
@@ -1083,13 +1161,12 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 {
 	int i;
 
-	dev_dbg(&dev->dev, "%s nuking %s URBs\n", __FUNCTION__,
-			skip_ep0 ? "non-ep0" : "all");
+	dev_dbg(&dev->dev, "%s nuking %s URBs\n", __func__,
+		skip_ep0 ? "non-ep0" : "all");
 	for (i = skip_ep0; i < 16; ++i) {
-		usb_disable_endpoint(dev, i);
-		usb_disable_endpoint(dev, i + USB_DIR_IN);
+		usb_disable_endpoint(dev, i, true);
+		usb_disable_endpoint(dev, i + USB_DIR_IN, true);
 	}
-	dev->toggle[0] = dev->toggle[1] = 0;
 
 	/* getting rid of interfaces will disconnect
 	 * any drivers bound to them (a key side effect)
@@ -1102,17 +1179,18 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 			interface = dev->actconfig->interface[i];
 			if (!device_is_registered(&interface->dev))
 				continue;
-			dev_dbg (&dev->dev, "unregistering interface %s\n",
+			dev_dbg(&dev->dev, "unregistering interface %s\n",
 				dev_name(&interface->dev));
-			//usb_remove_sysfs_intf_files(interface);
-			usb_unbind_interface(&interface->dev);
+			interface->unregistering = 1;
+			remove_intf_ep_devs(interface);
+			device_del(&interface->dev);
 		}
 
 		/* Now that the interfaces are unbound, nobody should
 		 * try to access them.
 		 */
 		for (i = 0; i < dev->actconfig->desc.bNumInterfaces; i++) {
-			put_device (&dev->actconfig->interface[i]->dev);
+			put_device(&dev->actconfig->interface[i]->dev);
 			dev->actconfig->interface[i] = NULL;
 		}
 		dev->actconfig = NULL;
@@ -1121,55 +1199,53 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 	}
 }
 
-
-/*
+/**
  * usb_enable_endpoint - Enable an endpoint for USB communications
  * @dev: the device whose interface is being enabled
  * @ep: the endpoint
+ * @reset_ep: flag to reset the endpoint state
  *
- * Resets the endpoint toggle, and sets dev->ep_{in,out} pointers.
+ * Resets the endpoint state if asked, and sets dev->ep_{in,out} pointers.
  * For control endpoints, both the input and output sides are handled.
  */
-static void
-usb_enable_endpoint(struct usb_device *dev, struct usb_host_endpoint *ep)
+void usb_enable_endpoint(struct usb_device *dev, struct usb_host_endpoint *ep,
+		bool reset_ep)
 {
-	unsigned int epaddr = ep->desc.bEndpointAddress;
-	unsigned int epnum = epaddr & USB_ENDPOINT_NUMBER_MASK;
-	int is_control;
+	int epnum = usb_endpoint_num(&ep->desc);
+	int is_out = usb_endpoint_dir_out(&ep->desc);
+	int is_control = usb_endpoint_xfer_control(&ep->desc);
 
-	is_control = ((ep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
-			== USB_ENDPOINT_XFER_CONTROL);
-	if (usb_endpoint_out(epaddr) || is_control) {
-		usb_settoggle(dev, epnum, 1, 0);
+	if (reset_ep)
+		usb_hcd_reset_endpoint(dev, ep);
+	if (is_out || is_control)
 		dev->ep_out[epnum] = ep;
-	}
-	if (!usb_endpoint_out(epaddr) || is_control) {
-		usb_settoggle(dev, epnum, 0, 0);
+	if (!is_out || is_control)
 		dev->ep_in[epnum] = ep;
-	}
+	ep->enabled = 1;
 }
 
-/*
+/**
  * usb_enable_interface - Enable all the endpoints for an interface
  * @dev: the device whose interface is being enabled
  * @intf: pointer to the interface descriptor
+ * @reset_eps: flag to reset the endpoints' state
  *
  * Enables all the endpoints for the interface's current altsetting.
  */
-static void usb_enable_interface(struct usb_device *dev,
-				 struct usb_interface *intf)
+void usb_enable_interface(struct usb_device *dev,
+		struct usb_interface *intf, bool reset_eps)
 {
 	struct usb_host_interface *alt = intf->cur_altsetting;
 	int i;
 
 	for (i = 0; i < alt->desc.bNumEndpoints; ++i)
-		usb_enable_endpoint(dev, &alt->endpoint[i]);
+		usb_enable_endpoint(dev, &alt->endpoint[i], reset_eps);
 }
 
 /**
- * usb_set_altSetting - Makes a particular alternate setting be current
+ * usb_set_interface - Makes a particular alternate setting be current
  * @dev: the device whose interface is being updated
- * @iface: the interface being updated
+ * @interface: the interface being updated
  * @alternate: the setting being chosen.
  * Context: !in_interrupt ()
  *
@@ -1197,28 +1273,40 @@ static void usb_enable_interface(struct usb_device *dev,
  * (perhaps forced by unlinking).
  *
  * Returns zero on success, or else the status code returned by the
- * underlying usb_control_msg_dma() call.
+ * underlying usb_control_msg() call.
  */
-int usb_set_altSetting(struct usb_device *dev,
-  struct usb_interface * iface, int alternate)
+int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 {
-	int interface = usb_interface_getNumber(iface);
+	struct usb_interface *iface;
 	struct usb_host_interface *alt;
 	int ret;
 	int manual = 0;
+	unsigned int epaddr;
+	unsigned int pipe;
 
 	if (dev->state == USB_STATE_SUSPENDED)
 		return -EHOSTUNREACH;
 
-	alt = usb_altnum_to_altsetting(iface, alternate);
-	if (!alt) {
-		warn("selecting invalid altsetting %d", alternate);
+	iface = usb_ifnum_to_if(dev, interface);
+	if (!iface) {
+		dev_dbg(&dev->dev, "selecting invalid interface %d\n",
+			interface);
 		return -EINVAL;
 	}
 
-	ret = usb_control_msg_dma(dev, usb_sndctrlpipe(dev, 0),
-				  USB_REQ_SET_INTERFACE, USB_RECIP_INTERFACE,
-				  alternate, interface, NULL, 0, 0, 5000);
+	alt = usb_altnum_to_altsetting(iface, alternate);
+	if (!alt) {
+		dev_warn(&dev->dev, "selecting invalid altsetting %d",
+			 alternate);
+		return -EINVAL;
+	}
+
+	if (dev->quirks & USB_QUIRK_NO_SET_INTF)
+		ret = -EPIPE;
+	else
+		ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
+				   USB_REQ_SET_INTERFACE, USB_RECIP_INTERFACE,
+				   alternate, interface, NULL, 0, 5000);
 
 	/* 9.4.10 says devices don't need this and are free to STALL the
 	 * request if the interface only has one alternate setting.
@@ -1238,9 +1326,11 @@ int usb_set_altSetting(struct usb_device *dev,
 	 */
 
 	/* prevent submissions using previous endpoint settings */
-	//if (device_is_registered(&iface->dev))
-	//	usb_remove_sysfs_intf_files(iface);
-	usb_disable_interface(dev, iface);
+	if (iface->cur_altsetting != alt) {
+		remove_intf_ep_devs(iface);
+		usb_remove_sysfs_intf_files(iface);
+	}
+	usb_disable_interface(dev, iface, true);
 
 	iface->cur_altsetting = alt;
 
@@ -1253,11 +1343,11 @@ int usb_set_altSetting(struct usb_device *dev,
 		int i;
 
 		for (i = 0; i < alt->desc.bNumEndpoints; i++) {
-			unsigned int epaddr =
-				alt->endpoint[i].desc.bEndpointAddress;
-			unsigned int pipe =
-	__create_pipe(dev, USB_ENDPOINT_NUMBER_MASK & epaddr)
-	| (usb_endpoint_out(epaddr) ? USB_DIR_OUT : USB_DIR_IN);
+			epaddr = alt->endpoint[i].desc.bEndpointAddress;
+			pipe = __create_pipe(dev,
+					USB_ENDPOINT_NUMBER_MASK & epaddr) |
+					(usb_endpoint_out(epaddr) ?
+					USB_DIR_OUT : USB_DIR_IN);
 
 			usb_clear_halt(dev, pipe);
 		}
@@ -1274,14 +1364,15 @@ int usb_set_altSetting(struct usb_device *dev,
 	 * during the SETUP stage - hence EP0 toggles are "don't care" here.
 	 * (Likewise, EP0 never "halts" on well designed devices.)
 	 */
-	usb_enable_interface(dev, iface);
-	//if (device_is_registered(&iface->dev))
-	//	usb_create_sysfs_intf_files(iface);
-
+	usb_enable_interface(dev, iface, true);
+	if (device_is_registered(&iface->dev)) {
+		usb_create_sysfs_intf_files(iface);
+		create_intf_ep_devs(iface);
+	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(usb_set_interface);
 
-#if 0 // CapROS
 /**
  * usb_reset_configuration - lightweight device reset
  * @dev: the device whose configuration is being reset
@@ -1289,7 +1380,7 @@ int usb_set_altSetting(struct usb_device *dev,
  * This issues a standard SET_CONFIGURATION request to the device using
  * the current configuration.  The effect is to reset most USB-related
  * state in the device, including interface altsettings (reset to zero),
- * endpoint halts (cleared), and data toggle (only for bulk and interrupt
+ * endpoint halts (cleared), and endpoint state (only for bulk and interrupt
  * endpoints).  Other usbcore state is unchanged, including bindings of
  * usb device drivers to interfaces.
  *
@@ -1297,7 +1388,7 @@ int usb_set_altSetting(struct usb_device *dev,
  * (multi-interface) devices.  Instead, the driver for each interface may
  * use usb_set_interface() on the interfaces it claims.  Be careful though;
  * some devices don't support the SET_INTERFACE request, and others won't
- * reset all the interface state (notably data toggles).  Resetting the whole
+ * reset all the interface state (notably endpoint state).  Resetting the whole
  * configuration would affect other drivers' interfaces.
  *
  * The caller must own the device lock.
@@ -1318,27 +1409,23 @@ int usb_reset_configuration(struct usb_device *dev)
 	 */
 
 	for (i = 1; i < 16; ++i) {
-		usb_disable_endpoint(dev, i);
-		usb_disable_endpoint(dev, i + USB_DIR_IN);
+		usb_disable_endpoint(dev, i, true);
+		usb_disable_endpoint(dev, i + USB_DIR_IN, true);
 	}
 
 	config = dev->actconfig;
-	retval = usb_control_msg_dma(dev, usb_sndctrlpipe(dev, 0),
+	retval = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
 			USB_REQ_SET_CONFIGURATION, 0,
 			config->desc.bConfigurationValue, 0,
-			NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
+			NULL, 0, USB_CTRL_SET_TIMEOUT);
 	if (retval < 0)
 		return retval;
-
-	dev->toggle[0] = dev->toggle[1] = 0;
 
 	/* re-init hc/hcd interface/endpoint state */
 	for (i = 0; i < config->desc.bNumInterfaces; i++) {
 		struct usb_interface *intf = config->interface[i];
 		struct usb_host_interface *alt;
 
-		if (device_is_registered(&intf->dev))
-			usb_remove_sysfs_intf_files(intf);
 		alt = usb_altnum_to_altsetting(intf, 0);
 
 		/* No altsetting 0?  We'll assume the first altsetting.
@@ -1349,84 +1436,51 @@ int usb_reset_configuration(struct usb_device *dev)
 		if (!alt)
 			alt = &intf->altsetting[0];
 
+		if (alt != intf->cur_altsetting) {
+			remove_intf_ep_devs(intf);
+			usb_remove_sysfs_intf_files(intf);
+		}
 		intf->cur_altsetting = alt;
-		usb_enable_interface(dev, intf);
-		if (device_is_registered(&intf->dev))
+		usb_enable_interface(dev, intf, true);
+		if (device_is_registered(&intf->dev)) {
 			usb_create_sysfs_intf_files(intf);
+			create_intf_ep_devs(intf);
+		}
 	}
 	return 0;
 }
-#endif // CapROS
+EXPORT_SYMBOL_GPL(usb_reset_configuration);
 
-void usb_release_interface(struct device *dev)
+static void usb_release_interface(struct device *dev)
 {
 	struct usb_interface *intf = to_usb_interface(dev);
 	struct usb_interface_cache *intfc =
 			altsetting_to_usb_interface_cache(intf->altsetting);
 
 	kref_put(&intfc->ref, usb_release_interface_cache);
-
-	// Remove from newInterfacesList if it is on it:
-	list_del(&intf->link);
 	kfree(intf);
 }
 
-#if 0 // CapROS
 #ifdef	CONFIG_HOTPLUG
-static int usb_if_uevent(struct device *dev, char **envp, int num_envp,
-		 char *buffer, int buffer_size)
+static int usb_if_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct usb_device *usb_dev;
 	struct usb_interface *intf;
 	struct usb_host_interface *alt;
-	int i = 0;
-	int length = 0;
-
-	if (!dev)
-		return -ENODEV;
-
-	/* driver is often null here; dev_dbg() would oops */
-	pr_debug ("usb %s: uevent\n", dev->bus_id);
 
 	intf = to_usb_interface(dev);
 	usb_dev = interface_to_usbdev(intf);
 	alt = intf->cur_altsetting;
 
-#ifdef CONFIG_USB_DEVICEFS
-	if (add_uevent_var(envp, num_envp, &i,
-			   buffer, buffer_size, &length,
-			   "DEVICE=/proc/bus/usb/%03d/%03d",
-			   usb_dev->bus->busnum, usb_dev->devnum))
-		return -ENOMEM;
-#endif
-
-	if (add_uevent_var(envp, num_envp, &i,
-			   buffer, buffer_size, &length,
-			   "PRODUCT=%x/%x/%x",
-			   le16_to_cpu(usb_dev->descriptor.idVendor),
-			   le16_to_cpu(usb_dev->descriptor.idProduct),
-			   le16_to_cpu(usb_dev->descriptor.bcdDevice)))
-		return -ENOMEM;
-
-	if (add_uevent_var(envp, num_envp, &i,
-			   buffer, buffer_size, &length,
-			   "TYPE=%d/%d/%d",
-			   usb_dev->descriptor.bDeviceClass,
-			   usb_dev->descriptor.bDeviceSubClass,
-			   usb_dev->descriptor.bDeviceProtocol))
-		return -ENOMEM;
-
-	if (add_uevent_var(envp, num_envp, &i,
-		   buffer, buffer_size, &length,
-		   "INTERFACE=%d/%d/%d",
+	if (add_uevent_var(env, "INTERFACE=%d/%d/%d",
 		   alt->desc.bInterfaceClass,
 		   alt->desc.bInterfaceSubClass,
 		   alt->desc.bInterfaceProtocol))
 		return -ENOMEM;
 
-	if (add_uevent_var(envp, num_envp, &i,
-		   buffer, buffer_size, &length,
-		   "MODALIAS=usb:v%04Xp%04Xd%04Xdc%02Xdsc%02Xdp%02Xic%02Xisc%02Xip%02X",
+	if (add_uevent_var(env,
+		   "MODALIAS=usb:"
+		   "v%04Xp%04Xd%04Xdc%02Xdsc%02Xdp%02Xic%02Xisc%02Xip%02X",
 		   le16_to_cpu(usb_dev->descriptor.idVendor),
 		   le16_to_cpu(usb_dev->descriptor.idProduct),
 		   le16_to_cpu(usb_dev->descriptor.bcdDevice),
@@ -1438,25 +1492,91 @@ static int usb_if_uevent(struct device *dev, char **envp, int num_envp,
 		   alt->desc.bInterfaceProtocol))
 		return -ENOMEM;
 
-	envp[i] = NULL;
 	return 0;
 }
 
 #else
 
-static int usb_if_uevent(struct device *dev, char **envp,
-			 int num_envp, char *buffer, int buffer_size)
+static int usb_if_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	return -ENODEV;
 }
 #endif	/* CONFIG_HOTPLUG */
-#endif // CapROS
 
 struct device_type usb_if_device_type = {
 	.name =		"usb_interface",
 	.release =	usb_release_interface,
-	.uevent =	0////usb_if_uevent,
+	.uevent =	usb_if_uevent,
 };
+
+static struct usb_interface_assoc_descriptor *find_iad(struct usb_device *dev,
+						struct usb_host_config *config,
+						u8 inum)
+{
+	struct usb_interface_assoc_descriptor *retval = NULL;
+	struct usb_interface_assoc_descriptor *intf_assoc;
+	int first_intf;
+	int last_intf;
+	int i;
+
+	for (i = 0; (i < USB_MAXIADS && config->intf_assoc[i]); i++) {
+		intf_assoc = config->intf_assoc[i];
+		if (intf_assoc->bInterfaceCount == 0)
+			continue;
+
+		first_intf = intf_assoc->bFirstInterface;
+		last_intf = first_intf + (intf_assoc->bInterfaceCount - 1);
+		if (inum >= first_intf && inum <= last_intf) {
+			if (!retval)
+				retval = intf_assoc;
+			else
+				dev_err(&dev->dev, "Interface #%d referenced"
+					" by multiple IADs\n", inum);
+		}
+	}
+
+	return retval;
+}
+
+
+/*
+ * Internal function to queue a device reset
+ *
+ * This is initialized into the workstruct in 'struct
+ * usb_device->reset_ws' that is launched by
+ * message.c:usb_set_configuration() when initializing each 'struct
+ * usb_interface'.
+ *
+ * It is safe to get the USB device without reference counts because
+ * the life cycle of @iface is bound to the life cycle of @udev. Then,
+ * this function will be ran only if @iface is alive (and before
+ * freeing it any scheduled instances of it will have been cancelled).
+ *
+ * We need to set a flag (usb_dev->reset_running) because when we call
+ * the reset, the interfaces might be unbound. The current interface
+ * cannot try to remove the queued work as it would cause a deadlock
+ * (you cannot remove your work from within your executing
+ * workqueue). This flag lets it know, so that
+ * usb_cancel_queued_reset() doesn't try to do it.
+ *
+ * See usb_queue_reset_device() for more details
+ */
+void __usb_queue_reset_device(struct work_struct *ws)
+{
+	int rc;
+	struct usb_interface *iface =
+		container_of(ws, struct usb_interface, reset_ws);
+	struct usb_device *udev = interface_to_usbdev(iface);
+
+	rc = usb_lock_device_for_reset(udev, iface);
+	if (rc >= 0) {
+		iface->reset_running = 1;
+		usb_reset_device(udev);
+		iface->reset_running = 0;
+		usb_unlock_device(udev);
+	}
+}
+
 
 /*
  * usb_set_configuration - Makes a particular device setting be current
@@ -1486,13 +1606,16 @@ struct device_type usb_if_device_type = {
  * channels are available independently; and choosing between open
  * standard device protocols (like CDC) or proprietary ones.
  *
+ * Note that a non-authorized device (dev->authorized == 0) will only
+ * be put in unconfigured mode.
+ *
  * Note that USB has an additional level of device configurability,
  * associated with interfaces.  That configurability is accessed using
  * usb_set_interface().
  *
  * This call is synchronous. The calling context must be able to sleep,
  * must own the device lock, and must not hold the driver model's USB
- * bus mutex; usb device driver probe() methods cannot use this routine.
+ * bus mutex; usb interface driver probe() methods cannot use this routine.
  *
  * Returns zero on success, or else the status code returned by the
  * underlying call that failed.  On successful completion, each interface
@@ -1507,7 +1630,7 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 	struct usb_interface **new_interfaces = NULL;
 	int n, nintf;
 
-	if (configuration == -1)
+	if (dev->authorized == 0 || configuration == -1)
 		configuration = 0;
 	else {
 		for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
@@ -1534,23 +1657,11 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 	n = nintf = 0;
 	if (cp) {
 		nintf = cp->desc.bNumInterfaces;
-		BUG_ON(nintf > USB_MAXINTERFACES);
-			// else this device can't be supported because
-			// usb_host_config.interfaces is too small
-
 		new_interfaces = kmalloc(nintf * sizeof(*new_interfaces),
 				GFP_KERNEL);
 		if (!new_interfaces) {
-			ret = -ENOMEM;
-			goto noArray;
-		}
-
-		result_t result;
-		result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-			driverSlot(dev, 0), driverSlot(dev, nintf-1) );
-		if (result != RC_OK) {
-			ret = -ENOMEM;
-			goto noSlots;
+			dev_err(&dev->dev, "Out of memory\n");
+			return -ENOMEM;
 		}
 
 		for (; n < nintf; ++n) {
@@ -1558,17 +1669,12 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 					sizeof(struct usb_interface),
 					GFP_KERNEL);
 			if (!new_interfaces[n]) {
+				dev_err(&dev->dev, "Out of memory\n");
 				ret = -ENOMEM;
 free_interfaces:
 				while (--n >= 0)
 					kfree(new_interfaces[n]);
-				capros_SuperNode_deallocateRange(KR_KEYSTORE,
-					driverSlot(dev, 0),
-					driverSlot(dev, nintf-1) );
-noSlots:
 				kfree(new_interfaces);
-noArray:
-				dev_err(&dev->dev, "Out of memory");
 				return ret;
 			}
 		}
@@ -1589,12 +1695,15 @@ noArray:
 	 * getting rid of old interfaces means unbinding their drivers.
 	 */
 	if (dev->state != USB_STATE_ADDRESS)
-		usb_disable_device (dev, 1);	// Skip ep0
+		usb_disable_device(dev, 1);	/* Skip ep0 */
 
-	if ((ret = usb_control_msg_dma(dev, usb_sndctrlpipe(dev, 0),
-			USB_REQ_SET_CONFIGURATION, 0, configuration, 0,
-			NULL, 0, 0, USB_CTRL_SET_TIMEOUT)) < 0) {
+	/* Get rid of pending async Set-Config requests for this device */
+	cancel_async_set_config(dev);
 
+	ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
+			      USB_REQ_SET_CONFIGURATION, 0, configuration, 0,
+			      NULL, 0, USB_CTRL_SET_TIMEOUT);
+	if (ret < 0) {
 		/* All the old state is gone, so what else can we do?
 		 * The device is probably useless now anyway.
 		 */
@@ -1621,7 +1730,7 @@ noArray:
 		intfc = cp->intf_cache[i];
 		intf->altsetting = intfc->altsetting;
 		intf->num_altsetting = intfc->num_altsetting;
-		intf->localInterfaceNum = i;
+		intf->intf_assoc = find_iad(dev, cp, i);
 		kref_get(&intfc->ref);
 
 		alt = usb_altnum_to_altsetting(intf, 0);
@@ -1635,13 +1744,15 @@ noArray:
 			alt = &intf->altsetting[0];
 
 		intf->cur_altsetting = alt;
-		usb_enable_interface(dev, intf);
+		usb_enable_interface(dev, intf, true);
 		intf->dev.parent = &dev->dev;
 		intf->dev.driver = NULL;
 		intf->dev.bus = &usb_bus_type;
 		intf->dev.type = &usb_if_device_type;
+		intf->dev.groups = usb_interface_groups;
 		intf->dev.dma_mask = dev->dev.dma_mask;
-		device_initialize (&intf->dev);
+		INIT_WORK(&intf->reset_ws, __usb_queue_reset_device);
+		device_initialize(&intf->dev);
 		mark_quiesced(intf);
 		dev_set_name(&intf->dev, "%d-%s:%d.%d",
 			dev->bus->busnum, dev->devpath,
@@ -1649,7 +1760,8 @@ noArray:
 	}
 	kfree(new_interfaces);
 
-	if (cp->string == NULL)
+	if (cp->string == NULL &&
+			!(dev->quirks & USB_QUIRK_CONFIG_INTF_STRINGS))
 		cp->string = usb_cache_string(dev, cp->desc.iConfiguration);
 
 	/* Now that all the interfaces are set up, register them
@@ -1665,50 +1777,27 @@ noArray:
 			"adding %s (config #%d, interface %d)\n",
 			dev_name(&intf->dev), configuration,
 			intf->cur_altsetting->desc.bInterfaceNumber);
-		// Instead of device_add:
-		intf->dev.kobj.state_in_sysfs = 1;
-		// Is it a hub?
-		if (dev->descriptor.bDeviceClass == USB_CLASS_HUB
-		    || intf->cur_altsetting->desc.bInterfaceClass
-		         == USB_CLASS_HUB) {
-		  // It's a hub.
-		  intf->dev.driver = &(hub_driver.drvwrap.driver);
-		  // Some code from usb_probe_interface:
-		  mark_active(intf);
-		  intf->condition = USB_INTERFACE_BINDING;
-		  intf->pm_usage_cnt = 0;   // hub_driver supports autosuspend
-		  ret = (*hub_driver.probe)(intf, NULL);
-		  if (ret) {
-		    mark_quiesced(intf);
-		    intf->needs_remote_wakeup = 0;
-		    intf->condition = USB_INTERFACE_UNBOUND;
-		  } else
-		    intf->condition = USB_INTERFACE_BOUND;
-		} else {
-		  // It's not a hub.
-		  mark_active(intf);
-		  // For now, assume driver doesn't support autosuspend.
-		  intf->pm_usage_cnt = 1; // !(driver->supports_autosuspend);
-		  intf->condition = USB_INTERFACE_BINDING;
-		  newInterface(intf);
-		}
+		ret = device_add(&intf->dev);
 		if (ret != 0) {
 			dev_err(&dev->dev, "device_add(%s) --> %d\n",
 				dev_name(&intf->dev), ret);
 			continue;
 		}
-		//usb_create_sysfs_intf_files (intf);
+		create_intf_ep_devs(intf);
 	}
 
 	usb_autosuspend_device(dev);
 	return 0;
 }
 
-#if 0 // CapROS
+static LIST_HEAD(set_config_list);
+static DEFINE_SPINLOCK(set_config_lock);
+
 struct set_config_request {
 	struct usb_device	*udev;
 	int			config;
 	struct work_struct	work;
+	struct list_head	node;
 };
 
 /* Worker routine for usb_driver_set_configuration() */
@@ -1716,12 +1805,33 @@ static void driver_set_config_work(struct work_struct *work)
 {
 	struct set_config_request *req =
 		container_of(work, struct set_config_request, work);
+	struct usb_device *udev = req->udev;
 
-	usb_lock_device(req->udev);
-	usb_set_configuration(req->udev, req->config);
-	usb_unlock_device(req->udev);
-	usb_put_dev(req->udev);
+	usb_lock_device(udev);
+	spin_lock(&set_config_lock);
+	list_del(&req->node);
+	spin_unlock(&set_config_lock);
+
+	if (req->config >= -1)		/* Is req still valid? */
+		usb_set_configuration(udev, req->config);
+	usb_unlock_device(udev);
+	usb_put_dev(udev);
 	kfree(req);
+}
+
+/* Cancel pending Set-Config requests for a device whose configuration
+ * was just changed
+ */
+static void cancel_async_set_config(struct usb_device *udev)
+{
+	struct set_config_request *req;
+
+	spin_lock(&set_config_lock);
+	list_for_each_entry(req, &set_config_list, node) {
+		if (req->udev == udev)
+			req->config = -999;	/* Mark as cancelled */
+	}
+	spin_unlock(&set_config_lock);
 }
 
 /**
@@ -1755,27 +1865,12 @@ int usb_driver_set_configuration(struct usb_device *udev, int config)
 	req->config = config;
 	INIT_WORK(&req->work, driver_set_config_work);
 
+	spin_lock(&set_config_lock);
+	list_add(&req->node, &set_config_list);
+	spin_unlock(&set_config_lock);
+
 	usb_get_dev(udev);
 	schedule_work(&req->work);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usb_driver_set_configuration);
-
-// synchronous request completion model
-EXPORT_SYMBOL(usb_control_msg);
-EXPORT_SYMBOL(usb_bulk_msg);
-
-EXPORT_SYMBOL(usb_sg_init);
-EXPORT_SYMBOL(usb_sg_cancel);
-EXPORT_SYMBOL(usb_sg_wait);
-
-// synchronous control message convenience routines
-EXPORT_SYMBOL(usb_get_descriptor_dma);
-EXPORT_SYMBOL(usb_get_status);
-EXPORT_SYMBOL(usb_string);
-
-// synchronous calls that also maintain usbcore state
-EXPORT_SYMBOL(usb_clear_halt);
-EXPORT_SYMBOL(usb_reset_configuration);
-
-#endif // CapROS

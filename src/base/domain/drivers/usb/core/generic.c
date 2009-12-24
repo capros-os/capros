@@ -19,6 +19,7 @@
 
 #include <linux/usb.h>
 #include "usb.h"
+#include "hcd.h"
 
 static inline const char *plural(int n)
 {
@@ -39,7 +40,7 @@ static int is_activesync(struct usb_interface_descriptor *desc)
 		&& desc->bInterfaceProtocol == 1;
 }
 
-static int choose_configuration(struct usb_device *udev)
+int usb_choose_configuration(struct usb_device *udev)
 {
 	int i;
 	int num_configs;
@@ -150,66 +151,84 @@ static int choose_configuration(struct usb_device *udev)
 	return i;
 }
 
-int usbdev_generic_probe(struct usb_device *udev)
+static int generic_probe(struct usb_device *udev)
 {
 	int err, c;
-
-	/* put device-specific files into sysfs */
-	//usb_create_sysfs_dev_files(udev);
 
 	/* Choose and set the configuration.  This registers the interfaces
 	 * with the driver core and lets interface drivers bind to them.
 	 */
-	c = choose_configuration(udev);
-	if (c >= 0) {
-		err = usb_set_configuration(udev, c);
-		if (err) {
-			dev_err(&udev->dev, "can't set config #%d, error %d\n",
+	if (udev->authorized == 0)
+		dev_err(&udev->dev, "Device is not authorized for usage\n");
+	else {
+		c = usb_choose_configuration(udev);
+		if (c >= 0) {
+			err = usb_set_configuration(udev, c);
+			if (err) {
+				dev_err(&udev->dev, "can't set config #%d, error %d\n",
 					c, err);
-			/* This need not be fatal.  The user can try to
-			 * set other configurations. */
+				/* This need not be fatal.  The user can try to
+				 * set other configurations. */
+			}
 		}
 	}
-
 	/* USB device state == configured ... usable */
-	//usb_notify_add_device(udev);
+	usb_notify_add_device(udev);
 
 	return 0;
 }
 
-void usbdev_generic_disconnect(struct usb_device *udev)
+static void generic_disconnect(struct usb_device *udev)
 {
-	//usb_notify_remove_device(udev);
+	usb_notify_remove_device(udev);
 
 	/* if this is only an unbind, not a physical disconnect, then
 	 * unconfigure the device */
 	if (udev->actconfig)
 		usb_set_configuration(udev, -1);
-
-	//usb_remove_sysfs_dev_files(udev);
 }
 
-#if 0 // CapROS, not implemented yet
 #ifdef	CONFIG_PM
 
 static int generic_suspend(struct usb_device *udev, pm_message_t msg)
 {
-	/* USB devices enter SUSPEND state through their hubs, but can be
-	 * marked for FREEZE as soon as their children are already idled.
-	 * But those semantics are useless, so we equate the two (sigh).
+	int rc;
+
+	/* Normal USB devices suspend through their upstream port.
+	 * Root hubs don't have upstream ports to suspend,
+	 * so we have to shut down their downstream HC-to-USB
+	 * interfaces manually by doing a bus (or "global") suspend.
 	 */
-	return usb_port_suspend(udev);
+	if (!udev->parent)
+		rc = hcd_bus_suspend(udev, msg);
+
+	/* Non-root devices don't need to do anything for FREEZE or PRETHAW */
+	else if (msg.event == PM_EVENT_FREEZE || msg.event == PM_EVENT_PRETHAW)
+		rc = 0;
+	else
+		rc = usb_port_suspend(udev, msg);
+
+	return rc;
 }
 
-static int generic_resume(struct usb_device *udev)
+static int generic_resume(struct usb_device *udev, pm_message_t msg)
 {
-	return usb_port_resume(udev);
+	int rc;
+
+	/* Normal USB devices resume/reset through their upstream port.
+	 * Root hubs don't have upstream ports to resume or reset,
+	 * so we have to start up their downstream HC-to-USB
+	 * interfaces manually by doing a bus (or "global") resume.
+	 */
+	if (!udev->parent)
+		rc = hcd_bus_resume(udev, msg);
+	else
+		rc = usb_port_resume(udev, msg);
+	return rc;
 }
 
 #endif	/* CONFIG_PM */
-#endif // CapROS
 
-#if 0 // CapROS
 struct usb_device_driver usb_generic_driver = {
 	.name =	"usb",
 	.probe = generic_probe,
@@ -220,4 +239,3 @@ struct usb_device_driver usb_generic_driver = {
 #endif
 	.supports_autosuspend = 1,
 };
-#endif // CapROS
