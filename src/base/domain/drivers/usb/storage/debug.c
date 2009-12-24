@@ -1,8 +1,6 @@
 /* Driver for USB Mass Storage compliant devices
  * Debugging Functions Source Code File
  *
- * $Id$
- *
  * Current development and maintenance by:
  *   (c) 1999-2002 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
  *
@@ -11,8 +9,6 @@
  *
  * Initial work by:
  *   (c) 1999 Michael Gee (michael@linuxspecific.com)
-
- * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -45,15 +41,14 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
 
+#include <linux/cdrom.h>
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_dbg.h>
 
 #include "debug.h"
+#include "scsi.h"
 
 
 void usb_stor_show_command(struct scsi_cmnd *srb)
@@ -111,14 +106,30 @@ void usb_stor_show_command(struct scsi_cmnd *srb)
 	case WRITE_LONG: what = "WRITE_LONG"; break;
 	case CHANGE_DEFINITION: what = "CHANGE_DEFINITION"; break;
 	case WRITE_SAME: what = "WRITE_SAME"; break;
+	case GPCMD_READ_SUBCHANNEL: what = "READ SUBCHANNEL"; break;
 	case READ_TOC: what = "READ_TOC"; break;
+	case GPCMD_READ_HEADER: what = "READ HEADER"; break;
+	case GPCMD_PLAY_AUDIO_10: what = "PLAY AUDIO (10)"; break;
+	case GPCMD_PLAY_AUDIO_MSF: what = "PLAY AUDIO MSF"; break;
+	case GPCMD_GET_EVENT_STATUS_NOTIFICATION:
+		what = "GET EVENT/STATUS NOTIFICATION"; break;
+	case GPCMD_PAUSE_RESUME: what = "PAUSE/RESUME"; break;
 	case LOG_SELECT: what = "LOG_SELECT"; break;
 	case LOG_SENSE: what = "LOG_SENSE"; break;
+	case GPCMD_STOP_PLAY_SCAN: what = "STOP PLAY/SCAN"; break;
+	case GPCMD_READ_DISC_INFO: what = "READ DISC INFORMATION"; break;
+	case GPCMD_READ_TRACK_RZONE_INFO:
+		what = "READ TRACK INFORMATION"; break;
+	case GPCMD_RESERVE_RZONE_TRACK: what = "RESERVE TRACK"; break;
+	case GPCMD_SEND_OPC: what = "SEND OPC"; break;
 	case MODE_SELECT_10: what = "MODE_SELECT_10"; break;
+	case GPCMD_REPAIR_RZONE_TRACK: what = "REPAIR TRACK"; break;
 	case 0x59: what = "READ MASTER CUE"; break;
 	case MODE_SENSE_10: what = "MODE_SENSE_10"; break;
+	case GPCMD_CLOSE_TRACK: what = "CLOSE TRACK/SESSION"; break;
 	case 0x5C: what = "READ BUFFER CAPACITY"; break;
 	case 0x5D: what = "SEND CUE SHEET"; break;
+	case GPCMD_BLANK: what = "BLANK"; break;
 	case REPORT_LUNS: what = "REPORT LUNS"; break;
 	case MOVE_MEDIUM: what = "MOVE_MEDIUM or PLAY AUDIO (12)"; break;
 	case READ_12: what = "READ_12"; break;
@@ -129,6 +140,11 @@ void usb_stor_show_command(struct scsi_cmnd *srb)
 	case SEARCH_LOW_12: what = "SEARCH_LOW_12"; break;
 	case SEND_VOLUME_TAG: what = "SEND_VOLUME_TAG"; break;
 	case READ_ELEMENT_STATUS: what = "READ_ELEMENT_STATUS"; break;
+	case GPCMD_READ_CD_MSF: what = "READ CD MSF"; break;
+	case GPCMD_SCAN: what = "SCAN"; break;
+	case GPCMD_SET_SPEED: what = "SET CD SPEED"; break;
+	case GPCMD_MECHANISM_STATUS: what = "MECHANISM STATUS"; break;
+	case GPCMD_READ_CD: what = "READ CD"; break;
 	case 0xE1: what = "WRITE CONTINUE"; break;
 	case WRITE_LONG_2: what = "WRITE_LONG_2"; break;
 	default: what = "(unknown command)"; break;
@@ -158,12 +174,4 @@ void usb_stor_show_sense(
 	US_DEBUGP("%s: ", keystr);
 	US_DEBUGPX(what, ascq);
 	US_DEBUGPX("\n");
-}
-
-const char * scsi_sense_key_string(unsigned char key) {
-  return NULL;
-}
-
-const char * scsi_extd_sense_format(unsigned char asc, unsigned char ascq) {
-  return NULL;
 }
