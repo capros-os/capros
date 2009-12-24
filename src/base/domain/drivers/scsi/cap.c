@@ -103,8 +103,6 @@ driver_main(void)
     msg->snd_w1 = msg->snd_w2 = msg->snd_w3 = 0;
     msg->snd_len = 0;
 
-    kprintf(KR_OSTREAM, "scsi called, keyInfo=%d, OC=0x%x\n",
-      msg->rcv_keyInfo, msg->rcv_code);////
     if (msg->rcv_keyInfo == 0) {
       // SCSIControl cap.
       switch (msg->rcv_code) {

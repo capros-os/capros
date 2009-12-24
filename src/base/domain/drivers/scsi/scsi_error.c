@@ -14,7 +14,7 @@
  *	September 30, 2002 Mike Anderson (andmike@us.ibm.com)
  */
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -1627,7 +1627,11 @@ void scsi_eh_flush_done_q(struct list_head *done_q)
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: flush finish"
 							" cmd: %p\n",
 							currentComm, scmd));
+#if 0 // CapROS
 			scsi_finish_command(scmd);
+#else
+			BUG();	// needs work
+#endif // CapROS
 		}
 	}
 }

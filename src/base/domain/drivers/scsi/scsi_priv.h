@@ -1,7 +1,7 @@
 #ifndef _SCSI_PRIV_H
 #define _SCSI_PRIV_H
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -48,7 +48,8 @@ extern int scsi_init_hosts(void);
 extern void scsi_exit_hosts(void);
 
 /* scsi.c */
-extern int scsi_dispatch_cmd(struct scsi_cmnd *cmd);
+extern int scsi_dispatch_cmd(struct scsi_cmnd *cmd,
+  int * resultp, unsigned int * residualp);
 extern int scsi_setup_command_freelist(struct Scsi_Host *shost);
 extern void scsi_destroy_command_freelist(struct Scsi_Host *shost);
 #ifdef CONFIG_SCSI_LOGGING
@@ -86,7 +87,8 @@ extern int scsi_maybe_unblock_host(struct scsi_device *sdev);
 extern void scsi_device_unbusy(struct scsi_device *sdev);
 extern int scsi_queue_insert(struct scsi_cmnd *cmd, int reason);
 extern void scsi_next_command(struct scsi_cmnd *cmd);
-extern void scsi_io_completion(struct scsi_cmnd *, unsigned int);
+extern void scsi_io_completion(struct scsi_cmnd *, unsigned int,
+  int * resultp, unsigned int * residualp);
 extern void scsi_run_host_queues(struct Scsi_Host *shost);
 extern struct request_queue *scsi_alloc_queue(struct scsi_device *sdev);
 extern void scsi_free_queue(struct request_queue *q);
@@ -161,7 +163,8 @@ static inline void scsi_netlink_exit(void) {}
 extern int scsi_internal_device_block(struct scsi_device *sdev);
 extern int scsi_internal_device_unblock(struct scsi_device *sdev);
 
-void scsi_softirq_done_cmd(struct scsi_cmnd * cmd);
+void scsi_softirq_done_cmd(struct scsi_cmnd * cmd,
+  int * resultp, unsigned int * residualp);
 
 static inline capros_Node_extAddr_t
 SCSIDevCapSlot(struct Scsi_Host * shost)

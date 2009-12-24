@@ -312,6 +312,7 @@ static void scsi_device_cls_release(struct device *class_dev)
 	sdev = class_to_sdev(class_dev);
 	put_device(&sdev->sdev_gendev);
 }
+#endif // CapROS
 
 static void scsi_device_dev_release_usercontext(struct work_struct *work)
 {
@@ -343,6 +344,7 @@ static void scsi_device_dev_release_usercontext(struct work_struct *work)
 		kfree(evt);
 	}
 
+#if 0 // CapROS
 	if (sdev->request_queue) {
 		sdev->request_queue->queuedata = NULL;
 		/* user context needed to free queue */
@@ -351,6 +353,7 @@ static void scsi_device_dev_release_usercontext(struct work_struct *work)
 		 * after free of sdev */
 		sdev->request_queue = NULL;
 	}
+#endif // CapROS
 
 	scsi_target_reap(scsi_target(sdev));
 
@@ -368,6 +371,7 @@ static void scsi_device_dev_release(struct device *dev)
 				   &sdp->ew);
 }
 
+#if 0 // CapROS
 static struct class sdev_class = {
 	.name		= "scsi_device",
 	.dev_release	= scsi_device_cls_release,
@@ -1111,7 +1115,7 @@ int scsi_sysfs_add_host(struct Scsi_Host *shost)
 
 static struct device_type scsi_dev_type = {
 	.name =		"scsi_device",
-	.release =	NULL,//scsi_device_dev_release,
+	.release =	scsi_device_dev_release,
 	.groups =	NULL,//scsi_sdev_attr_groups,
 };
 

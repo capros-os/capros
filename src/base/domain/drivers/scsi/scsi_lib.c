@@ -7,7 +7,7 @@
  *                        of people at Linux Expo.
  */
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -282,8 +282,8 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
  out:
 	blk_put_request(req);
 
-	return ret;
 #else // CapROS
+	int ret;
 	/* In Linux, the request goes into a struct request,
 	gets queued and subjected to various algorithms including
 	the elevator logic,
@@ -293,7 +293,6 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 	The following code bypasses all queueing and executes
 	the request immediately.
 	It is annotated with the names of the procedures we are bypassing. */
-	int ret;
 
 	/* blk_get_request calls get_request_wait (block/blk-core.c)
 	which calls blk_alloc_request (block/blk-core.c)
@@ -337,6 +336,7 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 	scmd->sdb.length = bufflen;
 	if (bufflen) {
 		ret = scsi_init_io(scmd, GFP_ATOMIC);
+		BUG_ON(ret);	// we have no retry mechanism
 		// scsi_init_sgtable doesn't do this:
 		sg_init_one(scsi_sglist(scmd), buffer, buffer_dma, bufflen);
 		scmd->sc_data_direction = data_direction;
@@ -362,11 +362,19 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 	/*
 	 * Dispatch the command to the low-level driver.
 	 */
-	ret = scsi_dispatch_cmd(scmd);	// and wait for completion
-	BUG_ON(ret);//// for now
+	/* After scsi_dispatch_cmd, scmd may be deallocated.
+	Normally, the result and residual are copied into request->errors
+	and request->data_len.
+	We have no request, so scsi_dispatch_cmd must return them. */
+	unsigned int local_resid;
+	int sdcret = scsi_dispatch_cmd(scmd, &ret, &local_resid);
+		// dispatch and wait for completion
+	BUG_ON(sdcret);//// for now
+	if (resid)
+		*resid = local_resid;
 	// scsi_request_fn returns.
-	return scmd->result;
 #endif // CapROS
+	return ret;
 }
 EXPORT_SYMBOL(scsi_execute);
 
@@ -900,7 +908,8 @@ static void scsi_end_bidi_request(struct scsi_cmnd *cmd)
  *		c) We can call blk_end_request() with -EIO to fail
  *		   the remainder of the request.
  */
-void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
+void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes,
+  int * resultp, unsigned int * residualp)
 {
 	int result = cmd->result;
 	// int this_count;
@@ -949,6 +958,9 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 	}
 
 	BUG_ON(blk_bidi_rq(req)); /* bidi not support for !blk_pc_request yet */
+#else
+	*residualp = scsi_get_resid(cmd);
+	*resultp = result;
 #endif // CapROS
 
 	/*
@@ -1127,6 +1139,7 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 	}
 }
 
+/* Returns BLKPREP_DEFER if can't allocate sgtable. */
 static int scsi_init_sgtable(struct request *req, struct scsi_data_buffer *sdb,
 			     gfp_t gfp_mask)
 {
@@ -1174,7 +1187,7 @@ static int scsi_init_sgtable(struct request *req, struct scsi_data_buffer *sdb,
  *
  * Returns:     0 on success
  *		BLKPREP_DEFER if the failure is retryable
- *		BLKPREP_KILL if the failure is fatal
+ *		BLKPREP_KILL if the failure is fatal (not in CapROS)
  */
 int scsi_init_io(struct scsi_cmnd *cmd, gfp_t gfp_mask)
 {
@@ -1619,7 +1632,8 @@ static void scsi_kill_request(struct request *req, struct request_queue *q)
 }
 #endif // CapROS
 
-void scsi_softirq_done_cmd(struct scsi_cmnd * cmd)
+void scsi_softirq_done_cmd(struct scsi_cmnd * cmd,
+  int * resultp, unsigned int * residualp)
 {
 	unsigned long wait_for = (cmd->allowed + 1) * cmd->timeout_per_command;
 	int disposition;
@@ -1648,7 +1662,7 @@ void scsi_softirq_done_cmd(struct scsi_cmnd * cmd)
 
 	switch (disposition) {
 		case SUCCESS:
-			scsi_finish_command(cmd);
+			scsi_finish_command(cmd, resultp, residualp);
 			break;
 		case NEEDS_RETRY:
 			scsi_queue_insert(cmd, SCSI_MLQUEUE_EH_RETRY);
@@ -1657,8 +1671,9 @@ void scsi_softirq_done_cmd(struct scsi_cmnd * cmd)
 			scsi_queue_insert(cmd, SCSI_MLQUEUE_DEVICE_BUSY);
 			break;
 		default:
+			BUG();	// needs work - return result & resid?
 			if (!scsi_eh_scmd_add(cmd, 0))
-				scsi_finish_command(cmd);
+				scsi_finish_command(cmd, resultp, residualp);
 	}
 }
 

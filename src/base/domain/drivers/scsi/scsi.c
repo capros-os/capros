@@ -37,7 +37,7 @@
  *  out_of_space hacks, D. Gilbert (dpg) 990608
  */
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -94,7 +94,8 @@ Approved for public release, distribution unlimited. */
 
 unsigned long capros_Errno_ExceptionToErrno(unsigned long excep);
 
-static void scsi_done(struct scsi_cmnd *cmd);
+static void scsi_done(struct scsi_cmnd *cmd,
+  int * resultp, unsigned int * residualp);
 
 /*
  * Definitions and constants.
@@ -675,7 +676,12 @@ static inline void scsi_cmd_get_serial(struct Scsi_Host *host, struct scsi_cmnd 
  * Return: nonzero return request was rejected and device's queue needs to be
  * plugged.
  */
-int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
+/* At the conclusion of scsi_dispatch_cmd, cmd may be deallocated.
+ * Normally, the result and residual are copied into request->errors
+ * and request->data_len.
+ * CapROS does not use a request, so scsi_dispatch_cmd must return them. */
+int scsi_dispatch_cmd(struct scsi_cmnd *cmd,
+  int * resultp, unsigned int * residualp)
 {
 	struct Scsi_Host *host = cmd->device->host;
 	unsigned long flags = 0;
@@ -690,7 +696,7 @@ int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 		 * returns an immediate error upwards, and signals
 		 * that the device is no longer present */
 		cmd->result = DID_NO_CONNECT << 16;
-		scsi_done(cmd);
+		scsi_done(cmd, resultp, residualp);
 		/* return 0 (because the command has been processed) */
 		goto out;
 	}
@@ -760,7 +766,7 @@ int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 			       cmd->cmd_len, cmd->device->host->max_cmd_len));
 		cmd->result = (DID_ABORT << 16);
 
-		scsi_done(cmd);
+		scsi_done(cmd, resultp, residualp);
 		goto out;
 	}
 
@@ -777,7 +783,7 @@ int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 
 	if (unlikely(host->shost_state == SHOST_DEL)) {
 		cmd->result = (DID_NO_CONNECT << 16);
-		scsi_done(cmd);
+		scsi_done(cmd, resultp, residualp);
 	} else {
 	  result_t capres;
 	  unsigned long opaque;
@@ -826,9 +832,12 @@ int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 	    cmd->sdb.resid = scsi_bufflen(cmd) - transferCount;
 	    if (cmd->result == SAM_STAT_GOOD && transferCount < cmd->underflow)
 	      cmd->result = (DID_ERROR << 16);
-	    scsi_done(cmd);
+	    scsi_done(cmd, resultp, residualp);
+	    // rtn still == 0
 	  } else {
-	    rtn = capros_Errno_ExceptionToErrno(capres);
+	    printk("scsi_dispatch_cmd: SCSIDevice_Read/Write returned %#x\n",
+	           capres);
+	    rtn = SCSI_MLQUEUE_HOST_BUSY;
 	  }
 	}
 	//spin_unlock_irqrestore(host->host_lock, flags); // moved above
@@ -861,12 +870,13 @@ int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
  *
  * This function is interrupt context safe.
  */
-static void scsi_done(struct scsi_cmnd *cmd)
+static void scsi_done(struct scsi_cmnd *cmd,
+  int * resultp, unsigned int * residualp)
 {
 #if 0 // CapROS
 	blk_complete_request(cmd->request);
 #else
-	scsi_softirq_done_cmd(cmd);
+	scsi_softirq_done_cmd(cmd, resultp, residualp);
 #endif
 }
 
@@ -886,7 +896,8 @@ static struct scsi_driver *scsi_cmd_to_driver(struct scsi_cmnd *cmd)
  *              request, waking processes that are waiting on results,
  *              etc.
  */
-void scsi_finish_command(struct scsi_cmnd *cmd)
+void scsi_finish_command(struct scsi_cmnd *cmd,
+  int * resultp, unsigned int * residualp)
 {
 	struct scsi_device *sdev = cmd->device;
 	struct scsi_target *starget = scsi_target(sdev);
@@ -936,7 +947,7 @@ void scsi_finish_command(struct scsi_cmnd *cmd)
 			good_bytes -= scsi_get_resid(cmd);
 	}
 #endif // CapROS
-	scsi_io_completion(cmd, good_bytes);
+	scsi_io_completion(cmd, good_bytes, resultp, residualp);
 }
 EXPORT_SYMBOL(scsi_finish_command);
 
