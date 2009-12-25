@@ -1,8 +1,6 @@
 /* Driver for USB Mass Storage compliant devices
  * Debugging Functions Header File
  *
- * $Id$
- *
  * Current development and maintenance by:
  *   (c) 1999-2002 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
  *
