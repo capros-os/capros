@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -94,7 +94,7 @@ ProcessThreadlist(void)
 
       if (keyType == AKT_Process) {
         DEBUG(init) kdprintf(KR_OSTREAM,
-                      "Starting process in key %d\n", KR_FAULT);
+                      "Starting process %d (in key %d)\n", i, KR_FAULT);
 	/* If the key is a process key, fabricate a fault key to it in
 	   order to set it in motion. */
 	capros_Process_makeResumeKey(KR_FAULT, KR_FAULT);
