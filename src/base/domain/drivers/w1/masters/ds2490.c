@@ -149,7 +149,9 @@ FlushXmitBuffer(void)
 {
   int err;
   err = ds_send_control_cmd(CTL_HALT_EXE_IDLE, 0);
-  assert(!err);	// FIXME
+  if (err) {
+    kdprintf(KR_OSTREAM, "%s:%d: err=%d\n", __FILE__, __LINE__, err);
+  }
   err = ds_send_control_cmd(CTL_FLUSH_XMT_BUFFER, 0);
   assert(!err);	// FIXME
   err = ds_send_control_cmd(CTL_RESUME_EXE, 0);
@@ -160,7 +162,9 @@ void
 ModeCommand(u16 value, u16 index)
 {
   int err = ds_send_usb_control(MODE_CMD, value, index);
-  assert(!err);	// FIXME handle this somewhere
+  if (err) {
+    kdprintf(KR_OSTREAM, "%s:%d: err=%d\n", __FILE__, __LINE__, err);
+  }
 }
 
 /* Return value:
