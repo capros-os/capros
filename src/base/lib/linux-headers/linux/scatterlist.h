@@ -112,6 +112,7 @@ static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
 {
 	sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
 }
+#endif // CapROS
 
 /*
  * Loop over each sg element, following the pointer to a new list if necessary
@@ -119,6 +120,7 @@ static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
 #define for_each_sg(sglist, sg, nr, __i)	\
 	for (__i = 0, sg = (sglist); __i < (nr); __i++, sg = sg_next(sg))
 
+#if 0 // CapROS
 /**
  * sg_chain - Chain two sglists together
  * @prv:	First scatterlist

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -44,6 +44,13 @@ unsigned long capros_Errno_ExceptionToErrno(unsigned long excep);
 unsigned long capros_Errno_ErrnoToException(unsigned long errno);
 
 #define MAX_ISO_PACKETS 100
+
+#define dbg_errors 0x1
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u | dbg_errors)
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
 
 // Allocate a receive buffer big enough for anything we might receive.
 union {
@@ -361,6 +368,7 @@ HandleSubmitUrb(Message * msg, struct usb_device * udev, int numPkts)
   int ret = usb_submit_urb(urb, GFP_KERNEL);
 
   if (ret) {
+    DEBUG(errors) printk("HandleSubmitUrb: ret=%d\n", ret);
     msg->snd_code = capros_Errno_ErrnoToException(-ret);
 #if 0	// no point in this; a single slot never gets deallocated
     result = capros_SuperNode_deallocateRange(KR_KEYSTORE,

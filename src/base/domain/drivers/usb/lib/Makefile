@@ -30,8 +30,9 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 LIBOBJECTS=$(BUILDDIR)/buflib.o \
  $(BUILDDIR)/urblib.o \
+ $(BUILDDIR)/msglib.o \
  $(BUILDDIR)/usblib.o \
- $(BUILDDIR)/scsilib.o
+ $(BUILDDIR)/scsi_error.o
 LIBTARGETS=$(BUILDDIR)/libusbdev.a
 
 INC=$(DRIVERINC)

@@ -168,8 +168,14 @@ interface USBInterface32 extends USBInterface {
   typedef DMA32.DMAAddress dma_addr_t;
 
   struct urb {
-    unsigned long endpoint;	// bit 7 has direction (0=to device),
-				// bits 15-18 have endpoint, others ignored
+    /* endpoint contains:
+       In bits 15-18, the endpoint number.
+       In bit 7, the direction of transfer (0 means out to the device).
+         For control endpoints, this bit must agree with the direction
+           specified in bit 7 of the bmRequestType field of the Setup packet.
+       Other bits are ignored.
+    */
+    unsigned long endpoint;
 
     USB.transferFlagsEnum transfer_flags;
 
@@ -188,7 +194,7 @@ interface USBInterface32 extends USBInterface {
 
   /** Get the DMA mask.
 
-  DMA addresses for this USB bus may not have bits set
+  DMA addresses for this USB bus must not have bits set
   that are not set in the mask returned by this method. */
   dma_addr_t getDMAMask();
 

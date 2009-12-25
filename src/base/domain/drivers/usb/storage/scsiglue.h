@@ -3,6 +3,7 @@
  *
  * Current development and maintenance by:
  *   (c) 1999, 2000 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -35,6 +36,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef _SCSIGLUE_H_
 #define _SCSIGLUE_H_
@@ -44,5 +48,8 @@ extern void usb_stor_report_bus_reset(struct us_data *us);
 
 extern unsigned char usb_stor_sense_invalidCDB[18];
 extern struct scsi_host_template usb_stor_host_template;
+
+int queuecommand(struct scsi_cmnd *srb,
+                 void (*done)(struct scsi_cmnd *));
 
 #endif

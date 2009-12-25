@@ -3,9 +3,13 @@
  *
  * (C) Copyright 1999 Roman Weissgaerber <weissg@vienna.at>
  * (C) Copyright 2000-2002 David Brownell <dbrownell@users.sourceforge.net>
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This file is licenced under the GPL.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * __hc32 and __hc16 are "Host Controller" types, they may be equivalent to
@@ -601,13 +605,6 @@ static inline __hc32 cpu_to_hc32 (const struct ohci_hcd *ohci, const u32 x)
 	return big_endian_desc(ohci) ?
 		(__force __hc32)cpu_to_be32(x) :
 		(__force __hc32)cpu_to_le32(x);
-}
-
-static inline __hc32 cpu_to_hc32p (const struct ohci_hcd *ohci, const u32 *x)
-{
-	return big_endian_desc(ohci) ?
-		cpu_to_be32p(x) :
-		cpu_to_le32p(x);
 }
 
 /* ohci to cpu */

@@ -1,20 +1,49 @@
 /*
- * message.c - synchronous message handling
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*
+ * usb/core/message.c - synchronous message handling
  */
 
-#include <linux/pci.h>	/* for scatterlist macros */
+//#define DEBUG
+
+#include <ctype.h>
+//#include <linux/pci.h>	/* for scatterlist macros */
 #include <linux/usb.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/timer.h>
-#include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/scatterlist.h>
 #include <linux/usb/quirks.h>
 #include <asm/byteorder.h>
+#include <eros/Invoke.h>
+#include <idl/capros/SuperNode.h>
+#include "usbdev.h"
 
+#if 0 // CapROS lib
 #include "hcd.h"	/* for usbcore internals */
 #include "usb.h"
 
@@ -59,8 +88,7 @@ static int usb_start_wait_urb(struct urb *urb, int timeout, int *actual_length)
 		retval = (ctx.status == -ENOENT ? -ETIMEDOUT : ctx.status);
 
 		dev_dbg(&urb->dev->dev,
-			"%s timed out on ep%d%s len=%u/%u\n",
-			current->comm,
+			"timed out on ep%d%s len=%u/%u\n",
 			usb_endpoint_num(&urb->ep->desc),
 			usb_urb_dir_in(urb) ? "in" : "out",
 			urb->actual_length,
@@ -80,7 +108,9 @@ out:
 static int usb_internal_control_msg(struct usb_device *usb_dev,
 				    unsigned int pipe,
 				    struct usb_ctrlrequest *cmd,
-				    void *data, int len, int timeout)
+				    dma_addr_t setup_dma,
+				    void *data, dma_addr_t data_dma,
+				    int len, int timeout)
 {
 	struct urb *urb;
 	int retv;
@@ -92,6 +122,9 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
 
 	usb_fill_control_urb(urb, usb_dev, pipe, (unsigned char *)cmd, data,
 			     len, usb_api_blocking_completion, NULL);
+	urb->setup_dma = setup_dma;
+	urb->transfer_dma = data_dma;
+	urb->transfer_flags = URB_NO_SETUP_DMA_MAP | URB_NO_TRANSFER_DMA_MAP;
 
 	retv = usb_start_wait_urb(urb, timeout, &length);
 	if (retv < 0)
@@ -101,7 +134,7 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
 }
 
 /**
- * usb_control_msg - Builds a control urb, sends it off and waits for completion
+ * usb_control_msg_dma - Builds a control urb, sends it off and waits for completion
  * @dev: pointer to the usb device to send the message to
  * @pipe: endpoint "pipe" to send the message to
  * @request: USB message request value
@@ -128,14 +161,16 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
  * method can wait for it to complete.  Since you don't have a handle on the
  * URB used, you can't cancel the request.
  */
-int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
+int usb_control_msg_dma(struct usb_device *dev, unsigned int pipe, __u8 request,
 		    __u8 requesttype, __u16 value, __u16 index, void *data,
-		    __u16 size, int timeout)
+		    dma_addr_t data_dma, __u16 size, int timeout)
 {
 	struct usb_ctrlrequest *dr;
 	int ret;
 
-	dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_NOIO);
+	dma_addr_t ctrldma;
+	dr = usb_buffer_alloc(dev, sizeof(struct usb_ctrlrequest), GFP_NOIO,
+                       &ctrldma);
 	if (!dr)
 		return -ENOMEM;
 
@@ -147,14 +182,16 @@ int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
 
 	/* dbg("usb_control_msg"); */
 
-	ret = usb_internal_control_msg(dev, pipe, dr, data, size, timeout);
+	ret = usb_internal_control_msg(dev, pipe, dr, ctrldma,
+		data, data_dma, size, timeout);
 
-	kfree(dr);
+	usb_buffer_free(dev, sizeof(struct usb_ctrlrequest), dr, ctrldma);
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(usb_control_msg);
+EXPORT_SYMBOL_GPL(usb_control_msg_dma);
 
+#if 0 // CapROS
 /**
  * usb_interrupt_msg - Builds an interrupt urb, sends it off and waits for completion
  * @usb_dev: pointer to the usb device to send the message to
@@ -245,8 +282,11 @@ int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
 				usb_api_blocking_completion, NULL);
 
 	return usb_start_wait_urb(urb, timeout, actual_length);
+	... ensure dma present
 }
 EXPORT_SYMBOL_GPL(usb_bulk_msg);
+#endif // CapROS
+#endif // CapROS lib
 
 /*-------------------------------------------------------------------*/
 
@@ -259,8 +299,10 @@ static void sg_clean(struct usb_sg_request *io)
 		io->urbs = NULL;
 	}
 	if (io->dev->dev.dma_mask != NULL)
+#if 0 // CapROS
 		usb_buffer_unmap_sg(io->dev, usb_pipein(io->pipe),
 				    io->sg, io->nents);
+#endif // CapROS
 	io->dev = NULL;
 }
 
@@ -295,7 +337,7 @@ static void sg_complete(struct urb *urb)
 	}
 
 	if (io->status == 0 && status && status != -ECONNRESET) {
-		int i, found, retval;
+		int i, found;
 
 		io->status = status;
 
@@ -308,13 +350,7 @@ static void sg_complete(struct urb *urb)
 			if (!io->urbs [i] || !io->urbs [i]->dev)
 				continue;
 			if (found) {
-				retval = usb_unlink_urb(io->urbs [i]);
-				if (retval != -EINPROGRESS &&
-				    retval != -ENODEV &&
-				    retval != -EBUSY)
-					dev_err(&io->dev->dev,
-						"%s, unlink --> %d\n",
-						__func__, retval);
+				usb_unlink_endpoint(io->urbs [i]->pipe);
 			} else if (urb == io->urbs [i])
 				found = 1;
 		}
@@ -377,6 +413,7 @@ int usb_sg_init(struct usb_sg_request *io, struct usb_device *dev,
 	io->sg = sg;
 	io->nents = nents;
 
+#if 0 // CapROS
 	/* not all host controllers use DMA (like the mainstream pci ones);
 	 * they can use PIO (sl811) or be software over another transport.
 	 */
@@ -386,6 +423,11 @@ int usb_sg_init(struct usb_sg_request *io, struct usb_device *dev,
 						sg, nents);
 	else
 		io->entries = nents;
+#else
+	dma = true;
+	io->entries = 1;	// we only use one sg entry
+	// dma addresses must already be mapped 
+#endif // CapROS
 
 	/* initialize all the urbs we'll use */
 	if (io->entries <= 0)
@@ -437,15 +479,19 @@ int usb_sg_init(struct usb_sg_request *io, struct usb_device *dev,
 		if (dma) {
 			io->urbs[i]->transfer_dma = sg_dma_address(sg);
 			len = sg_dma_len(sg);
-#if defined(CONFIG_HIGHMEM) || defined(CONFIG_GART_IOMMU)
+#if defined(CONFIG_HIGHMEM) || defined(CONFIG_GART_IOMMU) || 1 // CapROS
 			io->urbs[i]->transfer_buffer = NULL;
 #else
 			io->urbs[i]->transfer_buffer = sg_virt(sg);
 #endif
 		} else {
+#if 0 // CapROS
 			/* hc may use _only_ transfer_buffer */
 			io->urbs[i]->transfer_buffer = sg_virt(sg);
 			len = sg->length;
+#else
+			BUG();	// only dma supported
+#endif // CapROS
 		}
 
 		if (length) {
@@ -522,20 +568,21 @@ void usb_sg_wait(struct usb_sg_request *io)
 		int retval;
 
 		io->urbs[i]->dev = io->dev;
-		retval = usb_submit_urb(io->urbs [i], GFP_ATOMIC);
-
-		/* after we submit, let completions or cancelations fire;
-		 * we handshake using io->status.
-		 */
 		spin_unlock_irq(&io->lock);
+		retval = usb_submit_urb_wait(io->urbs [i], GFP_ATOMIC);
+
 		switch (retval) {
 			/* maybe we retrying will recover */
 		case -ENXIO:	/* hc didn't queue this one */
 		case -EAGAIN:
 		case -ENOMEM:
+#if 0 // CapROS
 			io->urbs[i]->dev = NULL;
 			retval = 0;
 			yield();
+#else
+			BUG();
+#endif // CapROS
 			break;
 
 			/* no error? continue immediately.
@@ -597,14 +644,9 @@ void usb_sg_cancel(struct usb_sg_request *io)
 		io->status = -ECONNRESET;
 		spin_unlock(&io->lock);
 		for (i = 0; i < io->entries; i++) {
-			int retval;
-
 			if (!io->urbs [i]->dev)
 				continue;
-			retval = usb_unlink_urb(io->urbs [i]);
-			if (retval != -EINPROGRESS && retval != -EBUSY)
-				dev_warn(&io->dev->dev, "%s, unlink --> %d\n",
-					__func__, retval);
+			usb_unlink_endpoint(io->urbs [i]->pipe);
 		}
 		spin_lock(&io->lock);
 	}
@@ -612,10 +654,11 @@ void usb_sg_cancel(struct usb_sg_request *io)
 }
 EXPORT_SYMBOL_GPL(usb_sg_cancel);
 
+#if 0 // CapROS lib
 /*-------------------------------------------------------------------*/
 
 /**
- * usb_get_descriptor - issues a generic GET_DESCRIPTOR request
+ * usb_get_descriptor_dma - issues a generic GET_DESCRIPTOR request
  * @dev: the device whose descriptor is being retrieved
  * @type: the descriptor type (USB_DT_*)
  * @index: the number of the descriptor
@@ -636,8 +679,8 @@ EXPORT_SYMBOL_GPL(usb_sg_cancel);
  * Returns the number of bytes received on success, or else the status code
  * returned by the underlying usb_control_msg() call.
  */
-int usb_get_descriptor(struct usb_device *dev, unsigned char type,
-		       unsigned char index, void *buf, int size)
+int usb_get_descriptor_dma(struct usb_device *dev, unsigned char type,
+  unsigned char index, void *buf, dma_addr_t buf_dma, int size)
 {
 	int i;
 	int result;
@@ -646,9 +689,9 @@ int usb_get_descriptor(struct usb_device *dev, unsigned char type,
 
 	for (i = 0; i < 3; ++i) {
 		/* retry on length 0 or error; some devices are flakey */
-		result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+		result = usb_control_msg_dma(dev, usb_rcvctrlpipe(dev, 0),
 				USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
-				(type << 8) + index, 0, buf, size,
+				(type << 8) + index, 0, buf, buf_dma, size,
 				USB_CTRL_GET_TIMEOUT);
 		if (result <= 0 && result != -ETIMEDOUT)
 			continue;
@@ -660,10 +703,10 @@ int usb_get_descriptor(struct usb_device *dev, unsigned char type,
 	}
 	return result;
 }
-EXPORT_SYMBOL_GPL(usb_get_descriptor);
+EXPORT_SYMBOL_GPL(usb_get_descriptor_dma);
 
 /**
- * usb_get_string - gets a string descriptor
+ * usb_get_string- gets a string descriptor
  * @dev: the device whose string descriptor is being retrieved
  * @langid: code for language chosen (from string descriptor zero)
  * @index: the number of the descriptor
@@ -682,19 +725,20 @@ EXPORT_SYMBOL_GPL(usb_get_descriptor);
  * This call is synchronous, and may not be used in an interrupt context.
  *
  * Returns the number of bytes received on success, or else the status code
- * returned by the underlying usb_control_msg() call.
+ * returned by the underlying usb_control_msg_dma() call.
  */
 static int usb_get_string(struct usb_device *dev, unsigned short langid,
-			  unsigned char index, void *buf, int size)
+		  unsigned char index, void *buf, dma_addr_t buf_dma, int size)
 {
 	int i;
 	int result;
 
 	for (i = 0; i < 3; ++i) {
 		/* retry on length 0 or stall; some devices are flakey */
-		result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+		result = usb_control_msg_dma(dev, usb_rcvctrlpipe(dev, 0),
 			USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
-			(USB_DT_STRING << 8) + index, langid, buf, size,
+			(USB_DT_STRING << 8) + index, langid,
+			buf, buf_dma, size,
 			USB_CTRL_GET_TIMEOUT);
 		if (result == 0 || result == -EPIPE)
 			continue;
@@ -722,7 +766,7 @@ static void usb_try_string_workarounds(unsigned char *buf, int *length)
 }
 
 static int usb_string_sub(struct usb_device *dev, unsigned int langid,
-			  unsigned int index, unsigned char *buf)
+		unsigned int index, unsigned char *buf, dma_addr_t buf_dma)
 {
 	int rc;
 
@@ -731,14 +775,15 @@ static int usb_string_sub(struct usb_device *dev, unsigned int langid,
 	if (dev->quirks & USB_QUIRK_STRING_FETCH_255)
 		rc = -EIO;
 	else
-		rc = usb_get_string(dev, langid, index, buf, 255);
+		rc = usb_get_string(dev, langid, index, buf, buf_dma, 255);
 
 	/* If that failed try to read the descriptor length, then
 	 * ask for just that many bytes */
 	if (rc < 2) {
-		rc = usb_get_string(dev, langid, index, buf, 2);
+		rc = usb_get_string(dev, langid, index, buf, buf_dma, 2);
 		if (rc == 2)
-			rc = usb_get_string(dev, langid, index, buf, buf[0]);
+			rc = usb_get_string(dev, langid, index,
+				buf, buf_dma, buf[0]);
 	}
 
 	if (rc >= 2) {
@@ -758,7 +803,8 @@ static int usb_string_sub(struct usb_device *dev, unsigned int langid,
 	return rc;
 }
 
-static int usb_get_langid(struct usb_device *dev, unsigned char *tbuf)
+static int usb_get_langid(struct usb_device *dev, unsigned char *tbuf,
+		dma_addr_t tbuf_dma)
 {
 	int err;
 
@@ -768,7 +814,7 @@ static int usb_get_langid(struct usb_device *dev, unsigned char *tbuf)
 	if (dev->string_langid < 0)
 		return -EPIPE;
 
-	err = usb_string_sub(dev, 0, 0, tbuf);
+	err = usb_string_sub(dev, 0, 0, tbuf, tbuf_dma);
 
 	/* If the string was reported but is malformed, default to english
 	 * (0x0409) */
@@ -822,11 +868,12 @@ static int usb_get_langid(struct usb_device *dev, unsigned char *tbuf)
  *
  * This call is synchronous, and may not be used in an interrupt context.
  *
- * Returns length of the string (>= 0) or usb_control_msg status (< 0).
+ * Returns length of the string (>= 0) or usb_control_msg_dma status (< 0).
  */
 int usb_string(struct usb_device *dev, int index, char *buf, size_t size)
 {
 	unsigned char *tbuf;
+	dma_addr_t tbuf_dma;
 	int err;
 	unsigned int u, idx;
 
@@ -835,15 +882,15 @@ int usb_string(struct usb_device *dev, int index, char *buf, size_t size)
 	if (size <= 0 || !buf || !index)
 		return -EINVAL;
 	buf[0] = 0;
-	tbuf = kmalloc(256, GFP_NOIO);
+	tbuf = usb_buffer_alloc(dev, 256, GFP_NOIO, &tbuf_dma);
 	if (!tbuf)
 		return -ENOMEM;
 
-	err = usb_get_langid(dev, tbuf);
+	err = usb_get_langid(dev, tbuf, tbuf_dma);
 	if (err < 0)
 		goto errout;
 
-	err = usb_string_sub(dev, dev->string_langid, index, tbuf);
+	err = usb_string_sub(dev, dev->string_langid, index, tbuf, tbuf_dma);
 	if (err < 0)
 		goto errout;
 
@@ -865,7 +912,7 @@ int usb_string(struct usb_device *dev, int index, char *buf, size_t size)
 			tbuf[1], index, buf);
 
  errout:
-	kfree(tbuf);
+	usb_buffer_free(dev, 256, tbuf, tbuf_dma);
 	return err;
 }
 EXPORT_SYMBOL_GPL(usb_string);
@@ -911,29 +958,31 @@ char *usb_cache_string(struct usb_device *udev, int index)
  * which dedicates space for this purpose.
  *
  * Not exported, only for use by the core.  If drivers really want to read
- * the device descriptor directly, they can call usb_get_descriptor() with
+ * the device descriptor directly, they can call usb_get_descriptor_dma() with
  * type = USB_DT_DEVICE and index = 0.
  *
  * This call is synchronous, and may not be used in an interrupt context.
  *
  * Returns the number of bytes received on success, or else the status code
- * returned by the underlying usb_control_msg() call.
+ * returned by the underlying usb_control_msg_dma() call.
  */
 int usb_get_device_descriptor(struct usb_device *dev, unsigned int size)
 {
 	struct usb_device_descriptor *desc;
+	dma_addr_t desc_dma;
 	int ret;
 
 	if (size > sizeof(*desc))
 		return -EINVAL;
-	desc = kmalloc(sizeof(*desc), GFP_NOIO);
+	desc = usb_buffer_alloc(dev, sizeof(*desc), GFP_NOIO, &desc_dma);
 	if (!desc)
 		return -ENOMEM;
 
-	ret = usb_get_descriptor(dev, USB_DT_DEVICE, 0, desc, size);
+	ret = usb_get_descriptor_dma(dev, USB_DT_DEVICE, 0,
+		desc, desc_dma, size);
 	if (ret >= 0)
 		memcpy(&dev->descriptor, desc, size);
-	kfree(desc);
+	usb_buffer_free(dev, sizeof(*desc), desc, desc_dma);
 	return ret;
 }
 
@@ -962,17 +1011,19 @@ int usb_get_device_descriptor(struct usb_device *dev, unsigned int size)
 int usb_get_status(struct usb_device *dev, int type, int target, void *data)
 {
 	int ret;
-	u16 *status = kmalloc(sizeof(*status), GFP_KERNEL);
+	dma_addr_t status_dma;
+	u16 * status = usb_buffer_alloc(dev, sizeof(*status), GFP_KERNEL,
+		&status_dma);
 
 	if (!status)
 		return -ENOMEM;
 
-	ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+	ret = usb_control_msg_dma(dev, usb_rcvctrlpipe(dev, 0),
 		USB_REQ_GET_STATUS, USB_DIR_IN | type, 0, target, status,
-		sizeof(*status), USB_CTRL_GET_TIMEOUT);
+		status_dma, sizeof(*status), USB_CTRL_GET_TIMEOUT);
 
 	*(u16 *)data = *status;
-	kfree(status);
+	usb_buffer_free(dev, sizeof(*status), status, status_dma);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(usb_get_status);
@@ -998,7 +1049,7 @@ EXPORT_SYMBOL_GPL(usb_get_status);
  * This call is synchronous, and may not be used in an interrupt context.
  *
  * Returns zero on success, or else the status code returned by the
- * underlying usb_control_msg() call.
+ * underlying usb_control_msg_dma() call.
  */
 int usb_clear_halt(struct usb_device *dev, int pipe)
 {
@@ -1012,9 +1063,9 @@ int usb_clear_halt(struct usb_device *dev, int pipe)
 	 * (like some ibmcam model 1 units) seem to expect hosts to make
 	 * this request for iso endpoints, which can't halt!
 	 */
-	result = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
+	result = usb_control_msg_dma(dev, usb_sndctrlpipe(dev, 0),
 		USB_REQ_CLEAR_FEATURE, USB_RECIP_ENDPOINT,
-		USB_ENDPOINT_HALT, endp, NULL, 0,
+		USB_ENDPOINT_HALT, endp, NULL, 0, 0,
 		USB_CTRL_SET_TIMEOUT);
 
 	/* don't un-halt or force to DATA0 except on success */
@@ -1037,29 +1088,33 @@ EXPORT_SYMBOL_GPL(usb_clear_halt);
 
 static int create_intf_ep_devs(struct usb_interface *intf)
 {
+	if (intf->ep_devs_created || intf->unregistering)
+		return 0;
+
+#if 0 // CapROS
 	struct usb_device *udev = interface_to_usbdev(intf);
 	struct usb_host_interface *alt = intf->cur_altsetting;
 	int i;
 
-	if (intf->ep_devs_created || intf->unregistering)
-		return 0;
-
 	for (i = 0; i < alt->desc.bNumEndpoints; ++i)
 		(void) usb_create_ep_devs(&intf->dev, &alt->endpoint[i], udev);
+#endif // CapROS
 	intf->ep_devs_created = 1;
 	return 0;
 }
 
 static void remove_intf_ep_devs(struct usb_interface *intf)
 {
-	struct usb_host_interface *alt = intf->cur_altsetting;
-	int i;
-
 	if (!intf->ep_devs_created)
 		return;
 
+#if 0 // CapROS
+	struct usb_host_interface *alt = intf->cur_altsetting;
+	int i;
+
 	for (i = 0; i < alt->desc.bNumEndpoints; ++i)
 		usb_remove_ep_devs(&alt->endpoint[i]);
+#endif // CapROS
 	intf->ep_devs_created = 0;
 }
 
@@ -1183,7 +1238,7 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 				dev_name(&interface->dev));
 			interface->unregistering = 1;
 			remove_intf_ep_devs(interface);
-			device_del(&interface->dev);
+			usb_unbind_interface(&interface->dev);
 		}
 
 		/* Now that the interfaces are unbound, nobody should
@@ -1243,9 +1298,9 @@ void usb_enable_interface(struct usb_device *dev,
 }
 
 /**
- * usb_set_interface - Makes a particular alternate setting be current
+ * usb_set_altSetting - Makes a particular alternate setting be current
  * @dev: the device whose interface is being updated
- * @interface: the interface being updated
+ * @iface: the interface being updated
  * @alternate: the setting being chosen.
  * Context: !in_interrupt ()
  *
@@ -1273,11 +1328,12 @@ void usb_enable_interface(struct usb_device *dev,
  * (perhaps forced by unlinking).
  *
  * Returns zero on success, or else the status code returned by the
- * underlying usb_control_msg() call.
+ * underlying usb_control_msg_dma() call.
  */
-int usb_set_interface(struct usb_device *dev, int interface, int alternate)
+int usb_set_altSetting(struct usb_device *dev,
+  struct usb_interface * iface, int alternate)
 {
-	struct usb_interface *iface;
+	int interface = usb_interface_getNumber(iface);
 	struct usb_host_interface *alt;
 	int ret;
 	int manual = 0;
@@ -1286,13 +1342,6 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 
 	if (dev->state == USB_STATE_SUSPENDED)
 		return -EHOSTUNREACH;
-
-	iface = usb_ifnum_to_if(dev, interface);
-	if (!iface) {
-		dev_dbg(&dev->dev, "selecting invalid interface %d\n",
-			interface);
-		return -EINVAL;
-	}
 
 	alt = usb_altnum_to_altsetting(iface, alternate);
 	if (!alt) {
@@ -1304,9 +1353,9 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 	if (dev->quirks & USB_QUIRK_NO_SET_INTF)
 		ret = -EPIPE;
 	else
-		ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
+		ret = usb_control_msg_dma(dev, usb_sndctrlpipe(dev, 0),
 				   USB_REQ_SET_INTERFACE, USB_RECIP_INTERFACE,
-				   alternate, interface, NULL, 0, 5000);
+				   alternate, interface, NULL, 0, 0, 5000);
 
 	/* 9.4.10 says devices don't need this and are free to STALL the
 	 * request if the interface only has one alternate setting.
@@ -1328,7 +1377,7 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 	/* prevent submissions using previous endpoint settings */
 	if (iface->cur_altsetting != alt) {
 		remove_intf_ep_devs(iface);
-		usb_remove_sysfs_intf_files(iface);
+		// usb_remove_sysfs_intf_files(iface);
 	}
 	usb_disable_interface(dev, iface, true);
 
@@ -1366,13 +1415,13 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 	 */
 	usb_enable_interface(dev, iface, true);
 	if (device_is_registered(&iface->dev)) {
-		usb_create_sysfs_intf_files(iface);
+		// usb_create_sysfs_intf_files(iface);
 		create_intf_ep_devs(iface);
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(usb_set_interface);
 
+#if 0 // CapROS
 /**
  * usb_reset_configuration - lightweight device reset
  * @dev: the device whose configuration is being reset
@@ -1414,10 +1463,10 @@ int usb_reset_configuration(struct usb_device *dev)
 	}
 
 	config = dev->actconfig;
-	retval = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
+	retval = usb_control_msg_dma(dev, usb_sndctrlpipe(dev, 0),
 			USB_REQ_SET_CONFIGURATION, 0,
 			config->desc.bConfigurationValue, 0,
-			NULL, 0, USB_CTRL_SET_TIMEOUT);
+			NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
 	if (retval < 0)
 		return retval;
 
@@ -1450,6 +1499,7 @@ int usb_reset_configuration(struct usb_device *dev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usb_reset_configuration);
+#endif // CapROS
 
 static void usb_release_interface(struct device *dev)
 {
@@ -1458,9 +1508,13 @@ static void usb_release_interface(struct device *dev)
 			altsetting_to_usb_interface_cache(intf->altsetting);
 
 	kref_put(&intfc->ref, usb_release_interface_cache);
+
+	// Remove from newInterfacesList if it is on it:
+	list_del(&intf->link);
 	kfree(intf);
 }
 
+#if 0 // CapROS
 #ifdef	CONFIG_HOTPLUG
 static int usb_if_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
@@ -1502,11 +1556,12 @@ static int usb_if_uevent(struct device *dev, struct kobj_uevent_env *env)
 	return -ENODEV;
 }
 #endif	/* CONFIG_HOTPLUG */
+#endif // CapROS
 
 struct device_type usb_if_device_type = {
 	.name =		"usb_interface",
 	.release =	usb_release_interface,
-	.uevent =	usb_if_uevent,
+	.uevent =	0////usb_if_uevent,
 };
 
 static struct usb_interface_assoc_descriptor *find_iad(struct usb_device *dev,
@@ -1657,11 +1712,23 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 	n = nintf = 0;
 	if (cp) {
 		nintf = cp->desc.bNumInterfaces;
+		BUG_ON(nintf > USB_MAXINTERFACES);
+			// else this device can't be supported because
+			// usb_host_config.interfaces is too small
+
 		new_interfaces = kmalloc(nintf * sizeof(*new_interfaces),
 				GFP_KERNEL);
 		if (!new_interfaces) {
-			dev_err(&dev->dev, "Out of memory\n");
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto noArray;
+		}
+
+		result_t result;
+		result = capros_SuperNode_allocateRange(KR_KEYSTORE,
+			driverSlot(dev, 0), driverSlot(dev, nintf-1) );
+		if (result != RC_OK) {
+			ret = -ENOMEM;
+			goto noSlots;
 		}
 
 		for (; n < nintf; ++n) {
@@ -1669,12 +1736,17 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 					sizeof(struct usb_interface),
 					GFP_KERNEL);
 			if (!new_interfaces[n]) {
-				dev_err(&dev->dev, "Out of memory\n");
 				ret = -ENOMEM;
 free_interfaces:
 				while (--n >= 0)
 					kfree(new_interfaces[n]);
+				capros_SuperNode_deallocateRange(KR_KEYSTORE,
+					driverSlot(dev, 0),
+					driverSlot(dev, nintf-1) );
+noSlots:
 				kfree(new_interfaces);
+noArray:
+				dev_err(&dev->dev, "Out of memory\n");
 				return ret;
 			}
 		}
@@ -1700,9 +1772,9 @@ free_interfaces:
 	/* Get rid of pending async Set-Config requests for this device */
 	cancel_async_set_config(dev);
 
-	ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
+	ret = usb_control_msg_dma(dev, usb_sndctrlpipe(dev, 0),
 			      USB_REQ_SET_CONFIGURATION, 0, configuration, 0,
-			      NULL, 0, USB_CTRL_SET_TIMEOUT);
+			      NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
 	if (ret < 0) {
 		/* All the old state is gone, so what else can we do?
 		 * The device is probably useless now anyway.
@@ -1731,6 +1803,7 @@ free_interfaces:
 		intf->altsetting = intfc->altsetting;
 		intf->num_altsetting = intfc->num_altsetting;
 		intf->intf_assoc = find_iad(dev, cp, i);
+		intf->localInterfaceNum = i;
 		kref_get(&intfc->ref);
 
 		alt = usb_altnum_to_altsetting(intf, 0);
@@ -1749,7 +1822,7 @@ free_interfaces:
 		intf->dev.driver = NULL;
 		intf->dev.bus = &usb_bus_type;
 		intf->dev.type = &usb_if_device_type;
-		intf->dev.groups = usb_interface_groups;
+		// intf->dev.groups = usb_interface_groups;
 		intf->dev.dma_mask = dev->dev.dma_mask;
 		INIT_WORK(&intf->reset_ws, __usb_queue_reset_device);
 		device_initialize(&intf->dev);
@@ -1783,6 +1856,15 @@ free_interfaces:
 				dev_name(&intf->dev), ret);
 			continue;
 		}
+		/* Our device_add does not do bus_add_device.
+		   Instead just call usb_device_attach. */
+		//// ? intf->dev.kobj.state_in_sysfs = 1;
+		ret = usb_device_attach(&dev->dev);
+		if (ret != 0) {
+			dev_err(&dev->dev, "device_add(%s) --> %d\n",
+				dev_name(&intf->dev), ret);
+			continue;
+		}
 		create_intf_ep_devs(intf);
 	}
 
@@ -1800,6 +1882,7 @@ struct set_config_request {
 	struct list_head	node;
 };
 
+#if 0 // CapROS
 /* Worker routine for usb_driver_set_configuration() */
 static void driver_set_config_work(struct work_struct *work)
 {
@@ -1818,6 +1901,7 @@ static void driver_set_config_work(struct work_struct *work)
 	usb_put_dev(udev);
 	kfree(req);
 }
+#endif // CapROS
 
 /* Cancel pending Set-Config requests for a device whose configuration
  * was just changed
@@ -1834,6 +1918,7 @@ static void cancel_async_set_config(struct usb_device *udev)
 	spin_unlock(&set_config_lock);
 }
 
+#if 0 // CapROS
 /**
  * usb_driver_set_configuration - Provide a way for drivers to change device configurations
  * @udev: the device whose configuration is being updated
@@ -1874,3 +1959,5 @@ int usb_driver_set_configuration(struct usb_device *udev, int config)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usb_driver_set_configuration);
+#endif // CapROS
+#endif // CapROS lib

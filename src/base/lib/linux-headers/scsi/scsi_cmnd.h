@@ -141,7 +141,8 @@ extern struct scsi_cmnd *__scsi_get_command(struct Scsi_Host *, gfp_t);
 extern void scsi_put_command(struct scsi_cmnd *);
 extern void __scsi_put_command(struct Scsi_Host *, struct scsi_cmnd *,
 			       struct device *);
-extern void scsi_finish_command(struct scsi_cmnd *cmd);
+extern void scsi_finish_command(struct scsi_cmnd *cmd,
+  int * resultp, unsigned int * residualp);
 
 extern void *scsi_kmap_atomic_sg(struct scatterlist *sg, int sg_count,
 				 size_t *offset, size_t *len);

@@ -1,3 +1,26 @@
+ /*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/bitops.h>
@@ -7,6 +30,7 @@
 #include <linux/usb.h>
 #include <linux/wait.h>
 #include "hcd.h"
+#include "usb.h"
 
 #define to_urb(d) container_of(d, struct urb, kref)
 
@@ -16,9 +40,13 @@ static void urb_destroy(struct kref *kref)
 	struct urb *urb = to_urb(kref);
 
 	if (urb->transfer_flags & URB_FREE_BUFFER)
-		kfree(urb->transfer_buffer);
+		// kfree(urb->transfer_buffer);
+		BUG_ON(true); // how was transfer_buffer allocated?
 
-	kfree(urb);
+	if (urb->hasCap)
+		usb_freeUrbWithCap(urb);
+        else
+		kfree(urb);
 }
 
 /**
@@ -316,6 +344,7 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
 	 */
 	xfertype = usb_endpoint_type(&ep->desc);
 	if (xfertype == USB_ENDPOINT_XFER_CONTROL) {
+#if 0 // CapROS
 		struct usb_ctrlrequest *setup =
 				(struct usb_ctrlrequest *) urb->setup_packet;
 
@@ -323,6 +352,18 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
 			return -ENOEXEC;
 		is_out = !(setup->bRequestType & USB_DIR_IN) ||
 				!setup->wLength;
+#else
+		/* urb->setup_packet is not meaningful,
+ 		and to get data from the address in urb->setup_dma
+		would require an extra kernel call.
+		Take the direction from the bit in the endpoint number.
+		We rely on that being the same as
+		the bit in setup->bRequestType.
+		(Linux relies on setup_packet pointing to the same data
+		as setup_dma.)
+		*/
+		is_out = usb_pipeout(urb->pipe);
+#endif // CapROS
 	} else {
 		is_out = usb_endpoint_dir_out(&ep->desc);
 	}

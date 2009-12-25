@@ -1394,6 +1394,7 @@ UNUSUAL_DEV(  0x1186, 0x3e04, 0x0000, 0x0000,
            "USB Mass Storage",
            US_SC_DEVICE, US_PR_DEVICE, option_ms_init, 0),
 
+#if 0 // CapROS - not bothering to support
 /* Reported by Kevin Lloyd <linux@sierrawireless.com>
  * Entry is needed for the initializer function override,
  * which instructs the device to load as a modem
@@ -1404,6 +1405,7 @@ UNUSUAL_DEV(  0x1199, 0x0fff, 0x0000, 0x9999,
 		"USB MMC Storage",
 		US_SC_DEVICE, US_PR_DEVICE, sierra_ms_init,
 		0),
+#endif // CapROS
 
 /* Reported by Jaco Kroon <jaco@kroon.co.za>
  * The usb-storage module found on the Digitech GNX4 (and supposedly other

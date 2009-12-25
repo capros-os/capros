@@ -16,6 +16,25 @@
  *	(C) Copyright Greg Kroah-Hartman 2002-2003
  *
  */
+/*
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
 
 #include <linux/usb.h>
 #include "usb.h"
@@ -151,7 +170,7 @@ int usb_choose_configuration(struct usb_device *udev)
 	return i;
 }
 
-static int generic_probe(struct usb_device *udev)
+int usbdev_generic_probe(struct usb_device *udev)
 {
 	int err, c;
 
@@ -173,14 +192,14 @@ static int generic_probe(struct usb_device *udev)
 		}
 	}
 	/* USB device state == configured ... usable */
-	usb_notify_add_device(udev);
+	//usb_notify_add_device(udev);
 
 	return 0;
 }
 
-static void generic_disconnect(struct usb_device *udev)
+void usbdev_generic_disconnect(struct usb_device *udev)
 {
-	usb_notify_remove_device(udev);
+	//usb_notify_remove_device(udev);
 
 	/* if this is only an unbind, not a physical disconnect, then
 	 * unconfigure the device */
@@ -188,6 +207,7 @@ static void generic_disconnect(struct usb_device *udev)
 		usb_set_configuration(udev, -1);
 }
 
+#if 0 // CapROS, not implemented yet
 #ifdef	CONFIG_PM
 
 static int generic_suspend(struct usb_device *udev, pm_message_t msg)
@@ -228,7 +248,9 @@ static int generic_resume(struct usb_device *udev, pm_message_t msg)
 }
 
 #endif	/* CONFIG_PM */
+#endif // CapROS
 
+#if 0 // CapROS
 struct usb_device_driver usb_generic_driver = {
 	.name =	"usb",
 	.probe = generic_probe,
@@ -239,3 +261,4 @@ struct usb_device_driver usb_generic_driver = {
 #endif
 	.supports_autosuspend = 1,
 };
+#endif // CapROS

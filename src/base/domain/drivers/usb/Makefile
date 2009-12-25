@@ -65,6 +65,7 @@ interfaces: $(IDL)
 $(BUILDDIR)/usbhcd: $(OBJECTS) $(DRIVERDEPS)
 	$(DRIVERLINK) $(OBJECTS) $(DRIVERLIBS) -o $@
 # and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all

@@ -26,10 +26,16 @@ static const size_t	pool_max [HCD_BUFFER_POOLS] = {
 	/* platforms without dma-friendly caches might need to
 	 * prevent cacheline sharing...
 	 */
+#if 0
 	32,
 	128,
 	512,
 	PAGE_SIZE / 2
+#else
+	32,
+	256,
+	1024
+#endif
 	/* bigger --> allocate pages */
 };
 

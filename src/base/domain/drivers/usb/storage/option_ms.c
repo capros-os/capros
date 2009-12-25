@@ -3,6 +3,10 @@
  *
  *   (c) 2008 Dan Williams <dcbw@redhat.com>
  *
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
  * Inspiration taken from sierra_ms.c by Kevin Lloyd <klloyd@sierrawireless.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,6 +25,7 @@
  */
 
 #include <linux/usb.h>
+#include <linux/dma-mapping.h>
 
 #include "usb.h"
 #include "transport.h"
@@ -31,7 +36,7 @@
 #define ZCD_ALLOW_MS 			0x02
 
 static unsigned int option_zero_cd = ZCD_FORCE_MODEM;
-module_param(option_zero_cd, uint, S_IRUGO | S_IWUSR);
+//module_param(option_zero_cd, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(option_zero_cd, "ZeroCD mode (1=Force Modem (default),"
 		 " 2=Allow CD-Rom");
 
@@ -50,14 +55,16 @@ static int option_rezero(struct us_data *us, int ep_in, int ep_out)
 
 	US_DEBUGP("Option MS: %s", "DEVICE MODE SWITCH\n");
 
-	buffer = kzalloc(RESPONSE_LEN, GFP_KERNEL);
+	dma_addr_t buffer_dma;
+	buffer = dma_alloc_coherent(NULL, RESPONSE_LEN,
+	           &buffer_dma, GFP_KERNEL);
 	if (buffer == NULL)
 		return USB_STOR_TRANSPORT_ERROR;
 
 	memcpy(buffer, rezero_msg, sizeof (rezero_msg));
 	result = usb_stor_bulk_transfer_buf(us,
 			usb_sndbulkpipe(us->pusb_dev, ep_out),
-			buffer, sizeof (rezero_msg), NULL);
+			buffer, buffer_dma, sizeof (rezero_msg), NULL);
 	if (result != USB_STOR_XFER_GOOD) {
 		result = USB_STOR_XFER_ERROR;
 		goto out;
@@ -68,11 +75,11 @@ static int option_rezero(struct us_data *us, int ep_in, int ep_out)
 	 */
 	result = usb_stor_bulk_transfer_buf(us,
 			usb_sndbulkpipe(us->pusb_dev, ep_out),
-			buffer, RESPONSE_LEN, NULL);
+			buffer, buffer_dma, RESPONSE_LEN, NULL);
 	result = USB_STOR_XFER_GOOD;
 
 out:
-	kfree(buffer);
+	dma_free_coherent(NULL, RESPONSE_LEN, buffer, buffer_dma);
 	return result;
 }
 

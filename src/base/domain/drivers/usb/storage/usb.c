@@ -12,6 +12,8 @@
  *
  * usb_device_id support by Adam J. Richter (adam@yggdrasil.com):
  *   (c) 2000 Yggdrasil Computing, Inc.
+
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -44,6 +46,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/sched.h>
 #include <linux/errno.h>
@@ -59,6 +64,11 @@
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_device.h>
 
+#include <domain/assert.h>
+#include <eros/Invoke.h>
+#include <idl/capros/DevPrivs.h>
+#include <asm/SCSICtrl.h>
+
 #include "usb.h"
 #include "scsiglue.h"
 #include "transport.h"
@@ -66,20 +76,24 @@
 #include "debug.h"
 #include "initializers.h"
 
-#include "sierra_ms.h"
+//#include "sierra_ms.h"
 #include "option_ms.h"
+
+/* Declarations of cap.c: */
+extern struct Scsi_Host * theHost;
+extern capros_SCSIControl_SCSIHostTemplate capros_host_template;
 
 /* Some informational data */
 MODULE_AUTHOR("Matthew Dharm <mdharm-usb@one-eyed-alien.net>");
 MODULE_DESCRIPTION("USB Mass Storage driver for Linux");
 MODULE_LICENSE("GPL");
 
-static unsigned int delay_use = 5;
-module_param(delay_use, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(delay_use, "seconds to delay before using a new device");
+static unsigned int delay_use = 0;
+//module_param(delay_use, uint, S_IRUGO | S_IWUSR);
+//MODULE_PARM_DESC(delay_use, "seconds to delay before using a new device");
 
 static char quirks[128];
-module_param_string(quirks, quirks, sizeof(quirks), S_IRUGO | S_IWUSR);
+//module_param_string(quirks, quirks, sizeof(quirks), S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(quirks, "supplemental list of device IDs and their quirks");
 
 
@@ -261,6 +275,8 @@ static int usb_stor_control_thread(void * __us)
 	struct us_data *us = (struct us_data *)__us;
 	struct Scsi_Host *host = us_to_host(us);
 
+	capros_DevPrivs_declarePFHProcess(KR_DEVPRIVS, KR_SELF);
+
 	for(;;) {
 		US_DEBUGP("*** thread sleeping.\n");
 		if (wait_for_completion_interruptible(&us->cmnd_ready))
@@ -367,6 +383,7 @@ SkipForAbort:
 		mutex_unlock(&us->dev_mutex);
 	} /* for (;;) */
 
+#if 0 // CapROS
 	/* Wait until we are told to stop */
 	for (;;) {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -375,6 +392,7 @@ SkipForAbort:
 		schedule();
 	}
 	__set_current_state(TASK_RUNNING);
+#endif // CapROS
 	return 0;
 }	
 
@@ -559,7 +577,7 @@ static int get_device_info(struct us_data *us, const struct usb_device_id *id,
 				idesc->bInterfaceSubClass,
 				idesc->bInterfaceProtocol,
 				msgs[msg],
-				utsname()->release);
+				init_utsname()->release);
 	}
 
 	return 0;
@@ -692,6 +710,10 @@ static int usb_stor_acquire_resources(struct us_data *us)
 	int p;
 	struct task_struct *th;
 
+	// Timers require resources, so get them now:
+	struct timer_list tim;
+	init_timer(&tim);	// this is sufficient
+
 	us->current_urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!us->current_urb) {
 		US_DEBUGP("URB allocation failed\n");
@@ -707,6 +729,9 @@ static int usb_stor_acquire_resources(struct us_data *us)
 	}
 
 	/* Start up our control thread */
+	/* Note, as soon as usb_stor_control_thread runs, it calls
+	capros_DevPrivs_declarePFHProcess, so all other resources must
+	be acquired first. */
 	th = kthread_run(usb_stor_control_thread, us, "usb-storage");
 	if (IS_ERR(th)) {
 		printk(KERN_WARNING USB_STORAGE 
@@ -781,7 +806,12 @@ static void quiesce_and_remove_host(struct us_data *us)
 	/* Removing the host will perform an orderly shutdown: caches
 	 * synchronized, disks spun down, etc.
 	 */
+#if 0 // CapROS
 	scsi_remove_host(host);
+#else
+	result_t result = capros_SCSIHost_removeHost(KR_SCSIHOST);
+	assert(result == RC_OK);
+#endif // CapROS
 
 	/* Prevent any new commands from being accepted and cut short
 	 * reset delays.
@@ -797,10 +827,6 @@ static void release_everything(struct us_data *us)
 {
 	usb_stor_release_resources(us);
 	dissociate_dev(us);
-
-	/* Drop our reference to the host; the SCSI core will free it
-	 * (and "us" along with it) when the refcount becomes 0. */
-	scsi_host_put(us_to_host(us));
 }
 
 /* Thread to carry out delayed SCSI-device scanning */
@@ -831,13 +857,15 @@ static int usb_stor_scan_thread(void * __us)
 			us->max_lun = usb_stor_Bulk_max_lun(us);
 			mutex_unlock(&us->dev_mutex);
 		}
-		scsi_scan_host(us_to_host(us));
+		result_t result = capros_SCSIHost_scanHost(KR_SCSIHOST);
+		assert(result == RC_OK);
 		printk(KERN_DEBUG "usb-storage: device scan complete\n");
 
 		/* Should we unbind if no devices were detected? */
 	}
 
-	complete_and_exit(&us->scanning_done, 0);
+	complete(&us->scanning_done);
+	return 0;
 }
 
 
@@ -847,12 +875,13 @@ int usb_stor_probe1(struct us_data **pus,
 		const struct usb_device_id *id,
 		struct us_unusual_dev *unusual_dev)
 {
-	struct Scsi_Host *host;
+	struct Scsi_Host * host;
 	struct us_data *us;
 	int result;
 
 	US_DEBUGP("USB Mass Storage device detected\n");
 
+#if 0 // CapROS
 	/*
 	 * Ask the SCSI layer to allocate a host structure, with extra
 	 * space at the end for our private us_data structure.
@@ -863,6 +892,11 @@ int usb_stor_probe1(struct us_data **pus,
 			"Unable to allocate the scsi host\n");
 		return -ENOMEM;
 	}
+#else
+	/* Initialize our Scsi_Host structure. */
+	host = theHost;
+	spin_lock_init(host->host_lock);
+#endif // CapROS
 
 	/*
 	 * Allow 16-byte CDBs and thus > 2TB
@@ -929,15 +963,26 @@ int usb_stor_probe2(struct us_data *us)
 	result = usb_stor_acquire_resources(us);
 	if (result)
 		goto BadDevice;
+
+#if 0 // CapROS
 	result = scsi_add_host(us_to_host(us), &us->pusb_intf->dev);
 	if (result) {
+#else
+	result_t resultcap;
+	resultcap = capros_Process_makeStartKey(KR_SELF, keyInfoSCSIDevice,
+		KR_TEMP0);
+	assert(resultcap == RC_OK);
+	resultcap = capros_SCSIControl_addHost(KR_SCSICONTROL,
+		capros_host_template, KR_TEMP0, KR_SCSIHOST);
+	if (resultcap != RC_OK) {
+#endif // CapROS
 		printk(KERN_WARNING USB_STORAGE
-			"Unable to add the scsi host\n");
+			"Unable to add the scsi host, %x\n", resultcap);
 		goto BadDevice;
 	}
 
 	/* Start up the thread for delayed SCSI-device scanning */
-	th = kthread_create(usb_stor_scan_thread, us, "usb-stor-scan");
+	th = kthread_run(usb_stor_scan_thread, us, "usb-stor-scan");
 	if (IS_ERR(th)) {
 		printk(KERN_WARNING USB_STORAGE 
 		       "Unable to start the device-scanning thread\n");
@@ -946,8 +991,6 @@ int usb_stor_probe2(struct us_data *us)
 		result = PTR_ERR(th);
 		goto BadDevice;
 	}
-
-	wake_up_process(th);
 
 	return 0;
 
@@ -971,8 +1014,9 @@ void usb_stor_disconnect(struct usb_interface *intf)
 EXPORT_SYMBOL_GPL(usb_stor_disconnect);
 
 /* The main probe routine for standard devices */
-static int storage_probe(struct usb_interface *intf,
-			 const struct usb_device_id *id)
+int storage_probe(struct usb_interface *intf,
+			 const struct usb_device_id *id,
+			 unsigned long deviceIDIndex)
 {
 	struct us_data *us;
 	int result;
@@ -983,8 +1027,7 @@ static int storage_probe(struct usb_interface *intf,
 	 * If the device isn't standard (is handled by a subdriver
 	 * module) then don't accept it.
 	 */
-	if (usb_usual_check_type(id, USB_US_TYPE_STOR) ||
-			usb_usual_ignore_device(intf))
+	if (usb_usual_check_type(id, USB_US_TYPE_STOR))
 		return -ENXIO;
 
 	/*
@@ -995,7 +1038,7 @@ static int storage_probe(struct usb_interface *intf,
 	 * corresponding unusual_devs entry.
 	 */
 	result = usb_stor_probe1(&us, intf, id,
-			(id - usb_storage_usb_ids) + us_unusual_dev_list);
+			deviceIDIndex + us_unusual_dev_list);
 	if (result)
 		return result;
 
@@ -1009,19 +1052,20 @@ static int storage_probe(struct usb_interface *intf,
  * Initialization and registration
  ***********************************************************************/
 
-static struct usb_driver usb_storage_driver = {
+struct usb_driver usb_storage_driver = {
 	.name =		"usb-storage",
-	.probe =	storage_probe,
-	.disconnect =	usb_stor_disconnect,
+	.probe =	NULL,//storage_probe,
+	.disconnect =	NULL,//usb_stor_disconnect,
 	.suspend =	usb_stor_suspend,
 	.resume =	usb_stor_resume,
 	.reset_resume =	usb_stor_reset_resume,
 	.pre_reset =	usb_stor_pre_reset,
 	.post_reset =	usb_stor_post_reset,
-	.id_table =	usb_storage_usb_ids,
+	.id_table =	NULL,//usb_storage_usb_ids,
 	.soft_unbind =	1,
 };
 
+#if 0 // CapROS
 static int __init usb_stor_init(void)
 {
 	int retval;
@@ -1036,20 +1080,23 @@ static int __init usb_stor_init(void)
 	}
 	return retval;
 }
+module_init(usb_stor_init);
+#endif // CapROS
 
-static void __exit usb_stor_exit(void)
+void __exit usb_stor_exit(void)
 {
 	US_DEBUGP("usb_stor_exit() called\n");
 
+#if 0 // CapROS
 	/* Deregister the driver
 	 * This will cause disconnect() to be called for each
 	 * attached unit
 	 */
 	US_DEBUGP("-- calling usb_deregister()\n");
 	usb_deregister(&usb_storage_driver) ;
+#endif // CapROS
 
-	usb_usual_clear_present(USB_US_TYPE_STOR);
+	// usb_usual_clear_present(USB_US_TYPE_STOR);
 }
 
-module_init(usb_stor_init);
 module_exit(usb_stor_exit);

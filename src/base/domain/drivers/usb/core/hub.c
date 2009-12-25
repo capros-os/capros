@@ -1,4 +1,27 @@
 /*
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*
  * USB hub driver.
  *
  * (C) Copyright 1999 Linus Torvalds
@@ -7,6 +30,8 @@
  * (C) Copyright 2001 Brad Hards (bhards@bigpond.net.au)
  *
  */
+
+// #define DEBUG
 
 #include <linux/kernel.h>
 #include <linux/errno.h>
@@ -18,12 +43,10 @@
 #include <linux/slab.h>
 #include <linux/ioctl.h>
 #include <linux/usb.h>
-#include <linux/usbdevice_fs.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>
-#include <linux/freezer.h>
 
-#include <asm/uaccess.h>
+//#include <asm/uaccess.h>
 #include <asm/byteorder.h>
 
 #include "usb.h"
@@ -46,10 +69,12 @@ struct usb_hub {
 	/* buffer for urb ... with extra space in case of babble */
 	char			(*buffer)[8];
 	dma_addr_t		buffer_dma;	/* DMA address for buffer */
+
 	union {
 		struct usb_hub_status	hub;
 		struct usb_port_status	port;
 	}			*status;	/* buffer for status reports */
+	dma_addr_t		status_dma;
 	struct mutex		status_mutex;	/* for the status buffer */
 
 	int			error;		/* last reported error */
@@ -66,6 +91,8 @@ struct usb_hub {
 #endif
 
 	struct usb_hub_descriptor *descriptor;	/* class descriptor */
+	dma_addr_t		descriptor_dma;
+
 	struct usb_tt		tt;		/* Transaction Translator */
 
 	unsigned		mA_per_port;	/* current for each child */
@@ -91,14 +118,12 @@ static DEFINE_SPINLOCK(hub_event_lock);
 static LIST_HEAD(hub_event_list);	/* List of hubs needing servicing */
 
 /* Wakes up khubd */
-static DECLARE_WAIT_QUEUE_HEAD(khubd_wait);
+static __DECLARE_SEMAPHORE_GENERIC(hub_thread_sema, 0);
 
 static struct task_struct *khubd_task;
 
 /* cycle leds on hubs that aren't blinking for attention */
-static int blinkenlights = 0;
-module_param (blinkenlights, bool, S_IRUGO);
-MODULE_PARM_DESC (blinkenlights, "true to cycle leds on hubs");
+int blinkenlights = 0;
 
 /*
  * Device SATA8000 FW1.0 from DATAST0R Technology Corp requires about
@@ -106,10 +131,12 @@ MODULE_PARM_DESC (blinkenlights, "true to cycle leds on hubs");
  */
 /* define initial 64-byte descriptor request timeout in milliseconds */
 static int initial_descriptor_timeout = USB_CTRL_GET_TIMEOUT;
+#if 0 // CapROS
 module_param(initial_descriptor_timeout, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(initial_descriptor_timeout,
 		"initial 64-byte descriptor request timeout in milliseconds "
 		"(default 5000 - 5.0 seconds)");
+#endif // CapROS
 
 /*
  * As of 2.6.10 we introduce a new USB device initialization scheme which
@@ -125,16 +152,9 @@ MODULE_PARM_DESC(initial_descriptor_timeout,
  * otherwise the new scheme is used.  If that fails and "use_both_schemes"
  * is set, then the driver will make another attempt, using the other scheme.
  */
-static int old_scheme_first = 0;
-module_param(old_scheme_first, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(old_scheme_first,
-		 "start with the old device initialization scheme");
+int old_scheme_first = 0;
 
-static int use_both_schemes = 1;
-module_param(use_both_schemes, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(use_both_schemes,
-		"try the other device initialization scheme if the "
-		"first one fails");
+int use_both_schemes = 0;
 
 /* Mutual exclusion for EHCI CF initialization.  This interferes with
  * port reset on some companion controllers.
@@ -149,7 +169,7 @@ EXPORT_SYMBOL_GPL(ehci_cf_port_reset_rwsem);
 
 static int usb_reset_and_verify_device(struct usb_device *udev);
 
-static inline char *portspeed(int portstatus)
+static inline char * portspeed(int portstatus)
 {
 	if (portstatus & (1 << USB_PORT_FEAT_HIGHSPEED))
     		return "480 Mb/s";
@@ -166,14 +186,15 @@ static inline struct usb_hub *hdev_to_hub(struct usb_device *hdev)
 }
 
 /* USB 2.0 spec Section 11.24.4.5 */
-static int get_hub_descriptor(struct usb_device *hdev, void *data, int size)
+static int get_hub_descriptor(struct usb_device *hdev,
+  void *data, dma_addr_t data_dma, int size)
 {
 	int i, ret;
 
 	for (i = 0; i < 3; i++) {
-		ret = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+		ret = usb_control_msg_dma(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_DESCRIPTOR, USB_DIR_IN | USB_RT_HUB,
-			USB_DT_HUB << 8, 0, data, size,
+			USB_DT_HUB << 8, 0, data, data_dma, size,
 			USB_CTRL_GET_TIMEOUT);
 		if (ret >= (USB_DT_HUB_NONVAR_SIZE + 2))
 			return ret;
@@ -186,8 +207,8 @@ static int get_hub_descriptor(struct usb_device *hdev, void *data, int size)
  */
 static int clear_hub_feature(struct usb_device *hdev, int feature)
 {
-	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
-		USB_REQ_CLEAR_FEATURE, USB_RT_HUB, feature, 0, NULL, 0, 1000);
+  return usb_control_msg_dma(hdev, usb_sndctrlpipe(hdev, 0),
+	USB_REQ_CLEAR_FEATURE, USB_RT_HUB, feature, 0, NULL, 0, 0, 1000);
 }
 
 /*
@@ -195,9 +216,9 @@ static int clear_hub_feature(struct usb_device *hdev, int feature)
  */
 static int clear_port_feature(struct usb_device *hdev, int port1, int feature)
 {
-	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
+	return usb_control_msg_dma(hdev, usb_sndctrlpipe(hdev, 0),
 		USB_REQ_CLEAR_FEATURE, USB_RT_PORT, feature, port1,
-		NULL, 0, 1000);
+		NULL, 0, 0, 1000);
 }
 
 /*
@@ -205,9 +226,9 @@ static int clear_port_feature(struct usb_device *hdev, int port1, int feature)
  */
 static int set_port_feature(struct usb_device *hdev, int port1, int feature)
 {
-	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
+	return usb_control_msg_dma(hdev, usb_sndctrlpipe(hdev, 0),
 		USB_REQ_SET_FEATURE, USB_RT_PORT, feature, port1,
-		NULL, 0, 1000);
+		NULL, 0, 0, 1000);
 }
 
 /*
@@ -316,14 +337,14 @@ static void led_work (struct work_struct *work)
  * USB 2.0 spec Section 11.24.2.6
  */
 static int get_hub_status(struct usb_device *hdev,
-		struct usb_hub_status *data)
+		struct usb_hub_status *data, dma_addr_t data_dma)
 {
 	int i, status = -ETIMEDOUT;
 
 	for (i = 0; i < USB_STS_RETRIES && status == -ETIMEDOUT; i++) {
-		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+		status = usb_control_msg_dma(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_HUB, 0, 0,
-			data, sizeof(*data), USB_STS_TIMEOUT);
+			data, data_dma, sizeof(*data), USB_STS_TIMEOUT);
 	}
 	return status;
 }
@@ -332,14 +353,14 @@ static int get_hub_status(struct usb_device *hdev,
  * USB 2.0 spec Section 11.24.2.7
  */
 static int get_port_status(struct usb_device *hdev, int port1,
-		struct usb_port_status *data)
+		struct usb_port_status *data, dma_addr_t data_dma)
 {
 	int i, status = -ETIMEDOUT;
 
 	for (i = 0; i < USB_STS_RETRIES && status == -ETIMEDOUT; i++) {
-		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+		status = usb_control_msg_dma(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_PORT, 0, port1,
-			data, sizeof(*data), USB_STS_TIMEOUT);
+			data, data_dma, sizeof(*data), USB_STS_TIMEOUT);
 	}
 	return status;
 }
@@ -350,7 +371,8 @@ static int hub_port_status(struct usb_hub *hub, int port1,
 	int ret;
 
 	mutex_lock(&hub->status_mutex);
-	ret = get_port_status(hub->hdev, port1, &hub->status->port);
+	ret = get_port_status(hub->hdev, port1,
+		&hub->status->port, hub->status_dma);
 	if (ret < 4) {
 		dev_err(hub->intfdev,
 			"%s failed (err = %d)\n", __func__, ret);
@@ -375,7 +397,7 @@ static void kick_khubd(struct usb_hub *hub)
 	spin_lock_irqsave(&hub_event_lock, flags);
 	if (!hub->disconnected && list_empty(&hub->event_list)) {
 		list_add_tail(&hub->event_list, &hub_event_list);
-		wake_up(&khubd_wait);
+		up(&hub_thread_sema);
 	}
 	spin_unlock_irqrestore(&hub_event_lock, flags);
 }
@@ -437,9 +459,9 @@ resubmit:
 static inline int
 hub_clear_tt_buffer (struct usb_device *hdev, u16 devinfo, u16 tt)
 {
-	return usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+	return usb_control_msg_dma(hdev, usb_rcvctrlpipe(hdev, 0),
 			       HUB_CLEAR_TT_BUFFER, USB_RT_PORT, devinfo,
-			       tt, NULL, 0, 1000);
+			       tt, NULL, 0, 0, 1000);
 }
 
 /*
@@ -565,7 +587,7 @@ static int hub_hub_status(struct usb_hub *hub,
 	int ret;
 
 	mutex_lock(&hub->status_mutex);
-	ret = get_hub_status(hub->hdev, &hub->status->hub);
+	ret = get_hub_status(hub->hdev, &hub->status->hub, hub->status_dma);
 	if (ret < 0)
 		dev_err (hub->intfdev,
 			"%s failed (err = %d)\n", __func__, ret);
@@ -856,17 +878,21 @@ static int hub_configure(struct usb_hub *hub,
 		goto fail;
 	}
 
-	hub->status = kmalloc(sizeof(*hub->status), GFP_KERNEL);
+	hub->status = usb_buffer_alloc(hdev,
+			sizeof(*hub->status), GFP_KERNEL,
+			&hub->status_dma);
 	if (!hub->status) {
-		message = "can't kmalloc hub status buffer";
+		message = "can't alloc hub status buffer";
 		ret = -ENOMEM;
 		goto fail;
 	}
 	mutex_init(&hub->status_mutex);
 
-	hub->descriptor = kmalloc(sizeof(*hub->descriptor), GFP_KERNEL);
+	hub->descriptor = usb_buffer_alloc(hdev,
+				sizeof(*hub->descriptor), GFP_KERNEL,
+				&hub->descriptor_dma);
 	if (!hub->descriptor) {
-		message = "can't kmalloc hub descriptor";
+		message = "can't alloc hub descriptor";
 		ret = -ENOMEM;
 		goto fail;
 	}
@@ -875,7 +901,7 @@ static int hub_configure(struct usb_hub *hub,
 	 * hub->descriptor can handle USB_MAXCHILDREN ports,
 	 * but the hub can/will return fewer bytes here.
 	 */
-	ret = get_hub_descriptor(hdev, hub->descriptor,
+	ret = get_hub_descriptor(hdev, hub->descriptor, hub->descriptor_dma,
 			sizeof(*hub->descriptor));
 	if (ret < 0) {
 		message = "can't read hub descriptor";
@@ -942,7 +968,8 @@ static int hub_configure(struct usb_hub *hub,
 			hub->tt.hub = hdev;
 			break;
 		case 2:
-			ret = usb_set_interface(hdev, 0, 1);
+			ret = usb_set_altSetting(hdev,
+				usb_ifnum_to_if(hdev, 0), 1);
 			if (ret == 0) {
 				dev_dbg(hub_dev, "TT per port\n");
 				hub->tt.multi = 1;
@@ -1119,8 +1146,10 @@ static void hub_disconnect(struct usb_interface *intf)
 		highspeed_hubs--;
 
 	usb_free_urb(hub->urb);
-	kfree(hub->descriptor);
-	kfree(hub->status);
+	usb_buffer_free(hub->hdev, sizeof(*hub->descriptor),
+		hub->descriptor, hub->descriptor_dma);
+	usb_buffer_free(hub->hdev, sizeof(*hub->status),
+		hub->status, hub->status_dma);
 	usb_buffer_free(hub->hdev, sizeof(*hub->buffer), hub->buffer,
 			hub->buffer_dma);
 
@@ -1199,6 +1228,7 @@ descriptor_error:
 	return -ENODEV;
 }
 
+#if 0 // CapROS
 static int
 hub_ioctl(struct usb_interface *intf, unsigned int code, void *user_data)
 {
@@ -1232,6 +1262,7 @@ hub_ioctl(struct usb_interface *intf, unsigned int code, void *user_data)
 		return -ENOSYS;
 	}
 }
+#endif // CapROS
 
 
 static void recursively_mark_NOTATTACHED(struct usb_device *udev)
@@ -1345,14 +1376,18 @@ static void choose_address(struct usb_device *udev)
 	}
 	if (devnum < 128) {
 		set_bit(devnum, bus->devmap.devicemap);
+		bus->devmap.udev[devnum] = udev;
 		udev->devnum = devnum;
 	}
 }
 
 static void release_address(struct usb_device *udev)
 {
-	if (udev->devnum > 0) {
-		clear_bit(udev->devnum, udev->bus->devmap.devicemap);
+	int devnum = udev->devnum;
+	if (devnum > 0) {
+		struct usb_bus * bus = udev->bus;
+		clear_bit(devnum, bus->devmap.devicemap);
+		bus->devmap.udev[devnum] = NULL;
 		udev->devnum = -1;
 	}
 }
@@ -1438,14 +1473,18 @@ void usb_disconnect(struct usb_device **pdev)
 	usb_disable_device(udev, 0);
 	usb_hcd_synchronize_unlinks(udev);
 
+#if 0 // CapROS
 	usb_remove_ep_devs(&udev->ep0);
+#endif // CapROS
 	usb_unlock_device(udev);
 
 	/* Unregister the device.  The device driver is responsible
 	 * for de-configuring the device and invoking the remove-device
 	 * notifier chain (used by usbfs and possibly others).
 	 */
-	device_del(&udev->dev);
+	/* The device is always bound to usb_generic_driver, so just do
+	the disconnect here. */
+	usbdev_generic_disconnect(udev);
 
 	/* Free the device number and delete the parent's children[]
 	 * (or root_hub) pointer.
@@ -1515,7 +1554,7 @@ static int usb_configure_device_otg(struct usb_device *udev)
 		struct usb_bus			*bus = udev->bus;
 
 		/* descriptor may appear anywhere in config */
-		if (__usb_get_extra_descriptor (udev->rawdescriptors[0],
+		if (__usb_get_extra_descriptor (udev->rawdescriptors[0].buf,
 					le16_to_cpu(udev->config[0].desc.wTotalLength),
 					USB_DT_OTG, (void **) &desc) == 0) {
 			if (desc->bmAttributes & USB_OTG_HNP) {
@@ -1529,13 +1568,13 @@ static int usb_configure_device_otg(struct usb_device *udev)
 				/* enable HNP before suspend, it's simpler */
 				if (port1 == bus->otg_port)
 					bus->b_hnp_enable = 1;
-				err = usb_control_msg(udev,
+				err = usb_control_msg_dma(udev,
 					usb_sndctrlpipe(udev, 0),
 					USB_REQ_SET_FEATURE, 0,
 					bus->b_hnp_enable
 						? USB_DEVICE_B_HNP_ENABLE
 						: USB_DEVICE_A_ALT_HNP_SUPPORT,
-					0, NULL, 0, USB_CTRL_SET_TIMEOUT);
+					0, NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
 				if (err < 0) {
 					/* OTG MESSAGE: report errors here,
 					 * customize to match your product.
@@ -1653,13 +1692,17 @@ int usb_new_device(struct usb_device *udev)
 	 * for configuring the device and invoking the add-device
 	 * notifier chain (used by usbfs and possibly others).
 	 */
-	err = device_add(&udev->dev);
+	/* The device always binds to usb_generic_driver, so just
+	do the probe here. */
+	err = usbdev_generic_probe(udev);
 	if (err) {
 		dev_err(&udev->dev, "can't device_add, error %d\n", err);
 		goto fail;
 	}
 
+#if 0 // CapROS
 	(void) usb_create_ep_devs(&udev->dev, &udev->ep0, udev);
+#endif // CapROS
 	return err;
 
 fail:
@@ -1693,7 +1736,7 @@ int usb_deauthorize_device(struct usb_device *usb_dev)
 	kfree(usb_dev->config);
 	usb_dev->config = NULL;
 	for (cnt = 0; cnt < usb_dev->descriptor.bNumConfigurations; cnt++)
-		kfree(usb_dev->rawdescriptors[cnt]);
+		kfree(usb_dev->rawdescriptors[cnt].buf);
 	usb_dev->descriptor.bNumConfigurations = 0;
 	kfree(usb_dev->rawdescriptors);
 out_unauthorized:
@@ -1996,10 +2039,10 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 	 * we don't explicitly enable it here.
 	 */
 	if (udev->do_remote_wakeup) {
-		status = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+		status = usb_control_msg_dma(udev, usb_sndctrlpipe(udev, 0),
 				USB_REQ_SET_FEATURE, USB_RECIP_DEVICE,
 				USB_DEVICE_REMOTE_WAKEUP, 0,
-				NULL, 0,
+				NULL, 0, 0,
 				USB_CTRL_SET_TIMEOUT);
 		if (status)
 			dev_dbg(&udev->dev, "won't remote wakeup, status %d\n",
@@ -2012,10 +2055,10 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 		dev_dbg(hub->intfdev, "can't suspend port %d, status %d\n",
 				port1, status);
 		/* paranoia:  "should not happen" */
-		(void) usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+		(void) usb_control_msg_dma(udev, usb_sndctrlpipe(udev, 0),
 				USB_REQ_CLEAR_FEATURE, USB_RECIP_DEVICE,
 				USB_DEVICE_REMOTE_WAKEUP, 0,
-				NULL, 0,
+				NULL, 0, 0,
 				USB_CTRL_SET_TIMEOUT);
 	} else {
 		/* device has up to 10 msec to fully suspend */
@@ -2089,12 +2132,12 @@ static int finish_port_resume(struct usb_device *udev)
 	} else if (udev->actconfig) {
 		le16_to_cpus(&devstatus);
 		if (devstatus & (1 << USB_DEVICE_REMOTE_WAKEUP)) {
-			status = usb_control_msg(udev,
+			status = usb_control_msg_dma(udev,
 					usb_sndctrlpipe(udev, 0),
 					USB_REQ_CLEAR_FEATURE,
 						USB_RECIP_DEVICE,
 					USB_DEVICE_REMOTE_WAKEUP, 0,
-					NULL, 0,
+					NULL, 0, 0,
 					USB_CTRL_SET_TIMEOUT);
 			if (status)
 				dev_dbg(&udev->dev,
@@ -2248,7 +2291,7 @@ static inline int remote_wakeup(struct usb_device *udev)
 	return 0;
 }
 
-#endif
+#endif	/* CONFIG_USB_SUSPEND */
 
 static int hub_suspend(struct usb_interface *intf, pm_message_t msg)
 {
@@ -2402,9 +2445,9 @@ static int hub_set_address(struct usb_device *udev, int devnum)
 		return 0;
 	if (udev->state != USB_STATE_DEFAULT)
 		return -EINVAL;
-	retval = usb_control_msg(udev, usb_sndaddr0pipe(),
+	retval = usb_control_msg_dma(udev, usb_sndaddr0pipe(),
 		USB_REQ_SET_ADDRESS, 0, devnum, 0,
-		NULL, 0, USB_CTRL_SET_TIMEOUT);
+		NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
 	if (retval == 0) {
 		/* Device now using proper address. */
 		update_address(udev, devnum);
@@ -2532,10 +2575,13 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 	for (i = 0; i < GET_DESCRIPTOR_TRIES; (++i, msleep(100))) {
 		if (USE_NEW_SCHEME(retry_counter)) {
 			struct usb_device_descriptor *buf;
+			dma_addr_t buf_dma;
 			int r = 0;
 
 #define GET_DESCRIPTOR_BUFSIZE	64
-			buf = kmalloc(GET_DESCRIPTOR_BUFSIZE, GFP_NOIO);
+			buf = usb_buffer_alloc(udev,
+				GET_DESCRIPTOR_BUFSIZE, GFP_NOIO,
+				&buf_dma);
 			if (!buf) {
 				retval = -ENOMEM;
 				continue;
@@ -2547,10 +2593,11 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 			 */
 			for (j = 0; j < 3; ++j) {
 				buf->bMaxPacketSize0 = 0;
-				r = usb_control_msg(udev, usb_rcvaddr0pipe(),
+				r = usb_control_msg_dma(udev,
+					usb_rcvaddr0pipe(),
 					USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
 					USB_DT_DEVICE << 8, 0,
-					buf, GET_DESCRIPTOR_BUFSIZE,
+					buf, buf_dma, GET_DESCRIPTOR_BUFSIZE,
 					initial_descriptor_timeout);
 				switch (buf->bMaxPacketSize0) {
 				case 8: case 16: case 32: case 64: case 255:
@@ -2570,7 +2617,8 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 			}
 			udev->descriptor.bMaxPacketSize0 =
 					buf->bMaxPacketSize0;
-			kfree(buf);
+			usb_buffer_free(udev, GET_DESCRIPTOR_BUFSIZE,
+				buf, buf_dma);
 
 			retval = hub_port_reset(hub, port1, udev, delay);
 			if (retval < 0)		/* error or disconnect */
@@ -2672,14 +2720,15 @@ static void
 check_highspeed (struct usb_hub *hub, struct usb_device *udev, int port1)
 {
 	struct usb_qualifier_descriptor	*qual;
+	dma_addr_t qual_dma;
 	int				status;
 
-	qual = kmalloc (sizeof *qual, GFP_KERNEL);
+	qual = usb_buffer_alloc(udev, sizeof *qual, GFP_KERNEL, &qual_dma);
 	if (qual == NULL)
 		return;
 
-	status = usb_get_descriptor (udev, USB_DT_DEVICE_QUALIFIER, 0,
-			qual, sizeof *qual);
+	status = usb_get_descriptor_dma(udev, USB_DT_DEVICE_QUALIFIER, 0,
+			qual, qual_dma, sizeof *qual);
 	if (status == sizeof *qual) {
 		dev_info(&udev->dev, "not running at top speed; "
 			"connect to a high speed hub\n");
@@ -2689,7 +2738,7 @@ check_highspeed (struct usb_hub *hub, struct usb_device *udev, int port1)
 			schedule_delayed_work (&hub->leds, 0);
 		}
 	}
-	kfree(qual);
+	usb_buffer_free(udev, sizeof *qual, qual, qual_dma);
 }
 
 static unsigned
@@ -2811,7 +2860,6 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 				USB_PORT_STAT_C_ENABLE)) {
 		status = hub_port_debounce(hub, port1);
 		if (status < 0) {
-			if (printk_ratelimit())
 				dev_err(hub_dev, "connect-debounce failed, "
 						"port %d disabled\n", port1);
 			portstatus &= ~USB_PORT_STAT_CONNECTION;
@@ -3171,18 +3219,24 @@ loop:
 
 static int hub_thread(void *__unused)
 {
+#if 0 // CapROS
 	/* khubd needs to be freezable to avoid intefering with USB-PERSIST
 	 * port handover.  Otherwise it might see that a full-speed device
 	 * was gone before the EHCI controller had handed its port over to
 	 * the companion full-speed controller.
 	 */
 	set_freezable();
+#endif // CapROS
 
 	do {
 		hub_events();
+#if 0 // CapROS
 		wait_event_freezable(khubd_wait,
 				!list_empty(&hub_event_list) ||
 				kthread_should_stop());
+#else
+		down(&hub_thread_sema);
+#endif // CapROS
 	} while (!kthread_should_stop() || !list_empty(&hub_event_list));
 
 	pr_debug("%s: khubd exiting\n", usbcore_name);
@@ -3199,8 +3253,9 @@ static struct usb_device_id hub_id_table [] = {
 
 MODULE_DEVICE_TABLE (usb, hub_id_table);
 
-static struct usb_driver hub_driver = {
+struct usb_driver hub_driver = {
 	.name =		"hub",
+	.drvwrap.for_devices = 0,	// for interfaces
 	.probe =	hub_probe,
 	.disconnect =	hub_disconnect,
 	.suspend =	hub_suspend,
@@ -3208,7 +3263,7 @@ static struct usb_driver hub_driver = {
 	.reset_resume =	hub_reset_resume,
 	.pre_reset =	hub_pre_reset,
 	.post_reset =	hub_post_reset,
-	.ioctl =	hub_ioctl,
+	.ioctl =	0,//hub_ioctl,
 	.id_table =	hub_id_table,
 	.supports_autosuspend =	1,
 };
@@ -3226,7 +3281,9 @@ int usb_hub_init(void)
 		return 0;
 
 	/* Fall through if kernel_thread failed */
+#if 0 // CapROS
 	usb_deregister(&hub_driver);
+#endif // CapROS
 	printk(KERN_ERR "%s: can't start khubd\n", usbcore_name);
 
 	return -1;
@@ -3236,6 +3293,7 @@ void usb_hub_cleanup(void)
 {
 	kthread_stop(khubd_task);
 
+#if 0 // CapROS
 	/*
 	 * Hub resources are freed for us by usb_deregister. It calls
 	 * usb_driver_purge on every device which in turn calls that
@@ -3244,6 +3302,9 @@ void usb_hub_cleanup(void)
 	 * individual hub resources. -greg
 	 */
 	usb_deregister(&hub_driver);
+#else
+	up(&hub_thread_sema);
+#endif // CapROS
 } /* usb_hub_cleanup() */
 
 static int descriptors_changed(struct usb_device *udev,
@@ -3256,6 +3317,7 @@ static int descriptors_changed(struct usb_device *udev,
 	unsigned	old_length;
 	int		length;
 	char		*buf;
+	dma_addr_t buf_dma;
 
 	if (memcmp(&udev->descriptor, old_device_descriptor,
 			sizeof(*old_device_descriptor)) != 0)
@@ -3276,7 +3338,7 @@ static int descriptors_changed(struct usb_device *udev,
 		len = max(len, old_length);
 	}
 
-	buf = kmalloc(len, GFP_NOIO);
+	buf = usb_buffer_alloc(udev, len, GFP_NOIO, &buf_dma);
 	if (buf == NULL) {
 		dev_err(&udev->dev, "no mem to re-read configs after reset\n");
 		/* assume the worst */
@@ -3284,15 +3346,15 @@ static int descriptors_changed(struct usb_device *udev,
 	}
 	for (index = 0; index < udev->descriptor.bNumConfigurations; index++) {
 		old_length = le16_to_cpu(udev->config[index].desc.wTotalLength);
-		length = usb_get_descriptor(udev, USB_DT_CONFIG, index, buf,
-				old_length);
+		length = usb_get_descriptor_dma(udev, USB_DT_CONFIG, index,
+				buf, buf_dma, old_length);
 		if (length != old_length) {
 			dev_dbg(&udev->dev, "config index %d, error %d\n",
 					index, length);
 			changed = 1;
 			break;
 		}
-		if (memcmp (buf, udev->rawdescriptors[index], old_length)
+		if (memcmp (buf, udev->rawdescriptors[index].buf, old_length)
 				!= 0) {
 			dev_dbg(&udev->dev, "config index %d changed (#%d)\n",
 				index,
@@ -3316,7 +3378,7 @@ static int descriptors_changed(struct usb_device *udev,
 		}
 	}
 
-	kfree(buf);
+	usb_buffer_free(udev, len, buf, buf_dma);
 	return changed;
 }
 
@@ -3397,10 +3459,10 @@ static int usb_reset_and_verify_device(struct usb_device *udev)
 	/* Restore the device's previous configuration */
 	if (!udev->actconfig)
 		goto done;
-	ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+	ret = usb_control_msg_dma(udev, usb_sndctrlpipe(udev, 0),
 			USB_REQ_SET_CONFIGURATION, 0,
 			udev->actconfig->desc.bConfigurationValue, 0,
-			NULL, 0, USB_CTRL_SET_TIMEOUT);
+			NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
 	if (ret < 0) {
 		dev_err(&udev->dev,
 			"can't restore configuration #%d (error=%d)\n",
@@ -3425,7 +3487,7 @@ static int usb_reset_and_verify_device(struct usb_device *udev)
 			usb_enable_interface(udev, intf, true);
 			ret = 0;
 		} else {
-			ret = usb_set_interface(udev, desc->bInterfaceNumber,
+			ret = usb_set_altSetting(udev, intf,
 					desc->bAlternateSetting);
 		}
 		if (ret < 0) {

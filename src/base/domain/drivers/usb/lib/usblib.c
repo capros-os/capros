@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -75,10 +75,9 @@ int usb_set_interface(struct usb_device * dev, int interface, int alternate)
   return capros_Errno_ExceptionToErrno(result);
 }
 
-int usb_reset_composite_device(struct usb_device *udev,
-                struct usb_interface *iface)
+int usb_reset_device(struct usb_device *udev)
 {
-  BUG_ON("usb_reset_composite_device unimplemented!");
+  BUG_ON("usb_reset_device unimplemented!");
   return 0;
 }
 

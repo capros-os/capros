@@ -20,7 +20,6 @@
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/pci.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/ioport.h>
@@ -36,7 +35,7 @@
 #include <linux/dmapool.h>
 #include <linux/reboot.h>
 #include <linux/workqueue.h>
-#include <linux/debugfs.h>
+//#include <linux/debugfs.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -118,14 +117,14 @@ static inline void amd_iso_dev_put(void)
 
 
 /* Some boards misreport power switching/overcurrent */
-static int distrust_firmware = 1;
-module_param (distrust_firmware, bool, 0);
+/*static*/ int distrust_firmware = 1;
+//module_param (distrust_firmware, int, 0);
 MODULE_PARM_DESC (distrust_firmware,
 	"true to distrust firmware power/overcurrent setup");
 
 /* Some boards leave IR set wrongly, since they fail BIOS/SMM handshakes */
-static int no_handshake = 0;
-module_param (no_handshake, bool, 0);
+/*static*/ int no_handshake = 0;
+//module_param (no_handshake, int, 0);
 MODULE_PARM_DESC (no_handshake, "true (not default) disables BIOS handshake");
 
 /*-------------------------------------------------------------------------*/
@@ -988,6 +987,7 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE ("GPL");
 
 #ifdef CONFIG_PCI
+#include <linux/pci.h>
 #include "ohci-pci.c"
 #define PCI_DRIVER		ohci_pci_driver
 #endif
@@ -1092,7 +1092,7 @@ MODULE_LICENSE ("GPL");
 #error "missing bus glue for ohci-hcd"
 #endif
 
-static int __init ohci_hcd_mod_init(void)
+/*static*/ int __init ohci_hcd_mod_init(void)
 {
 	int retval = 0;
 

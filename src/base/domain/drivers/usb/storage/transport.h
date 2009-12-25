@@ -3,6 +3,8 @@
  *
  * Current development and maintenance by:
  *   (c) 1999, 2000 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
+
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -35,6 +37,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef _TRANSPORT_H_
 #define _TRANSPORT_H_
@@ -125,16 +130,18 @@ extern void usb_stor_stop_transport(struct us_data*);
 
 extern int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 		u8 request, u8 requesttype, u16 value, u16 index,
-		void *data, u16 size, int timeout);
+		void * data, dma_addr_t data_dma, u16 size, int timeout);
 extern int usb_stor_clear_halt(struct us_data *us, unsigned int pipe);
 
 extern int usb_stor_ctrl_transfer(struct us_data *us, unsigned int pipe,
 		u8 request, u8 requesttype, u16 value, u16 index,
-		void *data, u16 size);
+		void * data, dma_addr_t data_dma, u16 size);
 extern int usb_stor_bulk_transfer_buf(struct us_data *us, unsigned int pipe,
-		void *buf, unsigned int length, unsigned int *act_len);
+		void * buf, dma_addr_t data_dma, unsigned int length,
+		unsigned int * act_len);
 extern int usb_stor_bulk_transfer_sg(struct us_data *us, unsigned int pipe,
-		void *buf, unsigned int length, int use_sg, int *residual);
+		void * buf, dma_addr_t data_dma, unsigned int length,
+		int use_sg, int * residual);
 extern int usb_stor_bulk_srb(struct us_data* us, unsigned int pipe,
 		struct scsi_cmnd* srb);
 

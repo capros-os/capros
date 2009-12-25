@@ -8,7 +8,28 @@
  * All of the sysfs file attributes for usb devices and interfaces.
  *
  */
-
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -16,6 +37,7 @@
 #include <linux/usb/quirks.h>
 #include "usb.h"
 
+#if 0 // CapROS
 /* Active configuration fields */
 #define usb_actconfig_show(field, multiplier, format_string)		\
 static ssize_t  show_##field(struct device *dev,			\
@@ -793,6 +815,7 @@ static mode_t intf_assoc_attrs_are_visible(struct kobject *kobj,
 		return 0;
 	return a->mode;
 }
+#endif // CapROS
 
 static struct attribute_group intf_assoc_attr_grp = {
 	.attrs =	intf_assoc_attrs,
@@ -805,6 +828,7 @@ struct attribute_group *usb_interface_groups[] = {
 	NULL
 };
 
+#if 0 // CapROS
 int usb_create_sysfs_intf_files(struct usb_interface *intf)
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
@@ -822,12 +846,15 @@ int usb_create_sysfs_intf_files(struct usb_interface *intf)
 	intf->sysfs_files_created = 1;
 	return 0;
 }
+#endif // CapROS
 
 void usb_remove_sysfs_intf_files(struct usb_interface *intf)
 {
 	if (!intf->sysfs_files_created)
 		return;
 
+#if 0 // CapROS
 	device_remove_file(&intf->dev, &dev_attr_interface);
+#endif // CapROS
 	intf->sysfs_files_created = 0;
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2001-2002 by David Brownell
+ * Copyright (C) 2009, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -215,7 +216,7 @@ struct hc_driver {
 	int	(*hub_status_data) (struct usb_hcd *hcd, char *buf);
 	int	(*hub_control) (struct usb_hcd *hcd,
 				u16 typeReq, u16 wValue, u16 wIndex,
-				char *buf, u16 wLength);
+				u8 *buf, u16 wLength);
 	int	(*bus_suspend)(struct usb_hcd *);
 	int	(*bus_resume)(struct usb_hcd *);
 	int	(*start_port_reset)(struct usb_hcd *, unsigned port_num);
@@ -243,6 +244,8 @@ extern void usb_hcd_reset_endpoint(struct usb_device *udev,
 		struct usb_host_endpoint *ep);
 extern void usb_hcd_synchronize_unlinks(struct usb_device *udev);
 extern int usb_hcd_get_frame_number(struct usb_device *udev);
+void epUnlinkQueuedUrbs(struct usb_host_endpoint * ep,
+        struct usb_hcd * hcd, int status);
 
 extern struct usb_hcd *usb_create_hcd(const struct hc_driver *driver,
 		struct device *dev, const char *bus_name);

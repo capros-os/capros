@@ -83,7 +83,9 @@ static const struct usb_device_id *find_id(struct usb_device *udev)
 
 	for (; id->idVendor || id->bDeviceClass || id->bInterfaceClass ||
 			id->driver_info; id++) {
-		if (usb_match_device(udev, id))
+		if (id->idVendor == le16_to_cpu(udev->descriptor.idVendor)
+                   && id->idProduct == le16_to_cpu(udev->descriptor.idProduct) )
+			// was usb_match_device(udev, id)
 			return id;
 	}
 	return NULL;

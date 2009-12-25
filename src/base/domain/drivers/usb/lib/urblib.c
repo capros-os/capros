@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -50,6 +50,7 @@ unsigned long capros_Errno_ErrnoToException(unsigned long errno);
 static void urb_destroy(struct kref *kref)
 {
 	struct urb *urb = to_urb(kref);
+	BUG_ON(urb->transfer_flags & URB_FREE_BUFFER);	// not supported
 	kfree(urb);
 }
 
@@ -72,9 +73,10 @@ void usb_init_urb(struct urb *urb)
 	if (urb) {
 		memset(urb, 0, sizeof(*urb));
 		kref_init(&urb->kref);
-		spin_lock_init(&urb->lock);
+		INIT_LIST_HEAD(&urb->anchor_list);
 	}
 }
+EXPORT_SYMBOL_GPL(usb_init_urb);
 
 /**
  * usb_alloc_urb - creates a new urb for a USB driver to use
@@ -100,12 +102,13 @@ struct urb *usb_alloc_urb(int iso_packets, gfp_t mem_flags)
 		iso_packets * sizeof(struct usb_iso_packet_descriptor),
 		mem_flags);
 	if (!urb) {
-		err("alloc_urb: kmalloc failed");
+		printk(KERN_ERR "alloc_urb: kmalloc failed\n");
 		return NULL;
 	}
 	usb_init_urb(urb);
 	return urb;
 }
+EXPORT_SYMBOL_GPL(usb_alloc_urb);
 
 /**
  * usb_free_urb - frees the memory used by a urb when all users of it are finished
@@ -114,14 +117,15 @@ struct urb *usb_alloc_urb(int iso_packets, gfp_t mem_flags)
  * Must be called when a user of a urb is finished with it.  When the last user
  * of the urb calls this function, the memory of the urb is freed.
  *
- * Note: The transfer buffer associated with the urb is not freed, that must be
- * done elsewhere.
+ * Note: The transfer buffer associated with the urb is not freed unless the
+ * URB_FREE_BUFFER transfer flag is set.
  */
 void usb_free_urb(struct urb *urb)
 {
 	if (urb)
 		kref_put(&urb->kref, urb_destroy);
 }
+EXPORT_SYMBOL_GPL(usb_free_urb);
 		
 		
 /*-------------------------------------------------------------------*/
@@ -136,7 +140,7 @@ void usb_free_urb(struct urb *urb)
  * describing that request to the USB subsystem.  Request completion will
  * be indicated later, asynchronously, by calling the completion handler.
  * The three types of completion are success, error, and unlink
- * (a software-induced fault, also called "request cancellation").  
+ * (a software-induced fault, also called "request cancellation").
  *
  * URBs may be submitted in interrupt context.
  *
@@ -219,7 +223,7 @@ void usb_free_urb(struct urb *urb)
  *       semaphores), or
  *   (c) current->state != TASK_RUNNING, this is the case only after
  *       you've changed it.
- * 
+ *
  * GFP_NOIO is used in the block io path and error handling of storage
  * devices.
  *
@@ -254,6 +258,15 @@ int usb_submit_urb_wait(struct urb * urb, gfp_t mem_flags)
 
 	pipe = urb->pipe;
 	temp = usb_pipetype(pipe);
+  if (temp == PIPE_CONTROL) {
+    /* urb->setup_packet isn't passed to the HCD (only urb->setup_dma).
+    So validate it here. */
+    struct usb_ctrlrequest *setup =
+                      (struct usb_ctrlrequest *) urb->setup_packet;
+    assert(setup);	// else caller has a bug
+    bool is_out = !(setup->bRequestType & USB_DIR_IN) || !setup->wLength;
+    assert(is_out == usb_pipeout(pipe));
+  }
 
   size_t caprosUrbSize;
   capros_USB_urb * caprosUrb;

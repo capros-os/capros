@@ -2,9 +2,12 @@
  * Usual Tables File for usb-storage and libusual
  *
  * Copyright (C) 2009 Alan Stern (stern@rowland.harvard.edu)
+ * Copyright (C) 2008, Strawberry Development Group
  *
  * Please see http://www.one-eyed-alien.net/~mdharm/linux-usb for more
  * information about this driver.
+ *
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,9 +23,12 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-#include <linux/kernel.h>
-#include <linux/module.h>
+//#include <linux/kernel.h>
+//#include <linux/module.h>
 #include <linux/usb.h>
 #include <linux/usb_usual.h>
 
@@ -59,6 +65,7 @@ MODULE_DEVICE_TABLE(usb, usb_storage_usb_ids);
 #undef USUAL_DEV
 
 
+#if 0 // CapROS
 /*
  * The table of devices to ignore
  */
@@ -114,3 +121,4 @@ int usb_usual_ignore_device(struct usb_interface *intf)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usb_usual_ignore_device);
+#endif // CapROS

@@ -6,6 +6,7 @@
  * (C) Copyright Deti Fliegl 1999
  * (C) Copyright Randy Dunlap 2000
  * (C) Copyright David Brownell 2000-2002
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,14 +22,17 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
-#include <linux/version.h>
+//#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/completion.h>
+//#include <linux/completion.h>
 #include <linux/utsname.h>
-#include <linux/mm.h>
+//#include <linux/mm.h>
 #include <asm/io.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
@@ -85,6 +89,7 @@
 unsigned long usb_hcds_loaded;
 EXPORT_SYMBOL_GPL(usb_hcds_loaded);
 
+#if 0 // CapROS
 /* host controllers we manage */
 LIST_HEAD (usb_bus_list);
 EXPORT_SYMBOL_GPL (usb_bus_list);
@@ -95,6 +100,7 @@ struct usb_busmap {
 	unsigned long busmap [USB_MAXBUS / (8*sizeof (unsigned long))];
 };
 static struct usb_busmap busmap;
+#endif // CapROS
 
 /* used when updating list of hcds */
 DEFINE_MUTEX(usb_bus_list_lock);	/* exported only for usbfs */
@@ -125,8 +131,8 @@ static inline int is_root_hub(struct usb_device *udev)
 
 /*-------------------------------------------------------------------------*/
 
-#define KERNEL_REL	((LINUX_VERSION_CODE >> 16) & 0x0ff)
-#define KERNEL_VER	((LINUX_VERSION_CODE >> 8) & 0x0ff)
+#define KERNEL_REL	1
+#define KERNEL_VER	0
 
 /* usb 2.0 root hub device descriptor */
 static const u8 usb2_rh_dev_descriptor [18] = {
@@ -581,7 +587,6 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
 	if (length > 0) {
 
 		/* try to complete the status urb */
-		spin_lock_irqsave(&hcd_root_hub_lock, flags);
 		urb = hcd->status_urb;
 		if (urb) {
 			hcd->poll_pending = 0;
@@ -606,7 +611,7 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
 	 * fire at the same time to give the CPU a break inbetween */
 	if (hcd->uses_new_polling ? hcd->poll_rh :
 			(length == 0 && hcd->status_urb != NULL))
-		mod_timer (&hcd->rh_timer, (jiffies/(HZ/4) + 1) * (HZ/4));
+		mod_timer_duration(&hcd->rh_timer, HZ/4);
 }
 EXPORT_SYMBOL_GPL(usb_hcd_poll_rh_status);
 
@@ -638,11 +643,11 @@ static int rh_queue_status (struct usb_hcd *hcd, struct urb *urb)
 	hcd->status_urb = urb;
 	urb->hcpriv = hcd;	/* indicate it's queued */
 	if (!hcd->uses_new_polling)
-		mod_timer(&hcd->rh_timer, (jiffies/(HZ/4) + 1) * (HZ/4));
+		mod_timer_duration(&hcd->rh_timer, HZ/4);
 
 	/* If a status change has already occurred, report it ASAP */
 	else if (hcd->poll_pending)
-		mod_timer(&hcd->rh_timer, jiffies);
+		mod_timer_duration(&hcd->rh_timer, 0);
 	retval = 0;
  done:
 	spin_unlock_irqrestore (&hcd_root_hub_lock, flags);
@@ -753,6 +758,7 @@ static struct attribute_group usb_bus_attr_group = {
 
 
 
+#if 0 // CapROS
 /*-------------------------------------------------------------------------*/
 
 static struct class *usb_host_class;
@@ -868,6 +874,7 @@ static void usb_deregister_bus (struct usb_bus *bus)
 
 	device_unregister(bus->dev);
 }
+#endif // CapROS
 
 /**
  * register_root_hub - called by usb_add_hcd() to register a root hub
@@ -1112,6 +1119,7 @@ void usb_hcd_unlink_urb_from_ep(struct usb_hcd *hcd, struct urb *urb)
 }
 EXPORT_SYMBOL_GPL(usb_hcd_unlink_urb_from_ep);
 
+#if 0 // CapROS
 /*
  * Some usb host controllers can only perform dma using a small SRAM area.
  * The usb core itself is however optimized for host controllers that can dma
@@ -1190,6 +1198,7 @@ static void hcd_free_coherent(struct usb_bus *bus, dma_addr_t *dma_handle,
 	*vaddr_handle = vaddr;
 	*dma_handle = 0;
 }
+#endif // CapROS
 
 static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 			   gfp_t mem_flags)
@@ -1206,6 +1215,7 @@ static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 
 	if (usb_endpoint_xfer_control(&urb->ep->desc)
 	    && !(urb->transfer_flags & URB_NO_SETUP_DMA_MAP)) {
+#if 0 // CapROS
 		if (hcd->self.uses_dma)
 			urb->setup_dma = dma_map_single(
 					hcd->self.controller,
@@ -1219,11 +1229,15 @@ static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 					(void **)&urb->setup_packet,
 					sizeof(struct usb_ctrlrequest),
 					DMA_TO_DEVICE);
+#else
+		BUG();	// URB_NO_SETUP_DMA_MAP is required
+#endif // CapROS
 	}
 
 	dir = usb_urb_dir_in(urb) ? DMA_FROM_DEVICE : DMA_TO_DEVICE;
 	if (ret == 0 && urb->transfer_buffer_length != 0
 	    && !(urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP)) {
+#if 0 // CapROS
 		if (hcd->self.uses_dma)
 			urb->transfer_dma = dma_map_single (
 					hcd->self.controller,
@@ -1246,6 +1260,9 @@ static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 					sizeof(struct usb_ctrlrequest),
 					DMA_TO_DEVICE);
 		}
+#else
+		BUG();	// URB_NO_TRANSFER_DMA_MAP is required
+#endif // CapROS
 	}
 	return ret;
 }
@@ -1259,6 +1276,7 @@ static void unmap_urb_for_dma(struct usb_hcd *hcd, struct urb *urb)
 
 	if (usb_endpoint_xfer_control(&urb->ep->desc)
 	    && !(urb->transfer_flags & URB_NO_SETUP_DMA_MAP)) {
+#if 0 // CapROS
 		if (hcd->self.uses_dma)
 			dma_unmap_single(hcd->self.controller, urb->setup_dma,
 					sizeof(struct usb_ctrlrequest),
@@ -1268,11 +1286,15 @@ static void unmap_urb_for_dma(struct usb_hcd *hcd, struct urb *urb)
 					(void **)&urb->setup_packet,
 					sizeof(struct usb_ctrlrequest),
 					DMA_TO_DEVICE);
+#else
+		BUG();	// URB_NO_SETUP_DMA_MAP is required
+#endif // CapROS
 	}
 
 	dir = usb_urb_dir_in(urb) ? DMA_FROM_DEVICE : DMA_TO_DEVICE;
 	if (urb->transfer_buffer_length != 0
 	    && !(urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP)) {
+#if 0 // CapROS
 		if (hcd->self.uses_dma)
 			dma_unmap_single(hcd->self.controller,
 					urb->transfer_dma,
@@ -1283,6 +1305,9 @@ static void unmap_urb_for_dma(struct usb_hcd *hcd, struct urb *urb)
 					&urb->transfer_buffer,
 					urb->transfer_buffer_length,
 					dir);
+#else
+		BUG();	// URB_NO_TRANSFER_DMA_MAP is required
+#endif // CapROS
 	}
 }
 
@@ -1452,13 +1477,18 @@ EXPORT_SYMBOL_GPL(usb_hcd_giveback_urb);
 void usb_hcd_flush_endpoint(struct usb_device *udev,
 		struct usb_host_endpoint *ep)
 {
-	struct usb_hcd		*hcd;
+	epUnlinkQueuedUrbs(ep, bus_to_hcd(udev->bus), -ESHUTDOWN);
+}
+
+void
+epUnlinkQueuedUrbs(struct usb_host_endpoint * ep,
+        struct usb_hcd * hcd, int status)
+{
 	struct urb		*urb;
 
 	if (!ep)
 		return;
 	might_sleep();
-	hcd = bus_to_hcd(udev->bus);
 
 	/* No more submits can occur */
 	spin_lock_irq(&hcd_urb_list_lock);
@@ -1473,7 +1503,7 @@ rescan:
 		spin_unlock(&hcd_urb_list_lock);
 
 		/* kick hcd */
-		unlink1(hcd, urb, -ESHUTDOWN);
+		unlink1(hcd, urb, status);
 		dev_dbg (hcd->self.controller,
 			"shutdown urb %p ep%d%s%s\n",
 			urb, usb_endpoint_num(&ep->desc),
@@ -1576,6 +1606,7 @@ void usb_hcd_synchronize_unlinks(struct usb_device *udev)
 	spin_unlock_irq(&hcd_urb_unlink_lock);
 }
 
+#if 0 // CapROS
 /*-------------------------------------------------------------------------*/
 
 /* called in any context */
@@ -1587,6 +1618,7 @@ int usb_hcd_get_frame_number (struct usb_device *udev)
 		return -ESHUTDOWN;
 	return hcd->driver->get_frame_number (hcd);
 }
+#endif // CapROS
 
 /*-------------------------------------------------------------------------*/
 
@@ -1685,6 +1717,7 @@ EXPORT_SYMBOL_GPL(usb_hcd_resume_root_hub);
 
 /*-------------------------------------------------------------------------*/
 
+#if 0 // CapROS
 #ifdef	CONFIG_USB_OTG
 
 /**
@@ -1715,12 +1748,13 @@ int usb_bus_start_enum(struct usb_bus *bus, unsigned port_num)
 	 * it may issue others, until at least 50 msecs have passed.
 	 */
 	if (status == 0)
-		mod_timer(&hcd->rh_timer, jiffies + msecs_to_jiffies(10));
+		mod_timer_duration(&hcd->rh_timer, msecs_to_jiffies(10));
 	return status;
 }
 EXPORT_SYMBOL_GPL(usb_bus_start_enum);
 
 #endif
+#endif // CapROS
 
 /*-------------------------------------------------------------------------*/
 
@@ -1735,14 +1769,16 @@ EXPORT_SYMBOL_GPL(usb_bus_start_enum);
 irqreturn_t usb_hcd_irq (int irq, void *__hcd)
 {
 	struct usb_hcd		*hcd = __hcd;
-	unsigned long		flags;
+	// unsigned long		flags;
 	irqreturn_t		rc;
 
+#if 0 // CapROS
 	/* IRQF_DISABLED doesn't work correctly with shared IRQs
 	 * when the first handler doesn't use it.  So let's just
 	 * assume it's never used.
 	 */
 	local_irq_save(flags);
+#endif // CapROS
 
 	if (unlikely(hcd->state == HC_STATE_HALT ||
 		     !test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags))) {
@@ -1757,7 +1793,7 @@ irqreturn_t usb_hcd_irq (int irq, void *__hcd)
 		rc = IRQ_HANDLED;
 	}
 
-	local_irq_restore(flags);
+	// local_irq_restore(flags);
 	return rc;
 }
 
@@ -1818,7 +1854,9 @@ struct usb_hcd *usb_create_hcd (const struct hc_driver *driver,
 	dev_set_drvdata(dev, hcd);
 	kref_init(&hcd->kref);
 
+#if 0 // CapROS
 	usb_bus_init(&hcd->self);
+#endif // CapROS
 	hcd->self.controller = dev;
 	hcd->self.bus_name = bus_name;
 	hcd->self.uses_dma = (dev->dma_mask != NULL);
@@ -1884,13 +1922,25 @@ int usb_add_hcd(struct usb_hcd *hcd,
 	 * bottom up so that hcds can customize the root hubs before khubd
 	 * starts talking to them.  (Note, bus id is assigned early too.)
 	 */
+  if (! hcd->self.controller->dma_mask) {
+    BUG_ON(true); /* non-dma controllers are not supported, because buffers are
+		passed from device driver address space to hcd address space
+		using their physical address. */
+  }
+	/* Note, in CapROS these buffer pools are used only for the hcd,
+	not for devices, because the latter are in a different address
+	space. */
 	if ((retval = hcd_buffer_create(hcd)) != 0) {
 		dev_dbg(hcd->self.controller, "pool alloc failed\n");
 		return retval;
 	}
 
+#if 0 // CapROS
 	if ((retval = usb_register_bus(&hcd->self)) < 0)
 		goto err_register_bus;
+#else
+	theBus = &hcd->self;
+#endif // CapROS
 
 	if ((rhdev = usb_alloc_dev(NULL, &hcd->self, 0)) == NULL) {
 		dev_err(hcd->self.controller, "unable to allocate root hub\n");
@@ -1986,8 +2036,10 @@ err_hcd_driver_setup:
 	hcd->self.root_hub = NULL;
 	usb_put_dev(rhdev);
 err_allocate_root_hub:
+#if 0 // CapROS
 	usb_deregister_bus(&hcd->self);
 err_register_bus:
+#endif // CapROS
 	hcd_buffer_destroy(hcd);
 	return retval;
 } 
@@ -2030,7 +2082,9 @@ void usb_remove_hcd(struct usb_hcd *hcd)
 
 	if (hcd->irq >= 0)
 		free_irq(hcd->irq, hcd);
+#if 0 // CapROS
 	usb_deregister_bus(&hcd->self);
+#endif // CapROS
 	hcd_buffer_destroy(hcd);
 }
 EXPORT_SYMBOL_GPL(usb_remove_hcd);
@@ -2048,6 +2102,7 @@ EXPORT_SYMBOL_GPL(usb_hcd_platform_shutdown);
 /*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
+#if 0 // CapROS
 
 struct usb_mon_operations *mon_ops;
 
@@ -2082,5 +2137,6 @@ void usb_mon_deregister (void)
 	mb();
 }
 EXPORT_SYMBOL_GPL (usb_mon_deregister);
+#endif // CapROS
 
 #endif /* CONFIG_USB_MON || CONFIG_USB_MON_MODULE */

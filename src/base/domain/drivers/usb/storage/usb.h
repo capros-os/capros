@@ -6,6 +6,8 @@
  *
  * Initial work by:
  *   (c) 1999 Michael Gee (michael@linuxspecific.com)
+
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -38,9 +40,18 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef _USB_H_
 #define _USB_H_
+
+// Keyinfo values of start keys to the main process:
+#define keyInfoUSBDriver 0
+#define keyInfoSCSIDevice 1
+
+#if !defined(__ASSEMBLER__)
 
 #include <linux/usb.h>
 #include <linux/usb_usual.h>
@@ -48,9 +59,23 @@
 #include <linux/completion.h>
 #include <linux/mutex.h>
 #include <scsi/scsi_host.h>
+#include "../lib/usbdev.h"
 
 struct us_data;
 struct scsi_cmnd;
+
+#endif // __ASSEMBLER__
+
+#define KC_SCSICONTROL KC_APP2(0)
+
+// Slots in KR_KEYSTORE:
+#define LKSN_COMMANDREPLY (LKSN_APP+0)
+
+// KR_APP2(0) is KR_USBINTF from lib/usbdev.h
+#define KR_SCSICONTROL KR_APP2(1)
+#define KR_SCSIHOST KR_APP2(2)
+
+#if !defined(__ASSEMBLER__)
 
 /*
  * Unusual device list definitions 
@@ -140,6 +165,7 @@ struct us_data {
 	unsigned char		*iobuf;		 /* I/O buffer		 */
 	dma_addr_t		cr_dma;		 /* buffer DMA addresses */
 	dma_addr_t		iobuf_dma;
+	dma_addr_t		sensebuf_dma;
 	struct task_struct	*ctl_thread;	 /* the control thread   */
 
 	/* mutual exclusion and synchronization structures */
@@ -198,4 +224,5 @@ extern int usb_stor_probe1(struct us_data **pus,
 extern int usb_stor_probe2(struct us_data *us);
 extern void usb_stor_disconnect(struct usb_interface *intf);
 
+#endif // __ASSEMBLER__
 #endif

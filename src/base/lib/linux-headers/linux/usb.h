@@ -1,6 +1,29 @@
 #ifndef __LINUX_USB_H
 #define __LINUX_USB_H
 
+/*
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #include <linux/mod_devicetable.h>
 #include <linux/usb/ch9.h>
 
@@ -51,6 +74,7 @@ struct ep_device;
  * @hcpriv: for use by HCD; typically holds hardware dma queue head (QH)
  *	with one or more transfer descriptors (TDs) per urb
  * @ep_dev: ep_device for sysfs info
+ * @rejecting: true if submitted urbs will be rejected
  * @extra: descriptors following this endpoint in the configuration
  * @extralen: how many bytes of "extra" are valid
  * @enabled: URBs may be submitted to this endpoint
@@ -63,6 +87,7 @@ struct usb_host_endpoint {
 	struct list_head		urb_list;
 	void				*hcpriv;
 	struct ep_device 		*ep_dev;	/* For sysfs info */
+	bool rejecting;
 
 	unsigned char *extra;   /* Extra descriptors */
 	int extralen;
@@ -153,6 +178,8 @@ enum usb_interface_condition {
  * look up an alternate setting in the altsetting array based on its number.
  */
 struct usb_interface {
+	struct list_head link;	// for newInterfaces list
+
 	/* array of alternate settings for this interface,
 	 * stored in no particular order */
 	struct usb_host_interface *altsetting;
@@ -177,6 +204,9 @@ struct usb_interface {
 	unsigned needs_binding:1;	/* needs delayed unbind/rebind */
 	unsigned reset_running:1;
 
+	uint8_t localInterfaceNum;	/* index of this interface in
+					usb_host_config.interface */
+
 	struct device dev;		/* interface specific device info */
 	struct device *usb_dev;
 	int pm_usage_cnt;		/* usage counter for autosuspend */
@@ -185,6 +215,14 @@ struct usb_interface {
 #define	to_usb_interface(d) container_of(d, struct usb_interface, dev)
 #define	interface_to_usbdev(intf) \
 	container_of(intf->dev.parent, struct usb_device, dev)
+
+static inline unsigned int
+usb_interface_getNumber(struct usb_interface * intf)
+{
+	/* All settings should have the same interface number,
+	so we can use setting 0. */
+	return intf->altsetting[0].desc.bInterfaceNumber;
+}
 
 static inline void *usb_get_intfdata(struct usb_interface *intf)
 {
@@ -302,6 +340,7 @@ int __usb_get_extra_descriptor(char *buffer, unsigned size,
 /* USB device number allocation bitmap */
 struct usb_devmap {
 	unsigned long devicemap[128 / (8*sizeof(unsigned long))];
+	struct usb_device * udev[128];
 };
 
 /*
@@ -358,6 +397,12 @@ struct usb_bus {
 #define USB_MAXCHILDREN		(31)
 
 struct usb_tt;
+
+struct dma_block_descriptor {
+  unsigned char * buf;
+  dma_addr_t buf_dma;
+  size_t buf_size;
+};
 
 /**
  * struct usb_device - kernel's representation of a USB device
@@ -449,7 +494,8 @@ struct usb_device {
 	struct usb_host_endpoint *ep_in[16];
 	struct usb_host_endpoint *ep_out[16];
 
-	char **rawdescriptors;
+	struct dma_block_descriptor * rawdescriptors;	/* Pointer to an array
+					of raw descriptors for each config */
 
 	unsigned short bus_mA;
 	u8 portnum;
@@ -1164,6 +1210,7 @@ struct urb {
 	atomic_t use_count;		/* concurrent submissions counter */
 	atomic_t reject;		/* submissions will fail */
 	int unlinked;			/* unlink error code */
+	bool hasCap;			/* has a slot allocated in KEYSNODE */
 
 	/* public: documented fields in the urb that can be used by drivers */
 	struct list_head urb_list;	/* list head for use by the urb's
@@ -1366,9 +1413,9 @@ void usb_buffer_unmap_sg(const struct usb_device *dev, int is_in,
  *                         SYNCHRONOUS CALL SUPPORT                  *
  *-------------------------------------------------------------------*/
 
-extern int usb_control_msg(struct usb_device *dev, unsigned int pipe,
+extern int usb_control_msg_dma(struct usb_device *dev, unsigned int pipe,
 	__u8 request, __u8 requesttype, __u16 value, __u16 index,
-	void *data, __u16 size, int timeout);
+	void *data, dma_addr_t data_dma, __u16 size, int timeout);
 extern int usb_interrupt_msg(struct usb_device *usb_dev, unsigned int pipe,
 	void *data, int len, int *actual_length, int timeout);
 extern int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
@@ -1376,8 +1423,9 @@ extern int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
 	int timeout);
 
 /* wrappers around usb_control_msg() for the most common standard requests */
-extern int usb_get_descriptor(struct usb_device *dev, unsigned char desctype,
-	unsigned char descindex, void *buf, int size);
+extern int usb_get_descriptor_dma(struct usb_device *dev,
+	unsigned char desctype, unsigned char descindex,
+	void *buf, dma_addr_t buf_dma, int size);
 extern int usb_get_status(struct usb_device *dev,
 	int type, int target, void *data);
 extern int usb_string(struct usb_device *dev, int index,

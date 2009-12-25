@@ -2,6 +2,7 @@
  *
  * Current development and maintenance by:
  *   (c) 1999, 2000 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -34,6 +35,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/errno.h>
 
@@ -52,7 +56,7 @@ int usb_stor_euscsi_init(struct us_data *us)
 	us->iobuf[0] = 0x1;
 	result = usb_stor_control_msg(us, us->send_ctrl_pipe,
 			0x0C, USB_RECIP_INTERFACE | USB_TYPE_VENDOR,
-			0x01, 0x0, us->iobuf, 0x1, 5*HZ);
+			0x01, 0x0, us->iobuf, us->iobuf_dma, 0x1, 5*HZ);
 	US_DEBUGP("-- result is %d\n", result);
 
 	return 0;
@@ -78,13 +82,15 @@ int usb_stor_ucr61s2b_init(struct us_data *us)
 	memset(bcb->CDB, 0, sizeof(bcb->CDB));
 	memcpy(bcb->CDB, init_string, sizeof(init_string) - 1);
 
-	res = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe, bcb,
+	res = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe,
+			bcb, us->iobuf_dma,
 			US_BULK_CB_WRAP_LEN, &partial);
 	if(res)
 		return res;
 
 	US_DEBUGP("Getting status packet...\n");
-	res = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe, bcs,
+	res = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe,
+			bcs, us->iobuf_dma,
 			US_BULK_CS_WRAP_LEN, &partial);
 
 	return (res ? -1 : 0);
@@ -98,7 +104,7 @@ int usb_stor_huawei_e220_init(struct us_data *us)
 	result = usb_stor_control_msg(us, us->send_ctrl_pipe,
 				      USB_REQ_SET_FEATURE,
 				      USB_TYPE_STANDARD | USB_RECIP_DEVICE,
-				      0x01, 0x0, NULL, 0x0, 1000);
+				      0x01, 0x0, NULL, 0, 0x0, 1000);
 	US_DEBUGP("usb_control_msg performing result is %d\n", result);
 	return (result ? 0 : -1);
 }

@@ -11,7 +11,7 @@
  *		(usb_device_id matching changes by Adam J. Richter)
  *	(C) Copyright Greg Kroah-Hartman 2002-2003
  * (C) Copyright 2005 Greg Kroah-Hartman <gregkh@suse.de>
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -63,13 +63,13 @@ uint32_t __rt_unkept = 1;
    Eventually the registry will accept new drivers
    and grow the list dynamically. */
 
-extern struct usb_device_id storage_usb_ids;
+extern struct usb_device_id usb_storage_usb_ids;
 extern struct usb_device_id ds2490_usb_ids;
 
 #define NUM_DRIVERS 2
 
 struct usb_driver_registration drivers[NUM_DRIVERS] = {
-  {&storage_usb_ids, 0},
+  {&usb_storage_usb_ids, 0},
   {&ds2490_usb_ids, 1}
 };
 

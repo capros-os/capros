@@ -1,3 +1,26 @@
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #include <linux/usb.h>
 #include <linux/usb/ch9.h>
 #include <linux/module.h>
@@ -5,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <asm/byteorder.h>
+#include <idl/capros/SuperNode.h>
 #include "usb.h"
 #include "hcd.h"
 
@@ -504,8 +528,12 @@ void usb_destroy_configuration(struct usb_device *dev)
 		return;
 
 	if (dev->rawdescriptors) {
-		for (i = 0; i < dev->descriptor.bNumConfigurations; i++)
-			kfree(dev->rawdescriptors[i]);
+		for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
+			struct dma_block_descriptor * bd
+				= &dev->rawdescriptors[i];
+			usb_buffer_free(dev, bd->buf_size,
+					bd->buf, bd->buf_dma);
+		}
 
 		kfree(dev->rawdescriptors);
 		dev->rawdescriptors = NULL;
@@ -515,11 +543,14 @@ void usb_destroy_configuration(struct usb_device *dev)
 		struct usb_host_config *cf = &dev->config[c];
 
 		kfree(cf->string);
-		for (i = 0; i < cf->desc.bNumInterfaces; i++) {
+		int const nintf = cf->desc.bNumInterfaces;
+		for (i = 0; i < nintf; i++) {
 			if (cf->intf_cache[i])
 				kref_put(&cf->intf_cache[i]->ref,
 					  usb_release_interface_cache);
 		}
+		capros_SuperNode_deallocateRange(KR_KEYSTORE,
+			driverSlot(dev, 0), driverSlot(dev, nintf)-1 );
 	}
 	kfree(dev->config);
 	dev->config = NULL;
@@ -543,7 +574,9 @@ int usb_get_configuration(struct usb_device *dev)
 	int result = 0;
 	unsigned int cfgno, length;
 	unsigned char *buffer;
+	dma_addr_t buffer_dma;
 	unsigned char *bigbuffer;
+	dma_addr_t bigbuffer_dma;
 	struct usb_config_descriptor *desc;
 
 	cfgno = 0;
@@ -566,12 +599,13 @@ int usb_get_configuration(struct usb_device *dev)
 	if (!dev->config)
 		goto err2;
 
-	length = ncfg * sizeof(char *);
+	length = ncfg * sizeof(*dev->rawdescriptors);
 	dev->rawdescriptors = kzalloc(length, GFP_KERNEL);
 	if (!dev->rawdescriptors)
 		goto err2;
 
-	buffer = kmalloc(USB_DT_CONFIG_SIZE, GFP_KERNEL);
+	buffer = usb_buffer_alloc(dev, USB_DT_CONFIG_SIZE, GFP_KERNEL,
+			&buffer_dma);
 	if (!buffer)
 		goto err2;
 	desc = (struct usb_config_descriptor *)buffer;
@@ -580,8 +614,8 @@ int usb_get_configuration(struct usb_device *dev)
 	for (; cfgno < ncfg; cfgno++) {
 		/* We grab just the first descriptor so we know how long
 		 * the whole configuration is */
-		result = usb_get_descriptor(dev, USB_DT_CONFIG, cfgno,
-		    buffer, USB_DT_CONFIG_SIZE);
+		result = usb_get_descriptor_dma(dev, USB_DT_CONFIG, cfgno,
+		    buffer, buffer_dma, USB_DT_CONFIG_SIZE);
 		if (result < 0) {
 			dev_err(ddev, "unable to read config index %d "
 			    "descriptor/%s: %d\n", cfgno, "start", result);
@@ -599,26 +633,31 @@ int usb_get_configuration(struct usb_device *dev)
 		    USB_DT_CONFIG_SIZE);
 
 		/* Now that we know the length, get the whole thing */
-		bigbuffer = kmalloc(length, GFP_KERNEL);
+		bigbuffer = usb_buffer_alloc(dev, length, GFP_KERNEL,
+				&bigbuffer_dma);
 		if (!bigbuffer) {
 			result = -ENOMEM;
 			goto err;
 		}
-		result = usb_get_descriptor(dev, USB_DT_CONFIG, cfgno,
-		    bigbuffer, length);
+		result = usb_get_descriptor_dma(dev, USB_DT_CONFIG, cfgno,
+		    bigbuffer, bigbuffer_dma, length);
 		if (result < 0) {
 			dev_err(ddev, "unable to read config index %d "
 			    "descriptor/%s\n", cfgno, "all");
-			kfree(bigbuffer);
+			usb_buffer_free(dev, length, bigbuffer, bigbuffer_dma);
 			goto err;
 		}
+
+		struct dma_block_descriptor * bd = &dev->rawdescriptors[cfgno];
+		bd->buf = bigbuffer;
+		bd->buf_dma = bigbuffer_dma;
+		bd->buf_size = length;
+
 		if (result < length) {
 			dev_warn(ddev, "config index %d descriptor too short "
 			    "(expected %i, got %i)\n", cfgno, length, result);
 			length = result;
 		}
-
-		dev->rawdescriptors[cfgno] = bigbuffer;
 
 		result = usb_parse_configuration(&dev->dev, cfgno,
 		    &dev->config[cfgno], bigbuffer, length);
@@ -630,7 +669,7 @@ int usb_get_configuration(struct usb_device *dev)
 	result = 0;
 
 err:
-	kfree(buffer);
+	usb_buffer_free(dev, USB_DT_CONFIG_SIZE, buffer, buffer_dma);
 out_not_authorized:
 	dev->descriptor.bNumConfigurations = cfgno;
 err2:

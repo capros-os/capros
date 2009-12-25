@@ -30,11 +30,13 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/usbstorage
 OBJECTS=$(BUILDDIR)/usb.o
+OBJECTS+=$(BUILDDIR)/cap.o
 OBJECTS+= $(BUILDDIR)/protocol.o
 OBJECTS+= $(BUILDDIR)/transport.o
 OBJECTS+= $(BUILDDIR)/scsiglue.o
 OBJECTS+= $(BUILDDIR)/initializers.o
 OBJECTS+= $(BUILDDIR)/debug.o
+OBJECTS+= $(BUILDDIR)/option_ms.o
 
 LIBS=../lib/$(BUILDDIR)/libusbdev.a
 
@@ -42,7 +44,7 @@ INC=$(DRIVERINC)
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-all: $(TARGETS) $(BUILDDIR)/stor_ids.o
+all: $(TARGETS) $(BUILDDIR)/usual-tables.o
 
 IDL=$(wildcard *.idl)
 ##interfaces: $(IDL)

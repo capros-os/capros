@@ -21,15 +21,41 @@
  * real drivers.
  *
  */
+/*
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
 
 #include <linux/device.h>
 #include <linux/usb.h>
 #include <linux/usb/quirks.h>
 #include <linux/workqueue.h>
+#include <eros/Invoke.h>
+#include <idl/capros/Node.h>
+#include <idl/capros/SuperNode.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/USBDriver.h>
+#include <domain/assert.h>
 #include "hcd.h"
 #include "usb.h"
 
 
+#if 0 // CapROS
 #ifdef CONFIG_HOTPLUG
 
 /*
@@ -183,6 +209,7 @@ static int usb_unbind_device(struct device *dev)
 	udriver->disconnect(to_usb_device(dev));
 	return 0;
 }
+#endif // CapROS
 
 /*
  * Cancel any pending scheduled resets
@@ -202,10 +229,10 @@ static void usb_cancel_queued_reset(struct usb_interface *iface)
 /* called from driver core with dev locked */
 static int usb_probe_interface(struct device *dev)
 {
-	struct usb_driver *driver = to_usb_driver(dev->driver);
+	// struct usb_driver *driver = to_usb_driver(dev->driver);
 	struct usb_interface *intf;
 	struct usb_device *udev;
-	const struct usb_device_id *id;
+	// const struct usb_device_id *id;
 	int error = -ENODEV;
 
 	dev_dbg(dev, "%s\n", __func__);
@@ -222,6 +249,7 @@ static int usb_probe_interface(struct device *dev)
 		return -ENODEV;
 	}
 
+#if 0 // CapROS
 	id = usb_match_id(intf, driver->id_table);
 	if (!id)
 		id = usb_match_dynamic_id(intf, driver);
@@ -231,6 +259,9 @@ static int usb_probe_interface(struct device *dev)
 		error = usb_autoresume_device(udev);
 		if (error)
 			return error;
+#else
+		error = 0;
+#endif // CapROS
 
 		/* Interface "power state" doesn't correspond to any hardware
 		 * state whatsoever.  We use it to record when it's bound to
@@ -239,19 +270,46 @@ static int usb_probe_interface(struct device *dev)
 		mark_active(intf);
 		intf->condition = USB_INTERFACE_BINDING;
 
+#if 0 // CapROS
 		/* The interface should always appear to be in use
 		 * unless the driver suports autosuspend.
 		 */
 		intf->pm_usage_cnt = !(driver->supports_autosuspend);
+#endif // CapROS
 
 		/* Carry out a deferred switch to altsetting 0 */
 		if (intf->needs_altsetting0) {
-			usb_set_interface(udev, intf->altsetting[0].
-					desc.bInterfaceNumber, 0);
+			usb_set_altSetting(udev, intf, 0);
 			intf->needs_altsetting0 = 0;
 		}
 
+#if 0 // CapROS
 		error = driver->probe(intf, id);
+#else
+		// Is it a hub?
+		if (udev->descriptor.bDeviceClass == USB_CLASS_HUB
+		    || intf->cur_altsetting->desc.bInterfaceClass
+		         == USB_CLASS_HUB) {
+		  // It's a hub.
+		  intf->dev.driver = &(hub_driver.drvwrap.driver);
+
+		  intf->pm_usage_cnt = 0;   // hub_driver supports autosuspend
+
+		  error = (*hub_driver.probe)(intf, NULL);
+		  if (error) {
+		    mark_quiesced(intf);
+		    intf->needs_remote_wakeup = 0;
+		    intf->condition = USB_INTERFACE_UNBOUND;
+		    usb_cancel_queued_reset(intf);
+		  } else
+		    intf->condition = USB_INTERFACE_BOUND;
+		} else {
+		  // It's not a hub.
+		  // For now, assume driver doesn't support autosuspend.
+		  intf->pm_usage_cnt = 1; // !(driver->supports_autosuspend);
+		  newInterface(intf);
+		}
+#endif // CapROS
 		if (error) {
 			mark_quiesced(intf);
 			intf->needs_remote_wakeup = 0;
@@ -261,16 +319,30 @@ static int usb_probe_interface(struct device *dev)
 			intf->condition = USB_INTERFACE_BOUND;
 
 		usb_autosuspend_device(udev);
+#if 0 // CapROS
 	}
+#endif // CapROS
 
 	return error;
 }
 
+// Our simplified version of device_attach().
+int usb_device_attach(struct device *dev)
+{
+	down(&dev->sem);
+        BUG_ON(dev->driver);	// not supported yet
+	int ret = usb_probe_interface(dev);
+        BUG_ON(ret);	// not supported yet
+	up(&dev->sem);
+	return 0;
+}
+
 /* called from driver core with dev locked */
-static int usb_unbind_interface(struct device *dev)
+int usb_unbind_interface(struct device *dev)
 {
 	struct usb_driver *driver = to_usb_driver(dev->driver);
 	struct usb_interface *intf = to_usb_interface(dev);
+	enum usb_interface_condition oldCondition = intf->condition;
 	struct usb_device *udev;
 	int error;
 
@@ -286,7 +358,28 @@ static int usb_unbind_interface(struct device *dev)
 	if (!driver->soft_unbind)
 		usb_disable_interface(udev, intf, false);
 
+#if 0 // CapROS
 	driver->disconnect(intf);
+#else
+	result_t result;
+	unsigned long fwdSlot = forwarderSlot(udev, intf->localInterfaceNum);
+	if (oldCondition == USB_INTERFACE_BOUND) {
+		result = capros_Node_getSlotExtended(KR_KEYSTORE,
+			fwdSlot+1,	// driverSlot
+			KR_TEMP0);
+		assert(result == RC_OK);
+		result = capros_USBDriver_disconnect(KR_TEMP0);
+		// Don't worry about any error.
+	}
+	// Rescind the USBDevice cap.
+	result = capros_Node_getSlotExtended(KR_KEYSTORE, fwdSlot, KR_TEMP0);
+	assert(result == RC_OK);
+	result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+	// Don't worry about any error.
+	result = capros_SuperNode_allocateRange(KR_KEYSTORE,
+		fwdSlot, fwdSlot+1);
+	assert(result == RC_OK);
+#endif // CapROS
 	usb_cancel_queued_reset(intf);
 
 	/* Reset other interface state.
@@ -301,8 +394,7 @@ static int usb_unbind_interface(struct device *dev)
 		 */
 		usb_enable_interface(udev, intf, false);
 	} else if (!error && intf->dev.power.status == DPM_ON)
-		usb_set_interface(udev, intf->altsetting[0].
-				desc.bInterfaceNumber, 0);
+		usb_set_altSetting(udev, intf, 0);
 	else
 		intf->needs_altsetting0 = 1;
 	usb_set_intfdata(intf, NULL);
@@ -317,6 +409,7 @@ static int usb_unbind_interface(struct device *dev)
 	return 0;
 }
 
+#if 0 // CapROS
 /**
  * usb_driver_claim_interface - bind a driver to an interface
  * @driver: the driver to be bound
@@ -366,6 +459,7 @@ int usb_driver_claim_interface(struct usb_driver *driver,
 	return retval;
 }
 EXPORT_SYMBOL_GPL(usb_driver_claim_interface);
+#endif // CapROS
 
 /**
  * usb_driver_release_interface - unbind a driver from an interface
@@ -398,7 +492,11 @@ void usb_driver_release_interface(struct usb_driver *driver,
 	/* don't release if the interface hasn't been added yet */
 	if (device_is_registered(dev)) {
 		iface->condition = USB_INTERFACE_UNBINDING;
+#if 0 // CapROS
 		device_release_driver(dev);
+#else
+		usb_unbind_interface(dev);
+#endif // CapROS
 	} else {
 		iface->condition = USB_INTERFACE_UNBOUND;
 		usb_cancel_queued_reset(iface);
@@ -414,6 +512,7 @@ void usb_driver_release_interface(struct usb_driver *driver,
 }
 EXPORT_SYMBOL_GPL(usb_driver_release_interface);
 
+#if 0 // CapROS
 /* returns 0 if no match, 1 if match */
 int usb_match_device(struct usb_device *dev, const struct usb_device_id *id)
 {
@@ -495,7 +594,7 @@ EXPORT_SYMBOL_GPL(usb_match_one_id);
 
 /**
  * usb_match_id - find first usb_device_id matching device or interface
- * @interface: the interface of interest
+ * @param interface the interface of interest
  * @id: array of usb_device_id structures, terminated by zero entry
  *
  * usb_match_id searches an array of usb_device_id's and returns
@@ -738,6 +837,7 @@ void usb_deregister_device_driver(struct usb_device_driver *udriver)
 	usbfs_update_special();
 }
 EXPORT_SYMBOL_GPL(usb_deregister_device_driver);
+#endif // CapROS
 
 /**
  * usb_register_driver - register a USB interface driver
@@ -765,30 +865,35 @@ int usb_register_driver(struct usb_driver *new_driver, struct module *owner,
 	new_driver->drvwrap.for_devices = 0;
 	new_driver->drvwrap.driver.name = (char *) new_driver->name;
 	new_driver->drvwrap.driver.bus = &usb_bus_type;
-	new_driver->drvwrap.driver.probe = usb_probe_interface;
+	new_driver->drvwrap.driver.probe = 0;// usb_probe_interface;
 	new_driver->drvwrap.driver.remove = usb_unbind_interface;
 	new_driver->drvwrap.driver.owner = owner;
 	new_driver->drvwrap.driver.mod_name = mod_name;
 	spin_lock_init(&new_driver->dynids.lock);
 	INIT_LIST_HEAD(&new_driver->dynids.list);
 
-	retval = driver_register(&new_driver->drvwrap.driver);
+	// retval = driver_register(&new_driver->drvwrap.driver);
 
 	if (!retval) {
 		pr_info("%s: registered new interface driver %s\n",
 			usbcore_name, new_driver->name);
+#if 0 // CapROS
 		usbfs_update_special();
 		usb_create_newid_file(new_driver);
+#endif // CapROS
 	} else {
+#if 0 // CapROS
 		printk(KERN_ERR "%s: error %d registering interface "
 			"	driver %s\n",
 			usbcore_name, retval, new_driver->name);
+#endif // CapROS
 	}
 
 	return retval;
 }
 EXPORT_SYMBOL_GPL(usb_register_driver);
 
+#if 0 // CapROS
 /**
  * usb_deregister - unregister a USB interface driver
  * @driver: USB operations of the interface driver to unregister
@@ -812,6 +917,7 @@ void usb_deregister(struct usb_driver *driver)
 	usbfs_update_special();
 }
 EXPORT_SYMBOL_GPL(usb_deregister);
+#endif // CapROS
 
 /* Forced unbinding of a USB interface driver, either because
  * it doesn't support pre_reset/post_reset/reset_resume or
@@ -856,7 +962,7 @@ void usb_rebind_intf(struct usb_interface *intf)
 	/* Try to rebind the interface */
 	if (intf->dev.power.status == DPM_ON) {
 		intf->needs_binding = 0;
-		rc = device_attach(&intf->dev);
+		rc = usb_device_attach(&intf->dev);
 		if (rc < 0)
 			dev_warn(&intf->dev, "rebind failed: %d\n", rc);
 	}
@@ -900,6 +1006,7 @@ static void do_unbind_rebind(struct usb_device *udev, int action)
 	}
 }
 
+#if 0 // CapROS
 /* Caller has locked udev's pm_mutex */
 static int usb_suspend_device(struct usb_device *udev, pm_message_t msg)
 {
@@ -923,6 +1030,7 @@ static int usb_suspend_device(struct usb_device *udev, pm_message_t msg)
 	dev_vdbg(&udev->dev, "%s: status %d\n", __func__, status);
 	return status;
 }
+#endif // CapROS
 
 /* Caller has locked udev's pm_mutex */
 static int usb_resume_device(struct usb_device *udev, pm_message_t msg)
@@ -952,6 +1060,7 @@ static int usb_resume_device(struct usb_device *udev, pm_message_t msg)
 	return status;
 }
 
+#if 0 // CapROS
 /* Caller has locked intf's usb_device's pm mutex */
 static int usb_suspend_interface(struct usb_device *udev,
 		struct usb_interface *intf, pm_message_t msg)
@@ -987,6 +1096,7 @@ static int usb_suspend_interface(struct usb_device *udev,
 	dev_vdbg(&intf->dev, "%s: status %d\n", __func__, status);
 	return status;
 }
+#endif // CapROS
 
 /* Caller has locked intf's usb_device's pm_mutex */
 static int usb_resume_interface(struct usb_device *udev,
@@ -1008,8 +1118,7 @@ static int usb_resume_interface(struct usb_device *udev,
 		/* Carry out a deferred switch to altsetting 0 */
 		if (intf->needs_altsetting0 &&
 				intf->dev.power.status == DPM_ON) {
-			usb_set_interface(udev, intf->altsetting[0].
-					desc.bInterfaceNumber, 0);
+			usb_set_altSetting(udev, intf, 0);
 			intf->needs_altsetting0 = 0;
 		}
 		goto done;
@@ -1053,6 +1162,7 @@ done:
 	return status;
 }
 
+#if 0 // CapROS
 #ifdef	CONFIG_USB_SUSPEND
 
 /* Internal routine to check whether we may autosuspend a device. */
@@ -1233,6 +1343,7 @@ static int usb_suspend_both(struct usb_device *udev, pm_message_t msg)
 	dev_vdbg(&udev->dev, "%s: status %d\n", __func__, status);
 	return status;
 }
+#endif // CapROS
 
 /**
  * usb_resume_both - resume a USB device and its interfaces
@@ -1330,6 +1441,7 @@ static int usb_resume_both(struct usb_device *udev, pm_message_t msg)
 	return status;
 }
 
+#if 0 // CapROS
 #ifdef CONFIG_USB_SUSPEND
 
 /* Internal routine to adjust a device's usage counter and change
@@ -1705,6 +1817,7 @@ int usb_external_suspend_device(struct usb_device *udev, pm_message_t msg)
 	usb_pm_unlock(udev);
 	return status;
 }
+#endif // CapROS
 
 /**
  * usb_external_resume_device - external resume of a USB device and its interfaces
@@ -1737,6 +1850,7 @@ int usb_external_resume_device(struct usb_device *udev, pm_message_t msg)
 	return status;
 }
 
+#if 0 // CapROS
 int usb_suspend(struct device *dev, pm_message_t msg)
 {
 	struct usb_device	*udev;
@@ -1773,11 +1887,12 @@ int usb_resume(struct device *dev, pm_message_t msg)
 		return 0;
 	return usb_external_resume_device(udev, msg);
 }
+#endif // CapROS
 
 #endif /* CONFIG_PM */
 
 struct bus_type usb_bus_type = {
 	.name =		"usb",
-	.match =	usb_device_match,
-	.uevent =	usb_uevent,
+	.match =	0,//usb_device_match,
+	.uevent =	0,//usb_uevent,
 };

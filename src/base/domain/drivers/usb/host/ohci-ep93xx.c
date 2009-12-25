@@ -181,7 +181,6 @@ static int ohci_hcd_ep93xx_drv_resume(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct ohci_hcd *ohci = hcd_to_ohci(hcd);
-	int status;
 
 	if (time_before(jiffies, ohci->next_statechange))
 		msleep(5);
@@ -195,7 +194,7 @@ static int ohci_hcd_ep93xx_drv_resume(struct platform_device *pdev)
 #endif
 
 
-static struct platform_driver ohci_hcd_ep93xx_driver = {
+/*static*/ struct platform_driver ohci_hcd_ep93xx_driver = {
 	.probe		= ohci_hcd_ep93xx_drv_probe,
 	.remove		= ohci_hcd_ep93xx_drv_remove,
 	.shutdown	= usb_hcd_platform_shutdown,

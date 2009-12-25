@@ -11,6 +11,7 @@
  * (C) Copyright Yggdrasil Computing, Inc. 2000
  *     (usb_device_id matching changes by Adam J. Richter)
  * (C) Copyright Greg Kroah-Hartman 2002-2003
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * NOTE! This is not actually a driver at all, rather this is
  * just a collection of helper routines that implement the
@@ -20,8 +21,29 @@
  * It should be considered a slave, with no callbacks. Callbacks
  * are evil.
  */
+/*
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
+#if 0 // CapROS
 #include <linux/moduleparam.h>
 #include <linux/string.h>
 #include <linux/bitops.h>
@@ -29,24 +51,33 @@
 #include <linux/interrupt.h>  /* for in_interrupt() */
 #include <linux/kmod.h>
 #include <linux/init.h>
+#endif // CapROS
 #include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <linux/usb.h>
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
 
+#if 0 // CapROS
 #include <asm/io.h>
 #include <linux/scatterlist.h>
 #include <linux/mm.h>
+#endif // CapROS
 #include <linux/dma-mapping.h>
+#include <domain/assert.h>
+#include <eros/Invoke.h>
+#include <idl/capros/Node.h>
+#include <idl/capros/SuperNode.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/USBHCD.h>
 
 #include "hcd.h"
 #include "usb.h"
 
 
-const char *usbcore_name = "usbcore";
+struct usb_bus * theBus = 0;
 
-static int nousb;	/* Disable USB when built into kernel image */
+const char *usbcore_name = "usbcore";
 
 /* Workqueue for autosuspend and for remote wakeup of root hubs */
 struct workqueue_struct *ksuspend_usb_wq;
@@ -60,6 +91,10 @@ MODULE_PARM_DESC(autosuspend, "default autosuspend delay");
 #else
 #define usb_autosuspend_delay		0
 #endif
+
+LIST_HEAD(newInterfacesList);
+DEFINE_MUTEX(newInterfacesMutex);
+bool waitingForNewInterfaces = false;
 
 
 /**
@@ -90,8 +125,7 @@ struct usb_interface *usb_ifnum_to_if(const struct usb_device *dev,
 	if (!config)
 		return NULL;
 	for (i = 0; i < config->desc.bNumInterfaces; i++)
-		if (config->interface[i]->altsetting[0]
-				.desc.bInterfaceNumber == ifnum)
+		if (usb_interface_getNumber(config->interface[i]) == ifnum)
 			return config->interface[i];
 
 	return NULL;
@@ -129,6 +163,7 @@ struct usb_host_interface *usb_altnum_to_altsetting(
 }
 EXPORT_SYMBOL_GPL(usb_altnum_to_altsetting);
 
+#if 0 // CapROS
 struct find_interface_arg {
 	int minor;
 	struct usb_interface *interface;
@@ -173,6 +208,7 @@ struct usb_interface *usb_find_interface(struct usb_driver *drv, int minor)
 	return argb.interface;
 }
 EXPORT_SYMBOL_GPL(usb_find_interface);
+#endif // CapROS
 
 /**
  * usb_release_dev - free a usb device structure when all users of it are finished.
@@ -221,7 +257,7 @@ static int usb_dev_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 #ifdef	CONFIG_PM
 
-static int ksuspend_usb_init(void)
+int __ksuspend_usb_init(void)
 {
 	/* This workqueue is supposed to be both freezable and
 	 * singlethreaded.  Its job doesn't justify running on more
@@ -233,10 +269,19 @@ static int ksuspend_usb_init(void)
 	return 0;
 }
 
+#if 0 // CapROS
 static void ksuspend_usb_cleanup(void)
 {
 	destroy_workqueue(ksuspend_usb_wq);
 }
+#endif // CapROS
+
+#ifdef CONFIG_USB_SUSPEND
+// Need to get usb_autosuspend_work from driver.c
+#else
+void usb_autosuspend_work(struct work_struct *work)
+{}
+#endif
 
 /* USB device Power-Management thunks.
  * There's no need to distinguish here between quiescing a USB device
@@ -299,11 +344,16 @@ static struct dev_pm_ops usb_device_pm_ops = {
 
 #else
 
-#define ksuspend_usb_init()	0
+#define __ksuspend_usb_init()	0
 #define ksuspend_usb_cleanup()	do {} while (0)
 #define usb_device_pm_ops	(*(struct dev_pm_ops *)0)
 
 #endif	/* CONFIG_PM */
+
+int ksuspend_usb_init(void)
+{
+  return __ksuspend_usb_init();
+}
 
 struct device_type usb_device_type = {
 	.name =		"usb_device",
@@ -352,7 +402,7 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent,
 	device_initialize(&dev->dev);
 	dev->dev.bus = &usb_bus_type;
 	dev->dev.type = &usb_device_type;
-	dev->dev.groups = usb_device_groups;
+	// dev->dev.groups = usb_device_groups;
 	dev->dev.dma_mask = bus->controller->dma_mask;
 	set_dev_node(&dev->dev, dev_to_node(bus->controller));
 	dev->state = USB_STATE_ATTACHED;
@@ -486,6 +536,7 @@ void usb_put_intf(struct usb_interface *intf)
 }
 EXPORT_SYMBOL_GPL(usb_put_intf);
 
+#if 0 // CapROS
 /*			USB device locking
  *
  * USB devices and interfaces are locked using the semaphore in their
@@ -501,6 +552,7 @@ EXPORT_SYMBOL_GPL(usb_put_intf);
  *	When locking both a device and its parent, always lock the
  *	the parent first.
  */
+#endif // CapROS
 
 /**
  * usb_lock_device_for_reset - cautiously acquire the lock for a usb device structure
@@ -549,6 +601,7 @@ int usb_lock_device_for_reset(struct usb_device *udev,
 }
 EXPORT_SYMBOL_GPL(usb_lock_device_for_reset);
 
+#if 0 // CapROS
 static struct usb_device *match_device(struct usb_device *dev,
 				       u16 vendor_id, u16 product_id)
 {
@@ -672,6 +725,7 @@ int __usb_get_extra_descriptor(char *buffer, unsigned size,
 	return -1;
 }
 EXPORT_SYMBOL_GPL(__usb_get_extra_descriptor);
+#endif // CapROS
 
 /**
  * usb_buffer_alloc - allocate dma-consistent buffer for URB_NO_xxx_DMA_MAP
@@ -742,7 +796,7 @@ EXPORT_SYMBOL_GPL(usb_buffer_free);
  *
  * Reverse the effect of this call with usb_buffer_unmap().
  */
-#if 0
+#if 0 /* XXX DISABLED, no users currently */
 struct urb *usb_buffer_map(struct urb *urb)
 {
 	struct usb_bus		*bus;
@@ -849,6 +903,7 @@ void usb_buffer_unmap(struct urb *urb)
 EXPORT_SYMBOL_GPL(usb_buffer_unmap);
 #endif  /*  0  */
 
+#if 0 // CapROS
 /**
  * usb_buffer_map_sg - create scatterlist DMA mapping(s) for an endpoint
  * @dev: device to which the scatterlist will be mapped
@@ -953,23 +1008,17 @@ void usb_buffer_unmap_sg(const struct usb_device *dev, int is_in,
 			is_in ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
 }
 EXPORT_SYMBOL_GPL(usb_buffer_unmap_sg);
-
-/* To disable USB, kernel command line is 'nousb' not 'usbcore.nousb' */
-#ifdef MODULE
-module_param(nousb, bool, 0444);
-#else
-core_param(nousb, nousb, bool, 0444);
-#endif
+#endif // CapROS
 
 /*
  * for external read access to <nousb>
  */
 int usb_disabled(void)
 {
-	return nousb;
+	return false;	// if it's in the big bang, it's enabled.
 }
-EXPORT_SYMBOL_GPL(usb_disabled);
 
+#if 0 // CapROS
 /*
  * Notifications of device and interface registration
  */
@@ -1084,7 +1133,10 @@ static void __exit usb_exit(void)
 	bus_unregister(&usb_bus_type);
 	ksuspend_usb_cleanup();
 }
+#endif // CapROS
 
+#if 0 // CapROS
 subsys_initcall(usb_init);
 module_exit(usb_exit);
 MODULE_LICENSE("GPL");
+#endif // CapROS
