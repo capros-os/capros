@@ -1,11 +1,13 @@
-// include/linux/usb/otg.h
-
+/* USB OTG (On The Go) defines */
 /*
+ *
  * These APIs may be used between USB controllers.  USB device drivers
  * (for either host or peripheral roles) don't use these calls; they
  * continue to use just usb_device and usb_gadget.
  */
 
+#ifndef __LINUX_USB_OTG_H
+#define __LINUX_USB_OTG_H
 
 /* OTG defines lots of enumeration states before device reset */
 enum usb_otg_state {
@@ -78,11 +80,17 @@ struct otg_transceiver {
 
 /* for board-specific init logic */
 extern int otg_set_transceiver(struct otg_transceiver *);
+#ifdef CONFIG_NOP_USB_XCEIV
+extern void usb_nop_xceiv_register(void);
+extern void usb_nop_xceiv_unregister(void);
+#endif
 
 
 /* for usb host and peripheral controller drivers */
 extern struct otg_transceiver *otg_get_transceiver(void);
+extern void otg_put_transceiver(struct otg_transceiver *);
 
+/* Context: can sleep */
 static inline int
 otg_start_hnp(struct otg_transceiver *otg)
 {
@@ -99,6 +107,8 @@ otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 
 
 /* for usb peripheral controller drivers */
+
+/* Context: can sleep */
 static inline int
 otg_set_peripheral(struct otg_transceiver *otg, struct usb_gadget *periph)
 {
@@ -111,6 +121,7 @@ otg_set_power(struct otg_transceiver *otg, unsigned mA)
 	return otg->set_power(otg, mA);
 }
 
+/* Context: can sleep */
 static inline int
 otg_set_suspend(struct otg_transceiver *otg, int suspend)
 {
@@ -129,3 +140,5 @@ otg_start_srp(struct otg_transceiver *otg)
 
 /* for OTG controller drivers (and maybe other stuff) */
 extern int usb_bus_start_enum(struct usb_bus *bus, unsigned port_num);
+
+#endif /* __LINUX_USB_OTG_H */
