@@ -22,6 +22,7 @@
 
 #include <linuxk/linux-emul.h>
 #include <linux/scatterlist.h>
+#include <domain/assert.h>
 
 void
 sg_init_one(struct scatterlist * sg,
@@ -34,4 +35,10 @@ sg_init_one(struct scatterlist * sg,
 	sg->offset = 0;
 	sg->dma_address = buf_dma;
 	sg->length = buflen;
+}
+
+struct scatterlist * sg_next(struct scatterlist * sg)
+{
+	assert(sg_is_last(sg));	// we use only single-member sgls
+	return NULL;
 }

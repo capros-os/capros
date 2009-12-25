@@ -955,11 +955,11 @@ int device_add(struct device *dev)
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
 	bus_attach_device(dev);
 #endif // CapROS
+#if 0 // CapROS
 	if (parent)
 		klist_add_tail(&dev->p->knode_parent,
 			       &parent->p->klist_children);
 
-#if 0 // CapROS
 	if (dev->class) {
 		mutex_lock(&dev->class->p->class_mutex);
 		/* tie the class to the device */

@@ -43,8 +43,11 @@ kfree(const void * p)
     char * pToFree = (char *)p;
 #ifdef KMALLOC_DEBUG
     pToFree -= ALIGN_BYTES;
-    assert(*((uint32_t *)pToFree) == 0xdeadbeef);
+    uint32_t size = *((uint32_t *)pToFree);
+    assert(size != 0xbadbadac);
+    assert(size < 0x00100000);	// is it reasonable?
     *((uint32_t *)pToFree) = 0xbadbadac;	// mark as unallocated
+    memset(pToFree, 0, size);	// better not need the data now
 #endif
     down(&mallocLock);
     free((void *)pToFree);
@@ -83,10 +86,12 @@ and must not use the VCSK. */
       char * pToReturn = p;
 #ifdef KMALLOC_DEBUG
       pToReturn += ALIGN_BYTES;
-      *((uint32_t *)p) = 0xdeadbeef;	// mark as allocated
-#endif
+      *((uint32_t *)p) = size;	// save size and mark as allocated
+      memset(pToReturn, 0, size);	// no one should be using the data
+#else
       if (flags & __GFP_ZERO)
         memset(pToReturn, 0, size);
+#endif
       return pToReturn;
     }
   }
