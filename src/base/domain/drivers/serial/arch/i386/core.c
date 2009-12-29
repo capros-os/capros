@@ -49,6 +49,7 @@ int capros_serial_initialization(void)
   old_serial_port[0].port = w1 & 0xffff;
   old_serial_port[0].irq = w1 >> 16;
   old_serial_port[0].flags = w2;
+  old_serial_port[0].io_type = UPIO_PORT;
 
   return serial8250_init();
 }
