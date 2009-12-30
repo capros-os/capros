@@ -105,7 +105,7 @@ main()
   msg.rcv_rsmkey = KR_RETURN;
   msg.rcv_limit = 0;		/* no data returned */
 
-  /*** Call process key to proc2 ***/
+  /* KR_ARG(0) initially has a process key to proc2. Call it. */
 
   ret = capros_key_getType(KR_ARG(0), &keyType);
   checkEqual(ret, RC_OK);
@@ -122,8 +122,10 @@ main()
   checkEqual(msg.rcv_w2, 0);
   checkEqual(msg.rcv_w3, 0);
 
+  /* The above call should have received Void into KR_ARG(0). */
   ret = capros_key_getType(KR_ARG(0), &keyType);
   checkEqual(ret, RC_capros_key_Void);
+// As of 12/30/09, the above is a known bug.
 //// check arg1 and 2
 
   /* Get echo process started. */
