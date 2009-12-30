@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -104,25 +104,25 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
     check_Consistency("Before Invoke");
 #endif
 
-  {
-    Process* sndContext = act_CurContext();
+  Process * sndContext = act_CurContext();
 
-    /* If IPC block validation is running in the IPC assembly path,
-       that path may have set a fault code, in which case we need to
-       bypass the actual invocation and let the thread scheduler
-       invoke the domain keeper. */
-    if (sndContext->faultCode == capros_Process_FC_NoFault)
-      BeginInvocation();
-  
-      objH_BeginTransaction();
+  /* Roll back the invocation PC in case we need to restart this operation */
+  proc_AdjustInvocationPC(sndContext);
 
-      /* Roll back the invocation PC in case we need to restart this operation */
-      proc_AdjustInvocationPC(sndContext);
-
-      proc_SetupEntryBlock(sndContext, &inv);
-
-      proc_DoKeyInvocation(sndContext);
+  /* The IPC assembly path does some IPC block validation.
+     That path may have set a fault code, in which case we need to
+     bypass the actual invocation and let the thread scheduler
+     invoke the domain keeper. */
+  if (sndContext->faultCode != capros_Process_FC_NoFault) {
+    fatal("Invalid IPC: should fault the user\n"); // FIXME
   }
+  BeginInvocation();
+
+  objH_BeginTransaction();
+
+  proc_SetupEntryBlock(sndContext, &inv);
+
+  proc_DoKeyInvocation(sndContext);
   
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)

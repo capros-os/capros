@@ -196,8 +196,6 @@ proc_SetupExitString(Process* thisPtr,
   if (senderLen == 0)
     return;
 
-  ula_t addr;
-
   /* In the case where we are going cross-space, we need to do some
    * fairly hairy crud here, but for device drivers it is important to
    * get the invoker == invokee case right.  In that special case, we
@@ -217,10 +215,9 @@ proc_SetupExitString(Process* thisPtr,
 #endif
       (act_CurContext()->md.MappingTable == thisPtr->md.MappingTable)
       ) {
+    ula_t ula = thisPtr->trapFrame.EDI;
 #ifdef OPTION_SMALL_SPACES
-    ula_t ula = thisPtr->trapFrame.EDI + thisPtr->md.bias;
-#else
-    ula_t ula = trapFrame.EDI;
+    ula += thisPtr->md.bias;
 #endif
     ula_t ulaTop = ula + senderLen;
     ula &= ~EROS_PAGE_MASK;
@@ -243,10 +240,9 @@ proc_SetupExitString(Process* thisPtr,
       ula += EROS_PAGE_SIZE;
     }
 
+    ula_t addr = thisPtr->trapFrame.EDI + KUVA;
 #ifdef OPTION_SMALL_SPACES
-    addr = thisPtr->trapFrame.EDI + thisPtr->md.bias + KUVA;
-#else
-    addr = trapFrame.EDI + KUVA;
+    addr += thisPtr->md.bias;
 #endif
     inv->exit.data = (uint8_t *) addr;
   }

@@ -198,7 +198,7 @@ opaque	uint8_t    *          hazards
 gen	uint8_t    uint8_t    runState
 gen	uint8_t    uint8_t    processFlags
 proc	uint32_t   *          readyQ
-proc	uint32_t   *          curThread
+proc	uint32_t   *          curActivity
 
 proc	uint32_t   *          MappingTable
 proc	uint32_t   *          cpuStack
@@ -262,7 +262,6 @@ pfix	uint32_t   uint32_t   sndLen
 pfix	uint32_t   uint32_t   sndPtr
 pfix	uint32_t   uint32_t   sndKeys
 pfix	uint32_t   uint32_t   rcvKeys
-pfix	uint32_t   uint32_t   testme
 
 END   PseudoRegs
 

@@ -994,10 +994,9 @@ L_ipc_block_lo:
 	/* First need to make sure that we have a well-formed IPC 
 	 * invocation.
 	 *
-	 * EAX presently points to active process structure
-	 * ECX holds xmit length
-	 * ESI holds xmit string
-	 * EDX holds sndKeys
+	 * ebp points to active process's trapFrame
+	 * ecx holds xmit length
+	 * edx holds sndKeys
 	 */
 
 	cmpl	$EROS_NODE_SIZE,FX_OFF_invKey(%ebp)

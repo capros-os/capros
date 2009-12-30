@@ -81,10 +81,6 @@ proc_DumpPseudoRegs(Process* thisPtr)
 	 "invTy = %d invKey = 0x%x sndPtr = 0x%08x sndLen= %5d sndKeys=0x%08x rcvKeys=0x%08x\n",
 	 pr->invType, pr->invKey, pr->sndPtr, pr->sndLen,
 	 pr->sndKeys, pr->rcvKeys);
-  printf(
-	 "testMe = 0x%08x\n",
-	 pr->testme);
-
 }
 
 

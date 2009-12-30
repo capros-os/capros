@@ -48,6 +48,7 @@ Approved for public release, distribution unlimited. */
 #include "GDT.h"
 #include "IDT.h"
 #include "TSS.h"
+#include "process_asm_offsets.h"
 
 uint32_t mach_BusArchitecture();
 
@@ -81,6 +82,9 @@ unsigned int CpuVendorCode = capros_arch_i386_DevPrivsX86_VendorCode_Unknown;
 void 
 mach_BootInit()
 {
+  // A quick check that the C and assembler Process structure offsets match:
+  assert(offsetof(Process, faultInfo) == PR_OFF_faultInfo);
+
   // Determine CpuVendorCode from vendor string.
 #define vendor(vendorIDString, name) \
   if (! strcmp(CpuVendor, vendorIDString)) \

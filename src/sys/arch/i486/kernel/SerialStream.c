@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/i486/io.h>
 #include <arch-kerninc/IRQ-inline.h>
 #include "IDT.h"
+#include "IRQ386.h"
 
 #define COMIRQ   irq_Serial0
 #define COMBASE  0x3f8
@@ -41,39 +42,44 @@ extern struct KernStream TheSerialStream;
 void
 SerialStream_Init()
 {
-  uint16_t dlab = COMBASE + 3;
+  uint16_t lcr = COMBASE + 3;	// Line Control Register
 
   /* Initialize COM port */
 
-  /* Currently: 9600, 8N1 */
   /* (This seemes to not be needed when using VMware
    * and psuedo terminal pipes, but it's here for
    * completeness and for real hardware.)
    */
 
-  /* set DLAB bit      */
+  /* set Divisor Latch Access Bit (DLAB) */
   /* b7=1              */
-  outb(inb(dlab) | 0x80, dlab);
+  outb(inb(lcr) | 0x80, lcr);
 
+#if 0 // 9600 baud
   /* set 16-bit divisor to 12 (0Ch = 9600 baud) */
-  outb(0x0C, COMBASE);
+  outb(12, COMBASE);
+#else // 57600 baud
+  // set 16-bit divisor to 2
+  outb(2, COMBASE);
+#endif
   outb(0, COMBASE + 1);
 
+  /* Currently: 8N1 */
   /* set data bits to 8 */
   /* b0=1 b1=1          */
-  outb(inb(dlab) | 0x03, dlab);
+  outb(inb(lcr) | 0x03, lcr);
 
   /* set parity to None */
   /* b3=0 b4=0 b5=0     */
-  outb(inb(dlab) & 0xC7, dlab);
+  outb(inb(lcr) & 0xC7, lcr);
 
   /* set stop bits to 1 */
   /* b2=0               */
-  outb(inb(dlab) & 0xFB, dlab);
+  outb(inb(lcr) & 0xFB, lcr);
 
   /* unset DLAB bit     */
   /* b7=0               */
-  outb(inb(COMBASE + 3) & 0x7f, COMBASE + 3);
+  outb(inb(lcr) & 0x7f, lcr);
 
   /* tell COM port to report INTs on received char */
   outb(1, COMBASE + 1);
