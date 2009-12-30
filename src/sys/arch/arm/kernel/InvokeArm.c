@@ -78,13 +78,13 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   /* Not hazarded because invocation key */
   unsigned int invSlot = invKeyAndType & 0xff;
   if (invSlot >= EROS_NODE_SIZE) {
-    fatal("Invalid invKey: should fault the user"); // FIXME
+    fatal("Invalid invKey: should fault the user\n"); // FIXME
   }
   inv->key = &thisPtr->keyReg[invSlot];
 
   unsigned int typ = (invKeyAndType >> 8) & 0xff;
   if (!INVTYPE_ISVALID(typ)) {
-    fatal("Invalid invType: should fault the user"); // FIXME
+    fatal("Invalid invType: should fault the user\n"); // FIXME
   }
   inv->invType = typ;
 
@@ -101,7 +101,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   uint8_t * sndKeys = (uint8_t *) &thisPtr->trapFrame.r2;
   if (thisPtr->trapFrame.r2 & 0xe0e0e0e0) {
-    fatal("Invalid sndKeys: should fault the user"); // FIXME
+    fatal("Invalid sndKeys: should fault the user\n"); // FIXME
   }
   
   /* Not hazarded because invocation key */
@@ -118,7 +118,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   if (sndLen == 0)
     return;
   if (sndLen > capros_key_messageLimit)
-    fatal("Invalid sndLen: should fault the user"); // FIXME
+    fatal("Invalid sndLen: should fault the user\n"); // FIXME
 
   /* Get user's snd_addr from his Message structure. */
   ula_t addr;
@@ -239,7 +239,7 @@ revalidate: ;
       // FIXME: Does proc_DoPageFault check access (wrong domain)?
       if (! proc_DoPageFault(thisPtr, va,
             false /* read only */, true /* prompt */ )) {
-        fatal("proc_SetupExitString needs to fault, unimplemented!");
+        fatal("proc_SetupExitString needs to fault, unimplemented!\n");
       } else {
         // We repaired the fault. BUT, in so doing, we may have
         // invalidated some other map needed for this operation.
@@ -270,7 +270,7 @@ revalidate: ;
 
       if (va >= (1ul << PID_SHIFT)
           || vaTop >= (1ul << PID_SHIFT))
-        fatal("proc_SetupExitString needs to fault, unimplemented!");
+        fatal("proc_SetupExitString needs to fault, unimplemented!\n");
     }
 
     uva_t pgPtr;
@@ -287,7 +287,7 @@ revalidate: ;
         // Not mapped, try to map it.
         if (! proc_DoPageFault(thisPtr, pgPtr,
               true /* write */, true /* prompt */ )) {
-          fatal("proc_SetupExitString needs to fault, unimplemented!");
+          fatal("proc_SetupExitString needs to fault, unimplemented!\n");
         } else {
           goto revalidate;
         }
@@ -305,7 +305,7 @@ revalidate: ;
       // FIXME: Does proc_DoPageFault check access (wrong domain)?
       if (! proc_DoPageFault(thisPtr, va,
             false /* read only */, true /* prompt */ )) {
-        fatal("proc_SetupExitString needs to fault, unimplemented!");
+        fatal("proc_SetupExitString needs to fault, unimplemented!\n");
       }
       goto revalidate;	// it should have a non-null FLPT now
     }

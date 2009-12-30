@@ -35,6 +35,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 #include <arch-kerninc/kern-target-asm.h>
 #include <arch-kerninc/PTE.h>
+#include "process_asm_offsets.h"
 
 #define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))
 
@@ -75,9 +76,8 @@ mach_FlushTLBsCaches(void)
 void 
 mach_BootInit()
 {
-  InterruptInit();
-  
-  init_dma();
+  // A quick check that the C and assembler Process structure offsets match:
+  assert(offsetof(Process, faultInfo) == PR_OFF_faultInfo);
   
   assert(sizeof(uint16_t) == 2);
   assert(sizeof(uint32_t) == 4);
@@ -87,6 +87,10 @@ mach_BootInit()
 
   /* Verify the queue key representation pun: */
   assert(sizeof(StallQueue) == 2 * sizeof(uint32_t));
+
+  InterruptInit();
+  
+  init_dma();
   
   /*  printf("Pre enable: intdepth=%d\n", IDT::intdepth); */
   
