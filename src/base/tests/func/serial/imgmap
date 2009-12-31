@@ -49,16 +49,20 @@ test key reg KR_APP(1) = misc Sleep;
 
 run test;
 
-#define serial3_notifyee start test 0
-
-#include <nplink.map>
 #include <drivers/serial.map>
 
 #if defined(EROS_TARGET_arm)
 
+#define serial3_notifyee start test 0
+#include <nplink.map>
+
 SERIAL_DRIVER_AMBA(uart3, 3, SYSCONDeviceCfg_U3EN, APB_PA+UART3_APB_OFS)
 
 #elif defined(EROS_TARGET_i486)
+
+// Test with COM1
+#define serial1_notifyee start test 0
+#include <nplink.map>
 
 #include <linux/serial.h>
 #include <asm/serial.h>

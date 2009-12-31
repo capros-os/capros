@@ -260,14 +260,17 @@ main(void)
   Msg.snd_invKey = KR_RETURN;
   SEND(&Msg);
 
+  kprintf(KR_OSTREAM, "About to open.\n");
+
   // Just open and close (use this to test for memory leaks)
 
   result = capros_SerialPort_open(KR_SER, &err);
   ckOK
-  kprintf(KR_OSTREAM, "Opened.\n");
+  kprintf(KR_OSTREAM, "Opened.\n");////
 
   result = capros_SerialPort_close(KR_SER);
   ckOK
+  kprintf(KR_OSTREAM, "Closed.\n");
 
   // Open for rest of test.
 
