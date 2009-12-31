@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -118,9 +118,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
 
   curActivity = act_Current();
   assert(curActivity || !sa_IsProcess(saveArea));
-#endif
 
-#ifndef NDEBUG
 #ifdef OPTION_DDB
   if (dbg_inttrap) {
     kdb_trap(vecNumber, saveArea->Error, saveArea);
@@ -128,9 +126,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
        which would recurse forever. */
   }
 #endif
-#endif
 
-#ifndef NDEBUG
   /* NOTE: There was a bug here in which a timer interrupt that nailed
    * the kernel in nested fashion could trigger a context check while
    * something critical was being updated. */
@@ -141,9 +137,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
     halt('a');
   }
   
-#endif
   
-#ifndef NDEBUG
   /* Various paranoia checks: */
   
 #if 0

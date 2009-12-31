@@ -822,8 +822,6 @@ L_load_kernel_segments:
 
 L_dispatch_interrupt:
 	/*
-	 * WATCH OUT for come-from coding out of bad_ipc_block!!!
-	 *
 	 * %ebp now holds the save area pointer, which is valid in both
 	 * the kernel and user address spaces.
 	 *

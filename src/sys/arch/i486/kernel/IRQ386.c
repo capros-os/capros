@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -36,7 +36,7 @@ uint32_t irq_enableMask = 0;
 struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];
 
 
-/* #define INTRDEBUG */
+// #define INTRDEBUG
 
 #if 0
 /* The X86 PIC uses disable mask rather than enable mask.  We use
@@ -78,7 +78,7 @@ irq_Enable(uint32_t irq)
 
 #ifdef INTRDEBUG
   if (irq == 1) {
-    uint8_t truemask = in8(0x21);
+    uint8_t truemask = inb(0x21);
   
     printf("Enable IRQ line %d true=0x%x pic=0x%x\n", irq,
 		   truemask, pic1_mask);

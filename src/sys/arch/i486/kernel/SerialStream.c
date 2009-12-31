@@ -35,6 +35,18 @@ Approved for public release, distribution unlimited. */
 
 #define COMIRQ   irq_Serial0
 #define COMBASE  0x3f8
+// When DLAB == 0:
+// Input:
+#define RX  (COMBASE + 0)
+#define IIR (COMBASE + 2)
+#define LCR (COMBASE + 3)
+#define LSR (COMBASE + 5)
+#define MSR (COMBASE + 6)
+// Output:
+#define TX  (COMBASE + 0)
+#define IER (COMBASE + 1)
+#define LCR (COMBASE + 3)
+#define MCR (COMBASE + 4)
 
 extern struct KernStream TheSerialStream;
 
@@ -42,8 +54,6 @@ extern struct KernStream TheSerialStream;
 void
 SerialStream_Init()
 {
-  uint16_t lcr = COMBASE + 3;	// Line Control Register
-
   /* Initialize COM port */
 
   /* (This seemes to not be needed when using VMware
@@ -53,7 +63,7 @@ SerialStream_Init()
 
   /* set Divisor Latch Access Bit (DLAB) */
   /* b7=1              */
-  outb(inb(lcr) | 0x80, lcr);
+  outb(inb(LCR) | 0x80, LCR);
 
 #if 0 // 9600 baud
   /* set 16-bit divisor to 12 (0Ch = 9600 baud) */
@@ -67,22 +77,25 @@ SerialStream_Init()
   /* Currently: 8N1 */
   /* set data bits to 8 */
   /* b0=1 b1=1          */
-  outb(inb(lcr) | 0x03, lcr);
+  outb(inb(LCR) | 0x03, LCR);
 
   /* set parity to None */
   /* b3=0 b4=0 b5=0     */
-  outb(inb(lcr) & 0xC7, lcr);
+  outb(inb(LCR) & 0xC7, LCR);
 
   /* set stop bits to 1 */
   /* b2=0               */
-  outb(inb(lcr) & 0xFB, lcr);
+  outb(inb(LCR) & 0xFB, LCR);
 
   /* unset DLAB bit     */
   /* b7=0               */
-  outb(inb(lcr) & 0x7f, lcr);
+  outb(inb(LCR) & 0x7f, LCR);
 
   /* tell COM port to report INTs on received char */
-  outb(1, COMBASE + 1);
+  outb(0x05, IER);
+
+  // Most PCs require OUT2 to enable interrupts.
+  outb(0x08, MCR);
 }
 
 uint8_t
@@ -90,12 +103,12 @@ SerialStream_Get(void)
 {
   uint8_t c;
 
-  /* Bit 0 (received data ready) of combase + 5 (serialization status
-     register) is 1 if there is a byte ready for us to read. */
-  while ((inb(COMBASE + 5) & 1) == 0) {
+  /* Bit 0 (received data ready) of LSR (line status register)
+     is 1 if there is a byte ready for us to read. */
+  while ((inb(LSR) & 1) == 0) {
     /* wait for data */
   }
-  c = inb(COMBASE);
+  c = inb(RX);
 
   return c;
 }
@@ -104,13 +117,13 @@ void
 SerialStream_Put(uint8_t c)
 {
   
-  /* Bit 5 (transmit buffer empty) of combase + 5 (serialization status
-     register) is 1 if the transmit buffer is ready for a new byte. */
-  while ((inb(COMBASE + 5) & 0x20) == 0) {
+  /* Bit 5 (transmit buffer empty) of LSR (line status register)
+     is 1 if the transmit buffer is ready for a new byte. */
+  while ((inb(LSR) & 0x20) == 0) {
     /* wait for the serial port to be ready . . . maybe we should
        run faster than 9600 baud :p */
   }
-  outb(c, COMBASE);
+  outb(c, TX);
 
   return;
 }
@@ -131,9 +144,8 @@ SerialInterrupt(savearea_t *sa)
   char c;
   uint32_t irq = IRQ_FROM_EXCEPTION(sa->ExceptNo);
 
-  /* look at interrupt id to quell UART */
+  (void) inb(IIR);	// look at interrupt id to quell UART
   /* may want to actually do something here sometime later */
-  inb(COMBASE + 2);
 
   if (kstream_debuggerIsActive)
     return;
@@ -142,7 +154,7 @@ SerialInterrupt(savearea_t *sa)
 
   c = TheSerialStream.Get();
 
-  if (c == ETX)
+  if (c == ETX)	// control-C
     Debugger();
 
   irq_Enable(irq);
