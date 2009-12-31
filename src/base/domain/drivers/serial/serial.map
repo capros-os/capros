@@ -25,7 +25,6 @@ Approved for public release, distribution unlimited. */
 
 #include <linuxk/lsync.h>
 #include <eros/Reserve.h>
-#include <asm/thread_info.h>
 #include <drivers/driver.map>
 
 /*********************************************
