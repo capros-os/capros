@@ -1288,12 +1288,6 @@ db_disasm(db_addr_t loc, bool altfmt)
 		}
 	}
 
-	if (altfmt == 0 && (inst == 0xe9 || inst == 0xeb)) {
-		/*
-		 * GAS pads to longword boundary after unconditional jumps.
-		 */
-		loc = (loc + (4-1)) & ~(4-1);
-	}
 	db_printf("\n");
 	return (loc);
 }
