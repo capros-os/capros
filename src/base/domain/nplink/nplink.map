@@ -64,14 +64,19 @@ nplink_constit[2] = ip_notifyee;
 #endif
 nplink_constit[10] = sb_notifyee;
 
+#ifndef serial1_notifyee
+#define serial1_notifyee void
+#endif
+nplink_constit[3] = serial1_notifyee;
+
 #ifndef serial3_notifyee
 #define serial3_notifyee void
 #endif
-nplink_constit[3] = serial3_notifyee;
+nplink_constit[5] = serial3_notifyee;
 
 #ifndef serial6_notifyee
 #define serial6_notifyee void
 #endif
-nplink_constit[6] = serial6_notifyee;
+nplink_constit[8] = serial6_notifyee;
 
 #endif

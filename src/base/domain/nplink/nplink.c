@@ -61,8 +61,9 @@ uint32_t __rt_unkept = 1;
 #define KC_DS9490R 0
 #define KC_DS9097U 1
 #define KC_IP      2
-#define KC_Serial3 3
-#define KC_Serial6 6
+#define KC_Serial1 3
+#define KC_Serial3 5
+#define KC_Serial6 8
 #define KC_SB      10
 
 #define KR_OSTREAM KR_APP(0)
@@ -119,6 +120,9 @@ AssignSerialPort(Message * msg)
     default:
       kprintf(KR_OSTREAM, "Unknown serial port # %d.\n", msg->rcv_w2);
       return;
+    case 1:	// UART1
+      slot = KC_Serial1;
+      break;
     case 3:	// UART3
       slot = KC_Serial3;
       break;
