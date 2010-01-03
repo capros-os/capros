@@ -1,6 +1,6 @@
 	.file "interpreter.S"
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -39,6 +39,11 @@ swapAddrSpaceAndPC32. */
 #include <eros/target-asm.h>
 #include <eros/Invoke.h>
 
+#define sizeofMessage 72
+#define offsetof_errorResult sizeofMessage
+#define offsetof_destructionOffset (sizeofMessage+4)
+#define sizeofInterpreterStep (sizeofMessage+8)
+
 	.text
 #ifdef __ELF__
 ENTRY(_start)
@@ -47,7 +52,7 @@ ENTRY(_start)
 ENTRY(start)
 #endif
 
-	movl EXT(ConstructionTable),%ebp	// ptr to struct InterpreterStep
+	movl $EXT(ConstructionTable),%ebp	// ptr to struct InterpreterStep
 	jmp loop
 
 	.skip _start + 0x20 - ., 0
@@ -66,7 +71,7 @@ ENTRY(start)
 	/* We have no stack, so we can use %esp as the "holding cell".
 	Save the retCode in %esp. */
 	movl	%ebx,%esp
-	movl EXT(DestructionTable),%ebp	// ptr to struct InterpreterStep
+	movl $EXT(DestructionTable),%ebp	// ptr to struct InterpreterStep
 loop:
 	// %ebp has address of struct InterpreterStep to interpret.
 	// %esp has final error if any
@@ -74,8 +79,7 @@ loop:
 	movl    36(%ebp),%ebx	// snd_w1
 	movl    40(%ebp),%ecx	// snd_w2
 	movl    44(%ebp),%edx	// snd_w3
-	movl	72(%ebp),%edi	// destructionOffset
-	cmpl	$-1,%edi	// getHolding?
+	cmpl	$-1,offsetof_destructionOffset(%ebp)	// getHolding?
 	jne 1f
 	movl	%esp,%ebx	// holding cell to snd_w1
 1:
@@ -90,21 +94,21 @@ loop:
 	cmpl	$RC_OK,%eax
 	jne error
 
-	cmpl	$-2,%edi	// setHolding?
+	cmpl	$-2,offsetof_destructionOffset(%ebp)	// setHolding?
 	jne 1f
 	movl	%ebx,%esp	// rcv_w1 to holding cell
 1:
 	/* Other return values are ignored. */
 
-	addl	$76,%ebp	// sizeof(struct InterpreterStep)
+	addl	$sizeofInterpreterStep,%ebp
 	jmp loop
 
 error:
 	// Got an error in %eax.
-	movl 68(%ebp),%esp	// errorResult
+	movl offsetof_errorResult(%ebp),%esp
 	cmpl $1,%esp		// faultOnError?
 	je halt
-	movl 72(%ebp),%ebp	// destructionOffset
+	movl offsetof_destructionOffset(%ebp),%ebp
 	addl EXT(DestructionTable),%ebp
 	cmpl $0,%esp		// passErrorThrough?
 	jne 1f
