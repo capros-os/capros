@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2008, 2009, 2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -26,3 +26,6 @@ Approved for public release, distribution unlimited. */
 #define IKT_capros_DevPrivsAny IKT_capros_DevPrivs64
 #define capros_DevPrivs_allocateIORQ capros_DevPrivs64_allocateIORQ
 #define OC_capros_DevPrivs_allocateIORQ OC_capros_DevPrivs64_allocateIORQ
+
+#define capros_DevPrivs_publishMem capros_DevPrivs64_publishMem
+#define OC_capros_DevPrivs_publishMem OC_capros_DevPrivs64_publishMem

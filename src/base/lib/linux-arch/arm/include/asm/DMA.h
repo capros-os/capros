@@ -21,4 +21,4 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <asm-generic/DMA32.h>
+#include <eros/DMA32.h>

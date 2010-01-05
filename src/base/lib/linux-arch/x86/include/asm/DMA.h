@@ -23,10 +23,10 @@ Approved for public release, distribution unlimited. */
 
 #ifdef CONFIG_HIGHMEM64G
 
-#include <asm-generic/DMA64.h>
+#include <eros/DMA64.h>
 
 #else
 
-#include <asm-generic/DMA32.h>
+#include <eros/DMA32.h>
 
 #endif

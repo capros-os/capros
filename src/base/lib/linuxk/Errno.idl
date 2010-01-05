@@ -1,19 +1,5 @@
 package capros;
 
-namespace DMA32 {
-  /* This type is for DMA addresses
-  on architectures where they will fit in 32 bits. */
-  typedef unsigned <32> DMAAddress;
-  const unsigned short DMAAddressBits = 32;
-};
-
-namespace DMA64 {
-  /* This type is for DMA addresses
-  on architectures where they will fit in 64 bits but not 32. */
-  typedef unsigned <64> DMAAddress;
-  const unsigned short DMAAddressBits = 64;
-};
-
 /** Errno is not an object, just a collection of declarations and functions. */
 interface Errno {
 

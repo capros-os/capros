@@ -59,14 +59,6 @@ interface DevPrivs extends key raises(AllocFail) {
    */
   void waitIRQ(unsigned long irq);
 
-  /** Publish device memory.
-   *
-   * Inform the kernel that a hardware device publishes (presents to
-   * the bus) a physical memory region that was previously unknown to
-   * the kernel.
-   */
-  void publishMem(unsigned long start, unsigned long end, boolean readOnly);
-
   /** Modify the system's device configuration register (ARM EP93xx only).
 
      Set or clear the bit(s) in the mask.
@@ -110,10 +102,28 @@ interface DevPrivs32 extends DevPrivs raises(DevPrivs.AllocFail) {
   /** Allocate an IOReqQ32.
    */
   capros.IOReqQ32 allocateIORQ();
+
+  /** Publish device memory.
+   *
+   * Inform the kernel that a hardware device publishes (presents to
+   * the bus) a physical memory region that was previously unknown to
+   * the kernel.
+   */
+  void publishMem(DMA32.DMAAddress start, DMA32.DMAAddress end, boolean readOnly);
 };
 
 interface DevPrivs64 extends DevPrivs raises(DevPrivs.AllocFail) {
   /** Allocate an IOReqQ64.
    */
   capros.IOReqQ64 allocateIORQ();
+
+  /** Publish device memory.
+   *
+   * Inform the kernel that a hardware device publishes (presents to
+   * the bus) a physical memory region that was previously unknown to
+   * the kernel.
+   */
+  /* Below, unsigned long long should be DMA64.DMAAddress,
+     but the IDL compiler has a problem with that. */
+  void publishMem(unsigned long long start, unsigned long long end, boolean readOnly);
 };
