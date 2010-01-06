@@ -5,6 +5,7 @@
  * Copyright (c) 2002-3 Open Source Development Labs
  * Copyright (c) 2007 Greg Kroah-Hartman <gregkh@suse.de>
  * Copyright (c) 2007 Novell Inc.
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * This file is released under the GPLv2
  *
@@ -502,6 +503,7 @@ out_put:
 	bus_put(dev->bus);
 	return error;
 }
+#endif // CapROS
 
 /**
  * bus_attach_device - add device to bus
@@ -516,15 +518,18 @@ void bus_attach_device(struct device *dev)
 	int ret = 0;
 
 	if (bus) {
+#if 0 // CapROS
 		if (bus->p->drivers_autoprobe)
 			ret = device_attach(dev);
 		WARN_ON(ret < 0);
+#endif // CapROS
 		if (ret >= 0)
 			klist_add_tail(&dev->p->knode_bus,
 				       &bus->p->klist_devices);
 	}
 }
 
+#if 0 // CapROS
 /**
  * bus_remove_device - remove device from bus
  * @dev: device to be removed
@@ -968,7 +973,6 @@ out:
 }
 EXPORT_SYMBOL_GPL(bus_register);
 
-#if 0 // CapROS
 /**
  * bus_unregister - remove a bus from the system
  * @bus: bus.
@@ -979,17 +983,20 @@ EXPORT_SYMBOL_GPL(bus_register);
 void bus_unregister(struct bus_type *bus)
 {
 	pr_debug("bus: '%s': unregistering\n", bus->name);
+#if 0 // CapROS
 	bus_remove_attrs(bus);
 	remove_probe_files(bus);
+#endif // CapROS
 	kset_unregister(bus->p->drivers_kset);
 	kset_unregister(bus->p->devices_kset);
-	bus_remove_file(bus, &bus_attr_uevent);
+	// bus_remove_file(bus, &bus_attr_uevent);
 	kset_unregister(&bus->p->subsys);
 	kfree(bus->p);
 	bus->p = NULL;
 }
 EXPORT_SYMBOL_GPL(bus_unregister);
 
+#if 0 // CapROS
 int bus_register_notifier(struct bus_type *bus, struct notifier_block *nb)
 {
 	return blocking_notifier_chain_register(&bus->p->bus_notifier, nb);

@@ -5,6 +5,7 @@
  * Copyright (c) 2002-3 Open Source Development Labs
  * Copyright (c) 2006 Greg Kroah-Hartman <gregkh@suse.de>
  * Copyright (c) 2006 Novell, Inc.
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * This file is released under the GPLv2
  *
@@ -953,8 +954,8 @@ int device_add(struct device *dev)
 					     BUS_NOTIFY_ADD_DEVICE, dev);
 
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
-	bus_attach_device(dev);
 #endif // CapROS
+	bus_attach_device(dev);	// Note, does NOT call device_attach
 #if 0 // CapROS
 	if (parent)
 		klist_add_tail(&dev->p->knode_parent,
