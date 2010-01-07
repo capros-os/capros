@@ -1,7 +1,7 @@
 #ifndef __MACHINE_PAGEHEADER_H__
 #define __MACHINE_PAGEHEADER_H__
 /*
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -42,7 +42,7 @@ Approved for public release, distribution unlimited. */
 /* timeOfLastAddrSwitch is in units of mach_TicksToNanoseconds(sysT_Now()) */
 
 /* cacheAddr applies only to user-mappable pages; those with obType ==
-   ot_PtDataPage, ot_PtDevicePage, ot_PtDMABlock, or ot_PtDMASecondary.
+   ot_PtDataPage, ot_PtDevBlock, ot_PtDMABlock, or ot_PtSecondary.
 
    For all other types, including ot_PtFreeFrame:
      There is no user map.
@@ -89,7 +89,7 @@ These addresses are mapped write-through, so they never have dirty
 cache entries.
 User-mappable pages (including DMA pages) may have cache entries
 at the kernel address, but they are stale.
-Pages of type ot_PtFreeFrame, ot_PtSecondary, ot_PtNewAlloc, and
+Pages of type ot_PtFreeFrame, ot_PtFreeSecondary, ot_PtNewAlloc, and
 ot_PtWorkingCopy may also have stale cache entries at the kernel address,
 but they have no other cache entries.
 Pages of type ot_PtKernelUse, ot_Pt*Pot, and ot_PtMappingPage*

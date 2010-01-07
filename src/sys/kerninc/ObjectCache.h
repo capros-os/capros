@@ -2,7 +2,7 @@
 #define __OBJECTCACHE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -91,7 +91,7 @@ void CreateLogDirEntryForNonzeroPage(PageHeader * pageH);
 bool CleanAKRONode(void);
 void CleanAKROPage(void);
 
-void objC_AddDevicePages(struct PmemInfo *);
+PageHeader * objC_AddDevicePages(struct PmemInfo *);
 void objC_AddDMAPages(PageHeader * pageH, kpg_t nPages);
 
 /* Evict the current resident of the page frame. This is called

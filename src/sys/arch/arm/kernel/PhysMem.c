@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2006-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -95,6 +95,8 @@ uint32_t mach_ReadCacheType(void);
     kpsize_t size = (kpsize_t)mp->length_low;
     kpsize_t bound = base + size;
 
+    int ret;
+    PmemInfo * pmi;	// value isn't used
     switch (mp->type) {
     case 1:		// RAM
     {
@@ -104,7 +106,8 @@ uint32_t mach_ReadCacheType(void);
         limited = regionSize;	// take min
       totalRAM += regionSize;
       if (limited) {
-        (void) physMem_AddRegion(base, base + limited, MI_MEMORY, false);
+        ret = physMem_AddRegion(base, base + limited, MI_MEMORY, false, &pmi);
+        assert(!ret);
         kpg_t pgs = limited / EROS_PAGE_SIZE;
         physMem_TotalPhysicalPages += pgs;
       }
@@ -112,7 +115,8 @@ uint32_t mach_ReadCacheType(void);
     }
 
     case 4567:	// this is a private convention, not part of multiboot
-      (void) physMem_AddRegion(base, bound, MI_DEVICEMEM, false);
+      ret = physMem_AddRegion(base, bound, MI_DEVICEMEM, false, &pmi);
+      assert(!ret);
       break;
     }
 

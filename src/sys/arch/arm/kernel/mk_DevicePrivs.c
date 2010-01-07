@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -247,31 +247,13 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 
   case OC_capros_DevPrivs_publishMem:
     {
-      PmemInfo *pmi = 0;
       kpa_t base = inv->entry.w1;
       kpa_t bound = inv->entry.w2;
       bool readOnly = inv->entry.w3;
 
       COMMIT_POINT();
 
-      if ((base % EROS_PAGE_SIZE)
-          || (bound % EROS_PAGE_SIZE)
-          || (base >= bound) ) {
-	inv->exit.code = RC_capros_key_RequestError;
-	break;
-      }
-
-      pmi = physMem_AddRegion(base, bound, MI_DEVICEMEM, readOnly);
-
-      if (pmi) {
-	objC_AddDevicePages(pmi);
-        PhysPageSource_Init(pmi);
-
-	inv->exit.code = RC_OK;
-      }
-      else {
-	inv->exit.code = RC_capros_key_NoAccess;
-      }
+      devPrivs_publishMem(inv, base, bound, readOnly);
 
       break;
     }

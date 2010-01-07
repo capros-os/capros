@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -379,6 +379,7 @@ node_DoBumpCallCount(Node * pNode)
   assert(objH_IsDirty(node_ToObj(pNode)));
 }
 
+/* Clear a rescinded object to avoid saving stale state on disk. */
 // Object must be writeable.
 void
 objH_ClearObj(ObjectHeader * thisPtr)
@@ -389,19 +390,27 @@ objH_ClearObj(ObjectHeader * thisPtr)
 
     node_DoClearThisNode(thisNode);
   }
-  else if (thisPtr->obType == ot_PtDataPage) {
-    objH_InvalidateProducts(thisPtr);
+  else {
+    switch (thisPtr->obType) {
+    case ot_PtDataPage:
+      objH_InvalidateProducts(thisPtr);
 
-    kva_t pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
-    kzero((void*)pPage, EROS_PAGE_SIZE);
-  }
-  else if (thisPtr->obType == ot_PtDevicePage) {
-    objH_InvalidateProducts(thisPtr);
+      kva_t pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
+      kzero((void*)pPage, EROS_PAGE_SIZE);
+      break;
 
-    /* Do not explicitly zero device pages -- might be microcode! */
+    case ot_PtDevBlock:
+    case ot_PtDMABlock:
+    case ot_PtSecondary:
+      objH_InvalidateProducts(thisPtr);
+      /* These are never saved on disk, so no need to clear. In the case of
+         ot_PtDevBlock or its secondaries, it could be dangerous. */
+      break;
+
+    default:
+      fatal("Rescind of non-object!\n");
+    }
   }
-  else
-    fatal("Rescind of non-object!\n");
 
   DEBUG(rescind)
     dprintf(true, "After zero object\n");
@@ -455,12 +464,18 @@ objH_CalcCheck(ObjectHeader * thisPtr)
 void
 objH_InvalidateProducts(ObjectHeader * thisPtr)
 {
-  if (thisPtr->obType == ot_PtDataPage ||
-      thisPtr->obType == ot_PtDevicePage ||
-      thisPtr->obType == ot_NtSegment) {
+  switch (thisPtr->obType) {
+  case ot_NtSegment:
+  case ot_PtDataPage:
+  case ot_PtDevBlock:
+  case ot_PtDMABlock:
+  case ot_PtSecondary:
     while (thisPtr->prep_u.products) {
       ReleaseProduct(thisPtr->prep_u.products);
     }
+    break;
+  default:
+    break;
   }
 }
 
@@ -495,12 +510,13 @@ objH_ddb_dump(ObjectHeader * thisPtr)
   switch(thisPtr->obType) {
   case ot_PtFreeFrame:
     printf(" lgsz=%d", objH_ToPage(thisPtr)->kt_u.free.log2Pages);
-  case ot_PtDMASecondary:
     goto pgRgn;
 
   case ot_PtDataPage:
   case ot_PtWorkingCopy:
-  case ot_PtDevicePage:
+  case ot_PtDevBlock:
+  case ot_PtDMABlock:
+  case ot_PtSecondary:
   case ot_PtTagPot:
   case ot_PtHomePot:
   case ot_PtLogPot:
@@ -508,8 +524,7 @@ objH_ddb_dump(ObjectHeader * thisPtr)
     pageH_mdFields_dump_header(objH_ToPage(thisPtr));
   case ot_PtNewAlloc:
   case ot_PtKernelUse:
-  case ot_PtSecondary:
-  case ot_PtDMABlock:
+  case ot_PtFreeSecondary:
 pgRgn:
     if (objH_ToPage(thisPtr)->ioreq)
       printf(" ioreq=%#x", objH_ToPage(thisPtr)->ioreq);

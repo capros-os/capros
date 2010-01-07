@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -758,7 +758,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     act_Yield();
     
   assert(wi.memObj->obType == ot_PtDataPage
-         || wi.memObj->obType == ot_PtDevicePage);
+         || wi.memObj->obType == ot_PtDevBlock
+         || wi.memObj->obType == ot_PtDMABlock
+         || wi.memObj->obType == ot_PtSecondary);
   
   if (isWrite) {
     pageH_EnsureWritable(objH_ToPage(wi.memObj));
@@ -780,8 +782,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     pte_set(thePTE, PTE_WT);
 #endif
 
-  // Device pages are non-cacheable. 
-  if (wi.memObj->obType == ot_PtDevicePage) 
+  // Only data pages are cacheable. 
+  if (wi.memObj->obType != ot_PtDataPage) 
     pte_set(thePTE, PTE_CD | PTE_WT);
 
 #ifdef WALK_LOUD

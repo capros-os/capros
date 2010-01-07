@@ -108,8 +108,15 @@ interface DevPrivs32 extends DevPrivs raises(DevPrivs.AllocFail) {
    * Inform the kernel that a hardware device publishes (presents to
    * the bus) a physical memory region that was previously unknown to
    * the kernel.
+   *
+   * Returns a cap to the first Page of the region.
+   * Subsequent consecutive pages can be obtained with Page.getNthPage.
+   *
+   * May raise:
+   * AllocFail if there is not enough kernel memory to do the operation.
+   * key.NoAccess if any part of the region is already published.
    */
-  void publishMem(DMA32.DMAAddress start, DMA32.DMAAddress end, boolean readOnly);
+  capros.Page publishMem(DMA32.DMAAddress start, DMA32.DMAAddress end, boolean readOnly);
 };
 
 interface DevPrivs64 extends DevPrivs raises(DevPrivs.AllocFail) {
@@ -119,11 +126,9 @@ interface DevPrivs64 extends DevPrivs raises(DevPrivs.AllocFail) {
 
   /** Publish device memory.
    *
-   * Inform the kernel that a hardware device publishes (presents to
-   * the bus) a physical memory region that was previously unknown to
-   * the kernel.
+   * See comments above.
    */
   /* Below, unsigned long long should be DMA64.DMAAddress,
      but the IDL compiler has a problem with that. */
-  void publishMem(unsigned long long start, unsigned long long end, boolean readOnly);
+  capros.Page publishMem(unsigned long long start, unsigned long long end, boolean readOnly);
 };

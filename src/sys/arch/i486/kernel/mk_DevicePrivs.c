@@ -213,8 +213,8 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
     
   case OC_capros_DevPrivs64_publishMem:
     {
-      PmemInfo *pmi = 0;
-      kpa_t base = inv->entry.w1 | (inv->entry.w2 << 32);
+      kpa_t base = inv->entry.w1 | (((kpa_t)inv->entry.w2) << 32);
+      kpa_t bound;
       bool readOnly = inv->entry.w3;
 
       COMMIT_POINT();
@@ -224,31 +224,10 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	break;
       }
 
-      kpa_t bound;
       assert(sizeof(bound) == 8);	// kpa_t should match DMA64
       inv_CopyIn(inv, sizeof(bound), &bound);
 
-      if ((base % EROS_PAGE_SIZE) || (bound % EROS_PAGE_SIZE)) {
-	inv->exit.code = RC_capros_key_RequestError;
-	break;
-      }
-
-      if (base >= bound) {
-	inv->exit.code = RC_capros_key_RequestError;
-	break;
-      }
-
-      pmi = physMem_AddRegion(base, bound, MI_DEVICEMEM, readOnly);
-
-      if (pmi) {
-	objC_AddDevicePages(pmi);
-        PhysPageSource_Init(pmi);
-
-	inv->exit.code = RC_OK;
-      }
-      else {
-	inv->exit.code = RC_capros_key_NoAccess;
-      }
+      devPrivs_publishMem(inv, base, bound, readOnly);
 
       break;
     }

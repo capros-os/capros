@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2005-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -84,6 +84,8 @@ physMem_Init_MD()
 
   DEBUG (init) printf("MultibootInfoPtr = %x\n", MultibootInfoPtr);
 
+  int ret;
+  PmemInfo * pmi;	// value isn't used
   for (mmapLength = MultibootInfoPtr->mmap_length,
          mp = (struct grub_mmap *) MultibootInfoPtr->mmap_addr;
        mmapLength > 0;
@@ -106,7 +108,8 @@ physMem_Init_MD()
       if (bound > maxMappedPA)
         bound = maxMappedPA;
       if (bound > base) {
-        (void) physMem_AddRegion(base, bound, MI_MEMORY, false);
+        ret = physMem_AddRegion(base, bound, MI_MEMORY, false, &pmi);
+        assert(!ret);
         checkBounds(base, bound);
       }
     }
@@ -120,7 +123,8 @@ physMem_Init_MD()
   /* Preloaded modules are contained in mmap memory,
      so no need to add regions for them. */
 
-  (void) physMem_AddRegion(ROMBase, ROMBound, MI_BOOTROM, true);
+  ret = physMem_AddRegion(ROMBase, ROMBound, MI_BOOTROM, true, &pmi);
+  assert(!ret);
 
   DEBUG(init) {
     /* Print status */

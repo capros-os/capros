@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -162,7 +162,8 @@ PageKey(Invocation* inv /*@ not null @*/)
   {
     unsigned int ordinal = inv->entry.w1;
 
-    if (pageH_GetObType(pageH) != ot_PtDMABlock) {
+    if (pageH_GetObType(pageH) != ot_PtDevBlock
+        && pageH_GetObType(pageH) != ot_PtDMABlock) {
 request_error:
       COMMIT_POINT();
 
@@ -172,9 +173,9 @@ request_error:
 
     PmemInfo * pmi = pageH->physMemRegion;
     kpg_t relativePgNum = pageH - pmi->firstObHdr;
-    while (ordinal > 0) {
+    while (ordinal-- > 0) {
       if (++relativePgNum >= pmi->nPages
-          || pageH_GetObType(++pageH) != ot_PtDMASecondary) {
+          || pageH_GetObType(++pageH) != ot_PtSecondary) {
         goto request_error;
       }
     }

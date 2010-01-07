@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -131,7 +131,7 @@ check_Pages()
       unsigned int nPages = 1U << pPage->kt_u.free.log2Pages;
       for (i = nPages - 1; i > 0; i--) {
         PageHeader * pPage2 = CorePageIterator_Next(&cpi);
-        if (pageH_GetObType(pPage2) != ot_PtSecondary) {
+        if (pageH_GetObType(pPage2) != ot_PtFreeSecondary) {
           printf("Frame %#x free but %#x not secondary\n", pPage, pPage2);
           goto fail;
         }
@@ -142,8 +142,6 @@ check_Pages()
 
     case ot_PtNewAlloc:
     case ot_PtKernelUse:
-    case ot_PtDMABlock:
-    case ot_PtDMASecondary:
     case ot_PtTagPot:
     case ot_PtHomePot:
     case ot_PtLogPot:
@@ -156,7 +154,16 @@ check_Pages()
       }
       continue;
 
-    case ot_PtDevicePage:
+    case ot_PtDevBlock:
+    case ot_PtDMABlock:
+    case ot_PtSecondary:
+#ifndef NDEBUG
+      if ( !keyR_IsValid(&pageH_ToObj(pPage)->keyRing, pPage) ) {
+        goto fail;
+      }
+#endif
+      break;
+
     case ot_PtDataPage: ;
 #ifndef NDEBUG
       if ( !keyR_IsValid(&pageH_ToObj(pPage)->keyRing, pPage) ) {

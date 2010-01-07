@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -197,11 +197,18 @@ AdjustNPCounts(void)
   while ((pageH = CorePageIterator_Next(&cpi))) {
     ObjectHeader * pObj = pageH_ToObj(pageH);
 
-    if ((pObj->obType == ot_PtDataPage || pObj->obType == ot_PtDevicePage)
-        && ! OIDIsPersistent(pObj->oid) ) {
-      pObj->allocCount += newRestartCount;
-      if (pObj->allocCount > maxNPCount)
-        maxNPCount = pObj->allocCount;
+    switch (pObj->obType) {
+    case ot_PtDataPage:
+    case ot_PtDevBlock:
+    case ot_PtDMABlock:
+    case ot_PtSecondary:
+      if (! OIDIsPersistent(pObj->oid)) {
+        pObj->allocCount += newRestartCount;
+        if (pObj->allocCount > maxNPCount)
+          maxNPCount = pObj->allocCount;
+      }
+    default:
+      break;
     }
   }
 }

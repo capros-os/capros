@@ -2,7 +2,7 @@
 #define __PHYSMEM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2005-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -91,8 +91,9 @@ void physMem_Init();
 void physMem_Init_MD();	// machine-dependent
 
 PmemInfo * physMem_ChooseRegion(kpsize_t sz, PmemConstraint *);
-PmemInfo * physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, 
-			     bool readOnly);
+int
+physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly,
+  PmemInfo ** ppmi);
 
 kpa_t physMem_Alloc(kpsize_t sz, PmemConstraint *);
 void physMem_ReserveExact(kpa_t base, kpsize_t size);

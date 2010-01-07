@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -126,12 +126,12 @@ physMem_DeallocateDMAPages(Invocation * inv)
   PageHeader * ph = pageH;
 
   // Validate first page separately,
-  // because its ObType is ot_PtDMABlock, not ot_PtDMASecondary
+  // because its ObType is ot_PtDMABlock, not ot_PtSecondary
   assert(pageH_GetObType(ph) == ot_PtDMABlock);
   ValidateDMAPage(ph);
 
   for (; ++ph, ++nPages, ++relativePgNum < pmi->nPages; ) {
-    if (pageH_GetObType(ph) != ot_PtDMASecondary)
+    if (pageH_GetObType(ph) != ot_PtSecondary)
       break;
     ValidateDMAPage(ph);
   }
@@ -200,6 +200,44 @@ devPrivs_DeclarePFHProcess(Invocation * inv)
   COMMIT_POINT();
 
   proc->kernelFlags |= KF_PFH;
+
+  inv->exit.code = RC_OK;
+}
+
+/* Inline because there is only one use for each architecure. */
+INLINE void
+devPrivs_publishMem(Invocation * inv, kpa_t base, kpa_t bound, bool readOnly)
+{
+  if ((base % EROS_PAGE_SIZE)
+      || (bound % EROS_PAGE_SIZE)
+      || (base >= bound) ) {
+    inv->exit.code = RC_capros_key_RequestError;
+    return;
+  }
+
+  PmemInfo * pmi;
+  int ret = physMem_AddRegion(base, bound, MI_DEVICEMEM, readOnly, &pmi);
+  if (ret == 1) {
+    inv->exit.code = RC_capros_key_NoAccess;
+    return;
+  } else if (ret == 2) {
+    inv->exit.code = RC_capros_DevPrivs_AllocFail;
+    return;
+  }
+
+  PageHeader * pageH = objC_AddDevicePages(pmi);
+  if (!pageH) {
+    // FIXME remove the region added above
+    inv->exit.code = RC_capros_DevPrivs_AllocFail;
+    return;
+  }
+  PhysPageSource_Init(pmi);
+
+  Key * key = inv->exit.pKey[0];
+  if (key) {
+    key_NH_Unchain(key);
+    key_SetToObj(key, pageH_ToObj(pageH), KKT_Page, 0, 0);
+  }
 
   inv->exit.code = RC_OK;
 }

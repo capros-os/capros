@@ -2,7 +2,7 @@
 #define __OBJECTHEADER_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -75,10 +75,12 @@ enum ObType {
   ot_NtFreeFrame,	/* unallocated */
   ot_NtLAST_NODE_TYPE = ot_NtFreeFrame,
   ot_PtDataPage,	/* page holding a user data Page */
-  ot_PtDevicePage,	/* data page, but device memory */
+  ot_PtDevBlock,	/* first frame of a block of device memory */
   ot_PtDMABlock,	/* first frame of a block allocated for DMA. */
-  ot_PtDMASecondary,	/* subsequent frames of a block allocated for DMA. */
-  ot_PtLAST_OBJECT_TYPE = ot_PtDMASecondary,	// no objects after here
+  ot_PtSecondary,	/* subsequent frames of a DevBlock or DMABlock. */
+	/* Note, the difference between ot_PtDevBlock and ot_PtDMABlock
+	is that a DMABlock can be deallocated. */
+  ot_PtLAST_OBJECT_TYPE = ot_PtSecondary,	// no objects after here
   ot_PtTagPot,		/* a tag pot. oid = OID of first frame. */
   ot_PtHomePot,		/* an object pot from a home range.
 			 oid = OID of first object. */
@@ -90,10 +92,10 @@ enum ObType {
   ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
   ot_PtKernelUse,	/* in use as kernel heap or other kernel use */
   ot_PtFreeFrame,	/* first frame of a free block */
-  ot_PtSecondary,	/* Part of a multi-page free block, not the first frame.
+  ot_PtFreeSecondary,	/* Part of a multi-page free block, not the first frame.
 			No other fields of PageHeader are valid,
 			except physMemRegion. */
-  ot_PtLAST_COMMON_PAGE_TYPE = ot_PtSecondary
+  ot_PtLAST_COMMON_PAGE_TYPE = ot_PtFreeSecondary
   MD_PAGE_OBTYPES	// machine-dependent types from PageHeader.h
 };
 typedef enum ObType ObType;
@@ -167,8 +169,8 @@ struct ObjectHeader {
 
     /* List of mapping tables produced by this object. */
     MapTabHeader * products;	/* if obType == ot_NtSegment
-				        or ot_PtDataPage or ot_PtDevicePage
-				        or ot_PtDMABlock or ot_PtDMASecondary */
+				        or ot_PtDataPage or ot_PtDevBlock
+				        or ot_PtDMABlock or ot_PtSecondary */
     Process * context;		/* if obType == ot_NtProcessRoot
                                              or ot_NtKeyRegs
 				             (or ot_NtRegAnnex if used),

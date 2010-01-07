@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
+ * Copyright (C) 2005-2008, 2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -136,7 +136,7 @@ physMem_SplitContainingFreeBlock(PageHeader * pageH)
 
   // Find the containing block.
   while (pageH_GetObType(pageH) != ot_PtFreeFrame) {
-    assert(pageH_GetObType(pageH) == ot_PtSecondary);
+    assert(pageH_GetObType(pageH) == ot_PtFreeSecondary);
     pgNum = pmi_ToPhysPgNum(pageH, pmi);
     // Remove the lowest-order 1 bit:
     pgNum &= pgNum - 1;
@@ -196,11 +196,11 @@ recheck:
           link_Unlink(&bPageH->kt_u.free.freeLink);	// remove from free list
           j++;
           if (bPgNum < jPgNum) {
-            pageH_ToObj(jPageH)->obType = ot_PtSecondary;
+            pageH_ToObj(jPageH)->obType = ot_PtFreeSecondary;
             jPgNum = bPgNum;
             jPageH = bPageH;
           } else {
-            pageH_ToObj(bPageH)->obType = ot_PtSecondary;
+            pageH_ToObj(bPageH)->obType = ot_PtFreeSecondary;
           }
           goto recheck;
         }
@@ -260,7 +260,7 @@ foundj: ;
       numPages -= jSize;
       xPgNum += jSize;
       assert(pageH_GetObType(physMem_PhysPgNumToPageH(pmi, xPgNum))
-             == ot_PtSecondary);
+             == ot_PtFreeSecondary);
     }
   }
 
@@ -301,8 +301,11 @@ physMem_FreeAll(PmemInfo * pmi)
   }
 }
 
-PmemInfo *
-physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly)
+// Returns 0 if OK, 1 if range overlaps an existing PmemInfo,
+// 2 if can't allocate space.
+int
+physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly,
+  PmemInfo ** ppmi)
 {
   PmemInfo *kmi = &physMem_pmemInfo[physMem_nPmemInfo];
   unsigned int i = 0;
@@ -312,14 +315,15 @@ physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly)
      * actually do overlap. */
     for (i = 0; i < physMem_nPmemInfo; i++) {
       if (base >= physMem_pmemInfo[i].base && base < physMem_pmemInfo[i].bound)
-	return 0;
+	return 1;
 
       if (bound > physMem_pmemInfo[i].base && bound <= physMem_pmemInfo[i].bound)
-	return 0;
+	return 1;
     }
   }
 
-  assert (physMem_nPmemInfo < MAX_PMEMINFO);
+  if (physMem_nPmemInfo >= MAX_PMEMINFO)
+    return 2;
 
   kmi->base = base;
   kmi->bound = bound;
@@ -340,7 +344,8 @@ physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly)
 
   physMem_nPmemInfo++;
 
-  return kmi;
+  *ppmi = kmi;
+  return 0;
 }
 
 kpsize_t
@@ -499,8 +504,10 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
 #endif
         where = base;
         /* Add the region with its full physical memory. */
-        newPmi = physMem_AddRegion(split, allocTarget->allocBound,
-                                   MI_MEMORY, allocTarget->readOnly);
+        int ret;
+        ret = physMem_AddRegion(split, allocTarget->allocBound,
+                                MI_MEMORY, allocTarget->readOnly, &newPmi);
+        assert(!ret);
         newPmi->allocBase = max(split, where + nBytes);
         allocTarget->bound = split;
         allocTarget->allocBound = where;

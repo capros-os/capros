@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -144,7 +144,7 @@ objC_AllocateUserPages(void)
     uint32_t pg;
     for (pg = 0; pg < pmi->nPages; pg++) {
       pObHdr->physMemRegion = pmi;
-      pObHdr->kt_u.free.obType = ot_PtSecondary;
+      pObHdr->kt_u.free.obType = ot_PtFreeSecondary;
       pObHdr++;
     }
 
@@ -161,28 +161,32 @@ AddCoherentPages(PageHeader * pageH, PmemInfo * pmi, kpg_t nPages,
   OID oid, unsigned int obType)
 {
   unsigned int pg;
+  PageHeader * ph = pageH;
 
   kzero(pageH, sizeof(PageHeader) * nPages);
 
   for (pg = 0;
        pg < nPages;
-       pg++, pageH++, oid += EROS_OBJECTS_PER_FRAME) {
-    pageH->physMemRegion = pmi;
-    pageH_MDInitDevicePage(pageH);	// make it coherent
+       pg++, ph++, oid += EROS_OBJECTS_PER_FRAME) {
+    ph->physMemRegion = pmi;
+    pageH_MDInitDevicePage(ph);	// make it coherent
 
-    ObjectHeader * pObj = pageH_ToObj(pageH);
-    pObj->obType = obType;
+    ObjectHeader * pObj = pageH_ToObj(ph);
+    pObj->obType = ot_PtSecondary;	// all except the first, see below
     pObj->oid = oid;
-    pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
+    pObj->allocCount = restartNPCount;
     objH_SetDirtyFlag(pObj);
     // No objH_CalcCheck for device pages.
     objH_ResetKeyRing(pObj);
     objH_Intern(pObj);
     objH_ClearFlags(pObj, OFLG_Cleanable);
   }
+
+  // First frame has its own type:
+  pageH_ToObj(pageH)->obType = obType;
 }
 
-void
+PageHeader *
 objC_AddDevicePages(PmemInfo * pmi)
 {
   /* Not all BIOS's report a page-aligned start address for everything,
@@ -198,7 +202,8 @@ objC_AddDevicePages(PmemInfo * pmi)
 
   OID frameOid = pmi->firstObPgAddr * EROS_OBJECTS_PER_FRAME
                         + OID_RESERVED_PHYSRANGE;
-  AddCoherentPages(pageH, pmi, nPages, frameOid, ot_PtDevicePage);
+  AddCoherentPages(pageH, pmi, nPages, frameOid, ot_PtDevBlock);
+  return pageH;
 }
 
 void
@@ -211,10 +216,7 @@ objC_AddDMAPages(PageHeader * pageH, kpg_t nPages)
   OID oid = pageH_ToPhysPgNum(pageH) * EROS_OBJECTS_PER_FRAME
             + OID_RESERVED_PHYSRANGE;
 
-  AddCoherentPages(pageH, pmi, nPages, oid, ot_PtDMASecondary);
-
-  // First frame has its own type:
-  pageH_ToObj(pageH)->obType = ot_PtDMABlock;
+  AddCoherentPages(pageH, pmi, nPages, oid, ot_PtDMABlock);
 }
 
 void
@@ -826,10 +828,10 @@ objC_EvictFrame(PageHeader * pageH)
   case ot_PtNewAlloc:
     assert(false);	// should not have this now
 
-  case ot_PtDevicePage:	// can't evict this
+  case ot_PtDevBlock:	// can't evict this
   case ot_PtDMABlock:	// can't evict this
-  case ot_PtDMASecondary:	// can't evict this
-  case ot_PtSecondary:	/* This is part of a free block. We don't need
+  case ot_PtSecondary:	// can't evict this
+  case ot_PtFreeSecondary:	/* This is part of a free block. We don't need
 		to evict it, but we won't bother to split up the block. */
     return false;
 
@@ -1285,12 +1287,12 @@ objC_AgePageFrames(void)
       /* Some page types do not get aged: */
       case ot_PtNewAlloc:
       case ot_PtWorkingCopy:
-      case ot_PtDevicePage:
       case ot_PtKernelUse:
+      case ot_PtDevBlock:
       case ot_PtDMABlock:
-      case ot_PtDMASecondary:
-      case ot_PtFreeFrame:
       case ot_PtSecondary:
+      case ot_PtFreeFrame:
+      case ot_PtFreeSecondary:
         nStuck++;
         continue;
 
@@ -1546,7 +1548,7 @@ objC_CopyObject(ObjectHeader *pObj)
 
   if (pObj->obType == ot_PtDataPage) {
     assert(keyR_IsEmpty(&pObj->keyRing));
-    /* Copy data page only, not ot_PtDevicePage. */
+    /* Copy data page only, not ot_PtDevBlock. */
     /* Object is now free of encumberance, but it wasn't an evictable
      * object, and it may be dirty. We need to find another location
      * for it.
@@ -1681,7 +1683,8 @@ objC_Init()
     if (pmi->type == MI_DEVICEMEM || pmi->type == MI_BOOTROM) {
       // Need to special case the publication of device mem, as we need
       // object cache entries for these, because there will be keys to them.
-      objC_AddDevicePages(pmi);
+      PageHeader * pageH = objC_AddDevicePages(pmi);
+      assert(pageH);
     }
   }
   

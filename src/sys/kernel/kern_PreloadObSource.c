@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -56,7 +56,7 @@ AssertPageIsFree(PageHeader * pageH)
 {
   switch (pageH_GetObType(pageH)) {
   case ot_PtFreeFrame:
-  case ot_PtSecondary:	/* This is part of a free block. */
+  case ot_PtFreeSecondary:	/* This is part of a free block. */
     break;
 
   default:

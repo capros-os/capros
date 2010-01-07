@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -94,7 +94,7 @@ objC_ddb_dump_pages(OID first, OID last)
 
     switch (pageH_GetObType(pageH)) {
     case ot_PtFreeFrame:
-    case ot_PtSecondary:
+    case ot_PtFreeSecondary:
       nFree++;
       break;
 
@@ -102,7 +102,6 @@ objC_ddb_dump_pages(OID first, OID last)
       assert(false);	// should not have at this time
 
     case ot_PtDataPage:
-    case ot_PtDevicePage:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
       if (pObj->oid >= first && pObj->oid <= last)
@@ -129,8 +128,9 @@ objC_ddb_dump_pages(OID first, OID last)
     }
 
     case ot_PtKernelUse:
+    case ot_PtDevBlock:
     case ot_PtDMABlock:
-    case ot_PtDMASecondary:
+    case ot_PtSecondary:
       if (last >= OID_RESERVED_PHYSRANGE)	// only if "show pages all"
         printf("%#x: %s\n",
                pageH,
