@@ -1,6 +1,7 @@
 #ifndef _ASM_X86_BUG_H
 #define _ASM_X86_BUG_H
 
+#if 0 // CapROS
 #ifdef CONFIG_BUG
 #define HAVE_ARCH_BUG
 
@@ -34,6 +35,7 @@ do {								\
 #endif
 
 #endif /* !CONFIG_BUG */
+#endif // CapROS
 
 #include <asm-generic/bug.h>
 #endif /* _ASM_X86_BUG_H */

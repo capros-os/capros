@@ -43,8 +43,10 @@ static inline void copy_from_user_page(struct vm_area_struct *vma,
 	memcpy(dst, src, len);
 }
 
+#if 0 // CapROS
 #define PG_non_WB				PG_arch_1
 PAGEFLAG(NonWB, non_WB)
+#endif // CapROS
 
 /*
  * The set_memory_* API can be used to change various attributes of a virtual

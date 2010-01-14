@@ -69,19 +69,23 @@ dma_map_single(struct device *hwdev, void *ptr, size_t size,
 			   dir, addr, true);
 	return addr;
 }
+#endif // CapROS
 
 static inline void
 dma_unmap_single(struct device *dev, dma_addr_t addr, size_t size,
 		 enum dma_data_direction dir)
 {
+#if 0 // CapROS
 	struct dma_map_ops *ops = get_dma_ops(dev);
 
 	BUG_ON(!valid_dma_direction(dir));
 	if (ops->unmap_page)
 		ops->unmap_page(dev, addr, size, dir, NULL);
 	debug_dma_unmap_page(dev, addr, size, dir, true);
-}
+#else
+	// nothing to do
 #endif // CapROS
+}
 
 static inline int
 dma_map_sg(struct device *hwdev, struct scatterlist *sg,
