@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -39,6 +39,7 @@ The address of a block of size s is always a multiple of 2**(ceiling(log2(s))).
 #include <eros/ffs.h>
 #include <idl/capros/Void.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Page.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Process.h>
@@ -251,6 +252,40 @@ maps_mapPage_locked(unsigned long pgOffset, cap_t pageCap)
     assert(result == RC_OK);
 
   return RC_OK;
+}
+
+/* blockPageCap is a key register containing a capability to a Page
+ * that is the first page of a Device page block or a DMA block
+ * of nPages pages.
+ *
+ * This procedure reserves address space for the pages and
+ * maps them all into the space.
+ *
+ * It returns the page offset within the maps area,
+ *   or -1 if we couldn't allocate. */
+// Uses KR_TEMP0 and KR_TEMP1.
+long
+maps_reserveAndMapBlock_locked(cap_t blockPageCap, unsigned int nPages)
+{
+  result_t result;
+  unsigned int i;
+
+  // Allocate virtual addresses for the memory.
+  long blockStart = maps_reserve_locked(nPages);
+  if (blockStart >= 0) {
+    // Map first page.
+    unsigned long pgOffset = blockStart;
+    result = maps_mapPage_locked(pgOffset++, blockPageCap);
+    assert(result == RC_OK);
+    // Map other pages.
+    for (i = 1; i < nPages; i++) {
+      result = capros_Page_getNthPage(blockPageCap, i, KR_TEMP1);
+      assert(result == RC_OK);
+      result = maps_mapPage_locked(pgOffset++, KR_TEMP1);
+      assert(result == RC_OK);
+    }
+  }
+  return blockStart;
 }
 
 void
