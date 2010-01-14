@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, 2008, 2009, 2010, Strawberry Development Group.
+# Copyright (C) 2006-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System runtime library,
 # and is derived from the EROS Operating System runtime library.
@@ -31,19 +31,21 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=
 DIRS=arch/$(EROS_TARGET) machine
 HEADERS=\
-	DMA32.h \
-	DMA64.h \
 	cap-instr.h \
 	CharSrcProto.h \
 	ConsoleKey.h \
 	container_of.h \
 	DevCreKey.h \
 	DevPrivs32.h \
+	DevPrivs64.h \
+	DMA32.h \
+	DMA64.h \
 	endian.h \
 	ffs.h \
 	fls.h \
 	Invoke.h \
 	IORQ32.h \
+	IORQ64.h \
 	KeyboardKey.h \
        	Link.h \
 	ProcStats.h \
