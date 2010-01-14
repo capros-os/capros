@@ -34,9 +34,14 @@ DIRS=src
 
 include $(EROS_SRC)/build/make/pkgrules.mk
 
-# Workaround for strstr bug:
-
-OBJECTS=$(BUILDDIR)/libcfix.o
+OBJECTS=
+# Workaround for strstr bug in cross lib for FC10:
+OBJECTS+=$(BUILDDIR)/libcfix.o
+ifeq "$(EROS_TARGET)" "i486"
+# Workaround for longjmp bug (has cli/sti):
+OBJECTS+=$(BUILDDIR)/longjmpfix.o
+INC+=-I$(EROS_ROOT)/include
+endif
 TARGETS=$(BUILDDIR)/libworkaround.a
 include $(EROS_SRC)/build/make/makerules.mk
 
