@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2007-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -108,14 +108,21 @@ int request_irq(unsigned int irq, irq_handler_t handler,
 {
   result_t result;
 
-  if (irqflags & IRQF_SHARED)
-    return -EINVAL;	// We don't support shared interrupts
+  if (irqflags & IRQF_SHARED) {
+    // return -EINVAL;	// We don't support shared interrupts
+    // Ignore IRQF_SHARED and hope only one device needs the irq.
+    kprintf(KR_OSTREAM, "request_irq: ignoring IRQF_SHARED from %s\n",
+            devname);
+  }
   if (!handler)
     return -EINVAL;
 
   result = capros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq, 8 /* priority */);
-  if (result)	// already allocated, or invalid irq number
+  if (result) {	// already allocated, or invalid irq number
+    if (result == RC_capros_DevPrivs_AllocFail)
+      return -EBUSY;
     return -EINVAL;
+  }
 
   struct irqDesc * desc
     = (struct irqDesc *)kmalloc(sizeof(struct irqDesc), GFP_KERNEL);
@@ -132,7 +139,7 @@ int request_irq(unsigned int irq, irq_handler_t handler,
   if (lthres != RC_OK) {
     kfree(desc);
     capros_DevPrivs_releaseIRQ(KR_DEVPRIVS, irq);
-    return -EINVAL;
+    return -ENOMEM;
   }
 
   CMTEMutex_lock(&listLock);

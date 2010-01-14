@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -42,7 +42,6 @@ capros_dma_alloc_coherent(dma_addr_t dma_mask,
   size_t size, dma_addr_t *handle)
 {
   result_t result;
-  unsigned int i;
 
 #if 0
   printk("dma_alloc_coherent(0x%x)\n", size);
@@ -50,30 +49,19 @@ capros_dma_alloc_coherent(dma_addr_t dma_mask,
 
   unsigned int nPages = (size + (EROS_PAGE_SIZE - 1)) >> EROS_PAGE_LGSIZE;
 
-  // Allocate virtual addresses for the memory.
-  long blockStart = maps_reserve(nPages);
-  if (blockStart < 0)
-    return NULL;
-
   // Allocate physical pages.
   capros_DevPrivs_addr_t physAddr;
   result = capros_DevPrivs_allocateDMAPages(KR_DEVPRIVS, nPages,
              dma_mask, &physAddr, KR_TEMP2);
   if (result != RC_OK) {
-    maps_liberate(blockStart, nPages);
     return NULL;
   }
 
-  // Map first page.
-  unsigned long pgOffset = blockStart;
-  result = maps_mapPage(pgOffset++, KR_TEMP2);
-  assert(result == RC_OK);
-  // Map other pages.
-  for (i = 1; i < nPages; i++) {
-    result = capros_Page_getNthPage(KR_TEMP2, i, KR_TEMP1);
+  long blockStart = maps_reserveAndMapBlock(KR_TEMP2, nPages);
+  if (blockStart < 0) {
+    result = capros_DevPrivs_deallocateDMAPages(KR_DEVPRIVS, KR_TEMP2);
     assert(result == RC_OK);
-    result = maps_mapPage(pgOffset++, KR_TEMP1);
-    assert(result == RC_OK);
+    return NULL;
   }
 
   *handle = physAddr;
