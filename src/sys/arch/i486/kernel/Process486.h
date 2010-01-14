@@ -2,7 +2,7 @@
 #define __PROCESS486_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -44,8 +44,6 @@ void mach_winunmap(struct MappingWindow* mw, kva_t va);
 kva_t mach_winmap(int mw, kva_t lastva, kpa_t pa);
 void mach_winunmap(int mw, kva_t va);
 #endif
-
-bool proc_HasDevicePrivileges(Process * thisPtr);
 
 /* Return 0 if no mapping can be found with the desired access,
  * otherwise return the kernel *virtual* PAGE address containing the
