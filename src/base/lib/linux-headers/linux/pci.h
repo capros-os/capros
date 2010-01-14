@@ -193,6 +193,7 @@ struct pci_sriov;
  * The pci_dev structure is used to describe PCI devices.
  */
 struct pci_dev {
+	struct list_head link;		// for newDevicesList
 	struct list_head bus_list;	/* node in per-bus list */
 	struct pci_bus	*bus;		/* bus this device is on */
 	struct pci_bus	*subordinate;	/* bus this device bridges to */
@@ -248,6 +249,7 @@ struct pci_dev {
 	 */
 	unsigned int	irq;
 	struct resource resource[DEVICE_COUNT_RESOURCE]; /* I/O and memory regions + expansion ROMs */
+	bool resourceMemPublished[DEVICE_COUNT_RESOURCE];
 
 	/* These fields are used by common fixups */
 	unsigned int	transparent:1;	/* Transparent PCI bridge */

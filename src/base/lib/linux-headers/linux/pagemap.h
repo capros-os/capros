@@ -137,6 +137,7 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 extern void remove_from_page_cache(struct page *page);
 extern void __remove_from_page_cache(struct page *page);
 
+#if 0 // CapROS
 /*
  * Return byte-offset into filesystem object for page.
  */
@@ -251,5 +252,6 @@ static inline void fault_in_pages_readable(const char __user *uaddr, int size)
 		 	__get_user(c, end);
 	}
 }
+#endif // CapROS
 
 #endif /* _LINUX_PAGEMAP_H */
