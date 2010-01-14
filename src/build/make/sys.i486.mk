@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2005-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -35,8 +35,8 @@ $(BUILDDIR)/psysimg: $(TARGETS) $(IMGMAP) $(MAKE_BUILDDIR)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(IMGMAP) 2>&1
 	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(IMGMAP) $(BUILDDIR)/.psysimg.m >/dev/null  2>&1
 
-init.hd: $(KERNPATH) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
+init.hd: $(VOLMAP)
+	$(EROS_ROOT)/host/bin/mkvol $(VOLMAP) $(EROS_HD)
 
 ifndef NPRANGESIZE
 NPRANGESIZE=300
@@ -67,13 +67,9 @@ p: $(BUILDDIR)/sysimg $(KERNPATH).o
 	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(BUILDDIR)/kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
 	scp $(BUILDDIR)/kernimg $(CAPROS_BOOT_PARTITION)/CapROS-kernimg
 
-$(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
+$(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(VOLMAP)
+	$(EROS_ROOT)/host/bin/mkvol $(VOLMAP) $(BUILDDIR)/sysvol
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/sysvol $(BUILDDIR)/sysimg
-
-$(BUILDDIR)/sysvolfd: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAPFD)
-	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAPFD) $(BUILDDIR)/sysvolfd
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/sysvolfd $(BUILDDIR)/sysimg
 
 tstflop: install $(BUILDDIR)/sysvolfd
 	dd if=$(BUILDDIR)/sysvolfd of=$(EROS_FD) bs=1440K
