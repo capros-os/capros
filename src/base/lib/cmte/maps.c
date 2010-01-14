@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -59,6 +59,20 @@ maps_mapPage(unsigned long pgOffset, cap_t pageCap)
   CMTEMutex_lock(&mapsLock);
 
   result_t result = maps_mapPage_locked(pgOffset, pageCap);
+
+  CMTEMutex_unlock(&mapsLock);
+
+  return result;
+}
+
+// Returns page offset within maps area, or -1 if can't allocate.
+// Uses KR_TEMP0 and KR_TEMP1.
+long
+maps_reserveAndMapBlock(cap_t blockPageCap, unsigned int nPages)
+{
+  CMTEMutex_lock(&mapsLock);
+
+  long result = maps_reserveAndMapBlock_locked(blockPageCap, nPages);
 
   CMTEMutex_unlock(&mapsLock);
 

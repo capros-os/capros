@@ -1,7 +1,7 @@
 #ifndef __CMTEMAPS_H
 #define __CMTEMAPS_H
 /*
- * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2007-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -37,5 +37,6 @@ long maps_reserve(unsigned long pageSize /* size in pages */ );
 void maps_liberate(unsigned long pgOffset,
                    unsigned long pageSize /* size in pages */ );
 result_t maps_mapPage(unsigned long pgOffset, cap_t pageCap);
+long maps_reserveAndMapBlock(cap_t blockPageCap, unsigned int nPages);
 
 #endif // __CMTEMAPS_H
