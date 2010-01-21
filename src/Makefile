@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2007-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -23,19 +23,16 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: world
+default: packages
 
 EROS_SRC=.
 
-# DIRS are ordered:
-# build must be made before others. base and doc can be in either order.
-# Nothing depends on legal.
-DIRS=legal sys base doc tutorials $(CAPROS_LOCALDIR)
-CLEANDIRS=build $(DIRS)
+# DIRS are ordered.
+IDIRS=sys build base $(CAPROS_LOCALDIR)
+LDIRS=build base $(CAPROS_LOCALDIR)
+PDIRS=$(IDIRS) legal doc tutorials
 
-UPDATE_DIRS=$(DIRS)
-
-TARDIRS=$(DIRS)
+TARDIRS=$(PDIRS)
 
 include $(EROS_SRC)/build/make/pkgrules.mk
 
@@ -46,27 +43,32 @@ targdir-clean:
 	-rm -rf $(EROS_ROOT)/domain $(EROS_ROOT)/doc
 	-rm -rf $(EROS_ROOT)/host
 
-#ifeq "$(NEED_CROSS_BOOTSTRAP)" "yes"
-#cross-bootstrap:
-#	$(MAKE) -C base/ccs PACKAGE=base $(MAKERULES) cross-bootstrap
-#endif
-#
-packages:
-	$(MAKE) interfaces
+# Building proceeds in 4 steps:
+# 1. Recurse over the source tree gathering .idl and .h files. 
+# 2. Build IDL headers and stubs. 
+# 3. Recurse over the source tree building libraries.
+# 4. Recurse over the source tree building the rest of the files.
+packages: idl-list
+	$(MAKE) $(IDL_DIR)/idlbuilt IDL_FILE_LIST="`cat $(IDL_DIR)/filelistflat`"
 	$(MAKE) libs
 	$(MAKE) install
 
-build-pkg:
-	$(MAKE) -C build PACKAGE=build $(MAKERULES) package
-
-interfaces: build-pkg
-interfaces: idl-headers
+.PHONY: idl-list
+idl-list: interfaces
+	$(INSTALL) -d $(IDL_DIR)/tmp
+	find $(IDL_DIR) -name '*.idl' > $(IDL_DIR)/tmp/filelist
+	# Put the list all on one line.
+	echo `cat $(IDL_DIR)/tmp/filelist` > $(IDL_DIR)/tmp/filelistflat
+	# Copy filelistflat to permanent location if it has changed.
+	$(INSTALL) -m 0644 $(IDL_DIR)/tmp/filelistflat $(IDL_DIR)
 
 IDL_STUB_DIR=$(EROS_SRC)/base/lib/idlstub/$(BUILDDIR)
 
-.PHONY: idl-headers
-idl-headers:
-	$(CAPIDL) -D $(EROS_ROOT)/include/idl.tmp -l c-header `find $(EROS_ROOT)/idl -name '*.idl'`
+# Rebuild IDL if any of the .idl files has changed,
+# or if the set of files has changed.
+$(IDL_DIR)/idlbuilt: $(IDL_FILE_LIST) $(IDL_DIR)/filelistflat
+	# Create headers.
+	$(CAPIDL) -D $(EROS_ROOT)/include/idl.tmp -l c-header $(IDL_FILE_LIST)
 	$(INSTALL) -d $(EROS_ROOT)/include/idl
 	build/bin/dirsync $(EROS_ROOT)/include/idl.tmp $(EROS_ROOT)/include/idl
 	$(INSTALL) -d $(EROS_ROOT)/host/include/idl
@@ -77,14 +79,8 @@ idl-headers:
 		mkdir -p $(IDL_STUB_DIR); \
 	fi
 	rm -f $(IDL_STUB_DIR)/*.c
-	$(CAPIDL) -D $(IDL_STUB_DIR) -l c-stubs `find $(EROS_ROOT)/idl -name '*.idl'`
-
-libs: build-pkg
-libs: RECURSE_TARGET=libs
-libs: subdirs
-
-# The install target recurses deeply in any case.
-install: build-pkg
+	$(CAPIDL) -D $(IDL_STUB_DIR) -l c-stubs $(IDL_FILE_LIST)
+	echo > $@
 
 tar:	clean
 	-rm -f eros.tar eros.tar.gz eros.tgz
@@ -99,3 +95,6 @@ ifeq "$(NEED_CROSS_BOOTSTRAP)" "yes"
 	$(MAKE) cross-bootstrap
 endif
 	$(MAKE) world
+
+update:
+	cvs update -dP
