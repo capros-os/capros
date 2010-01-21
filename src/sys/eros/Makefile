@@ -69,13 +69,11 @@ KEYDEFS=../KEYDEFS
 StdKeyType.h: $(KEYDEFS) $(GENKEYTYPES)
 	$(EROS_CPP) $(KEYDEFS) | $(GAWK) -f $(GENKEYTYPES) > $@
 
-install: $(GENERATED)
+interfaces: $(GENERATED)
 	$(INSTALL) -d $(EROS_ROOT)/include/eros
 	$(INSTALL) -m 0644 $(HEADERS) $(GENERATED) $(EROS_ROOT)/include/eros
 	$(INSTALL) -d $(EROS_ROOT)/host/include/eros
 	$(INSTALL) -m 0644 $(HEADERS) $(GENERATED) $(EROS_ROOT)/host/include/eros
-
-interfaces:
 	$(INSTALL) -d $(EROS_ROOT)/idl/capros
 	$(INSTALL) -m 0644 $(IDLSRC) $(EROS_ROOT)/idl/capros
 

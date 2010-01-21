@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2005-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -46,8 +46,8 @@ LOCAL_HEADERS=\
 	target-asm.h \
 	io.h \
 
-HEADERS=\
-	$(LOCAL_HEADERS) $(GENERATED)
+HEADERS=$(LOCAL_HEADERS) $(GENERATED)
+$(HEADERS): Makefile
 
 IDLSRC=$(wildcard *.idl)
 
@@ -67,18 +67,14 @@ traceregs.h: $(LAYOUT) $(GENTRACEREGS)
 
 
 # NOTE that target-asm.h also gets installed in the domain include tree!
-install: $(GENERATED) Makefile
-	$(INSTALL) -d $(EROS_ROOT)/include
-	$(INSTALL) -d $(EROS_ROOT)/include/eros
+interfaces: hdrs idl
+hdrs: $(HEADERS)
 	$(INSTALL) -d $(EROS_ROOT)/include/eros/arch/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/include/eros/arch/$(EROS_TARGET)
-	$(INSTALL) -d $(EROS_ROOT)/host
-	$(INSTALL) -d $(EROS_ROOT)/host/include
-	$(INSTALL) -d $(EROS_ROOT)/host/include/eros
 	$(INSTALL) -d $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
 
-interfaces:
+idl: $(IDLSRC)
 	$(INSTALL) -d $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(IDLSRC) $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
 

@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2006-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System runtime library,
 # and is derived from the EROS Operating System runtime library.
@@ -61,7 +61,7 @@ $(GENERATED): ../../ARCH-LIST Makefile $(GENMACHHEADERS)
 
 
 # NOTE that target-asm.h also gets installed in the domain include tree!
-install: $(GENERATED)
+interfaces: $(HEADERS)
 	$(INSTALL) -d $(EROS_ROOT)/include/eros/machine
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/include/eros/machine
 	$(INSTALL) -d $(EROS_ROOT)/host/include/eros/machine
