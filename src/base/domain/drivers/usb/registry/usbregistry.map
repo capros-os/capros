@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -47,7 +47,5 @@ usbregistryProc key reg KR_SCHED = sched(8);
 usbregistryProc key reg KR_APP(0) = usbhcdKey;
 usbregistryProc key reg KR_APP(1) = misc Console;
 usbregistryProc key reg KR_APP(2) = usbregSnode;
-
-//usbregistry = start usbregistryProc 0;
 
 run usbregistryProc;

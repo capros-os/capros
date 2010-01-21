@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2010, Strawberry Development Group.
+# Copyright (C) 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -17,23 +17,35 @@
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-# This material is based upon work supported by the US Defense Advanced
-# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-# Approved for public release, distribution unlimited.
-
 default: install
 
 CROSS_BUILD=yes
-EROS_SRC=../../../..
+EROS_SRC=../../../../../..
 
+include ../../common.mk
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=lib
-DIRS+=storage arch/$(LINUX2624_TARGET)
+OBJECTS=$(COMMON_OBJECTS)
+
+OBJECTS+= $(BUILDDIR)/ohci-hcd.o
+VPATH+=:mach-$(LINUX_MACH)
+OBJECTS+= $(BUILDDIR)/core.o
+TARGETS=$(BUILDDIR)/usbhcd
+MAPS=usbhcd.map
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-IDL=$(wildcard *.idl)
-interfaces: $(IDL)
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
+all: $(TARGETS)
+
+$(BUILDDIR)/usbhcd: $(OBJECTS) $(DRIVERDEPS)
+	$(DRIVERLINK) $(OBJECTS) $(DRIVERLIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+
+install: all
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 $(MAPS) $(CAPROS_DOMAIN)/drivers
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers
+
+-include $(BUILDDIR)/.*.m

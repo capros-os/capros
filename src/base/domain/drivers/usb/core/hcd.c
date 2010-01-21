@@ -6,7 +6,7 @@
  * (C) Copyright Deti Fliegl 1999
  * (C) Copyright Randy Dunlap 2000
  * (C) Copyright David Brownell 2000-2002
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -700,6 +700,7 @@ static int usb_rh_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 
 
 
+#if 0 // CapROS
 /*
  * Show & store the current value of authorized_default
  */
@@ -743,11 +744,12 @@ static ssize_t usb_host_authorized_default_store(struct device *dev,
 static DEVICE_ATTR(authorized_default, 0644,
 	    usb_host_authorized_default_show,
 	    usb_host_authorized_default_store);
+#endif // CapROS
 
 
 /* Group all the USB bus attributes */
 static struct attribute *usb_bus_attrs[] = {
-		&dev_attr_authorized_default.attr,
+		//&dev_attr_authorized_default.attr,
 		NULL,
 };
 
@@ -1923,7 +1925,7 @@ int usb_add_hcd(struct usb_hcd *hcd,
 	 * starts talking to them.  (Note, bus id is assigned early too.)
 	 */
   if (! hcd->self.controller->dma_mask) {
-    BUG_ON(true); /* non-dma controllers are not supported, because buffers are
+    BUG();	/* non-dma controllers are not supported, because buffers are
 		passed from device driver address space to hcd address space
 		using their physical address. */
   }

@@ -1,5 +1,6 @@
 /*
  * (C) Copyright David Brownell 2000-2002
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -98,12 +99,16 @@ int usb_hcd_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 			retval = -EBUSY;
 			goto err2;
 		}
+#if 0 // CapROS
 		hcd->regs = ioremap_nocache(hcd->rsrc_start, hcd->rsrc_len);
 		if (hcd->regs == NULL) {
 			dev_dbg(&dev->dev, "error mapping memory\n");
 			retval = -EFAULT;
 			goto err3;
 		}
+#else	// memory was mapped into our address space in initialization
+		hcd->regs = (void *)(size_t)pci_resource_start(dev, 0);
+#endif // CapROS
 
 	} else {
 		/* UHCI */
@@ -136,8 +141,10 @@ int usb_hcd_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 
  err4:
 	if (driver->flags & HCD_MEMORY) {
+#if 0 // CapROS
 		iounmap(hcd->regs);
  err3:
+#endif // CapROS
 		release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	} else
 		release_region(hcd->rsrc_start, hcd->rsrc_len);
@@ -175,7 +182,9 @@ void usb_hcd_pci_remove(struct pci_dev *dev)
 
 	usb_remove_hcd(hcd);
 	if (hcd->driver->flags & HCD_MEMORY) {
+#if 0 // CapROS
 		iounmap(hcd->regs);
+#endif // CapROS
 		release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	} else {
 		release_region(hcd->rsrc_start, hcd->rsrc_len);

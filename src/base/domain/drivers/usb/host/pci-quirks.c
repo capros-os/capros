@@ -13,7 +13,7 @@
 #include <linux/pci.h>
 #include <linux/init.h>
 #include <linux/delay.h>
-#include <linux/acpi.h>
+//#include <linux/acpi.h>
 #include "pci-quirks.h"
 
 

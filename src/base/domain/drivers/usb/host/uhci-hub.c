@@ -10,6 +10,23 @@
  * (C) Copyright 1999 Deti Fliegl, deti@fliegl.de
  * (C) Copyright 1999 Thomas Sailer, sailer@ife.ee.ethz.ch
  * (C) Copyright 2004 Alan Stern, stern@rowland.harvard.edu
+ * Copyright (C) 2010, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
 static const __u8 root_hub_hub_des[] =
@@ -237,7 +254,7 @@ done:
 
 /* size of returned buffer is part of USB spec */
 static int uhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
-			u16 wIndex, char *buf, u16 wLength)
+			u16 wIndex, u8 *buf, u16 wLength)
 {
 	struct uhci_hcd *uhci = hcd_to_uhci(hcd);
 	int status, lstatus, retval = 0, len = 0;

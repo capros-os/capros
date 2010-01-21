@@ -1,7 +1,7 @@
 #ifndef __USBHCD_MAP_
 #define __USBHCD_MAP_
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -49,10 +49,6 @@ BOOT_DOMCRE(usbhcd);	// maybe each should have his own??
 #define USBHCD_DRIVER_GENERIC(name, devcfgbit) \
 DRIVER(name##usbhcd, usbhcd_prog, usbhcd_pc, sched(8), usbhcd_proccre, devcfgbit)
 
-/* Define target-specific resources. */
-
-#if defined(EROS_TARGET_arm)
-
 #define AHB_PA 0x80000000
 #define APB_PA 0x80800000
 #include <devclock.map>
@@ -73,13 +69,5 @@ armusbhcdle[LE_CLOCKS] = usbhcd_le_clocks as ro node key;
 armusbhcdle[LE_IOMEM] = armusble_iomem;
 
 usbhcdKey = armusbhcd;
-
-#elif defined(EROS_TARGET_i486)
-
-usbhcdKey = undefined;
-
-#else
-#error "Unknown target"
-#endif
 
 #endif

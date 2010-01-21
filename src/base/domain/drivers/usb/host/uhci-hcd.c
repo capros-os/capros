@@ -14,6 +14,7 @@
  *               support from usb-ohci.c by Adam Richter, adam@yggdrasil.com).
  * (C) Copyright 1999 Gregory P. Smith (from usb-ohci.c)
  * (C) Copyright 2004-2007 Alan Stern, stern@rowland.harvard.edu
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * Intel documents this fairly well, and as far as I know there
  * are no royalties or anything like that, but even so there are
@@ -30,16 +31,16 @@
 #include <linux/ioport.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
-#include <linux/unistd.h>
+//#include <linux/unistd.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
-#include <linux/debugfs.h>
+//#include <linux/debugfs.h>
 #include <linux/pm.h>
 #include <linux/dmapool.h>
 #include <linux/dma-mapping.h>
 #include <linux/usb.h>
 #include <linux/bitops.h>
-#include <linux/dmi.h>
+//#include <linux/dmi.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -60,8 +61,8 @@ Alan Stern"
 
 /* for flakey hardware, ignore overcurrent indicators */
 static int ignore_oc;
-module_param(ignore_oc, bool, S_IRUGO);
-MODULE_PARM_DESC(ignore_oc, "ignore hardware overcurrent indications");
+//module_param(ignore_oc, bool, S_IRUGO);
+//MODULE_PARM_DESC(ignore_oc, "ignore hardware overcurrent indications");
 
 /*
  * debug = 0, no debugging messages
@@ -235,6 +236,7 @@ static int resume_detect_interrupts_are_broken(struct uhci_hcd *uhci)
 
 static int global_suspend_mode_is_broken(struct uhci_hcd *uhci)
 {
+#if 0 // CapROS - not supported
 	int port;
 	const char *sys_info;
 	static char bad_Asus_board[] = "A7V8X";
@@ -251,6 +253,7 @@ static int global_suspend_mode_is_broken(struct uhci_hcd *uhci)
 				return 1;
 		}
 	}
+#endif // CapROS
 
 	return 0;
 }
@@ -487,13 +490,13 @@ static void release_uhci(struct uhci_hcd *uhci)
 {
 	int i;
 
-	if (DEBUG_CONFIGURED) {
+#if DEBUG_CONFIGURED
 		spin_lock_irq(&uhci->lock);
 		uhci->is_initialized = 0;
 		spin_unlock_irq(&uhci->lock);
 
 		debugfs_remove(uhci->dentry);
-	}
+#endif
 
 	for (i = 0; i < UHCI_NUM_SKELQH; i++)
 		uhci_free_qh(uhci, uhci->skelqh[i]);
@@ -589,7 +592,6 @@ static int uhci_start(struct usb_hcd *hcd)
 	struct uhci_hcd *uhci = hcd_to_uhci(hcd);
 	int retval = -EBUSY;
 	int i;
-	struct dentry *dentry;
 
 	hcd->uses_new_polling = 1;
 
@@ -599,7 +601,8 @@ static int uhci_start(struct usb_hcd *hcd)
 	INIT_LIST_HEAD(&uhci->idle_qh_list);
 	init_waitqueue_head(&uhci->waitqh);
 
-	if (DEBUG_CONFIGURED) {
+#if DEBUG_CONFIGURED
+	struct dentry *dentry;
 		dentry = debugfs_create_file(hcd->self.bus_name,
 				S_IFREG|S_IRUGO|S_IWUSR, uhci_debugfs_root,
 				uhci, &uhci_debug_operations);
@@ -610,7 +613,7 @@ static int uhci_start(struct usb_hcd *hcd)
 			goto err_create_debug_entry;
 		}
 		uhci->dentry = dentry;
-	}
+#endif
 
 	uhci->frame = dma_alloc_coherent(uhci_dev(uhci),
 			UHCI_NUMFRAMES * sizeof(*uhci->frame),
@@ -720,9 +723,11 @@ err_alloc_frame_cpu:
 			uhci->frame, uhci->frame_dma_handle);
 
 err_alloc_frame:
+#if DEBUG_CONFIGURED
 	debugfs_remove(uhci->dentry);
 
 err_create_debug_entry:
+#endif
 	return retval;
 }
 
@@ -932,7 +937,7 @@ static const struct pci_device_id uhci_pci_ids[] = { {
 
 MODULE_DEVICE_TABLE(pci, uhci_pci_ids);
 
-static struct pci_driver uhci_pci_driver = {
+struct pci_driver uhci_pci_driver = {
 	.name =		(char *)hcd_name,
 	.id_table =	uhci_pci_ids,
 
@@ -957,36 +962,42 @@ static int __init uhci_hcd_init(void)
 			ignore_oc ? ", overcurrent ignored" : "");
 	set_bit(USB_UHCI_LOADED, &usb_hcds_loaded);
 
-	if (DEBUG_CONFIGURED) {
+#if DEBUG_CONFIGURED
 		errbuf = kmalloc(ERRBUF_LEN, GFP_KERNEL);
 		if (!errbuf)
 			goto errbuf_failed;
 		uhci_debugfs_root = debugfs_create_dir("uhci", NULL);
 		if (!uhci_debugfs_root)
 			goto debug_failed;
-	}
+#endif
 
 	uhci_up_cachep = kmem_cache_create("uhci_urb_priv",
 		sizeof(struct urb_priv), 0, 0, NULL);
 	if (!uhci_up_cachep)
 		goto up_failed;
 
+#if 0 // CapROS
 	retval = pci_register_driver(&uhci_pci_driver);
 	if (retval)
 		goto init_failed;
+#endif // CapROS
 
 	return 0;
 
+#if 0 // CapROS
 init_failed:
 	kmem_cache_destroy(uhci_up_cachep);
+#endif // CapROS
 
 up_failed:
+#if DEBUG_CONFIGURED
 	debugfs_remove(uhci_debugfs_root);
 
 debug_failed:
 	kfree(errbuf);
 
 errbuf_failed:
+#endif
 
 	clear_bit(USB_UHCI_LOADED, &usb_hcds_loaded);
 	return retval;
@@ -994,9 +1005,13 @@ errbuf_failed:
 
 static void __exit uhci_hcd_cleanup(void) 
 {
+#if 0 // CapROS
 	pci_unregister_driver(&uhci_pci_driver);
+#endif // CapROS
 	kmem_cache_destroy(uhci_up_cachep);
+#if DEBUG_CONFIGURED
 	debugfs_remove(uhci_debugfs_root);
+#endif
 	kfree(errbuf);
 	clear_bit(USB_UHCI_LOADED, &usb_hcds_loaded);
 }

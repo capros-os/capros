@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2010, Strawberry Development Group.
+# Copyright (C) 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -17,47 +17,41 @@
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-# This material is based upon work supported by the US Defense Advanced
-# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-# Approved for public release, distribution unlimited.
-
 default: install
 
 CROSS_BUILD=yes
-EROS_SRC=../../../../..
+EROS_SRC=../../../../../..
 
+include ../../common.mk
 include $(EROS_SRC)/build/make/makevars.mk
 
-TARGETS=$(BUILDDIR)/usbstorage
-OBJECTS=$(BUILDDIR)/usb.o
-OBJECTS+=$(BUILDDIR)/cap.o
-OBJECTS+= $(BUILDDIR)/protocol.o
-OBJECTS+= $(BUILDDIR)/transport.o
-OBJECTS+= $(BUILDDIR)/scsiglue.o
-OBJECTS+= $(BUILDDIR)/initializers.o
-OBJECTS+= $(BUILDDIR)/debug.o
-OBJECTS+= $(BUILDDIR)/option_ms.o
+OBJECTS=$(COMMON_OBJECTS)
 
-LIBS=../lib/$(BUILDDIR)/libusbdev.a
-
-INC=$(DRIVERINC)
+OBJECTS+= $(BUILDDIR)/hcd-pci.o
+OBJECTS+= $(BUILDDIR)/cap_pci.o
+TARGETS=$(BUILDDIR)/usbhcdehci ### ////$(BUILDDIR)/usbhcduhci
+TARGETS+=$(BUILDDIR)/usb_pci_ids.o # for pci registry
+MAPS=../../host/pciehci.map ### //// ../../host/pciuhci.map
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-all: $(TARGETS) $(BUILDDIR)/usual-tables.o
+all: $(TARGETS)
 
-IDL=$(wildcard *.idl)
-##interfaces: $(IDL)
-##	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
-
-$(BUILDDIR)/usbstorage: $(OBJECTS) $(LIBS) $(DYNDRIVERDEPS)
-	$(DYNDRIVERLINK) $(OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
+$(BUILDDIR)/usbhcduhci: $(OBJECTS) $(UHCI_OBJECTS) $(DRIVERDEPS)
+	$(DRIVERLINK) $(OBJECTS) $(UHCI_OBJECTS) $(DRIVERLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symsuhci
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembleduhci
+
+$(BUILDDIR)/usbhcdehci: $(OBJECTS) $(EHCI_OBJECTS) $(DYNDRIVERDEPS)
+	$(DYNDRIVERLINK) $(OBJECTS) $(EHCI_OBJECTS) $(DRIVERLIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symsehci
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledehci
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
-	$(INSTALL) -m 644 usbstor.map $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 $(MAPS) $(CAPROS_DOMAIN)/drivers
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers
 
 -include $(BUILDDIR)/.*.m

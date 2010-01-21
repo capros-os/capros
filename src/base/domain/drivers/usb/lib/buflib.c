@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2008-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -60,7 +60,7 @@ static const size_t	pool_max [NUM_POOLS] = {
 	32,
 	128,
 	512,
-	PAGE_SIZE / 2
+	2048	// PAGE_SIZE / 2
 #else
 	32,
 	256,

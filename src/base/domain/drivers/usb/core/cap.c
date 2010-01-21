@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2008-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -445,13 +445,11 @@ driver_main(void)
     assert(false);      // FIXME handle error
   }
 
-  retval = ksuspend_usb_init();
+int usb_init(void);
+  retval = usb_init();
   assert(!retval);
 
-  retval = usb_hub_init();
-  assert(!retval);
-
-  extern int __init capros_hcd_initialization(void);
+int capros_hcd_initialization(void);
   if (capros_hcd_initialization()) {
     assert(false);    // FIXME handle error
   }

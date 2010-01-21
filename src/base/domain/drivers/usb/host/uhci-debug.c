@@ -10,14 +10,16 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/debugfs.h>
+//#include <linux/debugfs.h>
 #include <linux/smp_lock.h>
 #include <asm/io.h>
 
 #include "uhci-hcd.h"
 
 #define uhci_debug_operations (* (const struct file_operations *) NULL)
+#if DEBUG_CONFIGURED
 static struct dentry *uhci_debugfs_root;
+#endif
 
 #ifdef DEBUG
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2000-2004 by David Brownell
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -34,7 +35,9 @@
 #include <linux/usb.h>
 #include <linux/moduleparam.h>
 #include <linux/dma-mapping.h>
-#include <linux/debugfs.h>
+//#include <linux/debugfs.h>
+#include <linux/fs.h>
+//#include <linux/types.h>
 
 #include "../core/hcd.h"
 
@@ -88,18 +91,18 @@ static const char	hcd_name [] = "ehci_hcd";
 
 /* Initial IRQ latency:  faster than hw default */
 static int log2_irq_thresh = 0;		// 0 to 6
-module_param (log2_irq_thresh, int, S_IRUGO);
-MODULE_PARM_DESC (log2_irq_thresh, "log2 IRQ latency, 1-64 microframes");
+//module_param (log2_irq_thresh, int, S_IRUGO);
+//MODULE_PARM_DESC (log2_irq_thresh, "log2 IRQ latency, 1-64 microframes");
 
 /* initial park setting:  slower than hw default */
 static unsigned park = 0;
-module_param (park, uint, S_IRUGO);
-MODULE_PARM_DESC (park, "park setting; 1-3 back-to-back async packets");
+//module_param (park, uint, S_IRUGO);
+//MODULE_PARM_DESC (park, "park setting; 1-3 back-to-back async packets");
 
 /* for flakey hardware, ignore overcurrent indicators */
 static int ignore_oc = 0;
-module_param (ignore_oc, bool, S_IRUGO);
-MODULE_PARM_DESC (ignore_oc, "ignore bogus hardware overcurrent indications");
+//module_param (ignore_oc, int, S_IRUGO);
+//MODULE_PARM_DESC (ignore_oc, "ignore bogus hardware overcurrent indications");
 
 #define	INTR_MASK (STS_IAA | STS_FATAL | STS_PCD | STS_ERR | STS_INT)
 
@@ -476,7 +479,7 @@ static void ehci_stop (struct usb_hcd *hcd)
 	ehci_reset (ehci);
 	spin_unlock_irq(&ehci->lock);
 
-	remove_companion_file(ehci);
+	//remove_companion_file(ehci);
 	remove_debug_files (ehci);
 
 	/* root hub is shut down separately (first, when possible) */
@@ -671,7 +674,7 @@ static int ehci_run (struct usb_hcd *hcd)
 	 * since the class device isn't created that early.
 	 */
 	create_debug_files(ehci);
-	create_companion_file(ehci);
+	//create_companion_file(ehci);
 
 	return 0;
 }
@@ -1077,7 +1080,7 @@ MODULE_LICENSE ("GPL");
 #error "missing bus glue for ehci-hcd"
 #endif
 
-static int __init ehci_hcd_init(void)
+int __init ehci_hcd_init(void)
 {
 	int retval = 0;
 
@@ -1111,9 +1114,13 @@ static int __init ehci_hcd_init(void)
 #endif
 
 #ifdef PCI_DRIVER
+#if 0 // CapROS
 	retval = pci_register_driver(&PCI_DRIVER);
 	if (retval < 0)
 		goto clean1;
+#else	// all we need is:
+	PCI_DRIVER.driver.name = PCI_DRIVER.name;
+#endif // CapROS
 #endif
 
 #ifdef PS3_SYSTEM_BUS_DRIVER
@@ -1129,6 +1136,7 @@ static int __init ehci_hcd_init(void)
 #endif
 	return retval;
 
+#if 0 // CapROS
 #ifdef OF_PLATFORM_DRIVER
 	/* of_unregister_platform_driver(&OF_PLATFORM_DRIVER); */
 clean3:
@@ -1145,6 +1153,7 @@ clean1:
 	platform_driver_unregister(&PLATFORM_DRIVER);
 clean0:
 #endif
+#endif // CapROS
 #ifdef DEBUG
 	debugfs_remove(ehci_debug_root);
 	ehci_debug_root = NULL;
@@ -1157,6 +1166,7 @@ module_init(ehci_hcd_init);
 
 static void __exit ehci_hcd_cleanup(void)
 {
+#if 0 // CapROS
 #ifdef OF_PLATFORM_DRIVER
 	of_unregister_platform_driver(&OF_PLATFORM_DRIVER);
 #endif
@@ -1169,6 +1179,7 @@ static void __exit ehci_hcd_cleanup(void)
 #ifdef PS3_SYSTEM_BUS_DRIVER
 	ps3_ehci_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);
 #endif
+#endif // CapROS
 #ifdef DEBUG
 	debugfs_remove(ehci_debug_root);
 #endif

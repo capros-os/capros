@@ -2,6 +2,7 @@
  * EHCI HCD (Host Controller Driver) PCI Bus Glue.
  *
  * Copyright (c) 2000-2004 by David Brownell
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -66,8 +67,8 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci(hcd);
 	struct pci_dev		*pdev = to_pci_dev(hcd->self.controller);
-	struct pci_dev		*p_smbus;
-	u8			rev;
+	//struct pci_dev		*p_smbus;
+	//u8			rev;
 	u32			temp;
 	int			retval;
 
@@ -107,10 +108,14 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 		case 0x005b:	/* CK804 */
 		case 0x00d8:	/* CK8 */
 		case 0x00e8:	/* CK8S */
+#if 0 // CapROS
 			if (pci_set_consistent_dma_mask(pdev,
 						DMA_BIT_MASK(31)) < 0)
 				ehci_warn(ehci, "can't enable NVidia "
 					"workaround for >2GB RAM\n");
+#else
+			BUG();	// not supported
+#endif // CapROS
 			break;
 		}
 		break;
@@ -173,6 +178,7 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 		 * which causes usb devices lose response in some cases.
 		 */
 		if ((pdev->device == 0x4386) || (pdev->device == 0x4396)) {
+#if 0 // CapROS
 			p_smbus = pci_get_device(PCI_VENDOR_ID_ATI,
 						 PCI_DEVICE_ID_ATI_SBX00_SMBUS,
 						 NULL);
@@ -188,6 +194,9 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 				pci_write_config_byte(pdev, 0x53, tmp | (1<<3));
 			}
 			pci_dev_put(p_smbus);
+#else
+			BUG();	// not supported
+#endif // CapROS
 		}
 		break;
 	}
@@ -364,7 +373,7 @@ static int ehci_pci_resume(struct usb_hcd *hcd)
 }
 #endif
 
-static const struct hc_driver ehci_pci_hc_driver = {
+const struct hc_driver ehci_pci_hc_driver = {
 	.description =		hcd_name,
 	.product_desc =		"EHCI Host Controller",
 	.hcd_priv_size =	sizeof(struct ehci_hcd),
@@ -412,6 +421,7 @@ static const struct hc_driver ehci_pci_hc_driver = {
 
 /*-------------------------------------------------------------------------*/
 
+#if 0 // CapROS
 /* PCI driver selection metadata; PCI hotplugging uses this */
 static const struct pci_device_id pci_ids [] = { {
 	/* handle any USB 2.0 EHCI controller */
@@ -421,11 +431,14 @@ static const struct pci_device_id pci_ids [] = { {
 	{ /* end: all zeroes */ }
 };
 MODULE_DEVICE_TABLE(pci, pci_ids);
+#endif // CapROS
 
 /* pci driver glue; this is a "new style" PCI driver module */
-static struct pci_driver ehci_pci_driver = {
+struct pci_driver ehci_pci_driver = {
 	.name =		(char *) hcd_name,
+#if 0 // CapROS
 	.id_table =	pci_ids,
+#endif // CapROS
 
 	.probe =	usb_hcd_pci_probe,
 	.remove =	usb_hcd_pci_remove,

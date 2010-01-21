@@ -11,7 +11,7 @@
  * (C) Copyright Yggdrasil Computing, Inc. 2000
  *     (usb_device_id matching changes by Adam J. Richter)
  * (C) Copyright Greg Kroah-Hartman 2002-2003
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * NOTE! This is not actually a driver at all, rather this is
  * just a collection of helper routines that implement the
@@ -1049,24 +1049,28 @@ static int usb_bus_notify(struct notifier_block *nb, unsigned long action,
 static struct notifier_block usb_bus_nb = {
 	.notifier_call = usb_bus_notify,
 };
+#endif // CapROS
 
 /*
  * Init
  */
-static int __init usb_init(void)
+int __init usb_init(void)
 {
 	int retval;
+#if 0 // CapROS
 	if (nousb) {
 		pr_info("%s: USB support disabled\n", usbcore_name);
 		return 0;
 	}
 
+#endif // CapROS
 	retval = ksuspend_usb_init();
 	if (retval)
 		goto out;
 	retval = bus_register(&usb_bus_type);
 	if (retval)
 		goto bus_register_failed;
+#if 0 // CapROS
 	retval = bus_register_notifier(&usb_bus_type, &usb_bus_nb);
 	if (retval)
 		goto bus_notifier_failed;
@@ -1085,15 +1089,21 @@ static int __init usb_init(void)
 	retval = usbfs_init();
 	if (retval)
 		goto fs_init_failed;
+#endif // CapROS
 	retval = usb_hub_init();
 	if (retval)
 		goto hub_init_failed;
+#if 0 // CapROS
 	retval = usb_register_device_driver(&usb_generic_driver, THIS_MODULE);
+#endif // CapROS
 	if (!retval)
 		goto out;
 
+#if 0 // CapROS
 	usb_hub_cleanup();
+#endif // CapROS
 hub_init_failed:
+#if 0 // CapROS
 	usbfs_cleanup();
 fs_init_failed:
 	usb_devio_cleanup();
@@ -1106,6 +1116,7 @@ major_init_failed:
 host_init_failed:
 	bus_unregister_notifier(&usb_bus_type, &usb_bus_nb);
 bus_notifier_failed:
+#endif // CapROS
 	bus_unregister(&usb_bus_type);
 bus_register_failed:
 	ksuspend_usb_cleanup();
@@ -1113,6 +1124,7 @@ out:
 	return retval;
 }
 
+#if 0 // CapROS
 /*
  * Cleanup
  */

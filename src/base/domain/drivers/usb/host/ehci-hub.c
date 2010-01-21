@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001-2004 by David Brownell
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -296,6 +297,7 @@ static int ehci_bus_resume (struct usb_hcd *hcd)
 
 /*-------------------------------------------------------------------------*/
 
+#if 0 // CapROS
 /* Display the ports dedicated to the companion controller */
 static ssize_t show_companion(struct device *dev,
 			      struct device_attribute *attr,
@@ -318,6 +320,7 @@ static ssize_t show_companion(struct device *dev,
 	}
 	return ptr - buf;
 }
+#endif // CapROS
 
 /*
  * Sets the owner of a port
@@ -353,6 +356,7 @@ static void set_owner(struct ehci_hcd *ehci, int portnum, int new_owner)
 	}
 }
 
+#if 0 // CapROS
 /*
  * Dedicate or undedicate a port to the companion controller.
  * Syntax is "[-]portnum", where a leading '-' sign means
@@ -402,6 +406,7 @@ static inline void remove_companion_file(struct ehci_hcd *ehci)
 		device_remove_file(ehci_to_hcd(ehci)->self.dev,
 				   &dev_attr_companion);
 }
+#endif // CapROS
 
 
 /*-------------------------------------------------------------------------*/
@@ -556,7 +561,7 @@ static int ehci_hub_control (
 	u16		typeReq,
 	u16		wValue,
 	u16		wIndex,
-	char		*buf,
+	u8 * buf,
 	u16		wLength
 ) {
 	struct ehci_hcd	*ehci = hcd_to_ehci (hcd);
