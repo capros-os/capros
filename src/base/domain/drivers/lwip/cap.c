@@ -1259,9 +1259,6 @@ driver_main(void)
   Message Msg;
   Message * const msg = &Msg;
 
-  curRcvBuf = AllocRcvBuf();
-  assert(curRcvBuf);
-
   struct ip_addr ipaddr, ipmask, ipgw;
   uint32_t ipInt, msInt, gwInt;
   result = capros_Number_get(KR_IPAddrs, &ipInt, &msInt, &gwInt);
@@ -1310,8 +1307,26 @@ driver_main(void)
 
   printk("EP93xx Ethernet driver started.\n");
 
+  {
+    // Touch each heap page to get VCSK to allocate it.
+    // If there isn't enough space in the space bank, we want to know now.
+    extern u8_t ram_heap[];
+    u8_t * ram = LWIP_MEM_ALIGN(ram_heap);
+    uint8_t * p;
+    // Kludge because struct mem is local to core/mem.c:
+#define sizeofStructMem (sizeof(mem_size_t) * 3)
+    uint8_t * ramLast = &ram[LWIP_MEM_ALIGN_SIZE(MEM_SIZE)
+                             + sizeofStructMem -1];
+    for (p = ram; p <= ramLast; p += EROS_PAGE_SIZE)
+      *p = 1;
+    *ramLast = 1;
+  }
+
   // Initialize the TCP/IP code:
   lwip_init();
+
+  curRcvBuf = AllocRcvBuf();
+  assert(curRcvBuf);
 
   // Start the timers:
   mod_timer_duration(&arpTimeoutData.tl, (ARP_TMR_INTERVAL * 1000) / TICK_USEC);
