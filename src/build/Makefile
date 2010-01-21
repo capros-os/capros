@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2009, Strawberry Development Group.
+# Copyright (C) 2009, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -45,7 +45,7 @@ endif
 TARGETS=$(BUILDDIR)/libworkaround.a
 include $(EROS_SRC)/build/make/makerules.mk
 
-install: $(TARGETS)
+libs: $(TARGETS)
 
 $(TARGETS): $(OBJECTS)
 	$(AR) -crv $@ $(OBJECTS)
@@ -54,3 +54,5 @@ $(TARGETS): $(OBJECTS)
 install:
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)
+
+-include $(BUILDDIR)/.*.m

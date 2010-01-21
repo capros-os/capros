@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -23,7 +23,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: install
+default: interfaces
 
 EROS_SRC=../../..
 
@@ -32,8 +32,7 @@ BUILDDIR=BUILD/$(EROS_TARGET)
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/capidl
-CLEANLIST= ../../bin/capidl # uninstall
-#OPTIM=-O
+CLEANLIST= ../../bin/capidl
 OPTIM=-g
 
 LIBAPP_OBJECTS = $(BUILDDIR)/Intern.o
@@ -74,8 +73,6 @@ VPATH=.:applib
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-all: $(TARGETS)
-
 $(BUILDDIR)/libapp.a: $(LIBAPP_OBJECTS)
 	ar -crv $(BUILDDIR)/libapp.a $(LIBAPP_OBJECTS)
 
@@ -111,7 +108,7 @@ $(BUILDDIR)/idl.c $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
 #$(BUILDDIR)/lex.c: lex.l
 #	flex -d -o$@ lex.l
 
-install: all
+interfaces: $(TARGETS)
 	$(INSTALL) -m 755 $(TARGETS) ../../bin
 
 -include $(BUILDDIR)/.*.m
