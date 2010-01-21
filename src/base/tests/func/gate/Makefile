@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, Strawberry Development Group
+# Copyright (C) 2007, 2010, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -43,6 +43,9 @@ include ../../test.mk
 
 $(BUILDDIR)/proc1: $(BUILDDIR)/proc1.o $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(BUILDDIR)/proc1.o $(CROSSLIBS)
+## and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 $(BUILDDIR)/proc2: $(BUILDDIR)/proc2.o $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(BUILDDIR)/proc2.o $(CROSSLIBS)
