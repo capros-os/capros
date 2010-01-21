@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2008, Strawberry Development Group.
+# Copyright (C) 2006, 2008, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -32,19 +32,19 @@ DIRS=
 DIRS+=serial
 ## DIRS+=network # not used, see lwip
 DIRS+=lwip
+DIRS+=scsi
+DIRS+=usb
 ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
-# DIRS+=pci # disabled due to compilation errors
+DIRS+=pci
 # DIRS+=ps2 # broken due to RETRY_SET_WAKEINFO
 # DIRS+=sound # need to convert domain/drivers/SoundKey.h to IDL
 # DIRS+=console # broken due to RETRY_SET_LIK
 DIRS+=w1	# so far, without masters
 else	# ARM-only drivers
-DIRS+=usb	# so far, ARM only
 DIRS+=w1
-DIRS+=usb/registry	# must follow USB drivers
-DIRS+=scsi	# so far, ARM only
 DIRS+=netser	# requires lwip
 endif
+DIRS+=usb/registry	# must follow USB drivers
 
 include $(EROS_SRC)/build/make/makerules.mk
 
