@@ -36,8 +36,6 @@ Approved for public release, distribution unlimited. */
 #define LWIP_SOCKET 0
 #define LWIP_NETCONN 0
 
-#define MEM_LIBC_MALLOC 1 // use libc's malloc
-#include <stdlib.h>		// and declare it
 #define MEM_ALIGNMENT 4	// correct for ARM
 // IPv4 requires TCP_MSS be at least 576-20-20 = 536
 #define MEMP_NUM_TCP_PCB 15
@@ -63,6 +61,18 @@ Approved for public release, distribution unlimited. */
 #else	// normally, want to see severe errors
 #define TCP_OUTPUT_DEBUG LWIP_DBG_ON
 #define LWIP_DBG_MIN_LEVEL LWIP_DBG_LEVEL_SEVERE
+#endif
+
+#if 0 /* We don't use the libc malloc, because it has no limit on the
+amount of space it will try to allocate.
+This causes a crash when we run out of space in the space bank
+(space for lwip is non-swappable).
+*/
+#define MEM_LIBC_MALLOC 1 // use libc's malloc
+#include <stdlib.h>		// and declare it
+#else
+// rcvBufSize is capros_TCPSocket_maxSendLength which is 4096
+#define MEM_SIZE (4096 + (4096+400+TCP_SND_BUF+500) * MEMP_NUM_TCP_PCB + 16000)
 #endif
 
 struct tcp_pcb;
