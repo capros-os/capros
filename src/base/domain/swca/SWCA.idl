@@ -16,7 +16,7 @@ interface SWCA extends key
   const unsigned byte LEDError       = 16;
   //const unsigned byte LEDAC1In       = ?;
   //const unsigned byte LEDLineTie     = ?;
-  const unsigned byte LEDBulk        = 128;
+  const unsigned byte LEDBulk        = 128;	// bulk or absorption stage
 
   struct LEDLogRecord {
     Logfile.recordHeader header;
