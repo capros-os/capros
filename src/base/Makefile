@@ -28,10 +28,11 @@ default: package
 EROS_SRC=..
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=host lib domain
-CLEANDIRS=$(DIRS) tests
+IDIRS=lib domain
+PDIRS=host lib domain
+CLEANDIRS=$(PDIRS) tests
 
-TARDIRS=$(DIRS)
+TARDIRS=$(PDIRS)
 
 include $(EROS_SRC)/build/make/pkgrules.mk
 
