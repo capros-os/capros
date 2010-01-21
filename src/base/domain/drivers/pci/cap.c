@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -63,7 +63,6 @@ SendNewInterface(unsigned long /* cap_t */ mainProc,
   Message Msg;
   Message * const msg = &Msg;  // to address it consistently
   capros_PCIBus_DeviceData nid;
-kprintf(KR_OSTREAM, "SendNewInterface pdev=%#x\n", pdev);////
   unsigned long fwdSlot = forwarderSlot(pdev);
 
   result = capros_SuperNode_allocateRange(KR_KEYSTORE, fwdSlot, fwdSlot+1);

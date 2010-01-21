@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008-2010, Strawberry Development Group.
+# Copyright (C) 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #

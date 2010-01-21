@@ -1,7 +1,7 @@
 #ifndef __PCI_MAP_
 #define __PCI_MAP_
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -21,9 +21,6 @@
  */
 
 #include <linuxk/lsync.h>
-//#include <eros/machine/target-asm.h>
-//#include <eros/Reserve.h>
-//#include <asm/thread_info.h>
 #include <drivers/driver.map>
 
 /*********************************************
