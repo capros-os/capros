@@ -32,12 +32,13 @@
 #include <linux/errno.h>
 #include <linux/bootmem.h>
 
-#include <asm/pat.h>
-#include <asm/e820.h>
+//#include <asm/pat.h>
+//#include <asm/e820.h>
 #include <asm/pci_x86.h>
-#include <asm/io_apic.h>
+//#include <asm/io_apic.h>
 
 
+#if 0 // CapROS
 static int
 skip_isa_ioresource_align(struct pci_dev *dev) {
 
@@ -248,6 +249,7 @@ fs_initcall(pcibios_assign_resources);
 void __weak x86_pci_root_bus_res_quirks(struct pci_bus *b)
 {
 }
+#endif // CapROS
 
 /*
  *  If we set up a device for bus mastering, we need to check the latency
@@ -269,6 +271,7 @@ void pcibios_set_master(struct pci_dev *dev)
 	pci_write_config_byte(dev, PCI_LATENCY_TIMER, lat);
 }
 
+#if 0 // CapROS
 static struct vm_operations_struct pci_mmap_ops = {
 	.access = generic_access_phys,
 };
@@ -306,3 +309,4 @@ int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
 
 	return 0;
 }
+#endif // CapROS

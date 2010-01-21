@@ -24,6 +24,7 @@
 #include <asm/setup.h>
 #include "pci.h"
 
+#if 0 // CapROS
 unsigned int pci_pm_d3_delay = PCI_PM_D3_WAIT;
 
 #ifdef CONFIG_PCI_DOMAINS
@@ -97,6 +98,7 @@ pci_max_busnr(void)
 }
 
 #endif  /*  0  */
+#endif // CapROS
 
 #define PCI_FIND_CAP_TTL	48
 
@@ -188,6 +190,7 @@ int pci_find_capability(struct pci_dev *dev, int cap)
 	return pos;
 }
 
+#if 0 // CapROS
 /**
  * pci_bus_find_capability - query for devices' capabilities 
  * @bus:   the PCI bus to query
@@ -1786,6 +1789,7 @@ int pci_request_regions_exclusive(struct pci_dev *pdev, const char *res_name)
 	return pci_request_selected_regions_exclusive(pdev,
 					((1 << 6) - 1), res_name);
 }
+#endif // CapROS
 
 static void __pci_set_master(struct pci_dev *dev, bool enable)
 {
@@ -1951,6 +1955,7 @@ pci_clear_mwi(struct pci_dev *dev)
 }
 #endif /* ! PCI_DISABLE_MWI */
 
+#if 0 // CapROS
 /**
  * pci_intx - enables/disables PCI INTx for device dev
  * @pdev: the PCI device to operate on
@@ -2642,3 +2647,4 @@ EXPORT_SYMBOL(pci_prepare_to_sleep);
 EXPORT_SYMBOL(pci_back_from_sleep);
 EXPORT_SYMBOL_GPL(pci_set_pcie_reset_state);
 
+#endif // CapROS

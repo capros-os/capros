@@ -12,6 +12,7 @@
 #include <linux/pci-aspm.h>
 #include "pci.h"
 
+#if 0 // CapROS
 #define CARDBUS_LATENCY_TIMER	176	/* secondary latency timer */
 #define CARDBUS_RESERVE_BUSNR	3
 
@@ -101,6 +102,7 @@ static int __init pcibus_class_init(void)
 	return class_register(&pcibus_class);
 }
 postcore_initcall(pcibus_class_init);
+#endif // CapROS
 
 /*
  * Translate the low bits of the PCI base
@@ -278,6 +280,7 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 	}
 }
 
+#if 0 // CapROS
 void __devinit pci_read_bridge_bases(struct pci_bus *child)
 {
 	struct pci_dev *dev = child->self;
@@ -658,6 +661,7 @@ out:
 
 	return max;
 }
+#endif // CapROS
 
 /*
  * Read interrupt line and base address registers.
@@ -703,30 +707,39 @@ int pci_setup_device(struct pci_dev *dev)
 {
 	u32 class;
 	u8 hdr_type;
-	struct pci_slot *slot;
+	//struct pci_slot *slot;
 
 	if (pci_read_config_byte(dev, PCI_HEADER_TYPE, &hdr_type))
 		return -EIO;
 
+#if 0 // CapROS - does not use bus here
 	dev->sysdata = dev->bus->sysdata;
 	dev->dev.parent = dev->bus->bridge;
 	dev->dev.bus = &pci_bus_type;
+#endif // CapROS
 	dev->hdr_type = hdr_type & 0x7f;
 	dev->multifunction = !!(hdr_type & 0x80);
 	dev->error_state = pci_channel_io_normal;
 	set_pcie_port_type(dev);
 
+#if 0 // CapROS - does not use bus here
 	list_for_each_entry(slot, &dev->bus->slots, list)
 		if (PCI_SLOT(dev->devfn) == slot->number)
 			dev->slot = slot;
+#endif // CapROS
 
 	/* Assume 32-bit PCI; let 64-bit PCI cards (which are far rarer)
 	   set this higher, assuming the system even supports it.  */
 	dev->dma_mask = 0xffffffff;
 
+#if 0 // CapROS - does not use bus here
 	dev_set_name(&dev->dev, "%04x:%02x:%02x.%d", pci_domain_nr(dev->bus),
 		     dev->bus->number, PCI_SLOT(dev->devfn),
 		     PCI_FUNC(dev->devfn));
+#else
+	dev_set_name(&dev->dev, "%02x.%d",
+		     PCI_SLOT(dev->devfn), PCI_FUNC(dev->devfn));
+#endif // CapROS
 
 	pci_read_config_dword(dev, PCI_CLASS_REVISION, &class);
 	dev->revision = class & 0xff;
@@ -743,8 +756,10 @@ int pci_setup_device(struct pci_dev *dev)
 	/* "Unknown power state" */
 	dev->current_state = PCI_UNKNOWN;
 
+#ifdef CONFIG_PCI_QUIRKS
 	/* Early fixups, before probing the BARs */
 	pci_fixup_device(pci_fixup_early, dev);
+#endif
 	/* device class may be changed after fixup */
 	class = dev->class >> 8;
 
@@ -896,6 +911,7 @@ int pci_cfg_space_size(struct pci_dev *dev)
 	return PCI_CFG_SPACE_SIZE;
 }
 
+#if 0 // CapROS
 static void pci_release_bus_bridge_dev(struct device *dev)
 {
 	kfree(dev);
@@ -965,9 +981,11 @@ static struct pci_dev *pci_scan_device(struct pci_bus *bus, int devfn)
 
 	return dev;
 }
+#endif // CapROS
 
 static void pci_init_capabilities(struct pci_dev *dev)
 {
+#if 0 // CapROS
 	/* MSI/MSI-X list */
 	pci_msi_init_pci_dev(dev);
 
@@ -986,27 +1004,33 @@ static void pci_init_capabilities(struct pci_dev *dev)
 
 	/* Single Root I/O Virtualization */
 	pci_iov_init(dev);
+#endif // CapROS
 }
 
 void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
 {
 	device_initialize(&dev->dev);
 	dev->dev.release = pci_release_dev;
-	pci_dev_get(dev);
+	// pci_dev_get(dev);
 
 	dev->dev.dma_mask = &dev->dma_mask;
 	dev->dev.dma_parms = &dev->dma_parms;
 	dev->dev.coherent_dma_mask = 0xffffffffull;
 
+#if 0 // CapROS
 	pci_set_dma_max_seg_size(dev, 65536);
 	pci_set_dma_seg_boundary(dev, 0xffffffff);
+#endif // CapROS
 
+#ifdef CONFIG_PCI_QUIRKS
 	/* Fix up broken headers */
 	pci_fixup_device(pci_fixup_header, dev);
+#endif
 
 	/* Initialize various capabilities */
 	pci_init_capabilities(dev);
 
+#if 0 // CapROS
 	/*
 	 * Add the device to our list of discovered devices
 	 * and the bus list for fixup functions, etc.
@@ -1014,8 +1038,10 @@ void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
 	down_write(&pci_bus_sem);
 	list_add_tail(&dev->bus_list, &bus->devices);
 	up_write(&pci_bus_sem);
+#endif // CapROS
 }
 
+#if 0 // CapROS
 struct pci_dev *__ref pci_scan_single_device(struct pci_bus *bus, int devfn)
 {
 	struct pci_dev *dev;
@@ -1266,3 +1292,4 @@ void __init pci_sort_breadthfirst(void)
 {
 	bus_sort_breadthfirst(&pci_bus_type, &pci_sort_bf_cmp);
 }
+#endif // CapROS
