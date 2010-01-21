@@ -8,19 +8,24 @@
 #include <linux/pci.h>
 #include <linux/ioport.h>
 #include <linux/init.h>
-#include <linux/dmi.h>
+//#include <linux/dmi.h>
 
-#include <asm/acpi.h>
+//#include <asm/acpi.h>
 #include <asm/segment.h>
 #include <asm/io.h>
-#include <asm/smp.h>
+//#include <asm/smp.h>
 #include <asm/pci_x86.h>
+
+#include <eros/Invoke.h>
+#include <idl/capros/arch/i386/DevPrivsX86.h>
 
 unsigned int pci_probe = PCI_PROBE_BIOS | PCI_PROBE_CONF1 | PCI_PROBE_CONF2 |
 				PCI_PROBE_MMCONF;
 
 unsigned int pci_early_dump_regs;
+#if 0 // CapROS - no support for breadthfirst
 static int pci_bf_sort;
+#endif // CapROS
 int pci_routeirq;
 int noioapicquirk;
 #ifdef CONFIG_X86_REROUTE_FOR_BROKEN_BOOT_IRQS
@@ -83,6 +88,7 @@ int pcibios_scanned;
  */
 DEFINE_SPINLOCK(pci_config_lock);
 
+#if 0 // CapROS
 static int __devinit can_skip_ioresource_align(const struct dmi_system_id *d)
 {
 	pci_probe |= PCI_CAN_SKIP_ISA_ALIGN;
@@ -126,7 +132,9 @@ void __init dmi_check_skip_isa_align(void)
 {
 	dmi_check_system(can_skip_pciprobe_dmi_table);
 }
+#endif // CapROS
 
+#if 1 // CapROS
 static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
 {
 	struct resource *rom_r = &dev->resource[PCI_ROM_RESOURCE];
@@ -141,6 +149,7 @@ static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
 		rom_r->start = rom_r->end = rom_r->flags = 0;
 	}
 }
+#endif // CapROS
 
 /*
  *  Called after each bus is probed, but before its children
@@ -153,12 +162,17 @@ void __devinit pcibios_fixup_bus(struct pci_bus *b)
 
 	/* root bus? */
 	if (!b->parent)
+#if 0 // CapROS
 		x86_pci_root_bus_res_quirks(b);
+#else
+		;
+#endif // CapROS
 	pci_read_bridge_bases(b);
 	list_for_each_entry(dev, &b->devices, bus_list)
 		pcibios_fixup_device_resources(dev);
 }
 
+#if 0 // CapROS
 /*
  * Only use DMI information to set this if nothing was passed
  * on the kernel command line (which was parsed earlier).
@@ -377,6 +391,7 @@ void __init dmi_check_pciprobe(void)
 {
 	dmi_check_system(pciprobe_dmi_table);
 }
+#endif // CapROS
 
 struct pci_bus * __devinit pcibios_scan_root(int busnum)
 {
@@ -414,12 +429,15 @@ extern u8 pci_cache_line_size;
 
 int __init pcibios_init(void)
 {
-	struct cpuinfo_x86 *c = &boot_cpu_data;
-
 	if (!raw_pci_ops) {
 		printk(KERN_WARNING "PCI: System does not support PCI\n");
 		return 0;
 	}
+
+        capros_arch_i386_DevPrivsX86_CPUInfo cpui;
+	result_t result = capros_arch_i386_DevPrivsX86_getCPUInfo(KR_DEVPRIVS,
+                            &cpui);
+	BUG_ON(result != RC_OK);
 
 	/*
 	 * Assume PCI cacheline size of 32 bytes for all x86s except K7/K8
@@ -427,18 +445,21 @@ int __init pcibios_init(void)
 	 * as quite a few PCI devices do not support smaller values.
 	 */
 	pci_cache_line_size = 32 >> 2;
-	if (c->x86 >= 6 && c->x86_vendor == X86_VENDOR_AMD)
+	if (cpui.family >= 6 && cpui.vendorCode == X86_VENDOR_AMD)
 		pci_cache_line_size = 64 >> 2;	/* K7 & K8 */
-	else if (c->x86 > 6 && c->x86_vendor == X86_VENDOR_INTEL)
+	else if (cpui.family > 6 && cpui.vendorCode == X86_VENDOR_INTEL)
 		pci_cache_line_size = 128 >> 2;	/* P4 */
 
 	pcibios_resource_survey();
 
+#if 0 // CapROS - no support for breadthfirst
 	if (pci_bf_sort >= pci_force_bf)
 		pci_sort_breadthfirst();
+#endif // CapROS
 	return 0;
 }
 
+#if 0 // CapROS
 char * __devinit  pcibios_setup(char *str)
 {
 	if (!strcmp(str, "off")) {
@@ -541,6 +562,7 @@ char * __devinit  pcibios_setup(char *str)
 	}
 	return str;
 }
+#endif // CapROS
 
 unsigned int pcibios_assign_all_busses(void)
 {
@@ -559,11 +581,13 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
 	return 0;
 }
 
+#if 0 // CapROS
 void pcibios_disable_device (struct pci_dev *dev)
 {
 	if (!pci_dev_msi_enabled(dev) && pcibios_disable_irq)
 		pcibios_disable_irq(dev);
 }
+#endif // CapROS
 
 int pci_ext_cfg_avail(struct pci_dev *dev)
 {
@@ -596,7 +620,9 @@ struct pci_bus * __devinit pci_scan_bus_on_node(int busno, struct pci_ops *ops, 
 	return bus;
 }
 
+#if 0 // CapROS
 struct pci_bus * __devinit pci_scan_bus_with_sysdata(int busno)
 {
 	return pci_scan_bus_on_node(busno, &pci_root_ops, -1);
 }
+#endif // CapROS

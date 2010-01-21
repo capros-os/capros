@@ -111,6 +111,7 @@ static DECLARE_WAIT_QUEUE_HEAD(pci_ucfg_wait);
 
 static noinline void pci_wait_ucfg(struct pci_dev *dev)
 {
+#if 0 // CapROS
 	DECLARE_WAITQUEUE(wait, current);
 
 	__add_wait_queue(&pci_ucfg_wait, &wait);
@@ -121,6 +122,9 @@ static noinline void pci_wait_ucfg(struct pci_dev *dev)
 		spin_lock_irq(&pci_lock);
 	} while (dev->block_ucfg_access);
 	__remove_wait_queue(&pci_ucfg_wait, &wait);
+#else // CapROS
+  BUG();	//// need to code this
+#endif // CapROS
 }
 
 #define PCI_USER_READ_CONFIG(size,type)					\
@@ -202,10 +206,7 @@ static int pci_vpd_pci22_wait(struct pci_dev *dev)
 
 		if (time_after(jiffies, timeout))
 			return -ETIMEDOUT;
-		if (fatal_signal_pending(current))
-			return -EINTR;
-		if (!cond_resched())
-			udelay(10);
+		udelay(10);
 	}
 }
 

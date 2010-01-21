@@ -4,7 +4,7 @@
 
 /* arch_initcall has too random ordering, so call the initializers
    in the right sequence from here. */
-static __init int pci_arch_init(void)
+__init int pci_arch_init(void)
 {
 #ifdef CONFIG_PCI_DIRECT
 	int type = 0;
@@ -35,9 +35,9 @@ static __init int pci_arch_init(void)
 		printk(KERN_ERR
 		"PCI: Fatal: No config space access function found\n");
 
-	dmi_check_pciprobe();
+	//dmi_check_pciprobe();
 
-	dmi_check_skip_isa_align();
+	//dmi_check_skip_isa_align();
 
 	return 0;
 }

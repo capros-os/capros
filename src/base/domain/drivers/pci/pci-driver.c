@@ -12,11 +12,11 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/device.h>
-#include <linux/mempolicy.h>
+//#include <linux/mempolicy.h>
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
-#include <linux/cpu.h>
+//#include <linux/cpu.h>
 #include "pci.h"
 
 /*
@@ -276,6 +276,7 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
 	   change it. */
 	node = dev_to_node(&dev->dev);
 	if (node >= 0) {
+#if 0 // CapROS
 		int cpu;
 
 		get_online_cpus();
@@ -285,6 +286,9 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
 		else
 			error = local_pci_probe(&ddi);
 		put_online_cpus();
+#else // CapROS
+		BUG();	// not implemented
+#endif // CapROS
 	} else
 		error = local_pci_probe(&ddi);
 	return error;
@@ -1094,12 +1098,12 @@ struct bus_type pci_bus_type = {
 	.probe		= pci_device_probe,
 	.remove		= pci_device_remove,
 	.shutdown	= pci_device_shutdown,
-	.dev_attrs	= pci_dev_attrs,
+	.dev_attrs	= NULL, // pci_dev_attrs,
 	.bus_attrs	= pci_bus_attrs,
 	.pm		= PCI_PM_OPS_PTR,
 };
 
-static int __init pci_driver_init(void)
+int __init pci_driver_init(void)
 {
 	return bus_register(&pci_bus_type);
 }

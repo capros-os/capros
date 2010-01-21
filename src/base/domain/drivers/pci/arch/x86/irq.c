@@ -10,12 +10,16 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
-#include <linux/dmi.h>
+//#include <linux/dmi.h>
 #include <linux/io.h>
 #include <linux/smp.h>
+#ifdef CONFIG_X86_IO_APIC
 #include <asm/io_apic.h>
+#endif
 #include <linux/irq.h>
+#ifdef CONFIG_ACPI
 #include <linux/acpi.h>
+#endif
 #include <asm/pci_x86.h>
 
 #define PIRQ_SIGNATURE	(('$' << 0) + ('P' << 8) + ('I' << 16) + ('R' << 24))
@@ -56,6 +60,7 @@ struct irq_router_handler {
 int (*pcibios_enable_irq)(struct pci_dev *dev) = NULL;
 void (*pcibios_disable_irq)(struct pci_dev *dev) = NULL;
 
+#if 0 // CapROS
 /*
  *  Check passed address for the PCI IRQ Routing Table signature
  *  and perform checksum verification.
@@ -108,6 +113,7 @@ static struct irq_routing_table * __init pirq_find_routing_table(void)
 	}
 	return NULL;
 }
+#endif // CapROS
 
 /*
  *  If we have a IRQ routing table, use it to search for peer host
@@ -945,7 +951,12 @@ static int pcibios_lookup_irq(struct pci_dev *dev, int assign)
 			if (!(mask & (1 << i)))
 				continue;
 			if (pirq_penalty[i] < pirq_penalty[newirq] &&
-				can_request_irq(i, IRQF_SHARED))
+#if 0 // CapROS
+				can_request_irq(i, IRQF_SHARED)
+#else
+				0
+#endif
+				)
 				newirq = i;
 		}
 	}
@@ -1097,6 +1108,7 @@ static void __init pcibios_fixup_irqs(void)
 	}
 }
 
+#if 0 // CapROS
 /*
  * Work around broken HP Pavilion Notebooks which assign USB to
  * IRQ 9 even though it is actually wired to IRQ 11
@@ -1147,6 +1159,7 @@ static struct dmi_system_id __initdata pciirq_dmi_table[] = {
 	},
 	{ }
 };
+#endif // CapROS
 
 int __init pcibios_irq_init(void)
 {
@@ -1155,9 +1168,13 @@ int __init pcibios_irq_init(void)
 	if (pcibios_enable_irq || raw_pci_ops == NULL)
 		return 0;
 
+#if 0 // CapROS
 	dmi_check_system(pciirq_dmi_table);
 
 	pirq_table = pirq_find_routing_table();
+#else
+	pirq_table = 0;
+#endif // CapROS
 
 #ifdef CONFIG_PCI_BIOS
 	if (!pirq_table && (pci_probe & PCI_BIOS_IRQ_SCAN))
@@ -1172,12 +1189,14 @@ int __init pcibios_irq_init(void)
 				if (!(pirq_table->exclusive_irqs & (1 << i)))
 					pirq_penalty[i] += 100;
 		}
+#ifdef CONFIG_X86_IO_APIC
 		/*
 		 * If we're using the I/O APIC, avoid using the PCI IRQ
 		 * routing table
 		 */
 		if (io_apic_assign_pci_irqs)
 			pirq_table = NULL;
+#endif
 	}
 
 	pcibios_enable_irq = pirq_enable_irq;
@@ -1213,12 +1232,12 @@ void pcibios_penalize_isa_irq(int irq, int active)
 static int pirq_enable_irq(struct pci_dev *dev)
 {
 	u8 pin;
-	struct pci_dev *temp_dev;
 
 	pci_read_config_byte(dev, PCI_INTERRUPT_PIN, &pin);
 	if (pin && !pcibios_lookup_irq(dev, 1) && !dev->irq) {
 		char *msg = "";
 
+#ifdef CONFIG_X86_IO_APIC
 		if (io_apic_assign_pci_irqs) {
 			int irq;
 
@@ -1229,6 +1248,7 @@ static int pirq_enable_irq(struct pci_dev *dev)
 			 * parent slot, and pin number. The SMP code detects such bridged
 			 * busses itself so we should get into this branch reliably.
 			 */
+			struct pci_dev *temp_dev;
 			temp_dev = dev;
 			while (irq < 0 && dev->bus->parent) { /* go back to the bridge */
 				struct pci_dev *bridge = dev->bus->self;
@@ -1251,7 +1271,9 @@ static int pirq_enable_irq(struct pci_dev *dev)
 				return 0;
 			} else
 				msg = "; probably buggy MP table";
-		} else if (pci_probe & PCI_BIOS_IRQ_SCAN)
+		} else
+#endif
+		if (pci_probe & PCI_BIOS_IRQ_SCAN)
 			msg = "";
 		else
 			msg = "; please try using pci=biosirq";

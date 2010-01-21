@@ -2423,7 +2423,7 @@ int pci_resource_bar(struct pci_dev *dev, int resno, enum pci_bar_type *type)
 
 #define RESOURCE_ALIGNMENT_PARAM_SIZE COMMAND_LINE_SIZE
 static char resource_alignment_param[RESOURCE_ALIGNMENT_PARAM_SIZE] = {0};
-spinlock_t resource_alignment_lock = SPIN_LOCK_UNLOCKED;
+DEFINE_SPINLOCK(resource_alignment_lock);
 
 /**
  * pci_specified_resource_alignment - get resource alignment specified by user.
@@ -2434,6 +2434,7 @@ spinlock_t resource_alignment_lock = SPIN_LOCK_UNLOCKED;
  */
 resource_size_t pci_specified_resource_alignment(struct pci_dev *dev)
 {
+#if 0 // CapROS - uses PAGE_SIZE
 	int seg, bus, slot, func, align_order, count;
 	resource_size_t align = 0;
 	char *p;
@@ -2480,6 +2481,10 @@ resource_size_t pci_specified_resource_alignment(struct pci_dev *dev)
 	}
 	spin_unlock(&resource_alignment_lock);
 	return align;
+#else // CapROS
+  BUG();	//// not implemented
+  return 0;
+#endif // CapROS
 }
 
 /**
@@ -2516,7 +2521,12 @@ ssize_t pci_get_resource_alignment_param(char *buf, size_t size)
 
 static ssize_t pci_resource_alignment_show(struct bus_type *bus, char *buf)
 {
+#if 0 // CapROS
 	return pci_get_resource_alignment_param(buf, PAGE_SIZE);
+#else // CapROS
+  BUG();	//// not implemented yet
+  return 0;
+#endif // CapROS
 }
 
 static ssize_t pci_resource_alignment_store(struct bus_type *bus,
@@ -2528,6 +2538,7 @@ static ssize_t pci_resource_alignment_store(struct bus_type *bus,
 BUS_ATTR(resource_alignment, 0644, pci_resource_alignment_show,
 					pci_resource_alignment_store);
 
+#if 0 // CapROS
 static int __init pci_resource_alignment_sysfs_init(void)
 {
 	return bus_create_file(&pci_bus_type,
@@ -2542,6 +2553,7 @@ static void __devinit pci_no_domains(void)
 	pci_domains_supported = 0;
 #endif
 }
+#endif // CapROS
 
 /**
  * pci_ext_cfg_enabled - can we access extended PCI config space?
@@ -2556,7 +2568,7 @@ int __attribute__ ((weak)) pci_ext_cfg_avail(struct pci_dev *dev)
 	return 1;
 }
 
-static int __devinit pci_init(void)
+int __devinit pci_init(void)
 {
 	struct pci_dev *dev = NULL;
 
@@ -2567,6 +2579,7 @@ static int __devinit pci_init(void)
 	return 0;
 }
 
+#if 0 // CapROS
 static int __init pci_setup(char *str)
 {
 	while (str) {
@@ -2597,6 +2610,7 @@ static int __init pci_setup(char *str)
 	return 0;
 }
 early_param("pci", pci_setup);
+#endif // CapROS
 
 device_initcall(pci_init);
 

@@ -32,10 +32,10 @@
 #include <linux/errno.h>
 #include <linux/bootmem.h>
 
-#include <asm/pat.h>
-#include <asm/e820.h>
+//#include <asm/pat.h>
+//#include <asm/e820.h>
 #include <asm/pci_x86.h>
-#include <asm/io_apic.h>
+//#include <asm/io_apic.h>
 
 
 static int
@@ -218,7 +218,9 @@ static int __init pcibios_assign_resources(void)
 		}
 	}
 
+#if 0 // CapROS ??
 	pci_assign_unassigned_resources();
+#endif // CapROS
 
 	return 0;
 }
@@ -230,6 +232,7 @@ void __init pcibios_resource_survey(void)
 	pcibios_allocate_resources(0);
 	pcibios_allocate_resources(1);
 
+#if 0 // CapROS
 	e820_reserve_resources_late();
 	/*
 	 * Insert the IO APIC resources after PCI initialization has
@@ -237,6 +240,7 @@ void __init pcibios_resource_survey(void)
 	 * PCI space, but before trying to assign unassigned pci res.
 	 */
 	ioapic_insert_resources();
+#endif // CapROS
 }
 
 /**
@@ -269,6 +273,7 @@ void pcibios_set_master(struct pci_dev *dev)
 	pci_write_config_byte(dev, PCI_LATENCY_TIMER, lat);
 }
 
+#if 0 // CapROS
 static struct vm_operations_struct pci_mmap_ops = {
 	.access = generic_access_phys,
 };
@@ -306,3 +311,4 @@ int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
 
 	return 0;
 }
+#endif // CapROS

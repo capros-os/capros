@@ -12,7 +12,7 @@
 #include <linux/pci.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
-#include <linux/proc_fs.h>
+//#include <linux/proc_fs.h>
 #include <linux/init.h>
 
 #include "pci.h"
@@ -85,8 +85,15 @@ int pci_bus_add_device(struct pci_dev *dev)
 		return retval;
 
 	dev->is_added = 1;
+#if 0 // CapROS
 	pci_proc_attach_device(dev);
 	pci_create_sysfs_dev_files(dev);
+#else // CapROS
+  /* Our device_add doesn't call bus_attach_device.
+     This is our equivalent: */
+  extern void newPCIDevice(struct pci_dev * pdev);
+  newPCIDevice(dev);
+#endif // CapROS
 	return 0;
 }
 
@@ -109,6 +116,7 @@ int pci_bus_add_child(struct pci_bus *bus)
 
 	bus->is_added = 1;
 
+#if 0 // CapROS
 	retval = device_create_file(&bus->dev, &dev_attr_cpuaffinity);
 	if (retval)
 		return retval;
@@ -117,6 +125,7 @@ int pci_bus_add_child(struct pci_bus *bus)
 
 	/* Create legacy_io and legacy_mem files for this bus */
 	pci_create_legacy_files(bus);
+#endif // CapROS
 
 	return retval;
 }

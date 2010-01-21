@@ -4,7 +4,7 @@
 
 #include <linux/pci.h>
 #include <linux/init.h>
-#include <linux/dmi.h>
+//#include <linux/dmi.h>
 #include <asm/pci_x86.h>
 
 /*
@@ -191,15 +191,16 @@ struct pci_raw_ops pci_direct_conf2 = {
  */
 static int __init pci_sanity_check(struct pci_raw_ops *o)
 {
-	u32 x = 0;
-	int devfn;
-
 	if (pci_probe & PCI_NO_CHECKS)
 		return 1;
+#if 0 // CapROS
 	/* Assume Type 1 works for newer systems.
 	   This handles machines that don't have anything on PCI Bus 0. */
 	if (dmi_get_year(DMI_BIOS_DATE) >= 2001)
 		return 1;
+
+	u32 x = 0;
+	int devfn;
 
 	for (devfn = 0; devfn < 0x100; devfn++) {
 		if (o->read(0, 0, devfn, PCI_CLASS_DEVICE, 2, &x))
@@ -215,6 +216,9 @@ static int __init pci_sanity_check(struct pci_raw_ops *o)
 
 	DBG(KERN_WARNING "PCI: Sanity check failed\n");
 	return 0;
+#else // CapROS
+	return 1;	// assume year >= 2001
+#endif // CapROS
 }
 
 static int __init pci_check_type1(void)
@@ -289,10 +293,10 @@ int __init pci_direct_probe(void)
 
 	if (pci_check_type1()) {
 		raw_pci_ops = &pci_direct_conf1;
-		port_cf9_safe = true;
+		// port_cf9_safe = true;
 		return 1;
 	}
-	release_resource(region);
+	release_region(0xCF8, 8);	// was release_resource, seemed a bug
 
  type2:
 	if ((pci_probe & PCI_PROBE_CONF2) == 0)
@@ -306,12 +310,12 @@ int __init pci_direct_probe(void)
 
 	if (pci_check_type2()) {
 		raw_pci_ops = &pci_direct_conf2;
-		port_cf9_safe = true;
+		// port_cf9_safe = true;
 		return 2;
 	}
 
-	release_resource(region2);
+	release_region(0xC000, 0x1000);
  fail2:
-	release_resource(region);
+	release_region(0xCF8, 4);
 	return 0;
 }

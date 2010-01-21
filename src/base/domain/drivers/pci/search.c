@@ -305,6 +305,7 @@ struct pci_dev *pci_get_subsys(unsigned int vendor, unsigned int device,
 	struct pci_dev *pdev;
 	struct pci_device_id *id;
 
+#if 0 // CapROS
 	/*
 	 * pci_find_subsys() can be called on the ide_setup() path,
 	 * super-early in boot.  But the down_read() will enable local
@@ -313,6 +314,7 @@ struct pci_dev *pci_get_subsys(unsigned int vendor, unsigned int device,
 	 */
 	if (unlikely(no_pci_devices()))
 		return NULL;
+#endif // CapROS
 
 	id = kzalloc(sizeof(*id), GFP_KERNEL);
 	if (!id)

@@ -20,6 +20,7 @@ LIST_HEAD(pci_root_buses);
 EXPORT_SYMBOL(pci_root_buses);
 
 
+#if 0 // CapROS
 static int find_anything(struct device *dev, void *data)
 {
 	return 1;
@@ -41,6 +42,7 @@ int no_pci_devices(void)
 	return no_devices;
 }
 EXPORT_SYMBOL(no_pci_devices);
+#endif // CapROS
 
 /*
  * PCI Bus Class Devices
@@ -51,12 +53,16 @@ static ssize_t pci_bus_show_cpuaffinity(struct device *dev,
 					char *buf)
 {
 	int ret;
+#if 0 // CapROS
 	const struct cpumask *cpumask;
 
 	cpumask = cpumask_of_pcibus(to_pci_bus(dev));
 	ret = type?
 		cpulist_scnprintf(buf, PAGE_SIZE-2, cpumask) :
 		cpumask_scnprintf(buf, PAGE_SIZE-2, cpumask);
+#else // CapROS
+	ret = 0;
+#endif // CapROS
 	buf[ret++] = '\n';
 	buf[ret] = '\0';
 	return ret;
@@ -96,11 +102,13 @@ static struct class pcibus_class = {
 	.dev_release	= &release_pcibus_dev,
 };
 
+#if 0 // CapROS
 static int __init pcibus_class_init(void)
 {
 	return class_register(&pcibus_class);
 }
 postcore_initcall(pcibus_class_init);
+#endif // CapROS
 
 /*
  * Translate the low bits of the PCI base
@@ -1167,9 +1175,11 @@ struct pci_bus * pci_create_bus(struct device *parent,
 	error = device_register(&b->dev);
 	if (error)
 		goto class_dev_reg_err;
+#if 0 // CapROS
 	error = device_create_file(&b->dev, &dev_attr_cpuaffinity);
 	if (error)
 		goto dev_create_file_err;
+#endif // CapROS
 
 	/* Create legacy_io and legacy_mem files for this bus */
 	pci_create_legacy_files(b);
@@ -1180,8 +1190,10 @@ struct pci_bus * pci_create_bus(struct device *parent,
 
 	return b;
 
+#if 0 // CapROS
 dev_create_file_err:
 	device_unregister(&b->dev);
+#endif // CapROS
 class_dev_reg_err:
 	device_unregister(dev);
 dev_reg_err:
@@ -1245,6 +1257,7 @@ EXPORT_SYMBOL(pci_scan_bridge);
 EXPORT_SYMBOL_GPL(pci_scan_child_bus);
 #endif
 
+#if 0 // CapROS
 static int __init pci_sort_bf_cmp(const struct device *d_a, const struct device *d_b)
 {
 	const struct pci_dev *a = to_pci_dev(d_a);
@@ -1266,3 +1279,4 @@ void __init pci_sort_breadthfirst(void)
 {
 	bus_sort_breadthfirst(&pci_bus_type, &pci_sort_bf_cmp);
 }
+#endif // CapROS
