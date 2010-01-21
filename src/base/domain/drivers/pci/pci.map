@@ -1,0 +1,55 @@
+#ifndef __PCI_MAP_
+#define __PCI_MAP_
+/*
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+#include <linuxk/lsync.h>
+//#include <eros/machine/target-asm.h>
+//#include <eros/Reserve.h>
+//#include <asm/thread_info.h>
+#include <drivers/driver.map>
+
+/*********************************************
+ * PCI driver.
+ *********************************************/
+
+pci_prog = program segtree LIBDIR "drivers/pci";
+pci_pc = symbol LIBDIR "drivers/pci" _start;
+
+BOOT_DOMCRE(pci);
+
+#define PCI_DRIVER_GENERIC(name, devcfgbit) \
+DRIVER(name##pci, pci_prog, pci_pc, sched(8), pci_proccre, devcfgbit)
+
+/* Define target-specific resources. */
+
+#if defined(EROS_TARGET_i486)
+
+PCI_DRIVER_GENERIC(x86, 0 /* no bit in DeviceConfig */)
+x86usble_iomem = new node;
+x86pcile[LE_IOMEM] = x86usble_iomem;
+
+pciKey = x86pci;
+
+#else
+#error "Unknown target"
+#endif
+
+#endif

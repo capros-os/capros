@@ -1,0 +1,115 @@
+package capros;
+
+interface PCIBus extends key
+{
+  struct DeviceData {
+    unsigned short vendor;
+    unsigned short device;
+    unsigned short subsystemVendor;
+    unsigned short subsystemDevice;
+    unsigned long deviceClass;
+
+    unsigned long irq;
+  };
+
+  exception Already;
+
+  /** Get new device.
+
+  Wait until a newly-mounted device/function is available,
+  and return it.
+  Raises Already if there is already a process waiting.
+  */
+  PCIDev getNewDevice(out DeviceData nid);
+};
+
+/** Interface to a specific PCI device
+(identified by bus, device, and function).
+*/
+interface PCIDev extends key
+{
+  typedef unsigned long configAddr;
+
+  exception ConfigAddrMisaligned;
+  exception ConfigInval;
+  exception ResourceConflict;
+
+  /* All 6 of the following raise ConfigInval if where is larger than supported
+     by the hardware. */
+
+  unsigned <8> readConfig8(configAddr where);
+  // Raises ConfigAddrMisaligned if where is odd.
+  unsigned <16> readConfig16(configAddr where);
+  // Raises ConfigAddrMisaligned if where is not divisible by 4.
+  unsigned <32> readConfig32(configAddr where);
+
+  void writeConfig8(configAddr where, unsigned <8> value);
+  // Raises ConfigAddrMisaligned if where is odd.
+  void writeConfig16(configAddr where, unsigned <16> value);
+  // Raises ConfigAddrMisaligned if where is not divisible by 4.
+  void writeConfig32(configAddr where, unsigned <32> value);
+
+  const unsigned long ResourceIO = 256;	// 0x100
+  const unsigned long ResourceMem = 512;	// 0x200
+  const unsigned long ResourcePrefetch = 4096;	// 0x1000
+
+  exception InvalidResource;
+
+  /** Get information about an address resource of the device.
+
+  resourceNum is the resource number whose information is requested.
+  If resourceNum is too large, InvalidResource is raised.
+
+  If the resource is a memory resource,
+    flags will have ResourceMem and may have ResourcePrefetch,
+    size will have the size of the resource in bytes,
+    firstIOPort will have the offset from the beginning of the first page
+      of the resource to the first byte of the resource,
+    and the method returns a capability to the first page of the resource.
+    (Use Page.getNthPage to get subsequent pages if any.)
+
+  If the resource is an IO port resource,
+    flags will have ResourceIO,
+    size will have the size of the resource in bytes,
+    firstIOPort will have the address of the first IO port,
+    and the method returns Void.
+
+  If the resource is not configured,
+    flags will have zero,
+    size will have zero,
+    firstIOPort will have zero,
+    and the method returns Void.
+  */
+  capros.Page getResource(unsigned byte resourceNum, out unsigned long flags,
+                        out unsigned long size, out unsigned long firstIOPort);
+
+  /**
+  Raises ResourceConflict if there are BAR collisions.
+  */
+  void enable();
+
+  void disable();
+};
+
+interface PCIDriverConstructorExtended extends key {
+  struct NewDeviceData {
+    unsigned long deviceIdIndex;
+
+    /* Contents of pciDeviceId defined in pci_device_id
+       in linux/mod_devicetable.h */
+    array <unsigned long, 7> deviceId;
+
+    PCIBus.DeviceData intfData;
+  };
+
+  void sendID(NewDeviceData nid);
+};
+
+interface PCIDriverConstructor extends ConstructorRequestor {
+
+  exception ProbeUnsuccessful;
+
+  void probe(SpaceBank bank, key sched, PCIDev dev,
+             out key unused1, out key unused2, out key unused3,
+             out PCIDriverConstructorExtended ret);
+};

@@ -1,0 +1,48 @@
+/*
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+#include <drivers/pci.map>
+#include <drivers/pciehci.map>
+
+/*********************************************
+ * PCI Registry
+ *********************************************/
+
+pciregistry.space = small program LIBDIR "drivers/pciregistry";
+
+pciregistry.space = pciregistry.space with page at 0x1f000;
+pciregistryProc = new process;
+pciregistryProc pc = symbol LIBDIR "drivers/pciregistry" _start;
+pciregistryProc space = pciregistry.space;
+pciregistryProc schedule = sched(8);
+pciregistryProc symtab = number("pciregistry");
+
+pciregSnode = new node;
+// Constructor requestor keys to PCI device drivers go here.
+pciregSnode[0] = pciehci_cRequestor;
+//pciregSnode[1] = ds2490_cRequestor;
+
+pciregistryProc key reg KR_BANK = primebank;
+pciregistryProc key reg KR_SCHED = sched(8);
+pciregistryProc key reg KR_APP(0) = pciKey;
+pciregistryProc key reg KR_APP(1) = misc Console;
+pciregistryProc key reg KR_APP(2) = pciregSnode;
+
+run pciregistryProc;
