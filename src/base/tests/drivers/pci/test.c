@@ -1,9 +1,7 @@
-/* -*- Mode: c -*- */
-
 /*
- * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2009, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -20,25 +18,36 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* Test PCI.
+*/
 
-/*********************************************
- * PRIMORDIAL DOMAINS
- *********************************************/
-#include <core_stuff.map>
-#include <drivers/pci/pci_probe.map>
+#include <eros/target.h>
+#include <eros/Invoke.h>
+//#include <idl/capros/PCIBus.h>
+#include <idl/capros/PCIDev.h>
+#include <idl/capros/Sleep.h>
 
-test = new process with constituents;
-test space = small program BUILDDIR "test";
-test pc =  symbol BUILDDIR "test" _start;
-test schedule = sched(8);
+#include <domain/Runtime.h>
+#include <domain/domdbg.h>
+#include <domain/assert.h>
 
-CONSTIT(test,KC_OSTREAM,3) = misc Console;
-CONSTIT(test,KC_PCI_PROBE_C,4) = pci_probe_c;
+#define KR_OSTREAM	KR_APP(0)
+#define KR_SLEEP        KR_APP(1)
 
-test key reg KR_SELF = test;
-test key reg KR_SCHED = sched(8);
-test key reg KR_BANK = primebank;
+const uint32_t __rt_stack_pointer = 0x20000;
+const uint32_t __rt_unkept = 1;
 
-run test;
+#define ckOK \
+  if (result != RC_OK) { \
+    kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
+  }
 
-print directory;
+int
+main(void)
+{
+  //result_t result;
+
+  kprintf(KR_OSTREAM, "Done.\n");
+
+  return 0;
+}

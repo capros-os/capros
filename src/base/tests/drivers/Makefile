@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -23,12 +23,15 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: package
+default: install
 
 EROS_SRC=../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=# network pci ps2 sound
+DIRS=# network ps2 sound
+DIRS+=pci
+
+CLEANDIRS=${DIRS} network ps2 sound
 
 include $(EROS_SRC)/build/make/makerules.mk
