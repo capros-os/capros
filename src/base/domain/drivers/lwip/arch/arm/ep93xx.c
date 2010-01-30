@@ -209,7 +209,7 @@ struct ep93xx_priv
 	void			*rx_buf[RX_QUEUE_ENTRIES];
 	void			*tx_buf[TX_QUEUE_ENTRIES];
 
-	unsigned int	rx_pointer;
+	unsigned int		rx_pointer;
 
 	/* tx_clean_pointer is index of the beginning of pending entries
 	   in tx_buf/descs.t*.
@@ -219,9 +219,13 @@ struct ep93xx_priv
 	   0 <= tx_pending <= TX_QUEUE_ENTRIES
 	   "Pending entries" are ones being sent by the descriptor processor.
 	 */
-	unsigned int	tx_clean_pointer;
-	unsigned int	tx_pointer;
-	unsigned int	tx_pending;
+	unsigned int		tx_clean_pointer;
+	unsigned int		tx_pointer;
+	// spinlock_t		tx_pending_lock;
+	unsigned int		tx_pending;
+
+	struct net_device	*dev;
+	//struct napi_struct	napi;
 
 	struct net_device_stats	stats;
 
@@ -280,9 +284,8 @@ static void ep93xx_rx(void)
 		u32 rstat1 = rstat->rstat1;
 		int length = rstat1 & RSTAT1_FRAME_LENGTH;
 
-		if (!(rstat0 & RSTAT0_RFP) || !(rstat1 & RSTAT1_RFP)) {
+		if (!(rstat0 & RSTAT0_RFP) || !(rstat1 & RSTAT1_RFP))
 			break;
-		}
 
 		DEBUG(rx) printk("ep93xx_rx rcvd entry %d st0=%#x st1=%#x len=%d iplen=%d\n",
 			entry, rstat0, rstat1, length,
@@ -332,7 +335,24 @@ static void ep93xx_rx(void)
 		/* Strip FCS.  */
 		if (rstat0 & RSTAT0_CRCI)
 			length -= 4;
+#if 0 // CapROS
+		skb = dev_alloc_skb(length + 2);
+		if (likely(skb != NULL)) {
+			skb_reserve(skb, 2);
+			dma_sync_single(NULL, ep->descs->rdesc[entry].buf_addr,
+						length, DMA_FROM_DEVICE);
+			skb_copy_to_linear_data(skb, ep->rx_buf[entry], length);
+			skb_put(skb, length);
+			skb->protocol = eth_type_trans(skb, dev);
 
+			netif_receive_skb(skb);
+
+			ep->stats.rx_packets++;
+			ep->stats.rx_bytes += length;
+		} else {
+			ep->stats.rx_dropped++;
+		}
+#else
     char * b = ep->rx_buf[entry];	// where the data is
     unsigned int lenType = ntohs(((struct eth_hdr *)b)->type);
     if (lenType <= 1500		// IEEE 802.3 length field
@@ -377,6 +397,7 @@ static void ep93xx_rx(void)
               printPacket(length, entry, 60);
               kprintf(KR_OSTREAM, "Eth pkt type is %#x\n", lenType);
                               }
+          case 0x0842:	// Wake-on-LAN magic packet, ignore it
             pbuf_free(p);
             p = NULL;
             break;
@@ -389,6 +410,7 @@ static void ep93xx_rx(void)
       	LINK_STATS_INC(link.drop);
       }
     }
+#endif // CapROS
 
 err:
 		ep->rx_pointer = (entry + 1) & (RX_QUEUE_ENTRIES - 1);
@@ -412,6 +434,27 @@ static void ep93xx_poll(void)
 	struct ep93xx_priv * ep = &theEp;
 
 poll_some_more:
+#if 0 // CapROS
+	rx = ep93xx_rx(dev, rx, budget);
+	if (rx < budget) {
+		int more = 0;
+
+		spin_lock_irq(&ep->rx_lock);
+		__napi_complete(napi);
+		wrl(ep, REG_INTEN, REG_INTEN_TX | REG_INTEN_RX);
+		if (ep93xx_have_more_rx(ep)) {
+			wrl(ep, REG_INTEN, REG_INTEN_TX);
+			wrl(ep, REG_INTSTSP, REG_INTSTS_RX);
+			more = 1;
+		}
+		spin_unlock_irq(&ep->rx_lock);
+
+		if (more && napi_reschedule(napi))
+			goto poll_some_more;
+	}
+
+	return rx;
+#else
 	ep93xx_rx();
 
 	wrl(ep, REG_INTEN, REG_INTEN_TX | REG_INTEN_RX);	// enable RX int
@@ -421,6 +464,7 @@ poll_some_more:
 
 		goto poll_some_more;
 	}
+#endif // CapROS
 }
 
 /* low_level_output starts the transmission of a packet in a (possibly chained)
@@ -494,10 +538,14 @@ static void ep93xx_tx_complete(void)
 	struct ep93xx_priv * ep = &theEp;
 
 	while (1) {
-		int entry = ep->tx_clean_pointer;
-		struct ep93xx_tstat * tstat = ep->descs->tstat + entry;
+		int entry;
+		struct ep93xx_tstat *tstat;
+		u32 tstat0;
 
-		u32 tstat0 = tstat->tstat0;
+		entry = ep->tx_clean_pointer;
+		tstat = ep->descs->tstat + entry;
+
+		tstat0 = tstat->tstat0;
 		if (!(tstat0 & TSTAT0_TXFP))
 			break;	// frame not processed yet
 
@@ -558,10 +606,24 @@ static irqreturn_t ep93xx_irq(int irq, void *dev_id)
 	if (status == 0)
 		return IRQ_NONE;
 
+#if 0 // CapROS
+	if (status & REG_INTSTS_RX) {
+		spin_lock(&ep->rx_lock);
+		if (likely(napi_schedule_prep(&ep->napi))) {
+			wrl(ep, REG_INTEN, REG_INTEN_TX);
+			__napi_schedule(&ep->napi);
+		}
+		spin_unlock(&ep->rx_lock);
+	}
+
+	if (status & REG_INTSTS_TX)
+		ep93xx_tx_complete(dev);
+#else
 	/* For concurrency control, do interrupt work in the main thread. */
 	/* An alternative design would be to use a semaphore. */
 	capros_IPInt_processInterrupt(KR_DeviceEntry,
 				(uint32_t)&ep93xx_do_irq, status);
+#endif // CapROS
 
 	return IRQ_HANDLED;
 }
@@ -571,15 +633,33 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
 	int i;
 
 	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
+#if 0 // CapROS
+		dma_addr_t d;
+
+		d = ep->descs->rdesc[i].buf_addr;
+		if (d)
+			dma_unmap_single(NULL, d, PAGE_SIZE, DMA_FROM_DEVICE);
+
+#else
 		if (ep->rx_buf[i] != NULL)
 			dma_free_coherent(NULL, PAGE_SIZE, ep->rx_buf[i],
 					ep->descs->rdesc[i].buf_addr);
+#endif // CapROS
 	}
 
 	for (i = 0; i < TX_QUEUE_ENTRIES; i += 2) {
+#if 0 // CapROS
+		dma_addr_t d;
+
+		d = ep->descs->tdesc[i].buf_addr;
+		if (d)
+			dma_unmap_single(NULL, d, PAGE_SIZE, DMA_TO_DEVICE);
+
+#else
 		if (ep->tx_buf[i] != NULL)
 			dma_free_coherent(NULL, PAGE_SIZE, ep->tx_buf[i],
 					ep->descs->tdesc[i].buf_addr);
+#endif // CapROS
 	}
 
 	dma_free_coherent(NULL, sizeof(struct ep93xx_descs), ep->descs,
@@ -611,7 +691,7 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 			goto err;
 
 		d = dma_map_single(NULL, page, PAGE_SIZE, DMA_FROM_DEVICE);
-		if (dma_mapping_error(d)) {
+		if (dma_mapping_error(NULL, d)) {
 			free_page((unsigned long)page);
 			goto err;
 		}
@@ -640,7 +720,7 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 			goto err;
 
 		d = dma_map_single(NULL, page, PAGE_SIZE, DMA_TO_DEVICE);
-		if (dma_mapping_error(d)) {
+		if (dma_mapping_error(NULL, d)) {
 			free_page((unsigned long)page);
 			goto err;
 		}
@@ -730,6 +810,14 @@ static int ep93xx_start_hw(void)
 	wrl(ep, REG_RXDENQ, RX_QUEUE_ENTRIES);
 	wrl(ep, REG_RXSTSENQ, RX_QUEUE_ENTRIES);
 
+#if 0 // CapROS
+	wrb(ep, REG_INDAD0, dev->dev_addr[0]);
+	wrb(ep, REG_INDAD1, dev->dev_addr[1]);
+	wrb(ep, REG_INDAD2, dev->dev_addr[2]);
+	wrb(ep, REG_INDAD3, dev->dev_addr[3]);
+	wrb(ep, REG_INDAD4, dev->dev_addr[4]);
+	wrb(ep, REG_INDAD5, dev->dev_addr[5]);
+#endif // CapROS
 	wrl(ep, REG_AFP, 0);
 
 	wrl(ep, REG_MAXFRMLEN, (MAX_PKT_SIZE << 16) | MAX_PKT_SIZE);
@@ -764,6 +852,19 @@ static int ep93xx_open(void)
 	if (ep93xx_alloc_buffers(ep))
 		return -ENOMEM;
 
+#if 0 // CapROS
+	if (is_zero_ether_addr(dev->dev_addr)) {
+		random_ether_addr(dev->dev_addr);
+		printk(KERN_INFO "%s: generated random MAC address "
+			"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n", dev->name,
+			dev->dev_addr[0], dev->dev_addr[1],
+			dev->dev_addr[2], dev->dev_addr[3],
+			dev->dev_addr[4], dev->dev_addr[5]);
+	}
+
+	napi_enable(&ep->napi);
+#endif // CapROS
+
 	if (ep93xx_start_hw()) {
 		ep93xx_free_buffers(ep);
 		return -EIO;
@@ -792,6 +893,7 @@ static int ep93xx_close(struct net_device *dev)
 {
 	struct ep93xx_priv *ep = netdev_priv(dev);
 
+	napi_disable(&ep->napi);
 	netif_stop_queue(dev);
 
 	wrl(ep, REG_GIINTMSK, 0);
@@ -856,6 +958,12 @@ static void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int d
 }
 
 #if 0
+static void ep93xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+{
+	strcpy(info->driver, DRV_MODULE_NAME);
+	strcpy(info->version, DRV_MODULE_VERSION);
+}
+
 static int ep93xx_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 {
 	struct ep93xx_priv *ep = netdev_priv(dev);
@@ -886,10 +994,21 @@ static struct ethtool_ops ep93xx_ethtool_ops = {
 	.nway_reset		= ep93xx_nway_reset,
 	.get_link		= ep93xx_get_link,
 };
+
+static const struct net_device_ops ep93xx_netdev_ops = {
+	.ndo_open		= ep93xx_open,
+	.ndo_stop		= ep93xx_close,
+	.ndo_start_xmit		= ep93xx_xmit,
+	.ndo_get_stats		= ep93xx_get_stats,
+	.ndo_do_ioctl		= ep93xx_ioctl,
+	.ndo_validate_addr	= eth_validate_addr,
+	.ndo_change_mtu		= eth_change_mtu,
+	.ndo_set_mac_address	= eth_mac_addr,
+};
 #endif
 
 #if 0
-struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
+static struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
 {
 	struct net_device *dev;
 
@@ -897,16 +1016,12 @@ struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
 	if (dev == NULL)
 		return NULL;
 
-	dev->get_stats = ep93xx_get_stats;
+	memcpy(dev->dev_addr, data->dev_addr, ETH_ALEN);
+
 	dev->ethtool_ops = &ep93xx_ethtool_ops;
-	dev->poll = ep93xx_poll;
-	dev->hard_start_xmit = ep93xx_xmit;
-	dev->open = ep93xx_open;
-	dev->stop = ep93xx_close;
-	dev->do_ioctl = NULL;	// ep93xx_ioctl;
+	dev->netdev_ops = &ep93xx_netdev_ops;
 
 	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM;
-	dev->weight = 64;
 
 	return dev;
 }
@@ -930,21 +1045,61 @@ static int ep93xx_eth_remove(struct platform_device *pdev)
 	unregister_netdev(dev);
 	ep93xx_free_buffers(ep);
 
+	if (ep->base_addr != NULL)
+		iounmap(ep->base_addr);
+
+	if (ep->res != NULL) {
+		release_resource(ep->res);
+		kfree(ep->res);
+	}
+
 	free_netdev(dev);
 
 	return 0;
 }
-
-
-static struct platform_driver ep93xx_eth_driver = {
-	.probe		= ep93xx_eth_probe,
-	.remove		= ep93xx_eth_remove,
-	.driver		= {
-		.name	= "ep93xx-eth",
-	},
-};
 #endif
 
+#if 0
+static int ep93xx_eth_probe(struct platform_device *pdev)
+{
+	struct ep93xx_eth_data *data;
+	struct net_device *dev;
+	struct ep93xx_priv *ep;
+	int err;
+
+	if (pdev == NULL)
+		return -ENODEV;
+	data = pdev->dev.platform_data;
+
+	dev = ep93xx_dev_alloc(data);
+	if (dev == NULL) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+	ep = netdev_priv(dev);
+	ep->dev = dev;
+	netif_napi_add(dev, &ep->napi, ep93xx_poll, 64);
+
+	platform_set_drvdata(pdev, dev);
+
+	ep->res = request_mem_region(pdev->resource[0].start,
+			pdev->resource[0].end - pdev->resource[0].start + 1,
+			dev_name(&pdev->dev));
+	if (ep->res == NULL) {
+		dev_err(&pdev->dev, "Could not reserve memory region\n");
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	ep->base_addr = ioremap(pdev->resource[0].start,
+			pdev->resource[0].end - pdev->resource[0].start);
+	if (ep->base_addr == NULL) {
+		dev_err(&pdev->dev, "Failed to ioremap ethernet registers\n");
+		err = -EIO;
+		goto err_out;
+	}
+	ep->irq = pdev->resource[1].start;
+#else
 /* This function should be passed as a parameter to netif_add().
  * It will be called to bring up the interface. */
 err_t
@@ -971,34 +1126,6 @@ ep93xxDevInitF(struct netif * netif)
 
   netif->mtu = 1500;	/* Ethernet maximum transmission unit */
   netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
-
-#if 0
-  platform_device_register(&edb9315a_eth_device);
-
-  // device_add eventually does the following:
-  edb9315a_eth_device.dev.driver = &ep93xx_eth_driver.driver;
-  ret = ep93xx_eth_driver.driver.probe(&edb9315a_eth_device.dev);
-  assert(!ret);
-
-static int ep93xx_eth_probe(struct platform_device *pdev)
-{
-	struct ep93xx_eth_data *data;
-	struct net_device *dev;
-	struct ep93xx_priv *ep;
-	int err;
-
-	if (pdev == NULL)
-		return -ENODEV;
-	data = pdev->dev.platform_data;
-
-	dev = ep93xx_dev_alloc(data);
-	if (dev == NULL) {
-		err = -ENOMEM;
-		goto err_out;
-	}
-	ep = netdev_priv(dev);
-
-	platform_set_drvdata(pdev, dev);
 #endif
 
 	ep->mii.phy_id = ep93xx_phyad;
@@ -1016,13 +1143,19 @@ static int ep93xx_eth_probe(struct platform_device *pdev)
 		goto err_out;
 	}
 
+	printk(KERN_INFO "%s: ep93xx on-chip ethernet, IRQ %d, "
+			 "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n", dev->name,
+			ep->irq, data->dev_addr[0], data->dev_addr[1],
+			data->dev_addr[2], data->dev_addr[3],
+			data->dev_addr[4], data->dev_addr[5]);
+
 	return 0;
 
 err_out:
 	ep93xx_eth_remove(pdev);
 	return err;
 }
-#endif
+#else
 
 	printk(KERN_INFO "ep93xx on-chip ethernet, IRQ %d, "
 			 "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n",
@@ -1036,3 +1169,31 @@ err_out:
 
   return ERR_OK;
 }
+#endif
+
+#if 0
+static struct platform_driver ep93xx_eth_driver = {
+	.probe		= ep93xx_eth_probe,
+	.remove		= ep93xx_eth_remove,
+	.driver		= {
+		.name	= "ep93xx-eth",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int __init ep93xx_eth_init_module(void)
+{
+	printk(KERN_INFO DRV_MODULE_NAME " version " DRV_MODULE_VERSION " loading\n");
+	return platform_driver_register(&ep93xx_eth_driver);
+}
+
+static void __exit ep93xx_eth_cleanup_module(void)
+{
+	platform_driver_unregister(&ep93xx_eth_driver);
+}
+
+module_init(ep93xx_eth_init_module);
+module_exit(ep93xx_eth_cleanup_module);
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:ep93xx-eth");
+#endif
