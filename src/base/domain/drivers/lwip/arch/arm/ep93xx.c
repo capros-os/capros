@@ -7,41 +7,7 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- *
- * Copyright (C) 2008, 2009, Strawberry Development Group
- *
- * This file is part of the CapROS Operating System.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
-
-#include <linuxk/linux-emul.h>
-#include <linuxk/lsync.h>
-#include <stdlib.h>
-#include <linux/kernel.h>
-#include <linux/timer.h>
-#undef TIME_WAIT
-#include <disk/NPODescr.h>
-#include <domain/assert.h>
-
-#include <lwip/stats.h>
-#include <lwip/mem.h>
-#include <lwip/memp.h>
-#include <lwip/pbuf.h>
-#include <netif/etharp.h>
-#include <ipv4/lwip/ip.h>
-#include <lwip/udp.h>
-#include <lwip/tcp.h>
 
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
@@ -54,26 +20,9 @@ Approved for public release, distribution unlimited. */
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
-#include <asm/arch/ep93xx-regs.h>
-#include <asm/arch/platform.h>
+#include <mach/ep93xx-regs.h>
+#include <mach/platform.h>
 #include <asm/io.h>
-#include <idl/capros/IPInt.h>
-
-#include "../../cap.h"
-
-#define dbg_tx     0x1
-#define dbg_rx     0x2
-#define dbg_errors 0x4
-
-/* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_errors )
-
-#define DEBUG(x) if (dbg_##x & dbg_flags)
-
-struct netif * gNetif;
-void __iomem * hwBaseAddr;
-unsigned int ep93xx_phyad;	// PHY address
-unsigned char macAddress[6];
 
 #define DRV_MODULE_NAME		"ep93xx-eth"
 #define DRV_MODULE_VERSION	"0.1"
@@ -203,100 +152,66 @@ struct ep93xx_descs
 
 struct ep93xx_priv
 {
+	struct resource		*res;
+	void __iomem		*base_addr;
+	int			irq;
+
 	struct ep93xx_descs	*descs;
 	dma_addr_t		descs_dma_addr;
 
 	void			*rx_buf[RX_QUEUE_ENTRIES];
 	void			*tx_buf[TX_QUEUE_ENTRIES];
 
+	spinlock_t		rx_lock;
 	unsigned int		rx_pointer;
-
-	/* tx_clean_pointer is index of the beginning of pending entries
-	   in tx_buf/descs.t*.
-           tx_pointer is the index of the end of pending entries
-	   in tx_buf/descs.t*.
-	   tx_pending is the number of pending entries.
-	   0 <= tx_pending <= TX_QUEUE_ENTRIES
-	   "Pending entries" are ones being sent by the descriptor processor.
-	 */
 	unsigned int		tx_clean_pointer;
 	unsigned int		tx_pointer;
-	// spinlock_t		tx_pending_lock;
+	spinlock_t		tx_pending_lock;
 	unsigned int		tx_pending;
 
 	struct net_device	*dev;
-	//struct napi_struct	napi;
+	struct napi_struct	napi;
 
 	struct net_device_stats	stats;
 
 	struct mii_if_info	mii;
 	u8			mdc_divisor;
-} theEp, *ep = &theEp;
+};
 
-#define rdb(ep, off)	((void)ep, __raw_readb(hwBaseAddr + (off)))
-#define rdw(ep, off)	((void)ep, __raw_readw(hwBaseAddr + (off)))
-#define rdl(ep, off)	((void)ep, __raw_readl(hwBaseAddr + (off)))
-#define wrb(ep, off, val) ((void)ep, __raw_writeb((val), hwBaseAddr + (off)))
-#define wrw(ep, off, val) ((void)ep, __raw_writew((val), hwBaseAddr + (off)))
-#define wrl(ep, off, val) ((void)ep, __raw_writel((val), hwBaseAddr + (off)))
+#define rdb(ep, off)		__raw_readb((ep)->base_addr + (off))
+#define rdw(ep, off)		__raw_readw((ep)->base_addr + (off))
+#define rdl(ep, off)		__raw_readl((ep)->base_addr + (off))
+#define wrb(ep, off, val)	__raw_writeb((val), (ep)->base_addr + (off))
+#define wrw(ep, off, val)	__raw_writew((val), (ep)->base_addr + (off))
+#define wrl(ep, off, val)	__raw_writel((val), (ep)->base_addr + (off))
 
 static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg);
 
-#if 0
 static struct net_device_stats *ep93xx_get_stats(struct net_device *dev)
 {
 	struct ep93xx_priv *ep = netdev_priv(dev);
 	return &(ep->stats);
 }
-#endif
 
-static void
-printPacket(unsigned int pktLength, int entry, unsigned int maxBytesToPrint)
+static int ep93xx_rx(struct net_device *dev, int processed, int budget)
 {
-#define maxMaxBTP 100
-  char printBuffer[maxMaxBTP *3 + 1];
-  if (maxBytesToPrint > maxMaxBTP)
-    maxBytesToPrint = maxMaxBTP;	// take min
-  char * printCursor = &printBuffer[0];
-  unsigned int printLength = pktLength;
-  if (printLength > maxBytesToPrint)
-    printLength = maxBytesToPrint;
-  int i;
-  for (i = 0; i < printLength; i++) {
-    sprintf(printCursor, " %.2x",
-            ((uint8_t *)ep->rx_buf[entry])[i]);
-    printCursor += 3;
-  }
-  printk("%s +%dB\n", printBuffer, pktLength-printLength);
-}
+	struct ep93xx_priv *ep = netdev_priv(dev);
 
-static void ep93xx_rx(void)
-{
-	struct ep93xx_priv * ep = &theEp;
-	int processed;
+	while (processed < budget) {
+		int entry;
+		struct ep93xx_rstat *rstat;
+		u32 rstat0;
+		u32 rstat1;
+		int length;
+		struct sk_buff *skb;
 
-	processed = 0;
-	while (1) {
-		int entry = ep->rx_pointer;
-		struct ep93xx_rstat * rstat = ep->descs->rstat + entry;
+		entry = ep->rx_pointer;
+		rstat = ep->descs->rstat + entry;
 
-		u32 rstat0 = rstat->rstat0;
-		u32 rstat1 = rstat->rstat1;
-		int length = rstat1 & RSTAT1_FRAME_LENGTH;
-
+		rstat0 = rstat->rstat0;
+		rstat1 = rstat->rstat1;
 		if (!(rstat0 & RSTAT0_RFP) || !(rstat1 & RSTAT1_RFP))
 			break;
-
-		DEBUG(rx) printk("ep93xx_rx rcvd entry %d st0=%#x st1=%#x len=%d iplen=%d\n",
-			entry, rstat0, rstat1, length,
-			((uint8_t *)ep->rx_buf[entry])[17]);
-
-		// Both RFP bits are on.
-		DEBUG(rx) {
-#if 1	// show input data
-		  printPacket(length, entry, 56);
-#endif
-		}
 
 		rstat->rstat0 = 0;
 		rstat->rstat1 = 0;
@@ -312,8 +227,6 @@ static void ep93xx_rx(void)
 					 " %.8x %.8x\n", rstat0, rstat1);
 
 		if (!(rstat0 & RSTAT0_RWE)) {
-			DEBUG(errors) kdprintf(KR_OSTREAM,
-			  "rstat0 & RSTAT0_RWE\n");
 			ep->stats.rx_errors++;
 			if (rstat0 & RSTAT0_OE)
 				ep->stats.rx_fifo_errors++;
@@ -326,6 +239,7 @@ static void ep93xx_rx(void)
 			goto err;
 		}
 
+		length = rstat1 & RSTAT1_FRAME_LENGTH;
 		if (length > MAX_PKT_SIZE) {
 			printk(KERN_NOTICE "ep93xx_rx: invalid length "
 					 " %.8x %.8x\n", rstat0, rstat1);
@@ -335,7 +249,7 @@ static void ep93xx_rx(void)
 		/* Strip FCS.  */
 		if (rstat0 & RSTAT0_CRCI)
 			length -= 4;
-#if 0 // CapROS
+
 		skb = dev_alloc_skb(length + 2);
 		if (likely(skb != NULL)) {
 			skb_reserve(skb, 2);
@@ -352,65 +266,6 @@ static void ep93xx_rx(void)
 		} else {
 			ep->stats.rx_dropped++;
 		}
-#else
-    char * b = ep->rx_buf[entry];	// where the data is
-    unsigned int lenType = ntohs(((struct eth_hdr *)b)->type);
-    if (lenType <= 1500		// IEEE 802.3 length field
-        || lenType == 0x86dd	/* IPv6 */ ) {
-      // We don't support such packets. Just drop it.
-    } else {
-      struct pbuf * p =  pbuf_alloc(PBUF_RAW, length, PBUF_POOL);
-      if (likely(p != NULL)) {
-        assert(p->tot_len == length);
-        struct pbuf * q;
-        for (q = p; q != NULL; b += q->len, q = q->next) {
-          memcpy(q->payload, b, q->len);
-        }
-
-        err_t errNum;
-
-        switch (lenType) {
-          /* IP or ARP packet? */
-          case ETHTYPE_IP:
-          case ETHTYPE_ARP:
-#if PPPOE_SUPPORT
-          /* PPPoE packet? */
-          case ETHTYPE_PPPOEDISC:
-          case ETHTYPE_PPPOE:
-#endif /* PPPOE_SUPPORT */
-            /* full packet send to tcpip_thread to process */
-            // Note, netif->input is ethernet_input().
-            errNum = gNetif->input(p, gNetif);
-            if (errNum != ERR_OK) {
-              // ethernet_input doesn't return errors, so this never happens.
-              DEBUG(errors) kdprintf(KR_OSTREAM,
-                                  "ethernet_input error %d\n", errNum);
-              LWIP_DEBUGF(NETIF_DEBUG,
-                      ("ethernetif_input: IP input error\n"));
-               pbuf_free(p);
-               p = NULL;
-            }
-            break;
-
-          default:
-            DEBUG(errors) {
-              printPacket(length, entry, 60);
-              kprintf(KR_OSTREAM, "Eth pkt type is %#x\n", lenType);
-                              }
-          case 0x0842:	// Wake-on-LAN magic packet, ignore it
-            pbuf_free(p);
-            p = NULL;
-            break;
-        }
-
-        LINK_STATS_INC(link.recv);
-      } else {
-      	DEBUG(errors) kdprintf(KR_OSTREAM, "Can't alloc pbuf!\n");
-      	LINK_STATS_INC(link.memerr);
-      	LINK_STATS_INC(link.drop);
-      }
-    }
-#endif // CapROS
 
 err:
 		ep->rx_pointer = (entry + 1) & (RX_QUEUE_ENTRIES - 1);
@@ -421,6 +276,8 @@ err:
 		wrw(ep, REG_RXDENQ, processed);
 		wrw(ep, REG_RXSTSENQ, processed);
 	}
+
+	return processed;
 }
 
 static int ep93xx_have_more_rx(struct ep93xx_priv *ep)
@@ -429,12 +286,13 @@ static int ep93xx_have_more_rx(struct ep93xx_priv *ep)
 	return !!((rstat->rstat0 & RSTAT0_RFP) && (rstat->rstat1 & RSTAT1_RFP));
 }
 
-static void ep93xx_poll(void)
+static int ep93xx_poll(struct napi_struct *napi, int budget)
 {
-	struct ep93xx_priv * ep = &theEp;
+	struct ep93xx_priv *ep = container_of(napi, struct ep93xx_priv, napi);
+	struct net_device *dev = ep->dev;
+	int rx = 0;
 
 poll_some_more:
-#if 0 // CapROS
 	rx = ep93xx_rx(dev, rx, budget);
 	if (rx < budget) {
 		int more = 0;
@@ -454,89 +312,50 @@ poll_some_more:
 	}
 
 	return rx;
-#else
-	ep93xx_rx();
+}
 
-	wrl(ep, REG_INTEN, REG_INTEN_TX | REG_INTEN_RX);	// enable RX int
-	if (ep93xx_have_more_rx(ep)) {
-		wrl(ep, REG_INTEN, REG_INTEN_TX);	// disable RX int
-		wrl(ep, REG_INTSTSP, REG_INTSTS_RX);	// clear RX int
+static int ep93xx_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+	struct ep93xx_priv *ep = netdev_priv(dev);
+	int entry;
 
-		goto poll_some_more;
+	if (unlikely(skb->len > MAX_PKT_SIZE)) {
+		ep->stats.tx_dropped++;
+		dev_kfree_skb(skb);
+		return NETDEV_TX_OK;
 	}
-#endif // CapROS
+
+	entry = ep->tx_pointer;
+	ep->tx_pointer = (ep->tx_pointer + 1) & (TX_QUEUE_ENTRIES - 1);
+
+	ep->descs->tdesc[entry].tdesc1 =
+		TDESC1_EOF | (entry << 16) | (skb->len & 0xfff);
+	skb_copy_and_csum_dev(skb, ep->tx_buf[entry]);
+	dma_sync_single(NULL, ep->descs->tdesc[entry].buf_addr,
+				skb->len, DMA_TO_DEVICE);
+	dev_kfree_skb(skb);
+
+	dev->trans_start = jiffies;
+
+	spin_lock_irq(&ep->tx_pending_lock);
+	ep->tx_pending++;
+	if (ep->tx_pending == TX_QUEUE_ENTRIES)
+		netif_stop_queue(dev);
+	spin_unlock_irq(&ep->tx_pending_lock);
+
+	wrl(ep, REG_TXDENQ, 1);
+
+	return NETDEV_TX_OK;
 }
 
-/* low_level_output starts the transmission of a packet in a (possibly chained)
- * pbuf. */
-static err_t
-low_level_output(struct netif *netif, struct pbuf *p)
+static void ep93xx_tx_complete(struct net_device *dev)
 {
-  // mtu is the max payload size. It does not include the Ethernet header.
-  assert(p->tot_len <= netif->mtu + sizeof(struct eth_hdr));
-  assert(netif->mtu + sizeof(struct eth_hdr) <= MAX_PKT_SIZE);
+	struct ep93xx_priv *ep = netdev_priv(dev);
+	int wake;
 
-  /* We are forced to copy the data here, because the data may be
-  deallocated as soon as we return.
-  lwIP provides no mechanism to defer the deallocation. */
+	wake = 0;
 
-  if (ep->tx_pending >= TX_QUEUE_ENTRIES)
-    // There are no buffers available.
-    return ERR_MEM;
-
-#if ETH_PAD_SIZE
-  pbuf_header(p, -ETH_PAD_SIZE); /* drop the padding word */
-#endif
-
-  struct ep93xx_priv * ep = &theEp;
-  int entry = ep->tx_pointer;
-  uint8_t * bp = ep->tx_buf[entry];
-
-  struct pbuf * q = p;
-  while (1) {
-    int len = q->len;	// The size of the data in the pbuf
-
-    DEBUG(tx) kprintf(KR_OSTREAM,
-                 "Sending pbuf %#x payload %#x len %d entry %d\n",
-		 q, q->payload, len, entry);
-
-    memcpy(bp, q->payload, len);
-    bp += len;
-
-    if (q->tot_len == len)
-      break;	// last pbuf of the packet
-    q = q->next;
-  }
-
-  DEBUG(tx) {
-#if 1	// show all output data
-    int i;
-    for (i = 0; i < (p->tot_len & 0xfff); i++)
-      printk(" %.2x", ((uint8_t *)ep->tx_buf[entry])[i]);
-    printk("\n");
-#endif
-  }
-  ep->descs->tdesc[entry].tdesc1 = TDESC1_EOF
-    	| (entry << 16) | (p->tot_len & 0xfff);
-
-  ep->tx_pointer = (ep->tx_pointer + 1) & (TX_QUEUE_ENTRIES - 1);
-  ep->tx_pending++;
-
-  wrl(ep, REG_TXDENQ, 1);	// add 1 to number of descrs in queue
-
-#if ETH_PAD_SIZE
-  pbuf_header(p, ETH_PAD_SIZE); /* reclaim the padding word */
-#endif
-  
-  LINK_STATS_INC(link.xmit);
-
-  return ERR_OK;
-}
-
-static void ep93xx_tx_complete(void)
-{
-	struct ep93xx_priv * ep = &theEp;
-
+	spin_lock(&ep->tx_pending_lock);
 	while (1) {
 		int entry;
 		struct ep93xx_tstat *tstat;
@@ -547,24 +366,17 @@ static void ep93xx_tx_complete(void)
 
 		tstat0 = tstat->tstat0;
 		if (!(tstat0 & TSTAT0_TXFP))
-			break;	// frame not processed yet
+			break;
 
-		DEBUG(tx) printk("tx completed entry=%d tstat0=%#x, descs PA=%#x VA=%#x\n",
-				entry, tstat0, ep->descs_dma_addr, ep->descs);
-		assert(ep->tx_pending > 0);
+		tstat->tstat0 = 0;
 
 		if (tstat0 & TSTAT0_FA)
 			printk(KERN_CRIT "ep93xx_tx_complete: frame aborted "
 					 " %.8x\n", tstat0);
-#if 1	// Disable this if we transmit multiple buffers for one frame.
 		if ((tstat0 & TSTAT0_BUFFER_INDEX) != entry)
 			printk(KERN_CRIT "ep93xx_tx_complete: entry mismatch "
 					 " %.8x\n", tstat0);
-#endif
 
-		tstat->tstat0 = 0;
-
-		// Track statistics:
 		if (tstat0 & TSTAT0_TXWE) {
 			int length = ep->descs->tdesc[entry].tdesc1 & 0xfff;
 
@@ -581,32 +393,26 @@ static void ep93xx_tx_complete(void)
 		ep->stats.collisions += (tstat0 >> 16) & 0x1f;
 
 		ep->tx_clean_pointer = (entry + 1) & (TX_QUEUE_ENTRIES - 1);
+		if (ep->tx_pending == TX_QUEUE_ENTRIES)
+			wake = 1;
 		ep->tx_pending--;
 	}
-}
+	spin_unlock(&ep->tx_pending_lock);
 
-static void
-ep93xx_do_irq(u32 status)
-{
-	DEBUG(tx) printk("ep93xx_do_irq: status=%#x\n", status);
-
-	if (status & REG_INTSTS_RX)
-		ep93xx_poll();
-
-	if (status & REG_INTSTS_TX)
-		ep93xx_tx_complete();
+	if (wake)
+		netif_wake_queue(dev);
 }
 
 static irqreturn_t ep93xx_irq(int irq, void *dev_id)
 {
-	struct ep93xx_priv * ep = &theEp;
+	struct net_device *dev = dev_id;
+	struct ep93xx_priv *ep = netdev_priv(dev);
 	u32 status;
 
-	status = rdl(ep, REG_INTSTSC);	// read int status and clear
+	status = rdl(ep, REG_INTSTSC);
 	if (status == 0)
 		return IRQ_NONE;
 
-#if 0 // CapROS
 	if (status & REG_INTSTS_RX) {
 		spin_lock(&ep->rx_lock);
 		if (likely(napi_schedule_prep(&ep->napi))) {
@@ -618,12 +424,6 @@ static irqreturn_t ep93xx_irq(int irq, void *dev_id)
 
 	if (status & REG_INTSTS_TX)
 		ep93xx_tx_complete(dev);
-#else
-	/* For concurrency control, do interrupt work in the main thread. */
-	/* An alternative design would be to use a semaphore. */
-	capros_IPInt_processInterrupt(KR_DeviceEntry,
-				(uint32_t)&ep93xx_do_irq, status);
-#endif // CapROS
 
 	return IRQ_HANDLED;
 }
@@ -633,33 +433,25 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
 	int i;
 
 	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
-#if 0 // CapROS
 		dma_addr_t d;
 
 		d = ep->descs->rdesc[i].buf_addr;
 		if (d)
 			dma_unmap_single(NULL, d, PAGE_SIZE, DMA_FROM_DEVICE);
 
-#else
 		if (ep->rx_buf[i] != NULL)
-			dma_free_coherent(NULL, PAGE_SIZE, ep->rx_buf[i],
-					ep->descs->rdesc[i].buf_addr);
-#endif // CapROS
+			free_page((unsigned long)ep->rx_buf[i]);
 	}
 
 	for (i = 0; i < TX_QUEUE_ENTRIES; i += 2) {
-#if 0 // CapROS
 		dma_addr_t d;
 
 		d = ep->descs->tdesc[i].buf_addr;
 		if (d)
 			dma_unmap_single(NULL, d, PAGE_SIZE, DMA_TO_DEVICE);
 
-#else
 		if (ep->tx_buf[i] != NULL)
-			dma_free_coherent(NULL, PAGE_SIZE, ep->tx_buf[i],
-					ep->descs->tdesc[i].buf_addr);
-#endif // CapROS
+			free_page((unsigned long)ep->tx_buf[i]);
 	}
 
 	dma_free_coherent(NULL, sizeof(struct ep93xx_descs), ep->descs,
@@ -667,25 +459,22 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
 }
 
 /*
- * The hardware enforces a sub-2K maximum packet size (namely 1500),
- * so we put two buffers on every hardware page.
+ * The hardware enforces a sub-2K maximum packet size, so we put
+ * two buffers on every hardware page.
  */
 static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 {
 	int i;
 
-	ep->descs = dma_alloc_coherent(NULL,
-				sizeof(struct ep93xx_descs),
-				&ep->descs_dma_addr, 0);
+	ep->descs = dma_alloc_coherent(NULL, sizeof(struct ep93xx_descs),
+				&ep->descs_dma_addr, GFP_KERNEL | GFP_DMA);
 	if (ep->descs == NULL)
 		return 1;
-	memset(ep->descs, 0, sizeof(struct ep93xx_descs));
 
 	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
 		void *page;
 		dma_addr_t d;
 
-#if 0 // CapROS
 		page = (void *)__get_free_page(GFP_KERNEL | GFP_DMA);
 		if (page == NULL)
 			goto err;
@@ -695,11 +484,6 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 			free_page((unsigned long)page);
 			goto err;
 		}
-#else
-		page = dma_alloc_coherent(NULL, PAGE_SIZE, &d, 0);
-		if (page == NULL)
-			goto err;
-#endif
 
 		ep->rx_buf[i] = page;
 		ep->descs->rdesc[i].buf_addr = d;
@@ -714,7 +498,6 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 		void *page;
 		dma_addr_t d;
 
-#if 0 // CapROS
 		page = (void *)__get_free_page(GFP_KERNEL | GFP_DMA);
 		if (page == NULL)
 			goto err;
@@ -724,11 +507,6 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 			free_page((unsigned long)page);
 			goto err;
 		}
-#else
-		page = dma_alloc_coherent(NULL, PAGE_SIZE, &d, 0);
-		if (page == NULL)
-			goto err;
-#endif
 
 		ep->tx_buf[i] = page;
 		ep->descs->tdesc[i].buf_addr = d;
@@ -744,9 +522,9 @@ err:
 	return 1;
 }
 
-static int ep93xx_start_hw(void)
+static int ep93xx_start_hw(struct net_device *dev)
 {
-	struct ep93xx_priv * ep = &theEp;
+	struct ep93xx_priv *ep = netdev_priv(dev);
 	unsigned long addr;
 	int i;
 
@@ -765,7 +543,7 @@ static int ep93xx_start_hw(void)
 	wrl(ep, REG_SELFCTL, ((ep->mdc_divisor - 1) << 9));
 
 	/* Does the PHY support preamble suppress?  */
-	if ((ep93xx_mdio_read(NULL, ep93xx_phyad, MII_BMSR) & 0x0040) != 0)
+	if ((ep93xx_mdio_read(dev, ep->mii.phy_id, MII_BMSR) & 0x0040) != 0)
 		wrl(ep, REG_SELFCTL, ((ep->mdc_divisor - 1) << 9) | (1 << 8));
 
 	/* Receive descriptor ring.  */
@@ -793,7 +571,7 @@ static int ep93xx_start_hw(void)
 	wrw(ep, REG_TXSTSQBLEN, TX_QUEUE_ENTRIES * sizeof(struct ep93xx_tstat));
 
 	wrl(ep, REG_BMCTL, REG_BMCTL_ENABLE_TX | REG_BMCTL_ENABLE_RX);
-	wrl(ep, REG_INTEN, REG_INTEN_TX | REG_INTEN_RX);	// enable RX int
+	wrl(ep, REG_INTEN, REG_INTEN_TX | REG_INTEN_RX);
 	wrl(ep, REG_GIINTMSK, 0);
 
 	for (i = 0; i < 10; i++) {
@@ -810,14 +588,12 @@ static int ep93xx_start_hw(void)
 	wrl(ep, REG_RXDENQ, RX_QUEUE_ENTRIES);
 	wrl(ep, REG_RXSTSENQ, RX_QUEUE_ENTRIES);
 
-#if 0 // CapROS
 	wrb(ep, REG_INDAD0, dev->dev_addr[0]);
 	wrb(ep, REG_INDAD1, dev->dev_addr[1]);
 	wrb(ep, REG_INDAD2, dev->dev_addr[2]);
 	wrb(ep, REG_INDAD3, dev->dev_addr[3]);
 	wrb(ep, REG_INDAD4, dev->dev_addr[4]);
 	wrb(ep, REG_INDAD5, dev->dev_addr[5]);
-#endif // CapROS
 	wrl(ep, REG_AFP, 0);
 
 	wrl(ep, REG_MAXFRMLEN, (MAX_PKT_SIZE << 16) | MAX_PKT_SIZE);
@@ -828,9 +604,9 @@ static int ep93xx_start_hw(void)
 	return 0;
 }
 
-static void ep93xx_stop_hw(void)
+static void ep93xx_stop_hw(struct net_device *dev)
 {
-	struct ep93xx_priv * ep = &theEp;
+	struct ep93xx_priv *ep = netdev_priv(dev);
 	int i;
 
 	wrl(ep, REG_SELFCTL, REG_SELFCTL_RESET);
@@ -844,15 +620,14 @@ static void ep93xx_stop_hw(void)
 		printk(KERN_CRIT DRV_MODULE_NAME ": hw failed to reset\n");
 }
 
-static int ep93xx_open(void)
+static int ep93xx_open(struct net_device *dev)
 {
-	struct ep93xx_priv * ep = &theEp;
+	struct ep93xx_priv *ep = netdev_priv(dev);
 	int err;
 
 	if (ep93xx_alloc_buffers(ep))
 		return -ENOMEM;
 
-#if 0 // CapROS
 	if (is_zero_ether_addr(dev->dev_addr)) {
 		random_ether_addr(dev->dev_addr);
 		printk(KERN_INFO "%s: generated random MAC address "
@@ -863,32 +638,35 @@ static int ep93xx_open(void)
 	}
 
 	napi_enable(&ep->napi);
-#endif // CapROS
 
-	if (ep93xx_start_hw()) {
+	if (ep93xx_start_hw(dev)) {
+		napi_disable(&ep->napi);
 		ep93xx_free_buffers(ep);
 		return -EIO;
 	}
 
+	spin_lock_init(&ep->rx_lock);
 	ep->rx_pointer = 0;
 	ep->tx_clean_pointer = 0;
 	ep->tx_pointer = 0;
+	spin_lock_init(&ep->tx_pending_lock);
 	ep->tx_pending = 0;
 
-	err = request_irq(IRQ_EP93XX_ETHERNET, ep93xx_irq, 0,
-			 NULL, NULL);
+	err = request_irq(ep->irq, ep93xx_irq, IRQF_SHARED, dev->name, dev);
 	if (err) {
-		ep93xx_stop_hw();
+		napi_disable(&ep->napi);
+		ep93xx_stop_hw(dev);
 		ep93xx_free_buffers(ep);
 		return err;
 	}
 
 	wrl(ep, REG_GIINTMSK, REG_GIINTMSK_ENABLE);
 
+	netif_start_queue(dev);
+
 	return 0;
 }
 
-#if 0
 static int ep93xx_close(struct net_device *dev)
 {
 	struct ep93xx_priv *ep = netdev_priv(dev);
@@ -897,15 +675,13 @@ static int ep93xx_close(struct net_device *dev)
 	netif_stop_queue(dev);
 
 	wrl(ep, REG_GIINTMSK, 0);
-	free_irq(IRQ_EP93XX_ETHERNET, dev);
-	ep93xx_stop_hw();
+	free_irq(ep->irq, dev);
+	ep93xx_stop_hw(dev);
 	ep93xx_free_buffers(ep);
 
 	return 0;
 }
-#endif
 
-#if 0 // CapROS
 static int ep93xx_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct ep93xx_priv *ep = netdev_priv(dev);
@@ -913,15 +689,14 @@ static int ep93xx_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	return generic_mii_ioctl(&ep->mii, data, cmd, NULL);
 }
-#endif
 
 static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg)
 {
-	struct ep93xx_priv * ep = &theEp;
+	struct ep93xx_priv *ep = netdev_priv(dev);
 	int data;
 	int i;
 
-	wrl(ep, REG_MIICMD, REG_MIICMD_READ | (ep93xx_phyad << 5) | reg);
+	wrl(ep, REG_MIICMD, REG_MIICMD_READ | (phy_id << 5) | reg);
 
 	for (i = 0; i < 10; i++) {
 		if ((rdl(ep, REG_MIISTS) & REG_MIISTS_BUSY) == 0)
@@ -941,11 +716,11 @@ static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg)
 
 static void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int data)
 {
-	struct ep93xx_priv * ep = &theEp;
+	struct ep93xx_priv *ep = netdev_priv(dev);
 	int i;
 
 	wrl(ep, REG_MIIDATA, data);
-	wrl(ep, REG_MIICMD, REG_MIICMD_WRITE | (ep93xx_phyad << 5) | reg);
+	wrl(ep, REG_MIICMD, REG_MIICMD_WRITE | (phy_id << 5) | reg);
 
 	for (i = 0; i < 10; i++) {
 		if ((rdl(ep, REG_MIISTS) & REG_MIISTS_BUSY) == 0)
@@ -957,7 +732,6 @@ static void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int d
 		printk(KERN_INFO DRV_MODULE_NAME ": mdio write timed out\n");
 }
 
-#if 0
 static void ep93xx_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
 {
 	strcpy(info->driver, DRV_MODULE_NAME);
@@ -989,6 +763,7 @@ static u32 ep93xx_get_link(struct net_device *dev)
 }
 
 static struct ethtool_ops ep93xx_ethtool_ops = {
+	.get_drvinfo		= ep93xx_get_drvinfo,
 	.get_settings		= ep93xx_get_settings,
 	.set_settings		= ep93xx_set_settings,
 	.nway_reset		= ep93xx_nway_reset,
@@ -1005,9 +780,7 @@ static const struct net_device_ops ep93xx_netdev_ops = {
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address	= eth_mac_addr,
 };
-#endif
 
-#if 0
 static struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
 {
 	struct net_device *dev;
@@ -1025,10 +798,8 @@ static struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
 
 	return dev;
 }
-#endif
 
 
-#if 0
 static int ep93xx_eth_remove(struct platform_device *pdev)
 {
 	struct net_device *dev;
@@ -1057,9 +828,7 @@ static int ep93xx_eth_remove(struct platform_device *pdev)
 
 	return 0;
 }
-#endif
 
-#if 0
 static int ep93xx_eth_probe(struct platform_device *pdev)
 {
 	struct ep93xx_eth_data *data;
@@ -1099,44 +868,15 @@ static int ep93xx_eth_probe(struct platform_device *pdev)
 		goto err_out;
 	}
 	ep->irq = pdev->resource[1].start;
-#else
-/* This function should be passed as a parameter to netif_add().
- * It will be called to bring up the interface. */
-err_t
-ep93xxDevInitF(struct netif * netif)
-{
-  int ret;
-  gNetif = netif;
 
-  NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd, 100000000 /* 100Mbps */);
-
-  netif->output = etharp_output;
-  netif->linkoutput = &low_level_output;
-
-  // Map device registers:
-  hwBaseAddr = ioremap(EP93XX_ETHERNET_PHYS_BASE, 0x10000);
-  assert(hwBaseAddr);
-
-  // Get our MAC address.
-  memcpy(&macAddress, ((char *)hwBaseAddr) + 0x50, 6);
-
-  assert(ETHARP_HWADDR_LEN == 6);
-  netif->hwaddr_len = ETHARP_HWADDR_LEN;
-  memcpy(netif->hwaddr, &macAddress, 6);
-
-  netif->mtu = 1500;	/* Ethernet maximum transmission unit */
-  netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
-#endif
-
-	ep->mii.phy_id = ep93xx_phyad;
+	ep->mii.phy_id = data->phy_id;
 	ep->mii.phy_id_mask = 0x1f;
 	ep->mii.reg_num_mask = 0x1f;
-	ep->mii.dev = NULL;//dev;
+	ep->mii.dev = dev;
 	ep->mii.mdio_read = ep93xx_mdio_read;
 	ep->mii.mdio_write = ep93xx_mdio_write;
 	ep->mdc_divisor = 40;	/* Max HCLK 100 MHz, min MDIO clk 2.5 MHz.  */
 
-#if 0
 	err = register_netdev(dev);
 	if (err) {
 		dev_err(&pdev->dev, "Failed to register netdev\n");
@@ -1155,23 +895,8 @@ err_out:
 	ep93xx_eth_remove(pdev);
 	return err;
 }
-#else
 
-	printk(KERN_INFO "ep93xx on-chip ethernet, IRQ %d, "
-			 "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n",
-			IRQ_EP93XX_ETHERNET,
-			macAddress[0], macAddress[1],
-			macAddress[2], macAddress[3],
-			macAddress[4], macAddress[5]);
 
-  ret = ep93xx_open();
-  assert(ret == 0);
-
-  return ERR_OK;
-}
-#endif
-
-#if 0
 static struct platform_driver ep93xx_eth_driver = {
 	.probe		= ep93xx_eth_probe,
 	.remove		= ep93xx_eth_remove,
@@ -1196,4 +921,3 @@ module_init(ep93xx_eth_init_module);
 module_exit(ep93xx_eth_cleanup_module);
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:ep93xx-eth");
-#endif
