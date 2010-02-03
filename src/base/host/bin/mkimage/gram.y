@@ -1,7 +1,7 @@
 %{
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -1865,15 +1865,15 @@ arith_expr: bit_expr {
        }
        ;
 
-bit_expr: add_expr '|' add_expr {
+bit_expr: bit_expr '|' add_expr {
          SHOWPARSE("=== bit_expr -> add_expr '|' add_expr\n");
          $$ = $1 | $3;
        }
-     | add_expr '^' add_expr {
+     | bit_expr '^' add_expr {
          SHOWPARSE("=== bit_expr -> add_expr '^' add_expr\n");
          $$ = $1 ^ $3;
        }
-     | add_expr '&' add_expr {
+     | bit_expr '&' add_expr {
          SHOWPARSE("=== bit_expr -> add_expr '&' add_expr\n");
          $$ = $1 & $3;
        }
@@ -1883,11 +1883,11 @@ bit_expr: add_expr '|' add_expr {
        }
        ;
 
-add_expr: mul_expr '+' mul_expr {
+add_expr: add_expr '+' mul_expr {
          SHOWPARSE("=== add_expr -> mul_expr '+' mul_expr\n");
          $$ = $1 + $3;
        }
-     | mul_expr '-' mul_expr {
+     | add_expr '-' mul_expr {
          SHOWPARSE("=== add_expr -> mul_expr '-' mul_expr\n");
          $$ = $1 - $3;
        }
