@@ -18,6 +18,18 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#define KR_USBHCD(n) KR_APP2(n)	// First available key for host code
-// In the case of a PCI HCD:
-#define KR_USB_PCIDev KR_USBHCD(0)
+#include <linuxk/lsync.h>
+#include <idl/capros/PCIDriverConstructorExtended.h>
+
+#define KR_PCIDrvr_PCIDev KR_APP2(0)
+// KR_PCIAPP(0) is first available cap register for driver code
+#define KR_PCIAPP(n) (KR_PCIDrvr_PCIDev + (n))
+
+#ifndef __ASSEMBLER__
+
+extern struct pci_dev thePCIDev;
+extern capros_PCIDriverConstructorExtended_NewDeviceData theNdd;
+
+int PCIDriver_mainInit(const char * devName);
+
+#endif // __ASSEMBLER__

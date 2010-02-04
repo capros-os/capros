@@ -22,8 +22,8 @@
 #include <linux/pci.h>
 #include <eros/Invoke.h>
 #include <idl/capros/PCIDev.h>
+#include <domain/PCIDrvr.h>
 #include <domain/assert.h>
-#include "../../core/cap.h"
 
 static int
 PCIDevResultToInt(result_t result)
@@ -43,48 +43,48 @@ PCIDevResultToInt(result_t result)
 int pci_bus_read_config_byte(struct pci_bus *bus, unsigned int devfn,
                              int where, u8 *val)
 {
-  result_t result = capros_PCIDev_readConfig8(KR_USB_PCIDev, where, val);
+  result_t result = capros_PCIDev_readConfig8(KR_PCIDrvr_PCIDev, where, val);
   return PCIDevResultToInt(result);
 }
 
 int pci_bus_read_config_word(struct pci_bus *bus, unsigned int devfn,
                              int where, u16 *val)
 {
-  result_t result = capros_PCIDev_readConfig16(KR_USB_PCIDev, where, val);
+  result_t result = capros_PCIDev_readConfig16(KR_PCIDrvr_PCIDev, where, val);
   return PCIDevResultToInt(result);
 }
 
 int pci_bus_read_config_dword(struct pci_bus *bus, unsigned int devfn,
                               int where, u32 *val)
 {
-  result_t result = capros_PCIDev_readConfig32(KR_USB_PCIDev, where, val);
+  result_t result = capros_PCIDev_readConfig32(KR_PCIDrvr_PCIDev, where, val);
   return PCIDevResultToInt(result);
 }
 
 int pci_bus_write_config_byte(struct pci_bus *bus, unsigned int devfn,
                               int where, u8 val)
 {
-  result_t result = capros_PCIDev_writeConfig8(KR_USB_PCIDev, where, val);
+  result_t result = capros_PCIDev_writeConfig8(KR_PCIDrvr_PCIDev, where, val);
   return PCIDevResultToInt(result);
 }
 
 int pci_bus_write_config_word(struct pci_bus *bus, unsigned int devfn,
                               int where, u16 val)
 {
-  result_t result = capros_PCIDev_writeConfig16(KR_USB_PCIDev, where, val);
+  result_t result = capros_PCIDev_writeConfig16(KR_PCIDrvr_PCIDev, where, val);
   return PCIDevResultToInt(result);
 }
 
 int pci_bus_write_config_dword(struct pci_bus *bus, unsigned int devfn,
                                int where, u32 val)
 {
-  result_t result = capros_PCIDev_writeConfig32(KR_USB_PCIDev, where, val);
+  result_t result = capros_PCIDev_writeConfig32(KR_PCIDrvr_PCIDev, where, val);
   return PCIDevResultToInt(result);
 }
 
 int pci_enable_device(struct pci_dev *dev)
 {
-  result_t result = capros_PCIDev_enable(KR_USB_PCIDev);
+  result_t result = capros_PCIDev_enable(KR_PCIDrvr_PCIDev);
   switch (result) {
   default:
   case RC_capros_PCIDev_ResourceConflict:
@@ -97,6 +97,6 @@ int pci_enable_device(struct pci_dev *dev)
 void
 pci_disable_device(struct pci_dev *dev)
 {
-  result_t result = capros_PCIDev_disable(KR_USB_PCIDev);
+  result_t result = capros_PCIDev_disable(KR_PCIDrvr_PCIDev);
   assert(result == RC_OK);
 }

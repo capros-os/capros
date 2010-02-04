@@ -19,13 +19,19 @@
 
 default: install
 
+HEADERS=PCIDrvr.h
+
 CROSS_BUILD=yes
 EROS_SRC=../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=arch/$(LINUX2624_TARGET)
+LDIRS=arch/$(LINUX2624_TARGET)
 
 include $(EROS_SRC)/build/make/makerules.mk
+
+interfaces:
+	$(INSTALL) -d $(EROS_ROOT)/include/domain
+	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/domain
 
 -include $(BUILDDIR)/.*.m

@@ -28,7 +28,6 @@ include $(EROS_SRC)/build/make/makevars.mk
 OBJECTS=$(COMMON_OBJECTS)
 
 OBJECTS+= $(BUILDDIR)/hcd-pci.o
-OBJECTS+= $(BUILDDIR)/cap_pci.o
 TARGETS=$(BUILDDIR)/usbhcdehci ### ////$(BUILDDIR)/usbhcduhci
 TARGETS+=$(BUILDDIR)/usb_pci_ids.o # for pci registry
 MAPS=../../host/pciehci.map ### //// ../../host/pciuhci.map

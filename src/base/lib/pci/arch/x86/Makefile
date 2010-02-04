@@ -29,20 +29,20 @@ LIBTARGETS=$(BUILDDIR)/libpcidev.a
 LIBOBJECTS=
 LIBOBJECTS+=$(BUILDDIR)/i386.o
 VPATH=../..
+LIBOBJECTS+= $(BUILDDIR)/cap_pci.o
 LIBOBJECTS+= $(BUILDDIR)/pci.o
+LIBOBJECTS+= $(BUILDDIR)/pcidriver.o
 LIBOBJECTS+= $(BUILDDIR)/probe.o
 
 INC=$(DRIVERINC)
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-all: $(LIBTARGETS)
-
 $(BUILDDIR)/libpcidev.a: $(LIBOBJECTS) $(MAKE_BUILDDIR)
 	$(AR) -cr $@ $(LIBOBJECTS)
 	$(RANLIB) $@
 
-install: all
+libs: $(LIBTARGETS)
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 0644 $(LIBTARGETS) $(CAPROS_DOMAIN)
 
