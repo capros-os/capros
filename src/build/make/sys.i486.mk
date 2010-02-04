@@ -31,15 +31,15 @@ $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP) $(MAKE_BUILDDIR)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1
 	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
-$(BUILDDIR)/psysimg: $(TARGETS) $(IMGMAP) $(MAKE_BUILDDIR)
-	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(IMGMAP) 2>&1
-	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(IMGMAP) $(BUILDDIR)/.psysimg.m >/dev/null  2>&1
+$(BUILDDIR)/psysimg: $(TARGETS) $(PIMGMAP) $(MAKE_BUILDDIR)
+	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(PIMGMAP) 2>&1
+	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(PIMGMAP) $(BUILDDIR)/.psysimg.m >/dev/null  2>&1
 
 init.hd: $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol $(VOLMAP) $(EROS_HD)
 
 ifndef NPRANGESIZE
-NPRANGESIZE=300
+NPRANGESIZE=450
 endif
 
 ifndef PRANGESIZE
@@ -59,7 +59,7 @@ np: $(BUILDDIR)/sysimg $(KERNPATH).o
 	scp $(BUILDDIR)/kernimg $(CAPROS_BOOT_PARTITION)/CapROS-kernimg
 
 // Link kernel and non-persistent and persistent objects:
-p: $(BUILDDIR)/sysimg $(KERNPATH).o
+p: $(BUILDDIR)/sysimg $(BUILDDIR)/psysimg $(KERNPATH).o
 	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg -p $(BUILDDIR)/imgdata
 	$(EROS_ROOT)/host/bin/npgen -s $(PRANGESIZE) -b 0x0100000000000000 $(BUILDDIR)/psysimg -a $(BUILDDIR)/imgdata
 	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
