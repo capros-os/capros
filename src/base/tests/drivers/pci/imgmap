@@ -49,10 +49,4 @@ test key reg KR_APP(1) = misc Sleep;
 
 run test;
 
-//#include <nplink.map>
-
-#if defined(EROS_TARGET_i486)
-
-#else
-#error "Unsupported target"
-#endif
+#include <nplink.map>
