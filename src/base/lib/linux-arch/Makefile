@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009, Strawberry Development Group.
+# Copyright (C) 2009, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -17,7 +17,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-default: install
+default: interfaces
 
 EROS_SRC=../../..
 CROSS_BUILD=yes

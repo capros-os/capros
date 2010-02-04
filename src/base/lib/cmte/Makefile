@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2008-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -21,7 +21,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: install
+default: interfaces install
 
 HEADERS=cmte.h cmtesync.h \
   CMTEMaps.h \
@@ -62,14 +62,12 @@ $(BUILDDIR)/libcmte.a: $(OBJECTS) $(MAKE_BUILDDIR)
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
-
-install-headers:
 	$(INSTALL) -d $(EROS_ROOT)/include/domain
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/domain
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 644 cmte.map dyncmte.map $(CAPROS_DOMAIN)
 
-install: install-headers $(TARGETS)
+install: $(TARGETS)
 	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009, Strawberry Development Group.
+# Copyright (C) 2009, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -17,7 +17,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-default: install
+default: interfaces
 
 EROS_SRC=../../../..
 CROSS_BUILD=yes
@@ -28,6 +28,6 @@ ASM_HEADERS=$(wildcard include/asm/*.h)
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-install:
+interfaces:
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm
 	$(INSTALL) -m 644 $(ASM_HEADERS) $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm

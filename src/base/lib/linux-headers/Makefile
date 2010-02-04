@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, 2009, Strawberry Development Group.
+# Copyright (C) 2007, 2009, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -21,7 +21,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: install
+default: interfaces
 
 LINUX_HEADERS=$(wildcard linux/*.h)
 LINUXAMBA_HEADERS=$(wildcard linux/amba/*.h)
@@ -40,11 +40,11 @@ CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS+=asm-$(LINUX_TARGET)
+DIRS=asm-$(LINUX_TARGET)
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-install:
+interfaces:
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/linux/
 	$(INSTALL) -m 644 $(LINUX_HEADERS) $(EROS_ROOT)/include/linux-headers/linux/
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/linux/amba/

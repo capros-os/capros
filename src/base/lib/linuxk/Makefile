@@ -21,7 +21,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: install
+default: interfaces install
 
 HEADERS=linux-emul.h lsync.h dma.h
 
@@ -98,14 +98,12 @@ $(BUILDDIR)/liblinuxk.a: $(OBJECTS) $(MAKE_BUILDDIR)
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
-
-install-headers:
 	$(INSTALL) -d $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
 	$(INSTALL) -m 644 driver.map dyndriver.map $(CAPROS_DOMAIN)/drivers
 
-install: install-headers $(TARGETS)
+install: $(TARGETS)
 	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m
