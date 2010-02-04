@@ -36,15 +36,20 @@ driver_main(void)
 {
   int retval;
 
+  // Call initialization procedures in the order of Linux init phases:
+  // postcore:
   retval = pci_driver_init();
   assert(!retval);
 
+  // arch:
   retval = pci_arch_init();
   assert(!retval);
 
+  // subsys:
   retval = pci_subsys_init();
   assert(!retval);
 
+  // device:
   retval = pci_init();
   assert(!retval);
 
