@@ -28,6 +28,23 @@
 	[link no longer provides useful info -jgarzik]
 
 */
+/*
+ * Copyright (C) 2008, 2009, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#include <linuxk/linux-emul.h>
+#include <linuxk/lsync.h>
 
 #define DRV_NAME	"via-rhine"
 #define DRV_VERSION	"1.4.3"
@@ -265,15 +282,6 @@ enum rhine_quirks {
 
 /* Beware of PCI posted writes */
 #define IOSYNC	do { ioread8(ioaddr + StationAddr); } while (0)
-
-static const struct pci_device_id rhine_pci_tbl[] = {
-	{ 0x1106, 0x3043, PCI_ANY_ID, PCI_ANY_ID, },	/* VT86C100A */
-	{ 0x1106, 0x3065, PCI_ANY_ID, PCI_ANY_ID, },	/* VT6102 */
-	{ 0x1106, 0x3106, PCI_ANY_ID, PCI_ANY_ID, },	/* 6105{,L,LOM} */
-	{ 0x1106, 0x3053, PCI_ANY_ID, PCI_ANY_ID, },	/* VT6105M */
-	{ }	/* terminate list */
-};
-MODULE_DEVICE_TABLE(pci, rhine_pci_tbl);
 
 
 /* Offsets to the device registers. */
@@ -1976,7 +1984,7 @@ static int rhine_resume(struct pci_dev *pdev)
 
 static struct pci_driver rhine_driver = {
 	.name		= DRV_NAME,
-	.id_table	= rhine_pci_tbl,
+	.id_table	= NULL////rhine_pci_tbl,
 	.probe		= rhine_init_one,
 	.remove		= __devexit_p(rhine_remove_one),
 #ifdef CONFIG_PM

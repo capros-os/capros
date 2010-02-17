@@ -8,7 +8,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * Copyright (C) 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2008-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -57,8 +57,10 @@ Approved for public release, distribution unlimited. */
 #include <asm/arch/ep93xx-regs.h>
 #include <asm/arch/platform.h>
 #include <asm/io.h>
+#include <eros/Invoke.h>
 #include <idl/capros/IPInt.h>
 
+#include <lwipCap.h>
 #include "../../cap.h"
 
 #define dbg_tx     0x1
@@ -70,10 +72,9 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-struct netif * gNetif;
-void __iomem * hwBaseAddr;
-unsigned int ep93xx_phyad;	// PHY address
-unsigned char macAddress[6];
+extern struct netif * gNetif;
+extern void __iomem * hwBaseAddr;
+extern unsigned int ep93xx_phyad;	// PHY address
 
 #define DRV_MODULE_NAME		"ep93xx-eth"
 #define DRV_MODULE_VERSION	"0.1"
@@ -240,7 +241,7 @@ struct ep93xx_priv
 #define wrw(ep, off, val) ((void)ep, __raw_writew((val), hwBaseAddr + (off)))
 #define wrl(ep, off, val) ((void)ep, __raw_writel((val), hwBaseAddr + (off)))
 
-static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg);
+int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg);
 
 #if 0
 static struct net_device_stats *ep93xx_get_stats(struct net_device *dev)
@@ -469,7 +470,7 @@ poll_some_more:
 
 /* low_level_output starts the transmission of a packet in a (possibly chained)
  * pbuf. */
-static err_t
+err_t
 low_level_output(struct netif *netif, struct pbuf *p)
 {
   // mtu is the max payload size. It does not include the Ethernet header.
@@ -844,7 +845,7 @@ static void ep93xx_stop_hw(void)
 		printk(KERN_CRIT DRV_MODULE_NAME ": hw failed to reset\n");
 }
 
-static int ep93xx_open(void)
+int ep93xx_open(void)
 {
 	struct ep93xx_priv * ep = &theEp;
 	int err;
@@ -915,7 +916,7 @@ static int ep93xx_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 }
 #endif
 
-static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg)
+int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg)
 {
 	struct ep93xx_priv * ep = &theEp;
 	int data;
@@ -939,7 +940,7 @@ static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg)
 	return data;
 }
 
-static void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int data)
+void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int data)
 {
 	struct ep93xx_priv * ep = &theEp;
 	int i;
@@ -1057,9 +1058,20 @@ static int ep93xx_eth_remove(struct platform_device *pdev)
 
 	return 0;
 }
-#endif
+#endif // CapROS
 
-#if 0
+void init_mii(void)
+{
+  theEp.mii.phy_id = ep93xx_phyad;
+  theEp.mii.phy_id_mask = 0x1f;
+  theEp.mii.reg_num_mask = 0x1f;
+  theEp.mii.dev = NULL;//dev;
+  theEp.mii.mdio_read = ep93xx_mdio_read;
+  theEp.mii.mdio_write = ep93xx_mdio_write;
+  theEp.mdc_divisor = 40;	/* Max HCLK 100 MHz, min MDIO clk 2.5 MHz.  */
+}
+
+#if 0 // CapROS
 static int ep93xx_eth_probe(struct platform_device *pdev)
 {
 	struct ep93xx_eth_data *data;
@@ -1099,44 +1111,9 @@ static int ep93xx_eth_probe(struct platform_device *pdev)
 		goto err_out;
 	}
 	ep->irq = pdev->resource[1].start;
-#else
-/* This function should be passed as a parameter to netif_add().
- * It will be called to bring up the interface. */
-err_t
-ep93xxDevInitF(struct netif * netif)
-{
-  int ret;
-  gNetif = netif;
 
-  NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd, 100000000 /* 100Mbps */);
+	init_mii();	// ep == &theEp
 
-  netif->output = etharp_output;
-  netif->linkoutput = &low_level_output;
-
-  // Map device registers:
-  hwBaseAddr = ioremap(EP93XX_ETHERNET_PHYS_BASE, 0x10000);
-  assert(hwBaseAddr);
-
-  // Get our MAC address.
-  memcpy(&macAddress, ((char *)hwBaseAddr) + 0x50, 6);
-
-  assert(ETHARP_HWADDR_LEN == 6);
-  netif->hwaddr_len = ETHARP_HWADDR_LEN;
-  memcpy(netif->hwaddr, &macAddress, 6);
-
-  netif->mtu = 1500;	/* Ethernet maximum transmission unit */
-  netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
-#endif
-
-	ep->mii.phy_id = ep93xx_phyad;
-	ep->mii.phy_id_mask = 0x1f;
-	ep->mii.reg_num_mask = 0x1f;
-	ep->mii.dev = NULL;//dev;
-	ep->mii.mdio_read = ep93xx_mdio_read;
-	ep->mii.mdio_write = ep93xx_mdio_write;
-	ep->mdc_divisor = 40;	/* Max HCLK 100 MHz, min MDIO clk 2.5 MHz.  */
-
-#if 0
 	err = register_netdev(dev);
 	if (err) {
 		dev_err(&pdev->dev, "Failed to register netdev\n");
@@ -1155,23 +1132,7 @@ err_out:
 	ep93xx_eth_remove(pdev);
 	return err;
 }
-#else
 
-	printk(KERN_INFO "ep93xx on-chip ethernet, IRQ %d, "
-			 "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n",
-			IRQ_EP93XX_ETHERNET,
-			macAddress[0], macAddress[1],
-			macAddress[2], macAddress[3],
-			macAddress[4], macAddress[5]);
-
-  ret = ep93xx_open();
-  assert(ret == 0);
-
-  return ERR_OK;
-}
-#endif
-
-#if 0
 static struct platform_driver ep93xx_eth_driver = {
 	.probe		= ep93xx_eth_probe,
 	.remove		= ep93xx_eth_remove,

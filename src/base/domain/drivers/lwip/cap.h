@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -20,15 +20,6 @@
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
-
-struct Message;
-
-// Constituents:
-#define KC_VOLSIZE 0
-
-// KR_IPAddrs initially has a number cap with the IP address, mask, and gateway.
-#define KR_IPAddrs	KR_APP2(0)
-#define KR_DeviceEntry	KR_APP2(1)	// Only interrupt thread needs this
 
 /* Each socket has several capability variables allocated in the keystore.
  * The address in the keystore is the same as the address of the socket. 
@@ -68,8 +59,24 @@ struct Message;
 
 #define MMS_LIMIT 4096	// max size of a UDP datagram
 
+#ifndef __ASSEMBLER__
+
+#include <ipv4/lwip/ip_addr.h>
+
+struct Message;
+
+struct IPConfigv4 {
+  struct ip_addr addr;
+  struct ip_addr mask;
+  struct ip_addr gw;
+};
+
+NORETURN void cap_main(struct IPConfigv4 * ipconf);
+
 void UDPGetMaxSizes(struct Message * msg);
 void UDPCreate(struct Message * msg);
 void UDPDestroy(struct Message * msg);
 void UDPReceive(struct Message * msg);
 void UDPSend(struct Message * msg);
+
+#endif // __ASSEMBLER__

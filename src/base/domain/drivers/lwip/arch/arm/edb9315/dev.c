@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,6 +24,8 @@ Approved for public release, distribution unlimited. */
 /* Device driver for the Cirrus EDB315 Ethernet interface. */
 
 #include "../ep93xx.c"
+
+err_t ep93xxDevInitF(struct netif * netif);
 
 err_t
 devInitF(struct netif * netif)

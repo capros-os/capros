@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -52,6 +52,7 @@ Approved for public release, distribution unlimited. */
 #include <lwip/tcp.h>
 #include <lwip/init.h>
 
+#include <lwipCap.h>
 #include "cap.h"
 
 #define dbg_tx     0x01
@@ -1250,22 +1251,16 @@ errExit3:
   return;
 }
 
-/*************************** main ******************************/
+/*************************** cap_main ******************************/
+// Called from architecture-specific driver_main().
 
 NORETURN void
-driver_main(void)
+cap_main(struct IPConfigv4 * ipconf)
 {
   result_t result;
   Message Msg;
   Message * const msg = &Msg;
 
-  struct ip_addr ipaddr, ipmask, ipgw;
-  uint32_t ipInt, msInt, gwInt;
-  result = capros_Number_get(KR_IPAddrs, &ipInt, &msInt, &gwInt);
-  assert(result == RC_OK);
-  ipaddr.addr = htonl(ipInt);
-  ipmask.addr = htonl(msInt);
-  ipgw.addr   = htonl(gwInt);
   // Allocate slots in keystore:
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
                                           LKSN_APP, lastKeyStoreCap);
@@ -1305,7 +1300,7 @@ driver_main(void)
              IKT_capros_SpaceBank, 0);
   assert(result == RC_OK);
 
-  printk("EP93xx Ethernet driver started.\n");
+  printk("Ethernet driver started.\n");
 
   {
     // Touch each heap page to get VCSK to allocate it.
@@ -1334,7 +1329,7 @@ driver_main(void)
 
   struct netif theNetIf;
   err_t devInitF(struct netif * netif);
-  netif_add(&theNetIf, &ipaddr, &ipmask, &ipgw,
+  netif_add(&theNetIf, &ipconf->addr, &ipconf->mask, &ipconf->gw,
             NULL, &devInitF, &ethernet_input);
   netif_set_default(&theNetIf);
   netif_set_up(&theNetIf);
