@@ -348,9 +348,6 @@ PACKAGE=$(word 1, $(strip $(subst /, ,$(subst $(EROS_ROOT)/src/,,$(PWD)))))
 
 TARGETMACH=$(EROS_TARGET)-$(CAPROS_MACH)
 
-PKG_ROOT=$(EROS_ROOT)/pkg/${PACKAGE}
-PKG_SRC=$(EROS_ROOT)/$(EROS_SRCDIR)/${PACKAGE}
-
 # Until proven otherwise...
 IMGMAP=imgmap
 
@@ -371,6 +368,13 @@ BUILDDIR=BUILD/$(TARGETMACH)
 endif
 endif
 
+# This is the first, and therefore default, target,
+# unless the Makefile that includes this file defines a default target first.
+local:
+	$(MAKE) $(MAKERULES) interfaces
+	$(MAKE) $(MAKERULES) libs
+	$(MAKE) $(MAKERULES) install
+
 showme:
 	@echo "EROS_ROOT: " $(EROS_ROOT)
 	@echo "EROS_SRCDIR: " $(EROS_SRCDIR)
@@ -379,8 +383,6 @@ showme:
 	@echo "EROS_CONFIG: " $(EROS_CONFIG)
 	@echo "CAPROS_MACH: " $(CAPROS_MACH)
 	@echo "CAPROS_LOCALDIR: " $(CAPROS_LOCALDIR)
-	@echo "PKG_ROOT:" $(PKG_ROOT)
-	@echo "PKG_SRC:" $(PKG_SRC)
 	@echo "BUILDDIR:" $(BUILDDIR)
 
 MAKEVARS_LOADED=1
