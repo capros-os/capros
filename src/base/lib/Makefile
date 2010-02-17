@@ -46,4 +46,6 @@ DIRS+=pci
 endif
 # keycache was a failed experiment.
 
+LDIRS=pci
+
 include $(EROS_SRC)/build/make/makerules.mk
