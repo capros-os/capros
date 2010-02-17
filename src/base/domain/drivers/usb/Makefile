@@ -29,7 +29,8 @@ EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=lib
-DIRS+=storage arch/$(LINUX2624_TARGET)
+DIRS+=arch/$(LINUX2624_TARGET)
+DIRS+=storage
 
 include $(EROS_SRC)/build/make/makerules.mk
 

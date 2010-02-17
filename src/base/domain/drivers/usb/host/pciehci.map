@@ -22,6 +22,5 @@
 
 // Constructor for use by PCI registry
 
-pciregistry.space = small program LIBDIR "drivers/pciregistry";
-
 DYNDRIVER_CONSTRUCTOR(pciehci, drivers/usbhcdehci, "pciehci", 0)
+#define pciehci_cReq pciehci_cRequestor
