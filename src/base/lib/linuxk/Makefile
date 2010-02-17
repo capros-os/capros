@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2007-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -20,8 +20,6 @@
 # This material is based upon work supported by the US Defense Advanced
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
-
-default: interfaces install
 
 HEADERS=linux-emul.h lsync.h dma.h
 
