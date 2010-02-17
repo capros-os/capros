@@ -31,7 +31,9 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/pciregistry
 OBJECTS=$(BUILDDIR)/main.o
 
-ID_OBJECTS=$(CAPROS_DOMAIN)/drivers/usb_pci_ids.o
+ID_OBJECTS=
+ID_OBJECTS+=$(CAPROS_DOMAIN)/drivers/usb_pci_ids.o
+ID_OBJECTS+=$(CAPROS_DOMAIN)/drivers/lwip/via-rhine/rhine_pci_ids.o
 
 INC=$(DRIVERINC)
 
@@ -51,7 +53,7 @@ $(BUILDDIR)/pciregistry: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
-	$(INSTALL) -m 644 pciregistry.map $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 pciregistry.map pcireg.h $(CAPROS_DOMAIN)/drivers
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers
 
 -include $(BUILDDIR)/.*.m

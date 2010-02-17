@@ -19,7 +19,12 @@
  */
 
 #include <drivers/pci.map>
-#include <drivers/pciehci.map>
+#include <drivers/pcireg.h>
+
+/* Include any of these *before* this file:
+   #include <drivers/pciehci.map>
+   #include <drivers/lwip/via-rhine/lwip.map>
+*/
 
 /*********************************************
  * PCI Registry
@@ -34,10 +39,16 @@ pciregistryProc space = pciregistry.space;
 pciregistryProc schedule = sched(8);
 pciregistryProc symtab = number("pciregistry");
 
+
 pciregSnode = new node;
 // Constructor requestor keys to PCI device drivers go here.
-pciregSnode[0] = pciehci_cRequestor;
-//pciregSnode[1] = ds2490_cRequestor;
+// Drivers caps must be #defined, not just defined, so we can #ifdef them here.
+#ifdef pciehci_cReq
+pciregSnode[PCIRRS_usb_ehci] = pciehci_cReq;
+#endif
+#ifdef rhine_cReq
+pciregSnode[PCIRRS_rhine] = rhine_cReq;
+#endif
 
 pciregistryProc key reg KR_BANK = primebank;
 pciregistryProc key reg KR_SCHED = sched(8);

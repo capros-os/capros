@@ -95,8 +95,13 @@ SendNewInterface(unsigned long /* cap_t */ mainProc,
   nid.subsystemVendor = pdev->subsystem_vendor;
   nid.subsystemDevice = pdev->subsystem_device;
   nid.deviceClass = pdev->class;
-printk("New PCI dev irq=%d\n", pdev->irq);////
   nid.irq = pdev->irq;
+#if 1 ////
+  kprintf(KR_OSTREAM, "New PCI dev: %#x %#x %#x %#x %#x irq=%d\n",
+    pdev->vendor, pdev->device,
+    pdev->subsystem_vendor, pdev->subsystem_device, pdev->class,
+    pdev->irq );
+#endif
 
   msg->snd_key0 = KR_TEMP0;
   msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;

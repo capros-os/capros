@@ -30,6 +30,7 @@
 #include <idl/capros/PCIDriverConstructor.h>
 
 #include <domain/assert.h>
+#include "pcireg.h"
 
 #define KR_PCIBus         KR_APP(0)
 #define KR_OSTREAM        KR_APP(1)
@@ -50,11 +51,26 @@ struct pci_driver_registration {
    Eventually the registry will accept new drivers
    and grow the list dynamically. */
 
-extern struct pci_device_id usb_ehci_pci_ids;
+#define pci_drvr_list \
+  pci_drvr_reg(usb_ehci) \
+  pci_drvr_reg(rhine) \
+  /* end of list */
+
+#define pci_drvr_reg(name) \
+  extern struct pci_device_id name##_pci_ids;
+
+pci_drvr_list	// external declarations of id tables
+
+#undef pci_drvr_reg
 
 struct pci_driver_registration drivers[] = {
-  {&usb_ehci_pci_ids, 0},
-//  {&eth_pci_ids, 1}
+
+#define pci_drvr_reg(name) \
+  {&name##_pci_ids, PCIRRS_##name},
+
+  pci_drvr_list	// declaration of driver info
+
+#undef pci_drvr_reg
 };
 #define NUM_DRIVERS (sizeof(drivers) / sizeof(drivers[0]))
 
@@ -121,7 +137,7 @@ main(void)
     }
     kprintf(KR_OSTREAM, "No driver for PCI device:\n");
 #define dd nid.intfData
-    kprintf(KR_OSTREAM, "Vendor %u Device %u SubV %u SubD %u Class %#x\n",
+    kprintf(KR_OSTREAM, "Vendor %#x Device %#x SubV %#x SubD %#x Class %#x\n",
             dd.vendor, dd.device, dd.subsystemVendor,
             dd.subsystemDevice, dd.deviceClass);
 #undef dd
