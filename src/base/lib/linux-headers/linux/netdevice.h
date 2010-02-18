@@ -42,8 +42,10 @@
 #include <linux/dmaengine.h>
 #include <linux/workqueue.h>
 
+#if 0 // CapROS
 #include <net/net_namespace.h>
 #include <net/dsa.h>
+#endif // CapROS
 #ifdef CONFIG_DCB
 #include <net/dcbnl.h>
 #endif
@@ -933,6 +935,7 @@ static inline void netdev_for_each_tx_queue(struct net_device *dev,
 /*
  * Net namespace inlines
  */
+#if 0 // CapROS
 static inline
 struct net *dev_net(const struct net_device *dev)
 {
@@ -942,6 +945,7 @@ struct net *dev_net(const struct net_device *dev)
 	return &init_net;
 #endif
 }
+#endif // CapROS
 
 static inline
 void dev_net_set(struct net_device *dev, struct net *net)
@@ -1048,11 +1052,13 @@ struct packet_type {
 };
 
 struct napi_gro_fraginfo {
+#if 0 // CapROS
 	skb_frag_t frags[MAX_SKB_FRAGS];
 	unsigned int nr_frags;
 	unsigned int ip_summed;
 	unsigned int len;
 	__wsum csum;
+#endif // CapROS
 };
 
 #include <linux/interrupt.h>
@@ -1069,6 +1075,7 @@ extern rwlock_t				dev_base_lock;		/* Device list lock */
 		list_for_each_entry_continue(d, &(net)->dev_base_head, dev_list)
 #define net_device_entry(lh)	list_entry(lh, struct net_device, dev_list)
 
+#if 0 // CapROS
 static inline struct net_device *next_net_device(struct net_device *dev)
 {
 	struct list_head *lh;
@@ -1084,6 +1091,7 @@ static inline struct net_device *first_net_device(struct net *net)
 	return list_empty(&net->dev_base_head) ? NULL :
 		net_device_entry(net->dev_base_head.next);
 }
+#endif // CapROS
 
 extern int 			netdev_boot_setup_check(struct net_device *dev);
 extern unsigned long		netdev_boot_base(const char *prefix, int unit);
@@ -1143,12 +1151,14 @@ static inline void skb_gro_reset_offset(struct sk_buff *skb)
 	NAPI_GRO_CB(skb)->data_offset = 0;
 }
 
+#if 0 // CapROS
 static inline void *skb_gro_mac_header(struct sk_buff *skb)
 {
 	return skb_mac_header(skb) < skb->data ? skb_mac_header(skb) :
 	       page_address(skb_shinfo(skb)->frags[0].page) +
 	       skb_shinfo(skb)->frags[0].page_offset;
 }
+#endif // CapROS
 
 static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
 				  unsigned short type,
@@ -1382,11 +1392,13 @@ static inline int __netif_subqueue_stopped(const struct net_device *dev,
 	return test_bit(__QUEUE_STATE_XOFF, &txq->state);
 }
 
+#if 0 // CapROS
 static inline int netif_subqueue_stopped(const struct net_device *dev,
 					 struct sk_buff *skb)
 {
 	return __netif_subqueue_stopped(dev, skb_get_queue_mapping(skb));
 }
+#endif // CapROS
 
 /**
  *	netif_wake_subqueue - allow sending packets on subqueue
@@ -1854,6 +1866,7 @@ static inline int net_gso_ok(int features, int gso_type)
 	return (features & feature) == feature;
 }
 
+#if 0 // CapROS
 static inline int skb_gso_ok(struct sk_buff *skb, int features)
 {
 	return net_gso_ok(features, skb_shinfo(skb)->gso_type) &&
@@ -1866,6 +1879,7 @@ static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
 	       (!skb_gso_ok(skb, dev->features) ||
 		unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
 }
+#endif // CapROS
 
 static inline void netif_set_gso_max_size(struct net_device *dev,
 					  unsigned int size)
@@ -1873,6 +1887,7 @@ static inline void netif_set_gso_max_size(struct net_device *dev,
 	dev->gso_max_size = size;
 }
 
+#if 0 // CapROS
 /* On bonding slaves other than the currently active slave, suppress
  * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
  * ARP on active-backup slaves with arp_validate enabled.
@@ -1907,6 +1922,7 @@ static inline int skb_bond_should_drop(struct sk_buff *skb)
 }
 
 extern struct pernet_operations __net_initdata loopback_net_ops;
+#endif // CapROS
 #endif /* __KERNEL__ */
 
 #endif	/* _LINUX_DEV_H */

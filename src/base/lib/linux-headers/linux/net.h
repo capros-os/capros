@@ -54,7 +54,7 @@ typedef enum {
 
 #ifdef __KERNEL__
 #include <linux/stringify.h>
-#include <linux/random.h>
+//#include <linux/random.h>
 #include <linux/wait.h>
 #include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
 
