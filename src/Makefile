@@ -43,13 +43,16 @@ targdir-clean:
 	-rm -rf $(EROS_ROOT)/domain $(EROS_ROOT)/doc
 	-rm -rf $(EROS_ROOT)/host
 
+IDL_STUB_DIR=$(EROS_SRC)/base/lib/idlstub/$(BUILDDIR)
+
 # Building proceeds in 4 steps:
 # 1. Recurse over the source tree gathering .idl and .h files. 
 # 2. Build IDL headers and stubs. 
 # 3. Recurse over the source tree building libraries.
 # 4. Recurse over the source tree building the rest of the files.
 packages: idl-list
-	$(MAKE) $(IDL_DIR)/idlbuilt IDL_FILE_LIST="`cat $(IDL_DIR)/filelistflat`"
+	$(INSTALL) -d $(IDL_STUB_DIR)
+	$(MAKE) $(IDL_STUB_DIR)/idlbuilt IDL_FILE_LIST="`cat $(IDL_DIR)/filelistflat`"
 	$(MAKE) libs
 	$(MAKE) install
 
@@ -62,11 +65,9 @@ idl-list: interfaces
 	# Copy filelistflat to permanent location if it has changed.
 	$(INSTALL) -m 0644 $(IDL_DIR)/tmp/filelistflat $(IDL_DIR)
 
-IDL_STUB_DIR=$(EROS_SRC)/base/lib/idlstub/$(BUILDDIR)
-
 # Rebuild IDL if any of the .idl files has changed,
 # or if the set of files has changed.
-$(IDL_DIR)/idlbuilt: $(IDL_FILE_LIST) $(IDL_DIR)/filelistflat
+$(IDL_STUB_DIR)/idlbuilt: $(IDL_FILE_LIST) $(IDL_DIR)/filelistflat
 	# Create headers.
 	$(CAPIDL) -D $(EROS_ROOT)/include/idl.tmp -l c-header $(IDL_FILE_LIST)
 	$(INSTALL) -d $(EROS_ROOT)/include/idl
@@ -75,9 +76,6 @@ $(IDL_DIR)/idlbuilt: $(IDL_FILE_LIST) $(IDL_DIR)/filelistflat
 	build/bin/dirsync $(EROS_ROOT)/include/idl.tmp $(EROS_ROOT)/host/include/idl
 	-rm -rf $(EROS_ROOT)/include/idl.tmp
 	# Create stubs.
-	if [ ! -d $(IDL_STUB_DIR) ]; then \
-		mkdir -p $(IDL_STUB_DIR); \
-	fi
 	rm -f $(IDL_STUB_DIR)/*.c
 	$(CAPIDL) -D $(IDL_STUB_DIR) -l c-stubs $(IDL_FILE_LIST)
 	echo > $@
