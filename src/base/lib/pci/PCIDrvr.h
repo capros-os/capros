@@ -23,7 +23,7 @@
 
 #define KR_PCIDrvr_PCIDev KR_APP2(0)
 // KR_PCIAPP(0) is first available cap register for driver code
-#define KR_PCIAPP(n) (KR_PCIDrvr_PCIDev + (n))
+#define KR_PCIAPP(n)      KR_APP2(1+(n))
 
 #ifndef __ASSEMBLER__
 
