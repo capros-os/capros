@@ -35,7 +35,6 @@
 #include <lwipCap.h>
 #include "../../cap.h"
 
-struct net_device;
 struct netif * gNetif;
 void __iomem * hwBaseAddr;
 unsigned int ep93xx_phyad;	// PHY address
@@ -44,8 +43,6 @@ unsigned char macAddress[6];
 // From ep93xx.c:
 int ep93xx_open(void);
 err_t low_level_output(struct netif *netif, struct pbuf *p);
-int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg);
-void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int data);
 void init_mii(void);
 
 err_t
