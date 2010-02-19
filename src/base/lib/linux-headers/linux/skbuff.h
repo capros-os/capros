@@ -134,6 +134,7 @@ struct skb_frag_struct {
  * the end of the header data, ie. at skb->end.
  */
 struct skb_shared_info {
+#if 0 // CapROS
 	atomic_t	dataref;
 	unsigned short	nr_frags;
 	unsigned short	gso_size;
@@ -143,6 +144,7 @@ struct skb_shared_info {
 	__be32          ip6_frag_id;
 	struct sk_buff	*frag_list;
 	skb_frag_t	frags[MAX_SKB_FRAGS];
+#endif // CapROS
 };
 
 /* We divide dataref into two halves.  The higher 16 bits hold references
@@ -446,6 +448,7 @@ static inline struct sk_buff *skb_get(struct sk_buff *skb)
  * atomic change.
  */
 
+#if 0 // CapROS
 /**
  *	skb_cloned - is the buffer a clone
  *	@skb: buffer to check
@@ -493,6 +496,7 @@ static inline void skb_header_release(struct sk_buff *skb)
 	skb->nohdr = 1;
 	atomic_add(1 << SKB_DATAREF_SHIFT, &skb_shinfo(skb)->dataref);
 }
+#endif // CapROS
 
 /**
  *	skb_shared - is the buffer shared
@@ -538,6 +542,7 @@ static inline struct sk_buff *skb_share_check(struct sk_buff *skb,
  *	a packet thats being forwarded.
  */
 
+#if 0 // CapROS
 /**
  *	skb_unshare - make a copy of a shared buffer
  *	@skb: buffer to check
@@ -562,6 +567,7 @@ static inline struct sk_buff *skb_unshare(struct sk_buff *skb,
 	}
 	return skb;
 }
+#endif // CapROS
 
 /**
  *	skb_peek
@@ -810,6 +816,7 @@ static inline unsigned int skb_headlen(const struct sk_buff *skb)
 	return skb->len - skb->data_len;
 }
 
+#if 0 // CapROS
 static inline int skb_pagelen(const struct sk_buff *skb)
 {
 	int i, len = 0;
@@ -829,6 +836,7 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
 	frag->size		  = size;
 	skb_shinfo(skb)->nr_frags = i + 1;
 }
+#endif // CapROS
 
 #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
 #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->frag_list)
@@ -1323,6 +1331,7 @@ static inline struct sk_buff *netdev_alloc_skb(struct net_device *dev,
 	return __netdev_alloc_skb(dev, length, GFP_ATOMIC);
 }
 
+#if 0 // CapROS
 /**
  *	skb_cow - copy header of skb when it is required
  *	@skb: buffer to cow
@@ -1348,6 +1357,7 @@ static inline int skb_cow(struct sk_buff *skb, unsigned int headroom)
 				~(NET_SKB_PAD-1), 0, GFP_ATOMIC);
 	return 0;
 }
+#endif // CapROS
 
 /**
  *	skb_padto	- pad an skbuff up to a minimal size
@@ -1388,7 +1398,6 @@ static inline int skb_add_data(struct sk_buff *skb,
 	__skb_trim(skb, off);
 	return -EFAULT;
 }
-#endif // CapROS
 
 static inline int skb_can_coalesce(struct sk_buff *skb, int i,
 				   struct page *page, int off)
@@ -1401,6 +1410,7 @@ static inline int skb_can_coalesce(struct sk_buff *skb, int i,
 	}
 	return 0;
 }
+#endif // CapROS
 
 static inline int __skb_linearize(struct sk_buff *skb)
 {
@@ -1419,6 +1429,7 @@ static inline int skb_linearize(struct sk_buff *skb)
 	return skb_is_nonlinear(skb) ? __skb_linearize(skb) : 0;
 }
 
+#if 0 // CapROS
 /**
  *	skb_linearize_cow - make sure skb is linear and writable
  *	@skb: buffer to process
@@ -1432,7 +1443,6 @@ static inline int skb_linearize_cow(struct sk_buff *skb)
 	       __skb_linearize(skb) : 0;
 }
 
-#if 0 // CapROS
 /**
  *	skb_postpull_rcsum - update checksum for received skb after pull
  *	@skb: buffer to update
@@ -1715,10 +1725,12 @@ static inline void skb_init_secmark(struct sk_buff *skb)
 { }
 #endif
 
+#if 0 // CapROS
 static inline int skb_is_gso(const struct sk_buff *skb)
 {
 	return skb_shinfo(skb)->gso_size;
 }
+#endif // CapROS
 
 static inline void skb_forward_csum(struct sk_buff *skb)
 {
