@@ -3,6 +3,7 @@
  *
  * (C) Copyright 2004 Linus Torvalds
  */
+#include <linuxk/linux-emul.h>
 #include <linux/pci.h>
 #include <linux/io.h>
 
@@ -266,9 +267,14 @@ void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen)
 	if (flags & IORESOURCE_IO)
 		return ioport_map(start, len);
 	if (flags & IORESOURCE_MEM) {
+#if 0 // CapROS
 		if (flags & IORESOURCE_CACHEABLE)
 			return ioremap(start, len);
 		return ioremap_nocache(start, len);
+#else
+		// It should already be mapped by PCIDriver_mainInit.
+		return (void __iomem *)(size_t)start;
+#endif // CapROS
 	}
 	/* What? */
 	return NULL;
@@ -276,7 +282,9 @@ void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen)
 
 void pci_iounmap(struct pci_dev *dev, void __iomem * addr)
 {
+#if 0 // CapROS - leave it mapped
 	IO_COND(addr, /* nothing */, iounmap(addr));
+#endif // CapROS
 }
 EXPORT_SYMBOL(pci_iomap);
 EXPORT_SYMBOL(pci_iounmap);

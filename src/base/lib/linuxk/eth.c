@@ -37,6 +37,7 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
+#include <linuxk/linux-emul.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -52,15 +53,18 @@
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/if_ether.h>
-#include <net/dst.h>
+//#include <net/dst.h>
 #include <net/arp.h>
+#if 0 // CapROS
 #include <net/sock.h>
 #include <net/ipv6.h>
 #include <net/ip.h>
 #include <net/dsa.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
+#endif // CapROS
 
+#if 0 // CapROS
 __setup("ether=", netdev_boot_setup);
 
 /**
@@ -328,6 +332,7 @@ const struct header_ops eth_header_ops ____cacheline_aligned = {
 	.cache		= eth_header_cache,
 	.cache_update	= eth_header_cache_update,
 };
+#endif // CapROS
 
 /**
  * ether_setup - setup Ethernet network device
@@ -336,7 +341,7 @@ const struct header_ops eth_header_ops ____cacheline_aligned = {
  */
 void ether_setup(struct net_device *dev)
 {
-	dev->header_ops		= &eth_header_ops;
+	//dev->header_ops		= &eth_header_ops;
 #ifdef CONFIG_COMPAT_NET_DEV_OPS
 	dev->change_mtu		= eth_change_mtu;
 	dev->set_mac_address 	= eth_mac_addr;
@@ -354,6 +359,7 @@ void ether_setup(struct net_device *dev)
 }
 EXPORT_SYMBOL(ether_setup);
 
+#if 0 // CapROS
 /**
  * alloc_etherdev_mq - Allocates and sets up an Ethernet device
  * @sizeof_priv: Size of additional driver-private structure to be allocated
@@ -405,3 +411,4 @@ char *print_mac(char *buf, const unsigned char *addr)
 	return buf;
 }
 EXPORT_SYMBOL(print_mac);
+#endif // CapROS

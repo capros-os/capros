@@ -43,6 +43,7 @@ OBJECTS=\
   $(BUILDDIR)/dma-mapping.o \
   $(BUILDDIR)/dmapool.o \
   $(BUILDDIR)/driverCore.o \
+  $(BUILDDIR)/eth.o \
   $(BUILDDIR)/find_next_bit.o \
   $(BUILDDIR)/ioremap.o \
   $(BUILDDIR)/klist.o \
@@ -71,6 +72,7 @@ OBJECTS=\
 
 ifeq "$(LINUX_TARGET)" "i386"
 OBJECTS+=$(BUILDDIR)/io_delay.o
+OBJECTS+=$(BUILDDIR)/iomap.o
 else
 ifeq "$(LINUX_TARGET)" "arm"
 OBJECTS+=$(BUILDDIR)/bitops.o
