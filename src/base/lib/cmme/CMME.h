@@ -1,7 +1,7 @@
 #ifndef __CMME_H
 #define __CMME_H
 /*
- * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2007-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -35,6 +35,8 @@ Approved for public release, distribution unlimited. */
 #define LK_STACK_AREA (1ul << LK_LGSTACK_AREA)	// 0x00020000
 
 #define LK_MAPS_BASE 0x00800000	// area for ioremap()
+/* N.B.: LK_MAPS_BASE must be greater than or equal to PIO_RESERVED
+ * (in linuxk/iomap.c) else the latter will get confused. */
 
 #define LK_DATA_BASE 0x00c00000 // .data, .bss, and heap, backed by a VCSK
 // Limit of memory is 0x02000000, because that is the limit of an ARM
