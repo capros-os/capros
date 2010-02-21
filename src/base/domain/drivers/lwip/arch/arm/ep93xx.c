@@ -251,26 +251,6 @@ static struct net_device_stats *ep93xx_get_stats(struct net_device *dev)
 }
 #endif
 
-static void
-printPacket(unsigned int pktLength, int entry, unsigned int maxBytesToPrint)
-{
-#define maxMaxBTP 100
-  char printBuffer[maxMaxBTP *3 + 1];
-  if (maxBytesToPrint > maxMaxBTP)
-    maxBytesToPrint = maxMaxBTP;	// take min
-  char * printCursor = &printBuffer[0];
-  unsigned int printLength = pktLength;
-  if (printLength > maxBytesToPrint)
-    printLength = maxBytesToPrint;
-  int i;
-  for (i = 0; i < printLength; i++) {
-    sprintf(printCursor, " %.2x",
-            ((uint8_t *)ep->rx_buf[entry])[i]);
-    printCursor += 3;
-  }
-  printk("%s +%dB\n", printBuffer, pktLength-printLength);
-}
-
 static void ep93xx_rx(void)
 {
 	struct ep93xx_priv * ep = &theEp;
@@ -293,11 +273,6 @@ static void ep93xx_rx(void)
 			((uint8_t *)ep->rx_buf[entry])[17]);
 
 		// Both RFP bits are on.
-		DEBUG(rx) {
-#if 1	// show input data
-		  printPacket(length, entry, 56);
-#endif
-		}
 
 		rstat->rstat0 = 0;
 		rstat->rstat1 = 0;
@@ -354,63 +329,7 @@ static void ep93xx_rx(void)
 			ep->stats.rx_dropped++;
 		}
 #else
-    char * b = ep->rx_buf[entry];	// where the data is
-    unsigned int lenType = ntohs(((struct eth_hdr *)b)->type);
-    if (lenType <= 1500		// IEEE 802.3 length field
-        || lenType == 0x86dd	/* IPv6 */ ) {
-      // We don't support such packets. Just drop it.
-    } else {
-      struct pbuf * p =  pbuf_alloc(PBUF_RAW, length, PBUF_POOL);
-      if (likely(p != NULL)) {
-        assert(p->tot_len == length);
-        struct pbuf * q;
-        for (q = p; q != NULL; b += q->len, q = q->next) {
-          memcpy(q->payload, b, q->len);
-        }
-
-        err_t errNum;
-
-        switch (lenType) {
-          /* IP or ARP packet? */
-          case ETHTYPE_IP:
-          case ETHTYPE_ARP:
-#if PPPOE_SUPPORT
-          /* PPPoE packet? */
-          case ETHTYPE_PPPOEDISC:
-          case ETHTYPE_PPPOE:
-#endif /* PPPOE_SUPPORT */
-            /* full packet send to tcpip_thread to process */
-            // Note, netif->input is ethernet_input().
-            errNum = gNetif->input(p, gNetif);
-            if (errNum != ERR_OK) {
-              // ethernet_input doesn't return errors, so this never happens.
-              DEBUG(errors) kdprintf(KR_OSTREAM,
-                                  "ethernet_input error %d\n", errNum);
-              LWIP_DEBUGF(NETIF_DEBUG,
-                      ("ethernetif_input: IP input error\n"));
-               pbuf_free(p);
-               p = NULL;
-            }
-            break;
-
-          default:
-            DEBUG(errors) {
-              printPacket(length, entry, 60);
-              kprintf(KR_OSTREAM, "Eth pkt type is %#x\n", lenType);
-                              }
-          case 0x0842:	// Wake-on-LAN magic packet, ignore it
-            pbuf_free(p);
-            p = NULL;
-            break;
-        }
-
-        LINK_STATS_INC(link.recv);
-      } else {
-      	DEBUG(errors) kdprintf(KR_OSTREAM, "Can't alloc pbuf!\n");
-      	LINK_STATS_INC(link.memerr);
-      	LINK_STATS_INC(link.drop);
-      }
-    }
+		ethInput(ep->rx_buf[entry], length);
 #endif // CapROS
 
 err:

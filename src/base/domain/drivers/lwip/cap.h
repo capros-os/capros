@@ -79,4 +79,9 @@ void UDPDestroy(struct Message * msg);
 void UDPReceive(struct Message * msg);
 void UDPSend(struct Message * msg);
 
+// From ethInput.h:
+void printPacket(uint8_t * data, unsigned int pktLength,
+  unsigned int maxBytesToPrint);
+void ethInput(void * data, unsigned int length);
+
 #endif // __ASSEMBLER__

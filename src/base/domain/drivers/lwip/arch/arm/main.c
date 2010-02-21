@@ -38,7 +38,6 @@
 struct netif * gNetif;
 void __iomem * hwBaseAddr;
 unsigned int ep93xx_phyad;	// PHY address
-unsigned char macAddress[6];
 
 // From ep93xx.c:
 int ep93xx_open(void);
@@ -49,6 +48,7 @@ err_t
 ep93xxDevInitF(struct netif * netif)
 {
   int ret;
+  unsigned char macAddress[6];
   gNetif = netif;
 
   NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd, 100000000 /* 100Mbps */);
