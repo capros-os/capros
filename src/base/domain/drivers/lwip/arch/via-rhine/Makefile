@@ -35,7 +35,9 @@ TARGETS=$(BUILDDIR)/lwip
 TARGETS+=$(BUILDDIR)/rhine_pci_ids.o
 
 OBJECTS=$(COMMON_OBJECTS)
-OBJECTS+= $(BUILDDIR)/main.o
+OBJECTS+=$(BUILDDIR)/main.o
+OBJECTS+=$(BUILDDIR)/ethInput.o
+OBJECTS+=$(BUILDDIR)/via-rhine.o
 OBJECTS+=$(CAPROS_DOMAIN)/libpcidev.a
 
 include $(EROS_SRC)/build/make/makerules.mk

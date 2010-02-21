@@ -29,7 +29,7 @@
 
 */
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -45,6 +45,19 @@
 
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
+#include <lwip/err.h>
+#include <lwip/netif.h>
+#include <netif/etharp.h>
+#include "../../cap.h"
+
+#define dbg_tx     0x1
+#define dbg_rx     0x2
+#define dbg_errors 0x4
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u | dbg_errors | dbg_tx | dbg_rx)////
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
 
 #define DRV_NAME	"via-rhine"
 #define DRV_VERSION	"1.4.3"
@@ -54,9 +67,10 @@
 /* A few user-configurable values.
    These may be modified when a driver module is loaded. */
 
-static int debug = 1;	/* 1 normal messages, 0 quiet .. 7 verbose. */
+static int debug = 7;////1;	/* 1 normal messages, 0 quiet .. 7 verbose. */
 static int max_interrupt_work = 20;
 
+#if 0 // CapROS
 /* Set the copy breakpoint for the copy-only-tiny-frames scheme.
    Setting to > 1518 effectively disables this feature. */
 #if defined(__alpha__) || defined(__arm__) || defined(__hppa__) \
@@ -66,6 +80,7 @@ static int rx_copybreak = 1518;
 #else
 static int rx_copybreak;
 #endif
+#endif // CapROS
 
 /* Work-around for broken BIOSes: they are unable to get the chip back out of
    power state D3 so PXE booting fails. bootparam(7): via-rhine.avoid_D3=1 */
@@ -117,13 +132,13 @@ static const int multicast_filter_limit = 32;
 #include <linux/delay.h>
 #include <linux/mii.h>
 #include <linux/ethtool.h>
-#include <linux/crc32.h>
+//#include <linux/crc32.h>
 #include <linux/bitops.h>
 #include <asm/processor.h>	/* Processor type for cache alignment. */
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/uaccess.h>
-#include <linux/dmi.h>
+//#include <linux/dmi.h>
 
 /* These identify the driver base version and may not be removed. */
 static const char version[] __devinitconst =
@@ -141,6 +156,7 @@ MODULE_AUTHOR("Donald Becker <becker@scyld.com>");
 MODULE_DESCRIPTION("VIA Rhine PCI Fast Ethernet driver");
 MODULE_LICENSE("GPL");
 
+#if 0 // CapROS
 module_param(max_interrupt_work, int, 0);
 module_param(debug, int, 0);
 module_param(rx_copybreak, int, 0);
@@ -149,6 +165,7 @@ MODULE_PARM_DESC(max_interrupt_work, "VIA Rhine maximum events handled per inter
 MODULE_PARM_DESC(debug, "VIA Rhine debug level (0-7)");
 MODULE_PARM_DESC(rx_copybreak, "VIA Rhine copy breakpoint for copy-only-tiny-frames");
 MODULE_PARM_DESC(avoid_D3, "Avoid power state D3 (work-around for broken BIOSes)");
+#endif // CapROS
 
 /*
 		Theory of Operation
@@ -283,6 +300,17 @@ enum rhine_quirks {
 /* Beware of PCI posted writes */
 #define IOSYNC	do { ioread8(ioaddr + StationAddr); } while (0)
 
+#if 0 // CapROS - this is moved to rhine_pci_ids.c
+static const struct pci_device_id rhine_pci_tbl[] = {
+	{ 0x1106, 0x3043, PCI_ANY_ID, PCI_ANY_ID, },	/* VT86C100A */
+	{ 0x1106, 0x3065, PCI_ANY_ID, PCI_ANY_ID, },	/* VT6102 */
+	{ 0x1106, 0x3106, PCI_ANY_ID, PCI_ANY_ID, },	/* 6105{,L,LOM} */
+	{ 0x1106, 0x3053, PCI_ANY_ID, PCI_ANY_ID, },	/* VT6105M */
+	{ }	/* terminate list */
+};
+MODULE_DEVICE_TABLE(pci, rhine_pci_tbl);
+#endif // CapROS
+
 
 /* Offsets to the device registers. */
 enum register_offsets {
@@ -381,6 +409,7 @@ struct rhine_private {
 
 	/* The addresses of receive-in-place skbuffs. */
 	struct sk_buff *rx_skbuff[RX_RING_SIZE];
+	uint8_t * rx_data;
 	dma_addr_t rx_skbuff_dma[RX_RING_SIZE];
 
 	/* The saved address of a sent-in-place packet/buffer, for later free(). */
@@ -411,20 +440,31 @@ struct rhine_private {
 
 	struct mii_if_info mii_if;
 	void __iomem *base;
-};
+} theRp, *rp = &theRp;
+
+// Statically allocate our net_device:
+struct {
+  struct net_device dev;
+  char align[NETDEV_ALIGN_CONST];	// at least big enough
+  struct rhine_private priv;
+} theNetDev;
 
 static int  mdio_read(struct net_device *dev, int phy_id, int location);
 static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
-static int  rhine_open(struct net_device *dev);
+int  rhine_open(struct net_device *dev);
+#if 0 // CapROS
 static void rhine_tx_timeout(struct net_device *dev);
 static int  rhine_start_tx(struct sk_buff *skb, struct net_device *dev);
+#endif // CapROS
 static irqreturn_t rhine_interrupt(int irq, void *dev_instance);
 static void rhine_tx(struct net_device *dev);
 static int rhine_rx(struct net_device *dev, int limit);
 static void rhine_error(struct net_device *dev, int intr_status);
 static void rhine_set_rx_mode(struct net_device *dev);
+#if 0 // CapROS
 static struct net_device_stats *rhine_get_stats(struct net_device *dev);
 static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+#endif // CapROS
 static const struct ethtool_ops netdev_ethtool_ops;
 static int  rhine_close(struct net_device *dev);
 static void rhine_shutdown (struct pci_dev *pdev);
@@ -598,7 +638,7 @@ static int rhine_napipoll(struct napi_struct *napi, int budget)
 	work_done = rhine_rx(dev, budget);
 
 	if (work_done < budget) {
-		napi_complete(napi);
+		//napi_complete(napi);
 
 		iowrite16(IntrRxDone | IntrRxErr | IntrRxEmpty| IntrRxOverflow |
 			  IntrRxDropped | IntrRxNoBuf | IntrTxAborted |
@@ -627,6 +667,7 @@ static void __devinit rhine_hw_init(struct net_device *dev, long pioaddr)
 static const struct net_device_ops rhine_netdev_ops = {
 	.ndo_open		 = rhine_open,
 	.ndo_stop		 = rhine_close,
+#if 0 // CapROS
 	.ndo_start_xmit		 = rhine_start_tx,
 	.ndo_get_stats		 = rhine_get_stats,
 	.ndo_set_multicast_list	 = rhine_set_rx_mode,
@@ -638,13 +679,16 @@ static const struct net_device_ops rhine_netdev_ops = {
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller	 = rhine_poll,
 #endif
+#endif // CapROS
 };
 
-static int __devinit rhine_init_one(struct pci_dev *pdev,
+int __devinit rhine_init_one(struct pci_dev *pdev,
 				    const struct pci_device_id *ent)
 {
 	struct net_device *dev;
+#if 0 // CapROS
 	struct rhine_private *rp;
+#endif // CapROS
 	int i, rc;
 	u32 quirks;
 	long pioaddr;
@@ -715,12 +759,17 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
 
 	pci_set_master(pdev);
 
+#if 0 // CapROS
 	dev = alloc_etherdev(sizeof(struct rhine_private));
 	if (!dev) {
 		rc = -ENOMEM;
 		printk(KERN_ERR "alloc_etherdev failed\n");
 		goto err_out;
 	}
+#else
+	dev = &theNetDev.dev;
+	ether_setup(dev);
+#endif // CapROS
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	rp = netdev_priv(dev);
@@ -729,9 +778,11 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
 	rp->pioaddr = pioaddr;
 	rp->pdev = pdev;
 
+#if 0 // CapROS
 	rc = pci_request_regions(pdev, DRV_NAME);
 	if (rc)
 		goto err_out_free_netdev;
+#endif // CapROS
 
 	ioaddr = pci_iomap(pdev, bar, io_size);
 	if (!ioaddr) {
@@ -791,18 +842,20 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
 
 	/* The chip-specific entries in the device structure. */
 	dev->netdev_ops = &rhine_netdev_ops;
-	dev->ethtool_ops = &netdev_ethtool_ops,
+	//dev->ethtool_ops = &netdev_ethtool_ops,
 	dev->watchdog_timeo = TX_TIMEOUT;
 
-	netif_napi_add(dev, &rp->napi, rhine_napipoll, 64);
+	// netif_napi_add(dev, &rp->napi, rhine_napipoll, 64);
 
 	if (rp->quirks & rqRhineI)
 		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
 
 	/* dev->name not defined before register_netdev()! */
+#if 0 // CapROS
 	rc = register_netdev(dev);
 	if (rc)
 		goto err_out_unmap;
+#endif // CapROS
 
 	printk(KERN_INFO "%s: VIA %s at 0x%lx, %pM, IRQ %d.\n",
 	       dev->name, name,
@@ -828,11 +881,13 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
 			       mii_status, rp->mii_if.advertising,
 			       mdio_read(dev, phy_id, 5));
 
+#if 0 // CapROS
 			/* set IFF_RUNNING */
 			if (mii_status & BMSR_LSTATUS)
 				netif_carrier_on(dev);
 			else
 				netif_carrier_off(dev);
+#endif // CapROS
 
 		}
 	}
@@ -846,9 +901,11 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
 err_out_unmap:
 	pci_iounmap(pdev, ioaddr);
 err_out_free_res:
+#if 0 // CapROS
 	pci_release_regions(pdev);
 err_out_free_netdev:
 	free_netdev(dev);
+#endif // CapROS
 err_out:
 	return rc;
 }
@@ -867,7 +924,11 @@ static int alloc_ring(struct net_device* dev)
 		printk(KERN_ERR "Could not allocate DMA memory.\n");
 		return -ENOMEM;
 	}
+#if 0 // CapROS
 	if (rp->quirks & rqRhineI) {
+#else
+	if (true) {
+#endif // CapROS
 		rp->tx_bufs = pci_alloc_consistent(rp->pdev,
 						   PKT_BUF_SZ * TX_RING_SIZE,
 						   &rp->tx_bufs_dma);
@@ -878,6 +939,25 @@ static int alloc_ring(struct net_device* dev)
 				    ring, ring_dma);
 			return -ENOMEM;
 		}
+#if 0 // CapROS
+#else
+		// Instead of individual skbuffs, we allocate a single
+		// area to receive data.
+		rp->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
+		rp->rx_data = pci_alloc_consistent(rp->pdev,
+					rp->rx_buf_sz * RX_RING_SIZE,
+					&rp->rx_skbuff_dma[0]);
+		if (rp->rx_data == NULL) {
+			pci_free_consistent(rp->pdev,
+				    PKT_BUF_SZ * TX_RING_SIZE,
+				    rp->tx_bufs, rp->tx_bufs_dma);
+			pci_free_consistent(rp->pdev,
+				    RX_RING_SIZE * sizeof(struct rx_desc) +
+				    TX_RING_SIZE * sizeof(struct tx_desc),
+				    ring, ring_dma);
+			return -ENOMEM;
+		}
+#endif // CapROS
 	}
 
 	rp->rx_ring = ring;
@@ -901,6 +981,12 @@ static void free_ring(struct net_device* dev)
 	if (rp->tx_bufs)
 		pci_free_consistent(rp->pdev, PKT_BUF_SZ * TX_RING_SIZE,
 				    rp->tx_bufs, rp->tx_bufs_dma);
+#if 0 // CapROS
+#else
+	pci_free_consistent(rp->pdev,
+			rp->rx_buf_sz * RX_RING_SIZE,
+			rp->rx_data, rp->rx_skbuff_dma[0]);
+#endif // CapROS
 
 	rp->tx_bufs = NULL;
 
@@ -931,6 +1017,7 @@ static void alloc_rbufs(struct net_device *dev)
 
 	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
 	for (i = 0; i < RX_RING_SIZE; i++) {
+#if 0 // CapROS
 		struct sk_buff *skb = netdev_alloc_skb(dev, rp->rx_buf_sz);
 		rp->rx_skbuff[i] = skb;
 		if (skb == NULL)
@@ -940,6 +1027,10 @@ static void alloc_rbufs(struct net_device *dev)
 		rp->rx_skbuff_dma[i] =
 			pci_map_single(rp->pdev, skb->data, rp->rx_buf_sz,
 				       PCI_DMA_FROMDEVICE);
+#else
+		rp->rx_skbuff_dma[i] =
+			rp->rx_skbuff_dma[0] + (i * rp->rx_buf_sz);
+#endif // CapROS
 
 		rp->rx_ring[i].addr = cpu_to_le32(rp->rx_skbuff_dma[i]);
 		rp->rx_ring[i].rx_status = cpu_to_le32(DescOwn);
@@ -956,6 +1047,7 @@ static void free_rbufs(struct net_device* dev)
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		rp->rx_ring[i].rx_status = 0;
 		rp->rx_ring[i].addr = cpu_to_le32(0xBADF00D0); /* An invalid address. */
+#if 0 // CapROS
 		if (rp->rx_skbuff[i]) {
 			pci_unmap_single(rp->pdev,
 					 rp->rx_skbuff_dma[i],
@@ -963,6 +1055,7 @@ static void free_rbufs(struct net_device* dev)
 			dev_kfree_skb(rp->rx_skbuff[i]);
 		}
 		rp->rx_skbuff[i] = NULL;
+#endif // CapROS
 	}
 }
 
@@ -980,7 +1073,11 @@ static void alloc_tbufs(struct net_device* dev)
 		rp->tx_ring[i].desc_length = cpu_to_le32(TXDESC);
 		next += sizeof(struct tx_desc);
 		rp->tx_ring[i].next_desc = cpu_to_le32(next);
+#if 0 // CapROS
 		if (rp->quirks & rqRhineI)
+#else
+		if (true)
+#endif // CapROS
 			rp->tx_buf[i] = &rp->tx_bufs[i * PKT_BUF_SZ];
 	}
 	rp->tx_ring[i-1].next_desc = cpu_to_le32(rp->tx_ring_dma);
@@ -997,6 +1094,7 @@ static void free_tbufs(struct net_device* dev)
 		rp->tx_ring[i].desc_length = cpu_to_le32(TXDESC);
 		rp->tx_ring[i].addr = cpu_to_le32(0xBADF00D0); /* An invalid address. */
 		if (rp->tx_skbuff[i]) {
+#if 0 // CapROS
 			if (rp->tx_skbuff_dma[i]) {
 				pci_unmap_single(rp->pdev,
 						 rp->tx_skbuff_dma[i],
@@ -1004,6 +1102,9 @@ static void free_tbufs(struct net_device* dev)
 						 PCI_DMA_TODEVICE);
 			}
 			dev_kfree_skb(rp->tx_skbuff[i]);
+#else
+			BUG();
+#endif // CapROS
 		}
 		rp->tx_skbuff[i] = NULL;
 		rp->tx_buf[i] = NULL;
@@ -1015,7 +1116,9 @@ static void rhine_check_media(struct net_device *dev, unsigned int init_media)
 	struct rhine_private *rp = netdev_priv(dev);
 	void __iomem *ioaddr = rp->base;
 
+#if 0 // CapROS
 	mii_check_media(&rp->mii_if, debug, init_media);
+#endif // CapROS
 
 	if (rp->mii_if.full_duplex)
 	    iowrite8(ioread8(ioaddr + ChipCmd1) | Cmd1FDuplex,
@@ -1028,6 +1131,7 @@ static void rhine_check_media(struct net_device *dev, unsigned int init_media)
 			rp->mii_if.force_media, netif_carrier_ok(dev));
 }
 
+#if 0 // CapROS
 /* Called after status of force_media possibly changed */
 static void rhine_set_carrier(struct mii_if_info *mii)
 {
@@ -1043,6 +1147,7 @@ static void rhine_set_carrier(struct mii_if_info *mii)
 		       mii->dev->name, mii->force_media,
 		       netif_carrier_ok(mii->dev));
 }
+#endif // CapROS
 
 static void init_registers(struct net_device *dev)
 {
@@ -1065,7 +1170,7 @@ static void init_registers(struct net_device *dev)
 
 	rhine_set_rx_mode(dev);
 
-	napi_enable(&rp->napi);
+	//napi_enable(&rp->napi);
 
 	/* Enable interrupts by setting the interrupt mask. */
 	iowrite16(IntrRxDone | IntrRxErr | IntrRxEmpty| IntrRxOverflow |
@@ -1152,7 +1257,7 @@ static void mdio_write(struct net_device *dev, int phy_id, int regnum, int value
 	rhine_enable_linkmon(ioaddr);
 }
 
-static int rhine_open(struct net_device *dev)
+int rhine_open(struct net_device *dev)
 {
 	struct rhine_private *rp = netdev_priv(dev);
 	void __iomem *ioaddr = rp->base;
@@ -1182,11 +1287,14 @@ static int rhine_open(struct net_device *dev)
 		       dev->name, ioread16(ioaddr + ChipCmd),
 		       mdio_read(dev, rp->mii_if.phy_id, MII_BMSR));
 
+#if 0 // CapROS
 	netif_start_queue(dev);
+#endif // CapROS
 
 	return 0;
 }
 
+#if 0 // CapROS
 static void rhine_tx_timeout(struct net_device *dev)
 {
 	struct rhine_private *rp = netdev_priv(dev);
@@ -1200,7 +1308,7 @@ static void rhine_tx_timeout(struct net_device *dev)
 	/* protect against concurrent rx interrupts */
 	disable_irq(rp->pdev->irq);
 
-	napi_disable(&rp->napi);
+	//napi_disable(&rp->napi);
 
 	spin_lock(&rp->lock);
 
@@ -1297,6 +1405,59 @@ static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
 	}
 	return 0;
 }
+#endif // CapROS
+
+/* low_level_output starts the transmission of a packet in a (possibly chained)
+ * pbuf. */
+err_t
+low_level_output(struct netif *netif, struct pbuf *p)
+{
+  assert(netif->mtu + sizeof(struct eth_hdr) <= PKT_BUF_SZ);
+
+  if (rp->cur_tx == rp->dirty_tx + TX_QUEUE_LEN)	// queue is full
+    return ERR_MEM;
+
+  unsigned int entry = rp->cur_tx % TX_RING_SIZE;
+  uint8_t * data = rp->tx_buf[entry];
+
+  ethOutput(netif, p, data);
+
+  unsigned int pktlen = p->tot_len;
+
+  if (pktlen < ETH_ZLEN) {
+    // Need to pad the packet to the minimum size.
+    memset(data + pktlen, 0, ETH_ZLEN - pktlen);
+    pktlen = ETH_ZLEN;
+  }
+
+  rp->tx_skbuff_dma[entry] = 0;
+  rp->tx_ring[entry].addr = cpu_to_le32(rp->tx_bufs_dma +
+  				      (rp->tx_buf[entry] -
+  				       rp->tx_bufs));
+
+  rp->tx_ring[entry].desc_length = cpu_to_le32(TXDESC | pktlen);
+
+	/* lock eth irq */
+	spin_lock_irq(&rp->lock);
+	wmb();
+	rp->tx_ring[entry].tx_status = cpu_to_le32(DescOwn);
+	wmb();
+
+	rp->cur_tx++;
+
+	/* Non-x86 Todo: explicitly flush cache lines here. */
+
+	void __iomem *ioaddr = rp->base;
+	/* Wake the potentially-idle transmit channel */
+	iowrite8(ioread8(ioaddr + ChipCmd1) | Cmd1TxDemand,
+	       ioaddr + ChipCmd1);
+	IOSYNC;
+
+	spin_unlock_irq(&rp->lock);
+
+  DEBUG(tx) kprintf(KR_OSTREAM, "low_level_output: exit\n");
+  return ERR_OK;
+}
 
 /* The interrupt handler does all of the Rx thread work and cleans up
    after the Tx thread. */
@@ -1329,7 +1490,11 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance)
 				  IntrPCIErr | IntrStatsMax | IntrLinkChange,
 				  ioaddr + IntrEnable);
 
+#if 0 // CapROS
 			napi_schedule(&rp->napi);
+#else
+			(void) rhine_napipoll(&rp->napi, 63000);
+#endif // CapROS
 		}
 
 		if (intr_status & (IntrTxErrSummary | IntrTxDone)) {
@@ -1408,9 +1573,10 @@ static void rhine_tx(struct net_device *dev)
 				printk(KERN_DEBUG "collisions: %1.1x:%1.1x\n",
 				       (txstatus >> 3) & 0xF,
 				       txstatus & 0xF);
-			rp->stats.tx_bytes += rp->tx_skbuff[entry]->len;
+			//rp->stats.tx_bytes += rp->tx_skbuff[entry]->len;
 			rp->stats.tx_packets++;
 		}
+#if 0 // CapROS
 		/* Free the original skb. */
 		if (rp->tx_skbuff_dma[entry]) {
 			pci_unmap_single(rp->pdev,
@@ -1419,11 +1585,14 @@ static void rhine_tx(struct net_device *dev)
 					 PCI_DMA_TODEVICE);
 		}
 		dev_kfree_skb_irq(rp->tx_skbuff[entry]);
+#endif // CapROS
 		rp->tx_skbuff[entry] = NULL;
 		entry = (++rp->dirty_tx) % TX_RING_SIZE;
 	}
+#if 0 // CapROS
 	if ((rp->cur_tx - rp->dirty_tx) < TX_QUEUE_LEN - 4)
 		netif_wake_queue(dev);
+#endif // CapROS
 
 	spin_unlock(&rp->lock);
 }
@@ -1483,10 +1652,11 @@ static int rhine_rx(struct net_device *dev, int limit)
 				}
 			}
 		} else {
-			struct sk_buff *skb;
+			//struct sk_buff *skb;
 			/* Length should omit the CRC */
 			int pkt_len = data_size - 4;
 
+#if 0 // CapROS
 			/* Check if the packet is long enough to accept without
 			   copying to a minimally-sized skbuff. */
 			if (pkt_len < rx_copybreak &&
@@ -1522,6 +1692,9 @@ static int rhine_rx(struct net_device *dev, int limit)
 			}
 			skb->protocol = eth_type_trans(skb, dev);
 			netif_receive_skb(skb);
+#else
+			ethInput(rp->rx_data + entry * rp->rx_buf_sz, pkt_len);
+#endif // CapROS
 			rp->stats.rx_bytes += pkt_len;
 			rp->stats.rx_packets++;
 		}
@@ -1531,6 +1704,7 @@ static int rhine_rx(struct net_device *dev, int limit)
 
 	/* Refill the Rx ring buffers. */
 	for (; rp->cur_rx - rp->dirty_rx > 0; rp->dirty_rx++) {
+#if 0 // CapROS
 		struct sk_buff *skb;
 		entry = rp->dirty_rx % RX_RING_SIZE;
 		if (rp->rx_skbuff[entry] == NULL) {
@@ -1545,6 +1719,7 @@ static int rhine_rx(struct net_device *dev, int limit)
 					       PCI_DMA_FROMDEVICE);
 			rp->rx_ring[entry].addr = cpu_to_le32(rp->rx_skbuff_dma[entry]);
 		}
+#endif // CapROS
 		rp->rx_ring[entry].rx_status = cpu_to_le32(DescOwn);
 	}
 
@@ -1656,6 +1831,7 @@ static void rhine_error(struct net_device *dev, int intr_status)
 	spin_unlock(&rp->lock);
 }
 
+#if 0 // CapROS
 static struct net_device_stats *rhine_get_stats(struct net_device *dev)
 {
 	struct rhine_private *rp = netdev_priv(dev);
@@ -1670,6 +1846,7 @@ static struct net_device_stats *rhine_get_stats(struct net_device *dev)
 
 	return &rp->stats;
 }
+#endif // CapROS
 
 static void rhine_set_rx_mode(struct net_device *dev)
 {
@@ -1694,9 +1871,13 @@ static void rhine_set_rx_mode(struct net_device *dev)
 		memset(mc_filter, 0, sizeof(mc_filter));
 		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
 		     i++, mclist = mclist->next) {
+#if 0 // CapROS
 			int bit_nr = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
 
 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
+#else
+			BUG();	// not implemented (no ether_crc)
+#endif // CapROS
 		}
 		iowrite32(mc_filter[0], ioaddr + MulticastFilter0);
 		iowrite32(mc_filter[1], ioaddr + MulticastFilter1);
@@ -1705,6 +1886,7 @@ static void rhine_set_rx_mode(struct net_device *dev)
 	iowrite8(rp->rx_thresh | rx_mode, ioaddr + RxConfig);
 }
 
+#if 0 // CapROS - no ethtool stuff
 static void netdev_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
 {
 	struct rhine_private *rp = netdev_priv(dev);
@@ -1823,6 +2005,7 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 	return rc;
 }
+#endif // CapROS
 
 static int rhine_close(struct net_device *dev)
 {
@@ -1832,7 +2015,7 @@ static int rhine_close(struct net_device *dev)
 	spin_lock_irq(&rp->lock);
 
 	netif_stop_queue(dev);
-	napi_disable(&rp->napi);
+	//napi_disable(&rp->napi);
 
 	if (debug > 1)
 		printk(KERN_DEBUG "%s: Shutting down ethercard, "
@@ -1864,12 +2047,16 @@ static void __devexit rhine_remove_one(struct pci_dev *pdev)
 	struct net_device *dev = pci_get_drvdata(pdev);
 	struct rhine_private *rp = netdev_priv(dev);
 
+#if 0 // CapROS
 	unregister_netdev(dev);
+#endif // CapROS
 
 	pci_iounmap(pdev, rp->base);
+#if 0 // CapROS
 	pci_release_regions(pdev);
 
 	free_netdev(dev);
+#endif // CapROS
 	pci_disable_device(pdev);
 	pci_set_drvdata(pdev, NULL);
 }
@@ -1982,9 +2169,11 @@ static int rhine_resume(struct pci_dev *pdev)
 }
 #endif /* CONFIG_PM */
 
-static struct pci_driver rhine_driver = {
+struct pci_driver rhine_driver = {
 	.name		= DRV_NAME,
-	.id_table	= NULL////rhine_pci_tbl,
+#if 0 // CapROS
+	.id_table	= rhine_pci_tbl,
+#endif // CapROS
 	.probe		= rhine_init_one,
 	.remove		= __devexit_p(rhine_remove_one),
 #ifdef CONFIG_PM
@@ -1994,6 +2183,7 @@ static struct pci_driver rhine_driver = {
 	.shutdown =	rhine_shutdown,
 };
 
+#if 0 // CapROS
 static struct dmi_system_id __initdata rhine_dmi_table[] = {
 	{
 		.ident = "EPIA-M",
@@ -2040,3 +2230,4 @@ static void __exit rhine_cleanup(void)
 
 module_init(rhine_init);
 module_exit(rhine_cleanup);
+#endif // CapROS
