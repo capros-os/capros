@@ -392,50 +392,17 @@ poll_some_more:
 err_t
 low_level_output(struct netif *netif, struct pbuf *p)
 {
-  // mtu is the max payload size. It does not include the Ethernet header.
-  assert(p->tot_len <= netif->mtu + sizeof(struct eth_hdr));
   assert(netif->mtu + sizeof(struct eth_hdr) <= MAX_PKT_SIZE);
-
-  /* We are forced to copy the data here, because the data may be
-  deallocated as soon as we return.
-  lwIP provides no mechanism to defer the deallocation. */
 
   if (ep->tx_pending >= TX_QUEUE_ENTRIES)
     // There are no buffers available.
     return ERR_MEM;
 
-#if ETH_PAD_SIZE
-  pbuf_header(p, -ETH_PAD_SIZE); /* drop the padding word */
-#endif
-
   struct ep93xx_priv * ep = &theEp;
   int entry = ep->tx_pointer;
-  uint8_t * bp = ep->tx_buf[entry];
 
-  struct pbuf * q = p;
-  while (1) {
-    int len = q->len;	// The size of the data in the pbuf
+  ethOutput(netif, p, ep->tx_buf[entry]);
 
-    DEBUG(tx) kprintf(KR_OSTREAM,
-                 "Sending pbuf %#x payload %#x len %d entry %d\n",
-		 q, q->payload, len, entry);
-
-    memcpy(bp, q->payload, len);
-    bp += len;
-
-    if (q->tot_len == len)
-      break;	// last pbuf of the packet
-    q = q->next;
-  }
-
-  DEBUG(tx) {
-#if 1	// show all output data
-    int i;
-    for (i = 0; i < (p->tot_len & 0xfff); i++)
-      printk(" %.2x", ((uint8_t *)ep->tx_buf[entry])[i]);
-    printk("\n");
-#endif
-  }
   ep->descs->tdesc[entry].tdesc1 = TDESC1_EOF
     	| (entry << 16) | (p->tot_len & 0xfff);
 
@@ -443,12 +410,6 @@ low_level_output(struct netif *netif, struct pbuf *p)
   ep->tx_pending++;
 
   wrl(ep, REG_TXDENQ, 1);	// add 1 to number of descrs in queue
-
-#if ETH_PAD_SIZE
-  pbuf_header(p, ETH_PAD_SIZE); /* reclaim the padding word */
-#endif
-  
-  LINK_STATS_INC(link.xmit);
 
   return ERR_OK;
 }

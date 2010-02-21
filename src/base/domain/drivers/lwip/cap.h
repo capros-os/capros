@@ -83,5 +83,6 @@ void UDPSend(struct Message * msg);
 void printPacket(uint8_t * data, unsigned int pktLength,
   unsigned int maxBytesToPrint);
 void ethInput(void * data, unsigned int length);
+void ethOutput(struct netif *netif, struct pbuf *p, uint8_t * data);
 
 #endif // __ASSEMBLER__
