@@ -48,6 +48,8 @@
 #include <lwip/err.h>
 #include <lwip/netif.h>
 #include <netif/etharp.h>
+#include <idl/capros/IPInt.h>
+#include <lwipCap.h>
 #include "../../cap.h"
 
 #define dbg_tx     0x1
@@ -1459,11 +1461,23 @@ low_level_output(struct netif *netif, struct pbuf *p)
   return ERR_OK;
 }
 
+static uint32_t rhine_do_interrupt(uint32_t dev_instance);
+
 /* The interrupt handler does all of the Rx thread work and cleans up
    after the Tx thread. */
 static irqreturn_t rhine_interrupt(int irq, void *dev_instance)
 {
-	struct net_device *dev = dev_instance;
+  /* For concurrency control, do interrupt work in the main thread. */
+  uint32_t ret;
+  capros_IPInt_processInterrupt(KR_DeviceEntry,
+                (uint32_t)&rhine_do_interrupt, (uint32_t)dev_instance, &ret);
+  return ret;
+}
+
+static uint32_t
+rhine_do_interrupt(uint32_t dev_instance)
+{
+	struct net_device *dev = (void *)dev_instance;
 	struct rhine_private *rp = netdev_priv(dev);
 	void __iomem *ioaddr = rp->base;
 	u32 intr_status;
