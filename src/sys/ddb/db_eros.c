@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -100,7 +100,7 @@ db_print_node_key(Key * key, const char * name)
   if (keyBits_IsPreparedObjectKey(key)) {
     ObjectHeader * pObj = key->u.ok.pObj;
     
-    db_printf(" 0x%08x objh=%#x (oid=%#llx)\n",
+    db_printf(" 0x%08x node=%#x (oid=%#llx)\n",
 		pWKey[3], pObj, pObj->oid);
   } else {
     db_printf(" 0x%08x cnt=%#x oid=%#llx\n",
