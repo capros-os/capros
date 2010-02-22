@@ -466,7 +466,7 @@ static void ep93xx_tx_complete(void)
 	}
 }
 
-static void
+static uint32_t
 ep93xx_do_irq(u32 status)
 {
 	DEBUG(tx) printk("ep93xx_do_irq: status=%#x\n", status);
@@ -476,6 +476,8 @@ ep93xx_do_irq(u32 status)
 
 	if (status & REG_INTSTS_TX)
 		ep93xx_tx_complete();
+
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t ep93xx_irq(int irq, void *dev_id)
@@ -499,14 +501,17 @@ static irqreturn_t ep93xx_irq(int irq, void *dev_id)
 
 	if (status & REG_INTSTS_TX)
 		ep93xx_tx_complete(dev);
+
+	return IRQ_HANDLED;
 #else
 	/* For concurrency control, do interrupt work in the main thread. */
 	/* An alternative design would be to use a semaphore. */
+	uint32_t ret;
 	capros_IPInt_processInterrupt(KR_DeviceEntry,
-				(uint32_t)&ep93xx_do_irq, status);
-#endif // CapROS
+				(uint32_t)&ep93xx_do_irq, status, &ret);
 
-	return IRQ_HANDLED;
+	return ret;
+#endif // CapROS
 }
 
 static void ep93xx_free_buffers(struct ep93xx_priv *ep)

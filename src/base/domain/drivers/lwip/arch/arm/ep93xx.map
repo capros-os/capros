@@ -43,12 +43,6 @@ BOOT_DOMCRE(eth);
 ethConstit = new node;	// shared by all instances
 ethConstit[KC_VOLSIZE] = volsize;
 
-#define fourByteVal(a,b,c,d) ((((a)*256+(b))*256+(c))*256+(d))
-
-/* Define target-specific resources. */
-
-#if defined(EROS_TARGET_arm)
-
 /*********************************************
  * ARM EP93xx Ethernet driver.
  *********************************************/
@@ -56,13 +50,6 @@ ethConstit[KC_VOLSIZE] = volsize;
 #define AHB_PA 0x80000000
 #define ethPhysreg (AHB_PA + EMAC_AHB_OFS)
 #define ethpg(i) ethle_iomem[1+(i)] = physpage(ethPhysreg+(i)*EROS_PAGE_SIZE);
-
-/* Usage:
-ETH_DRIVER(fourByteVal(192,168,0,38),	// IP address
-           fourByteVal(255,255,255,0),	// mask
-           fourByteVal(192,168,0,1)	// gateway
-           );
-*/
 
 // ethle_iomem gets 16 pages of device registers.
 #define ETH_DRIVER(ip,mask,gw) \
@@ -90,10 +77,15 @@ ethpg(15) \
 ethle[LE_IOMEM] = ethle_iomem; \
 ethKey = eth;
 
-#elif defined(EROS_TARGET_i486)
-
-#else
-#error "Unknown target"
+/* config/eth.map must define a driver and its configuration.
+For example: */
+#if 0
+#define fourByteVal(a,b,c,d) ((((a)*256+(b))*256+(c))*256+(d))
+ETH_DRIVER(fourByteVal(192,168,0,38),	// IP address
+           fourByteVal(255,255,255,0),	// mask
+           fourByteVal(192,168,0,1)	// gateway
+           );
 #endif
+#include <config/eth.map>
 
 #endif
