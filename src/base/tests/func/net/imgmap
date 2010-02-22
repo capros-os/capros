@@ -1,6 +1,6 @@
 /* -*- C -*- */
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -29,6 +29,13 @@ Approved for public release, distribution unlimited. */
 #include <supernode.map>
 #include <vcs.map>
 
+#if defined(EROS_TARGET_arm)
+#include <drivers/lwip/arm/lwip.map>
+#elif defined(EROS_TARGET_i486)
+#include <drivers/lwip/via-rhine/lwip.map>
+#include <drivers/pciregistry.map>
+#endif
+
 /*
  * Test domain
  */ 
@@ -37,6 +44,7 @@ test = new process;
 test pc = symbol BUILDDIR "test" _start;
 seg = small program BUILDDIR "test";
 seg = seg with page at 0x1f000; /* for stack */
+seg[0x1e] = new page;
 test space = seg;
 test schedule = sched(8);   /* normal */
 test symtab = number("test");
@@ -55,10 +63,3 @@ run test;
 #define ip_notifyee start test 0
 
 #include <nplink.map>
-#include <drivers/lwip.map>
-
-// Get local ethernet configuration, which is of the form:
-// ETH_DRIVER(...);
-#include <config/eth.map>
-
-//print directory;

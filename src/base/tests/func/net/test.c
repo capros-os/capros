@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -130,6 +130,9 @@ main(void)
 
   RETURN(&Msg);
   assert(Msg.rcv_code == OC_capros_NPLinkee_registerNPCap);
+
+  kprintf(KR_OSTREAM, "Received IP cap.\n");
+
   // Reply to NPLink:
   Msg.snd_invKey = KR_RETURN;
   SEND(&Msg);
@@ -158,15 +161,18 @@ main(void)
     break;
   }
 
+  kprintf(KR_OSTREAM, "Connected.\n");
+
   result = capros_key_getType(KR_TCPSocket, &theType);
   ckOK
   assert(theType == IKT_capros_TCPSocket);
 
-  kprintf(KR_OSTREAM, "Connected.\n");
+  kprintf(KR_OSTREAM, "Got IKT.\n");
 
+  uint8_t r[capros_TCPSocket_maxReceiveLength + 1];
   result = capros_TCPSocket_receive(KR_TCPSocket,
              capros_TCPSocket_maxReceiveLength + 1,
-             0, 0, NULL);
+             0, 0, &r[0]);
   assert(result == RC_capros_key_RequestError);
 
   uint8_t m[] = "Test message";
@@ -212,7 +218,6 @@ main(void)
 			sizeof(m), &m[0]);
   ckOK
 
-  uint8_t r[sizeof(m)];
   uint32_t lenRecvd;
   kprintf(KR_OSTREAM, "UDP receive.\n");
   uint32_t sourceIPAddr;
