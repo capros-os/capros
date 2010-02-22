@@ -1529,8 +1529,8 @@ cap_main(struct IPConfigv4 * ipconf)
   
       case OC_capros_IPInt_processInterrupt: ;
         // Call the specified function in this thread:
-        void (*fcn)(uint32_t status) = (void (*)(uint32_t)) Msg.rcv_w1;
-        (*fcn)(Msg.rcv_w2);
+        uint32_t (*fcn)(uint32_t status) = (uint32_t (*)(uint32_t)) Msg.rcv_w1;
+        Msg.snd_w1 = (*fcn)(Msg.rcv_w2);
         break;
       }
       break;

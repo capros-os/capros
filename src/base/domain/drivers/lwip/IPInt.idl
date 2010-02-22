@@ -3,5 +3,5 @@ package capros;
 /* The internal capability by which the interrupt handler calls the
 main IP thread. */
 interface IPInt extends key {
-  void processInterrupt(unsigned long fcn, unsigned long arg);
+  unsigned long processInterrupt(unsigned long fcn, unsigned long arg);
 };
