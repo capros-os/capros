@@ -44,7 +44,7 @@ BOOTDIR=/tftpboot
 ARM_SYS=/tftpboot/capros-kernel
 
 ifndef NPRANGESIZE
-NPRANGESIZE=310
+NPRANGESIZE=400
 endif
 
 ifndef PRANGESIZE
