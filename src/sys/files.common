@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2006-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -62,6 +62,7 @@ file("kernel/kern_Migr.c")
 file("kernel/kern_LogStream.c")
 file("kernel/kern_printf.c")
 file("kernel/kern_KernStream.c")
+file("kernel/kern_SerialStream.c")
 file("disk/dsk_DivName.c")
 file("disk/dsk_Guard.c")
 #file("ckpt/ck_CoreDir.cxx")

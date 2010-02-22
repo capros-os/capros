@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -52,7 +52,7 @@ extern struct KernStream TheSerialStream;
 
 
 void
-SerialStream_Init()
+SerialStream_MachInit(void)
 {
   /* Initialize COM port */
 
@@ -98,6 +98,22 @@ SerialStream_Init()
   outb(0x08, MCR);
 }
 
+void
+SerialStream_RawOutput(uint8_t c)
+{
+  
+  /* Bit 5 (transmit buffer empty) of LSR (line status register)
+     is 1 if the transmit buffer is ready for a new byte. */
+  while ((inb(LSR) & 0x20) == 0) {
+    /* wait for the serial port to be ready . . . maybe we should
+       run faster than 9600 baud :p */
+  }
+  outb(c, TX);
+
+  return;
+}
+
+#ifdef OPTION_DDB
 uint8_t
 SerialStream_Get(void)
 {
@@ -112,22 +128,6 @@ SerialStream_Get(void)
 
   return c;
 }
-
-void
-SerialStream_Put(uint8_t c)
-{
-  
-  /* Bit 5 (transmit buffer empty) of LSR (line status register)
-     is 1 if the transmit buffer is ready for a new byte. */
-  while ((inb(LSR) & 0x20) == 0) {
-    /* wait for the serial port to be ready . . . maybe we should
-       run faster than 9600 baud :p */
-  }
-  outb(c, TX);
-
-  return;
-}
-
 
 void
 SerialStream_SetDebugging(bool onOff)
@@ -175,14 +175,4 @@ SerialStream_EnableDebuggerInput(void)
    * the interrupt vectors are set up in the boot sequence... */
   irq_Enable(COMIRQ);
 }
-
-struct KernStream TheSerialStream = {
-  SerialStream_Init,
-  SerialStream_Put
-#ifdef OPTION_DDB
-  ,
-  SerialStream_Get,
-  SerialStream_SetDebugging,
-  SerialStream_EnableDebuggerInput
-#endif /*OPTION_DDB*/
-};
+#endif // OPTION_DDB

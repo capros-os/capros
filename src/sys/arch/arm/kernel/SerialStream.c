@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -35,13 +35,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #define VIC2 (VIC2Struct(AHB_VA + VIC2_AHB_OFS))
 #define UART1 (UARTStruct(APB_VA + UART1_APB_OFS))
 #define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))
-
-#define WRAP_LINES
-#ifdef WRAP_LINES
-unsigned int curCol;	// column where the cursor is at, 0 == first column
-#define MaxColumns 80
-#define TABSTOP 8
-#endif
 
 static void setInterruptEnable(void);
 static void unbufferedOutput(uint8_t c);
@@ -162,24 +155,11 @@ outputBufferedChar(void)
   outBufOutP = p;
 }
 
-INLINE void
-RawOutput(uint8_t c)
+void
+SerialStream_RawOutput(uint8_t c)
 {
   (*outputProc)(c);
 }
-
-#ifdef WRAP_LINES
-static void
-SpacingChar(void)
-{
-  if (curCol >= MaxColumns) {
-    curCol = 0;
-    RawOutput(CR);
-    RawOutput(LF);
-  }
-  curCol++;
-}
-#endif
 
 void
 SerialStream_Flush(void)
@@ -188,7 +168,7 @@ SerialStream_Flush(void)
 }
 
 void
-SerialStream_Init(void)
+SerialStream_MachInit(void)
 {
   SerialStream_Flush();
 
@@ -209,40 +189,6 @@ SerialStream_Init(void)
   { int i;
     for (i = 55; i > 0; i--) ;
   }
-
-#ifdef WRAP_LINES
-  curCol = 0;
-#endif
-}
-
-void
-SerialStream_Put(uint8_t c)
-{
-#ifdef WRAP_LINES
-  if (kstream_IsPrint(c)) {
-    SpacingChar();
-  }
-  else {
-    /* Handle the non-printing characters: */
-    switch (c) {
-    case BS:
-      if (curCol)
-	curCol--;
-      break;
-    case TAB:
-      SpacingChar();
-      while (curCol % TABSTOP)
-        SpacingChar();
-      break;
-    case CR:
-      curCol = 0;
-      break;
-    default:
-      break;
-    }
-  }
-#endif
-  RawOutput(c);
 }
 
 #ifdef OPTION_DDB
@@ -296,14 +242,3 @@ SerialStream_EnableDebuggerInput(void)
   InterruptSourceEnable(VIC_Source_INT_UART1);
 }
 #endif
-
-struct KernStream TheSerialStream = {
-  SerialStream_Init,
-  SerialStream_Put
-#ifdef OPTION_DDB
-  ,
-  SerialStream_Get,
-  SerialStream_SetDebugging,
-  SerialStream_EnableDebuggerInput
-#endif /*OPTION_DDB*/
-};
