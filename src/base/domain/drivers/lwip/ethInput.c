@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_tx     0x04
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_errors | dbg_rx | dbg_tx )////
+#define dbg_flags   ( 0u | dbg_errors )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
