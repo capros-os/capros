@@ -1,6 +1,6 @@
 /* -*- C -*- */
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,9 +32,6 @@ Approved for public release, distribution unlimited. */
 #include <drivers/usbregistry.map>
 
 #if defined(EROS_TARGET_arm)
-#include <drivers/lwip.map>
+#include <drivers/lwip/arm/lwip.map>
 
-// Get local ethernet configuration, which is of the form:
-// ETH_DRIVER(...);
-#include <config/eth.map>
 #endif
