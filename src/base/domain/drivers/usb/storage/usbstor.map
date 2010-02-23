@@ -1,7 +1,7 @@
 #ifndef __USBSTOR_MAP_
 #define __USBSTOR_MAP_
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -23,11 +23,6 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-//#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
-//#include <linuxk/lsync.h>
-//#include <eros/machine/target-asm.h>
-//#include <eros/Reserve.h>
-//#include <asm/thread_info.h>
 #include <drivers/scsi.map>
 #include <drivers/dyndriver.map>
 #define KC_SCSICONTROL KC_APP2(0)	// from usb/storage/usb.h
@@ -40,5 +35,6 @@ Approved for public release, distribution unlimited. */
 
 DYNDRIVER_CONSTRUCTOR(usbstor, drivers/usbstorage, "usbstor", 0)
 PROD_CONSTIT(usbstor_c, , KC_SCSICONTROL) = scsi;
+#define usbstor_cReq usbstor_cRequestor
 
 #endif // __USBSTOR_MAP_

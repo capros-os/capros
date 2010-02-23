@@ -1,7 +1,7 @@
 #ifndef __DS2490_MAP_
 #define __DS2490_MAP_
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -32,5 +32,6 @@ Approved for public release, distribution unlimited. */
 DYNDRIVER_CONSTRUCTOR(ds2490, drivers/ds2490, "ds2490", 0)
 PROD_CONSTIT(ds2490_c, , KC_APP2(0)) = volsize;
 PROD_CONSTIT(ds2490_c, , KC_APP2(1)) = misc SysTrace;
+#define ds2490_cReq ds2490_cRequestor
 
 #endif // __DS2490_MAP_

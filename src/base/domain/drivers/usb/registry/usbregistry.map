@@ -21,9 +21,10 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <drivers/usbhcd.map>
-#include <drivers/usbstor.map>
-#include <drivers/ds2490.map>
+/* Include any of these *before* this file:
+   #include <drivers/usbstor.map>
+   #include <drivers/ds2490.map>
+*/
 
 /*********************************************
  * USB Registry
@@ -39,8 +40,12 @@ usbregistryProc schedule = sched(8);
 usbregistryProc symtab = number("usbregistry");
 
 usbregSnode = new node;
-usbregSnode[0] = usbstor_cRequestor;
-usbregSnode[1] = ds2490_cRequestor;
+#ifdef usbstor_cReq
+usbregSnode[0] = usbstor_cReq;
+#endif
+#ifdef ds2490_cReq
+usbregSnode[1] = ds2490_cReq;
+#endif
 
 usbregistryProc key reg KR_BANK = primebank;
 usbregistryProc key reg KR_SCHED = sched(8);

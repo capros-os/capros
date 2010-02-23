@@ -1,6 +1,6 @@
 /* -*- C -*- */
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -29,4 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <supernode.map>
 #include <vcs.map>
 
+#include <drivers/usbhcd.map>
+#include <drivers/usbstor.map>
+#include <drivers/ds2490.map>
 #include <drivers/usbregistry.map>
