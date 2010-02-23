@@ -127,6 +127,6 @@ CreateMigratorActivity(void)
   CreateKernelThread("Ckpt", capros_SchedC_Priority_Max, &CheckpointThread,
                      &checkpointActivity);
 
-  printf("Created checkpoint thread at %#x\n", act_GetProcess(checkpointActivity));
+  printf("Created checkpoint process at %#x\n", act_GetProcess(checkpointActivity));
 }
 
