@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2008-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -174,6 +174,7 @@ driver_main(void)
         }
 	device_initialize(parentDev);
 	parentDev->coherent_dma_mask = capros_hostt->coherentDMAMask;
+        parentDev->dma_mask = &parentDev->coherent_dma_mask;
 
         // The SCSIDevice cap will be stored in the keystore.
         const capros_Node_extAddr_t devCapSlot = SCSIDevCapSlot(shost);
