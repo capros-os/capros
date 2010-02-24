@@ -280,7 +280,11 @@ dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
 	}
 
 	if (!is_device_dma_capable(dev))
+	{
+		printk("dma_alloc_coherent: dev=%#x not DMA capable\n", dev);
+		BUG();		// so we can investigate
 		return NULL;
+	}
 
 	if (!ops->alloc_coherent)
 		return NULL;
