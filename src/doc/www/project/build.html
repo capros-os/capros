@@ -250,18 +250,17 @@ kernel --type=multiboot /CapROS-kernimg
             with these commands. 
 	  </p>
 	  <h2>2.5. Running a persistent test program</h2>
-	  <p>
-            You cannot currently run a persistent system on IA32,
-            because that platform does not yet have a disk driver.
-            When it does, these instructions will apply
-            (and they apply now to the ARM system).
-	  </p>
 	  <p> 
             CapROS supports USB disks.
             You must have a disk with a partition formatted for CapROS. 
 	    Use your handy
 	    <tt>fdisk</tt> equivalent to create a partition, and give it
 	    type 0x95.
+	  </p>
+	  <p>
+            We suggest that the partition size be several times the
+            size of your RAM (for the checkpoint log)
+            plus however much space you expect to need for application data.
 	  </p>
 	  <p>
             Before using the CapROS partition for the first time,
@@ -283,6 +282,13 @@ export EROS_HD=/dev/sdb1
 </pre>
 	  </ul>
 	  <p>
+            You can create your own volmap file to allocate the log
+            and other space. Use tutorials/volmap as a starting point.
+            Note that only the amount of space specified in the
+            volmap file will be used. Any additional space in the
+            partition will be ignored.
+	  </p>
+	  <p>
             Then format the partition. You only need to do this once.
             This may take a while. 
 	  </p>
@@ -301,99 +307,78 @@ cd somewhere/eros/src/base/tests/func/http
 make p
 </pre>
 	  </ul>
-	  <h1>3. Run-Time Requirements</h1>
+	  <h1>3. Supported Hardware</h1>
 	  <p>
-	    CapROS has been tested on a Pentium II, a Mobile AMD Athlon,
-            and Vmware. 
-            The following notes give an idea of what we expect
-            will be needed.
-	  </p>
-	  <h2>3.1 Disk Space</h2>
-	  <p>
-	    CapROS <em>can</em> run in as little as 20
-	    Mbytes.  Doing anything interesting with it will certainly
-	    require more.  At the moment we are suggesting a 100 Mbyte
-	    partition if you just want to fiddle with it, or a 250
-	    Mbyte partition if you have something more serious in
-	    mind.
-	  </p>
-	  To boot from the hard disk, the CapROS partition
-	  must fall within the bootable range of your machine.  It is
-	  also possible (even straightforward) to boot CapROS from a
-	  floppy, which allows non-bootable partitions to be used.
-	  The kernel theoretically groks extended partitions, but we
-	  have never tested this.
-	</p>
-	  <h2>3.2 Hardware</h2>
-	  <p>
-	    CapROS will support the following hardware (all
+	    CapROS supports the following hardware (all
 	    trademarks belong to their respective owners):
 	  </p>
 	  <table>
 	    <tr valign="top">
 	      <td><strong>Processor</strong></td>
-	      <td>486, Pentium, Pentium Pro.  There's nothing we're aware of
-		that would prevent clone processors from working, but we have
-		no way to test them and they are not a priority for us. If you
-		have them, we would be glad to hear what luck you have.  Up to
-		a point, we'll try to help get them working.
-		<p> CapROS runs on all of the multiprocessor boards we have
-		  tried, but the first research release will not provide SMP
-		  support.
+	      <td>486, Pentium, and above, and compatible processors.
+                CapROS has been tested on a Pentium II, a Mobile AMD Athlon,
+                and Vmware. 
+		We have no way to test every processor.
+                If you have a problem with a particular processor,
+                we'll try to help get it working, up to a point.
+                <p> For ARM, see section 4 below.
+		<p> CapROS does not yet fully support:
+                <ul>
+                  <li> Multiprocessor cores and boards. Only one processor
+                    will be used.
+                  <li> 64-bit addressing. All programs run in 32-bit mode.
+                </ul>
 	      </td>
 	    </tr>
 	    <tr valign="top">
 	      <td><strong>BIOS</strong></td>
-	      <td>We are not aware of any BIOS-specific dependencies. We have
-		not tested large drives on BIOS's that do not support extended
-		drive size information.
+	      <td>We are not aware of any BIOS-specific dependencies.
 	      </td>
 	    </tr>
 	    <tr valign="top">
 	      <td><strong>Motherboard</strong></td>
-	      <td>We are not aware of specific dependencies.  We use the TYAN
-		family of motherboards, but have also run successfully on a
-		number of clone boards.
+	      <td>We are not aware of specific dependencies.
 	      </td>
 	    </tr>
 	    <tr valign="top">
-	      <td><strong>Memory</strong></td>
-	      <td>We have run CapROS successfully (albeit unintentionally) on a
-		machine with only 640K of memory.  This is not a recommended
-		configuration.  8M should be fine for now, but 16M is better.
+	      <td><strong>RAM</strong></td>
+	      <td>CapROS should run on the smallest memory configurations
+                currently shipped. We do not yet support large RAM.
+                Any RAM over about 400 MB will be ignored.
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>USB</strong></td>
+	      <td>CapROS supports the EHCI standard via PCI.
+                This is the interface shipped with nearly all PCs
+                that support USB 2.0. 
+                OHCI is also supported. UCHI should not be hard to add.
 	      </td>
 	    </tr>
 	    <tr valign="top">
 	      <td><strong>Disk</strong></td>
-	      <td>The first research release will <em>not</em> support SCSI
-		disks.  There are a great many SCSI controllers, and we have
-		found that the <em>sustainable</em> throughput for IDE is as
-		good or better than we see from SCSI.  We are aware that many
-		people want to run SCSI devices.  
-		<p> When we do get to SCSI (which should be soon -- it's
-		  necessary for the MIPS port we are doing), our first attention
-		  will go to the Adaptec 2940 family, because that is what we
-		  have.  Support for other adaptors will be guided by demand and
-		  availability.  Your chances of getting us to support a card
-		  are greatly improved if you have one to loan us.
+	      <td>CapROS supports USB disks that meet the Mass Storage Class
+                Specification. This includes most USB "thumb" drives.
+                <p>The QA practice for the many manufacturers of thumb drives
+                seems to be "If it works with Windows, ship it." 
+                Some of these drives do not actually work properly.
+                The CapROS driver, which is derived from Linux,
+                includes hundreds of work-arounds for bugs in specific
+                models.
+                If your thumb drive doesn't work, try a different brand.
 	      </td>
 	    </tr>
 	    <tr valign="top">
 	      <td><strong>Video</strong></td>
-	      <td> The kernel assumes a VGA or better adaptor, but the system
-		does not (yet) provide a bitmapped graphics interface.
-		<p> We hope to change this in the near future, but are still
-		  debating the proper graphics model for this class of system.
-		  The Mach32, Mach64, and Diamond cards are high on our priority
-		  list.  Our group favors the Toshiba portables, so we'll
-		  probably get the C&amp;T chipset family working early as well.
+	      <td> Not yet supported.
 	      </td>
 	    </tr>
 	    <tr valign="top">
-	      <td><strong>Network</strong></td> <td> The current
-		implementation includes drivers for the 3COM 3c509 and 3c590XL
-		network cards.  Regrettably, these drivers have been well hacked 
-		over, so it is not clear that the current implementations actually work.
+	      <td><strong>Network</strong></td>
+              <td> The VIA Rhine network interface is supported via PCI.
+                High on our wish list of other interfaces to support
+                will be whatever's necessary for the popular
+                virtual machines.
 	      </td>
 	    </tr>
 	  </table>
@@ -460,7 +445,7 @@ go
 <a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
   </td>
   <td>
-      <em>Copyright 2005, 2006, 2007, 2008, 2009 by Strawberry Development Group.  All rights reserved.
+      <em>Copyright 2005-2010 by Strawberry Development Group.  All rights reserved.
       For terms of redistribution, see the <a
       href="../legal/license/GPL.html">GNU General Public License</a></em>
 This material is based upon work supported by the US Defense Advanced
