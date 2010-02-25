@@ -45,7 +45,9 @@ Approved for public release, distribution unlimited. */
 #define NUM_POOLS 4
 
 struct dma_pool * usbdevPool[NUM_POOLS];
-struct device deviceForDMA;
+struct device deviceForDMA = {
+  .dma_mask = &deviceForDMA.coherent_dma_mask,
+};
 
 /*
  * DMA-Coherent Buffers
@@ -90,7 +92,6 @@ int usbdev_buffer_create(void)
   uint32_t mask;
   result_t result = capros_USBInterface_getDMAMask(KR_USBINTF, &mask);
   assert(result == RC_OK);
-  deviceForDMA.dma_mask = (void *)mask;
   deviceForDMA.coherent_dma_mask = mask;
 
 	for (i = 0; i < NUM_POOLS; i++) { 
