@@ -53,6 +53,5 @@ run test;
 
 #define ds9490r_notifyee start test 0
 #include <nplink.map>
-#include <drivers/usbhcd.map>
 #include <drivers/ds2490.map>
-#include <drivers/usbregistry.map>
+#include <drivers/usbhcd.map>
