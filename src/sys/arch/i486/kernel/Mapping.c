@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -1060,13 +1060,15 @@ pageH_UnmapCoherentWrite(PageHeader * pageH)
 void
 pageH_PrepareForDMAOutput(PageHeader * pageH)
 {
-  assert(!"complete");	// needs an implementation!
+  /* On x86 the DMA processor snoops the cache, so there is no special
+     cache work to do here. */
 }
 
 void
 pageH_PrepareForDMAInput(PageHeader * pageH)
 {
-  assert(!"complete");	// needs an implementation!
+  /* On x86 the DMA processor snoops the cache, so there is no special
+     cache work to do here. */
 }
 
 

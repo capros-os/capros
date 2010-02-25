@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -43,7 +43,6 @@ bool
 GPFault(savearea_t *sa)
 {
   fixreg_t iopl;
-  Node *domRoot = 0;
 
   if ( sa_IsKernel(sa) ) {
     printf("Kernel GP fault. curctxt=0x%08x error=0x%x eip=0x%08x\n",
@@ -126,12 +125,8 @@ GPFault(savearea_t *sa)
 
 #endif
   
-
-  domRoot = ((Process*) act_CurContext())->procRoot;
-  printf("Domain ");
-  printOid(node_ToObj(domRoot)->oid);
-  printf(" takes GP fault. error=0x%x eip=0x%08x\n",
-	      sa->Error, sa->EIP);
+  printf("Process %#x takes GP fault. error=%#x eip=%#x\n",
+	      act_CurContext(), sa->Error, sa->EIP);
 
 #if 0
   sa->Dump();
