@@ -36,6 +36,12 @@ Approved for public release, distribution unlimited. */
 #include <domain/domdbg.h>
 #include <domain/assert.h>
 
+#define dbg_errors 0x1
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0 )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
 
 void *
 capros_dma_alloc_coherent(dma_addr_t dma_mask,
@@ -54,6 +60,9 @@ capros_dma_alloc_coherent(dma_addr_t dma_mask,
   result = capros_DevPrivs_allocateDMAPages(KR_DEVPRIVS, nPages,
              dma_mask, &physAddr, KR_TEMP2);
   if (result != RC_OK) {
+    DEBUG(errors)
+      kprintf(KR_OSTREAM,
+              "capros_dma_alloc_coherent: can't allocate %d pages.\n", nPages);
     return NULL;
   }
 
@@ -61,6 +70,9 @@ capros_dma_alloc_coherent(dma_addr_t dma_mask,
   if (blockStart < 0) {
     result = capros_DevPrivs_deallocateDMAPages(KR_DEVPRIVS, KR_TEMP2);
     assert(result == RC_OK);
+    DEBUG(errors)
+      kprintf(KR_OSTREAM,
+              "capros_dma_alloc_coherent: can't map %d pages.\n", nPages);
     return NULL;
   }
 
