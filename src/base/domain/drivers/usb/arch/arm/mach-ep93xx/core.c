@@ -26,6 +26,9 @@ Approved for public release, distribution unlimited. */
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <domain/assert.h>
+#include <eros/Invoke.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/Constructor.h>
 
 #include <asm/hardware.h>
 #include <asm/io.h>
@@ -64,8 +67,18 @@ extern int ohci_hcd_mod_init(void);
 int capros_hcd_initialization(void)
 {
   int err;
+  result_t result;
   err = ohci_hcd_mod_init();
   if (err) return err;
+
+  // Create USB Registry.
+  // KR_APP2(0) has the constructor.
+  // Give it the USBHCD key.
+  result = capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_Constructor_request(KR_APP2(0), KR_BANK, KR_SCHED, KR_TEMP1,
+             KR_VOID);
+  assert(result == RC_OK);	// FIXME
 
   platform_device_register(&ep93xx_ohci_device);
   /* platform_device_register calls platform_device_add, which in Linux

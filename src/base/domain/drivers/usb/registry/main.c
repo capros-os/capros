@@ -48,16 +48,13 @@ Approved for public release, distribution unlimited. */
 
 #include <domain/assert.h>
 #include "registry.h"
+#include "constituents.h"
 
-#define KR_USBHCD         KR_APP(0)
-#define KR_OSTREAM        KR_APP(1)
-#define KR_RequestorSnode KR_APP(2)
+#define KR_OSTREAM        KR_APP(0)
+#define KR_RequestorSnode KR_APP(1)
 #define KR_USBIntf        KR_APP(5)
 
-/* Bypass all the usual initialization. */
-unsigned long __rt_stack_pointer = 0x20000;
-unsigned long __rt_runtime_hook = 0;
-uint32_t __rt_unkept = 1;
+#define KR_USBHCD         KR_ARG(0)	// received in construction
 
 /* For now, we have a static list of drivers.
    Eventually the registry will accept new drivers
@@ -238,6 +235,24 @@ main(void)
 {
   result_t result;
   int i;
+
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_RequestorSnode, KR_RequestorSnode);
+
+  // Return to the caller of the constructor.
+  Message Msg = {
+    .snd_invKey = KR_RETURN,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = 0,
+    .snd_code = RC_OK,
+    .snd_w1 = 0,
+    .snd_w2 = 0,
+    .snd_w3 = 0,
+  };
+  SEND(&Msg);
 
   for (;;) {
     capros_USBDriverConstructorExtended_NewInterfaceData nid;

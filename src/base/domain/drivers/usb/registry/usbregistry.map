@@ -1,3 +1,5 @@
+#ifndef USBREGISTRY_MAP
+#define USBREGISTRY_MAP
 /*
  * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
@@ -30,6 +32,21 @@ Approved for public release, distribution unlimited. */
  * USB Registry
  *********************************************/
 
+usbregSnode = new node;
+#ifdef usbstor_cReq
+usbregSnode[0] = usbstor_cReq;
+#endif
+#ifdef ds2490_cReq
+usbregSnode[1] = ds2490_cReq;
+#endif
+
+BOOT_CONSTRUCTOR(usbreg_c, usbreg);
+PROD_SPACE(usbreg_c) = small program LIBDIR "drivers/usbregistry";
+PROD_PC(usbreg_c) = symbol LIBDIR "drivers/usbregistry" _start;
+PROD_CONSTIT(usbreg_c, KC_OSTREAM, 0) = misc Console;
+PROD_CONSTIT(usbreg_c, KC_RequestorSnode, 1) = usbregSnode;
+
+#if 0
 usbregistry.space = small program LIBDIR "drivers/usbregistry";
 
 usbregistry.space = usbregistry.space with page at 0x1f000;
@@ -39,14 +56,6 @@ usbregistryProc space = usbregistry.space;
 usbregistryProc schedule = sched(8);
 usbregistryProc symtab = number("usbregistry");
 
-usbregSnode = new node;
-#ifdef usbstor_cReq
-usbregSnode[0] = usbstor_cReq;
-#endif
-#ifdef ds2490_cReq
-usbregSnode[1] = ds2490_cReq;
-#endif
-
 usbregistryProc key reg KR_BANK = primebank;
 usbregistryProc key reg KR_SCHED = sched(8);
 usbregistryProc key reg KR_APP(0) = usbhcdKey;
@@ -54,3 +63,5 @@ usbregistryProc key reg KR_APP(1) = misc Console;
 usbregistryProc key reg KR_APP(2) = usbregSnode;
 
 run usbregistryProc;
+#endif
+#endif // USBREGISTRY_MAP

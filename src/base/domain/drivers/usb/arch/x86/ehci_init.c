@@ -25,6 +25,9 @@
 #include <domain/assert.h>
 #include <eros/Invoke.h>
 #include <eros/machine/cap-instr.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/Constructor.h>
+#include <idl/capros/Node.h>
 #include <linux/usb.h>
 #include <linux/pci.h>
 #include <domain/PCIDrvr.h>
@@ -44,6 +47,7 @@ int
 capros_hcd_initialization(void)
 {
   int ret;
+  result_t result;
 
   DEBUG (init) kprintf(KR_OSTREAM, "PCI USB driver called.\n");
 
@@ -54,6 +58,17 @@ capros_hcd_initialization(void)
     DEBUG (init) kprintf(KR_OSTREAM, "ehci_hcd_init returned %d\n", ret);
     return ret;
   }
+
+  // Create USB Registry.
+  // KC_APP2(0) has the constructor.
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_APP2(0), KR_TEMP0);
+  assert(result == RC_OK);
+  // Give it the USBHCD key.
+  result = capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_Constructor_request(KR_TEMP0, KR_BANK, KR_SCHED, KR_TEMP1,
+             KR_VOID);
+  assert(result == RC_OK);	// FIXME
 
   /* We are substituting for bus_attach_device.
   bus_attach_device checks p->drivers_autoprobe, which

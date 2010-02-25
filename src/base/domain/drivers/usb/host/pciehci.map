@@ -19,8 +19,10 @@
  */
 
 #include <drivers/dyndriver.map>
+#include <drivers/usbregistry.map>
 
 // Constructor for use by PCI registry
 
 DYNDRIVER_CONSTRUCTOR(pciehci, drivers/usbhcdehci, "pciehci", 0)
+PROD_CONSTIT(pciehci_c, , KC_APP2(0)) = usbreg_c;
 #define pciehci_cReq pciehci_cRequestor

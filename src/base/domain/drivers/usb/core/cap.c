@@ -438,13 +438,6 @@ driver_main(void)
   Message msgs;
   Message * const msg = &msgs;  // to address it consistently
 
-  // Allocate slots for resume keys to waiters:
-  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-                          LKSN_NIWC, LKSN_NIWC);
-  if (result != RC_OK) {
-    assert(false);      // FIXME handle error
-  }
-
 int usb_init(void);
   retval = usb_init();
   assert(!retval);
@@ -452,6 +445,13 @@ int usb_init(void);
 int capros_hcd_initialization(void);
   if (capros_hcd_initialization()) {
     assert(false);    // FIXME handle error
+  }
+
+  // Allocate slots for resume keys to waiters:
+  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
+                          LKSN_NIWC, LKSN_NIWC);
+  if (result != RC_OK) {
+    assert(false);      // FIXME handle error
   }
 
   msg->rcv_key0 = KR_ARG(0);

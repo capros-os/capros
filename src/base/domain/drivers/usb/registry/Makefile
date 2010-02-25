@@ -28,13 +28,15 @@ EROS_SRC=../../../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
+GENERATED=$(BUILDDIR)/constituents.h
+IMGMAP=usbregistry.map
 TARGETS=$(BUILDDIR)/usbregistry
 OBJECTS=$(BUILDDIR)/main.o
 
 STORID_OBJECTS=../storage/$(BUILDDIR)/usual-tables.o
 STORID_OBJECTS+=../../w1/masters/$(BUILDDIR)/ds2490_ids.o
 
-INC=$(DRIVERINC)
+INC=-I$(BUILDDIR) $(DRIVERINC)
 
 include $(EROS_SRC)/build/make/makerules.mk
 
@@ -44,8 +46,10 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 ##	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/usbregistry: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(CROSSLINK) $(OBJECTS) $(STORID_OBJECTS) $(CROSSLIBS) -o $@
+main.c: $(BUILDDIR)/constituents.h
+
+$(BUILDDIR)/usbregistry: $(OBJECTS) $(STORID_OBJECTS) $(LIBDEP)
+	$(CROSSLINK) $(OBJECTS) $(STORID_OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 

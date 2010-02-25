@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Reserve.h>
 #include <asm/thread_info.h>
 #include <drivers/driver.map>
+#include <drivers/usbregistry.map>
 
 /*********************************************
  * USB Host Controller driver.
@@ -47,7 +48,8 @@ usbhcd_pc = symbol LIBDIR "drivers/usbhcd" _start;
 BOOT_DOMCRE(usbhcd);	// maybe each should have his own??
 
 #define USBHCD_DRIVER_GENERIC(name, devcfgbit) \
-DRIVER(name##usbhcd, usbhcd_prog, usbhcd_pc, sched(8), usbhcd_proccre, devcfgbit)
+DRIVER(name##usbhcd, usbhcd_prog, usbhcd_pc, sched(8), usbhcd_proccre, devcfgbit) \
+name##usbhcd key reg KR_APP2(0) = usbreg_c;
 
 #define AHB_PA 0x80000000
 #define APB_PA 0x80800000
