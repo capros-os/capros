@@ -294,7 +294,11 @@ DoRestartPhaseWaitingRoot1(void)
 
     // Is the amount of mounted log reasonable?
     if (OIDToFrame(logWrapPoint) < physMem_TotalPhysicalPages) {
-      assert(!"implemented");	// FIXME wait for more log to be mounted
+      printf("Disk has %u MB of log space, smaller than %u MB of RAM.\n"
+             "Proceeding anyway.\n", 
+             (uint32_t)(OIDToFrame(logWrapPoint) / (0x100000 / EROS_PAGE_SIZE)),
+             physMem_TotalPhysicalPages / (0x100000 / EROS_PAGE_SIZE) );
+      // FIXME Alternatively, wait for more log to be mounted.
     }
 
     // Oldest unmigrated generation starts at the beginning of the log:
