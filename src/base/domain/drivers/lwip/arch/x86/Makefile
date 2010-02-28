@@ -22,6 +22,12 @@ EROS_SRC=../../../../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
+INSTALL_DIR=$(CAPROS_DOMAIN)/drivers/lwip/x86
+
 DIRS=../via-rhine
 
 include $(EROS_SRC)/build/make/makerules.mk
+
+install: lwip.map
+	$(INSTALL) -d $(INSTALL_DIR)
+	$(INSTALL) -m 644 lwip.map $(INSTALL_DIR)
