@@ -71,7 +71,8 @@ struct IPConfigv4 {
   struct ip_addr gw;
 };
 
-NORETURN void cap_main(struct IPConfigv4 * ipconf);
+result_t cap_init(struct IPConfigv4 * ipconf);
+NORETURN void cap_main(void);
 
 void UDPGetMaxSizes(struct Message * msg);
 void UDPCreate(struct Message * msg);

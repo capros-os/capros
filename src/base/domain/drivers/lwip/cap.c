@@ -89,6 +89,8 @@ enum {
   lastKeyStoreCap = timerKey
 };
 
+struct netif theNetIf;
+
 /******************************* Timers **********************************/
 
 struct timeoutData {
@@ -1254,12 +1256,10 @@ errExit3:
 /*************************** cap_main ******************************/
 // Called from architecture-specific driver_main().
 
-NORETURN void
-cap_main(struct IPConfigv4 * ipconf)
+result_t
+cap_init(struct IPConfigv4 * ipconf)
 {
   result_t result;
-  Message Msg;
-  Message * const msg = &Msg;
 
   // Allocate slots in keystore:
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
@@ -1275,29 +1275,6 @@ cap_main(struct IPConfigv4 * ipconf)
 
   // Make start cap for interrupt thread.
   result = capros_Process_makeStartKey(KR_SELF, keyInfo_Device, KR_DeviceEntry);
-  assert(result == RC_OK);
-
-  // Give our cap to nplink.
-  result = capros_Process_makeStartKey(KR_SELF, keyInfo_IP, KR_TEMP1);
-  assert(result == RC_OK);
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_VOLSIZE, KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_Node_getSlot(KR_TEMP0, volsize_pvolsize, KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_Node_getSlot(KR_TEMP0, volsize_nplinkCap, KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_TEMP1,
-             IKT_capros_NPIP, 0);
-  assert(result == RC_OK);
-
-  // Give the non-persistent prime space bank key to nplink.
-  /* According to the normal pattern, the non-persistent space bank
-     would do this itself.
-     That would result in deadlock, because the space bank is needed by
-     the disk driver which is needed to fetch nplink.
-     So we do it here. */
-  result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_BANK,
-             IKT_capros_SpaceBank, 0);
   assert(result == RC_OK);
 
   printk("Ethernet driver started.\n");
@@ -1327,12 +1304,48 @@ cap_main(struct IPConfigv4 * ipconf)
   mod_timer_duration(&arpTimeoutData.tl, (ARP_TMR_INTERVAL * 1000) / TICK_USEC);
   mod_timer_duration(&tcpTimeoutData.tl, (TCP_TMR_INTERVAL * 1000) / TICK_USEC);
 
-  struct netif theNetIf;
   err_t devInitF(struct netif * netif);
   netif_add(&theNetIf, &ipconf->addr, &ipconf->mask, &ipconf->gw,
             NULL, &devInitF, &ethernet_input);
   netif_set_default(&theNetIf);
   netif_set_up(&theNetIf);
+
+  return RC_OK;
+}
+
+NORETURN void
+cap_main(void)
+{
+  result_t result;
+  Message Msg;
+  Message * const msg = &Msg;
+
+  /* Note: We cannot call NPLink until after cap_init has returned and
+     its caller has returned to the PCI registry, because subsequently-
+     discovered PCI devices may be necessary to support paging,
+     which is necessary to fetch NPLink from disk. */
+  // Give our cap to nplink.
+  result = capros_Process_makeStartKey(KR_SELF, keyInfo_IP, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_VOLSIZE, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Node_getSlot(KR_TEMP0, volsize_pvolsize, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Node_getSlot(KR_TEMP0, volsize_nplinkCap, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_TEMP1,
+             IKT_capros_NPIP, 0);
+  assert(result == RC_OK);
+
+  // Give the non-persistent prime space bank key to nplink.
+  /* According to the normal pattern, the non-persistent space bank
+     would do this itself.
+     That would result in deadlock, because the space bank is needed by
+     the disk driver which is needed to fetch nplink.
+     So we do it here. */
+  result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_BANK,
+             IKT_capros_SpaceBank, 0);
+  assert(result == RC_OK);
 
   msg->snd_invKey = KR_VOID;
   msg->snd_key0 = msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;

@@ -101,5 +101,10 @@ driver_main(void)
   IPConf.mask.addr = htonl(msInt);
   IPConf.gw.addr   = htonl(gwInt);
 
-  cap_main(&IPConf);
+  result = cap_init(&IPConf);
+  if (result != RC_OK) {
+    kprintf(KR_OSTREAM, "lwip cap_init returned %#x!\n", result);
+  } else {
+    cap_main();
+  }
 }

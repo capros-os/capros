@@ -72,7 +72,6 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-extern struct netif * gNetif;
 extern void __iomem * hwBaseAddr;
 extern unsigned int ep93xx_phyad;	// PHY address
 

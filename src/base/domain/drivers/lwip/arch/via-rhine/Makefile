@@ -52,7 +52,7 @@ interfaces:
 	$(INSTALL) -d $(INSTALL_DIR)
 	$(INSTALL) -m 644 $(HEADERS) $(INSTALL_DIR)
 
-install: $(TARGETS)
+install: $(TARGETS) lwip.map
 	$(INSTALL) -d $(INSTALL_DIR)
 	$(INSTALL) -m 644 lwip.map $(INSTALL_DIR)
 	$(INSTALL) -m 755 $(TARGETS) $(INSTALL_DIR)

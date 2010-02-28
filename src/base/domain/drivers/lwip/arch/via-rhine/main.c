@@ -95,6 +95,17 @@ void
 driver_main(void)
 {
   result_t result;
+  Message Msg = {
+    .snd_invKey = KR_RETURN,
+    .snd_w1 = 0,
+    .snd_w2 = 0,
+    .snd_w3 = 0,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = 0,
+  };
 
   DEBUG(probe) kprintf(KR_OSTREAM, "Via-rhine driver called***\n");
   PCIDriver_mainInit("Via-Rhine eth");
@@ -113,5 +124,13 @@ driver_main(void)
   // The following is all we need of rhine_init():
   rhine_driver.driver.name = rhine_driver.name;
 
-  cap_main(&IPConf);
+  result = cap_init(&IPConf);
+  assert(result == RC_OK);	// FIXME
+  // FIXME Destroy self if result != RC_OK.
+
+  // Return to the registry, still in KR_RETURN:
+  Msg.snd_code = result;
+  PSEND(&Msg);
+
+  cap_main();
 }
