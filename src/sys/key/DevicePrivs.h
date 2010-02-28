@@ -206,7 +206,7 @@ devPrivs_DeclarePFHProcess(Invocation * inv)
 
 /* Inline because there is only one use for each architecure. */
 INLINE void
-devPrivs_publishMem(Invocation * inv, kpa_t base, kpa_t bound, bool readOnly)
+devPrivs_publishMem(Invocation * inv, kpa_t base, kpa_t bound)
 {
 printf("*****publishMem base=%#llx bound=%#llx\n", base, bound);////
   if ((base % EROS_PAGE_SIZE)
@@ -217,7 +217,7 @@ printf("*****publishMem base=%#llx bound=%#llx\n", base, bound);////
   }
 
   PmemInfo * pmi;
-  int ret = physMem_AddRegion(base, bound, MI_DEVICEMEM, readOnly, &pmi);
+  int ret = physMem_AddRegion(base, bound, MI_DEVICEMEM, &pmi);
   if (ret == 1) {
     inv->exit.code = RC_capros_key_NoAccess;
     return;

@@ -106,7 +106,7 @@ uint32_t mach_ReadCacheType(void);
         limited = regionSize;	// take min
       totalRAM += regionSize;
       if (limited) {
-        ret = physMem_AddRegion(base, base + limited, MI_MEMORY, false, &pmi);
+        ret = physMem_AddRegion(base, base + limited, MI_MEMORY, &pmi);
         assert(!ret);
         kpg_t pgs = limited / EROS_PAGE_SIZE;
         physMem_TotalPhysicalPages += pgs;
@@ -115,7 +115,7 @@ uint32_t mach_ReadCacheType(void);
     }
 
     case 4567:	// this is a private convention, not part of multiboot
-      ret = physMem_AddRegion(base, bound, MI_DEVICEMEM, false, &pmi);
+      ret = physMem_AddRegion(base, bound, MI_DEVICEMEM, &pmi);
       assert(!ret);
       break;
     }

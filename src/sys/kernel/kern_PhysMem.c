@@ -304,8 +304,7 @@ physMem_FreeAll(PmemInfo * pmi)
 // Returns 0 if OK, 1 if range overlaps an existing PmemInfo,
 // 2 if can't allocate space.
 int
-physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly,
-  PmemInfo ** ppmi)
+physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, PmemInfo ** ppmi)
 {
   PmemInfo *kmi = &physMem_pmemInfo[physMem_nPmemInfo];
   unsigned int i = 0;
@@ -331,7 +330,6 @@ physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly,
   kmi->nPages = 0;
   kmi->firstObPgAddr = 0;
   kmi->firstObHdr = 0;
-  kmi->readOnly = readOnly;
 
   if (type == MI_MEMORY) {
     kmi->allocBase = base;
@@ -506,7 +504,7 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
         /* Add the region with its full physical memory. */
         int ret;
         ret = physMem_AddRegion(split, allocTarget->allocBound,
-                                MI_MEMORY, allocTarget->readOnly, &newPmi);
+                                MI_MEMORY, &newPmi);
         assert(!ret);
         newPmi->allocBase = max(split, where + nBytes);
         allocTarget->bound = split;

@@ -57,7 +57,6 @@ struct PmemInfo {
   kpa_t     base;
   kpa_t     bound;
   uint32_t  type;		/* address type of this range */
-  uint32_t  readOnly;		/* are pages in region read-only? */
   kpa_t     allocBase;		/* how much has kernel allocated? */
   kpa_t     allocBound;		/* how much has kernel allocated? */
 #if 0
@@ -92,8 +91,7 @@ void physMem_Init_MD();	// machine-dependent
 
 PmemInfo * physMem_ChooseRegion(kpsize_t sz, PmemConstraint *);
 int
-physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly,
-  PmemInfo ** ppmi);
+physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, PmemInfo ** ppmi);
 
 kpa_t physMem_Alloc(kpsize_t sz, PmemConstraint *);
 void physMem_ReserveExact(kpa_t base, kpsize_t size);

@@ -108,7 +108,7 @@ physMem_Init_MD()
       if (bound > maxMappedPA)
         bound = maxMappedPA;
       if (bound > base) {
-        ret = physMem_AddRegion(base, bound, MI_MEMORY, false, &pmi);
+        ret = physMem_AddRegion(base, bound, MI_MEMORY, &pmi);
         assert(!ret);
         checkBounds(base, bound);
       }
@@ -123,7 +123,7 @@ physMem_Init_MD()
   /* Preloaded modules are contained in mmap memory,
      so no need to add regions for them. */
 
-  ret = physMem_AddRegion(ROMBase, ROMBound, MI_BOOTROM, true, &pmi);
+  ret = physMem_AddRegion(ROMBase, ROMBound, MI_BOOTROM, &pmi);
   assert(!ret);
 
   DEBUG(init) {

@@ -249,11 +249,10 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
     {
       kpa_t base = inv->entry.w1;
       kpa_t bound = inv->entry.w2;
-      bool readOnly = inv->entry.w3;
 
       COMMIT_POINT();
 
-      devPrivs_publishMem(inv, base, bound, readOnly);
+      devPrivs_publishMem(inv, base, bound);
 
       break;
     }

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2010, Strawberry Development Group.
+ * Copyright (C) 2005-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -215,7 +215,6 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
     {
       kpa_t base = inv->entry.w1 | (((kpa_t)inv->entry.w2) << 32);
       kpa_t bound;
-      bool readOnly = inv->entry.w3;
 
       COMMIT_POINT();
 
@@ -227,7 +226,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       assert(sizeof(bound) == 8);	// kpa_t should match DMA64
       inv_CopyIn(inv, sizeof(bound), &bound);
 
-      devPrivs_publishMem(inv, base, bound, readOnly);
+      devPrivs_publishMem(inv, base, bound);
 
       break;
     }

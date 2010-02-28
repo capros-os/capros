@@ -335,9 +335,11 @@ pci_main(void)
                          pageCap, pageCap);
               assert(result == RC_OK);	// FIXME
               result = capros_DevPrivs_publishMem(KR_DEVPRIVS,
-                         startPage, endPage, flags & IORESOURCE_READONLY,
-                         KR_TEMP0);
-              assert(result == RC_OK);	// FIXME
+                         startPage, endPage, KR_TEMP0);
+              if (result != RC_OK) {
+                kprintf(KR_OSTREAM, "PCI: publishMem returned %#x!\n", result);
+                assert(result == RC_OK);	// FIXME
+              }
               result = capros_Node_swapSlotExtended(KR_KEYSTORE, pageCap,
                          KR_TEMP0, KR_VOID);
               assert(result == RC_OK);

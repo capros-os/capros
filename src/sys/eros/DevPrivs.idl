@@ -119,7 +119,7 @@ interface DevPrivs32 extends DevPrivs raises(DevPrivs.AllocFail) {
    * AllocFail if there is not enough kernel memory to do the operation.
    * key.NoAccess if any part of the region is already published.
    */
-  capros.Page publishMem(DMA32.DMAAddress start, DMA32.DMAAddress end, boolean readOnly);
+  capros.Page publishMem(DMA32.DMAAddress start, DMA32.DMAAddress end);
 };
 
 interface DevPrivs64 extends DevPrivs raises(DevPrivs.AllocFail) {
@@ -133,5 +133,5 @@ interface DevPrivs64 extends DevPrivs raises(DevPrivs.AllocFail) {
    */
   /* Below, unsigned long long should be DMA64.DMAAddress,
      but the IDL compiler has a problem with that. */
-  capros.Page publishMem(unsigned long long start, unsigned long long end, boolean readOnly);
+  capros.Page publishMem(unsigned long long start, unsigned long long end);
 };
