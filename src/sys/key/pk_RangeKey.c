@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -107,7 +107,7 @@ const unsigned int objectsPerFrame[2] = {
 
 /* #define DEBUG_RANGEKEY */
 
-OID rngStart, rngEnd;
+OID rngStart, rngLast;
 
 //#define TRACE_ALLOC
 #ifdef TRACE_ALLOC
@@ -164,8 +164,8 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
   /* Figure out the OID for the new key: */
   OID oid = rngStart + offset;
 
-  if (oid >= rngEnd) {
-    dprintf(true, "oid 0x%X top 0x%X\n", oid, rngEnd);
+  if (oid > rngLast) {
+    dprintf(true, "oid %#llx last %#llx\n", oid, rngLast);
     COMMIT_POINT();
     inv->exit.code = RC_capros_Range_RangeErr;
     return;
@@ -292,12 +292,12 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
   return;
 }
 
-OID /* returns end of range */
+static OID /* returns last OID of range */
 key_GetRange(Key * key, /* out */ OID * rngStart)
 {
   if (key->keyType == KKT_PrimeRange) {
-    *rngStart = 0ll;
-    return OID_RESERVED_PHYSRANGE;
+    *rngStart = 0;
+    return OID_RESERVED_PHYSRANGE - 1;
   }
   else if (key->keyType == KKT_PhysRange) {
     *rngStart = OID_RESERVED_PHYSRANGE;
@@ -305,6 +305,7 @@ key_GetRange(Key * key, /* out */ OID * rngStart)
   }
   else {
     *rngStart = key->u.rk.oid;
+    assert(key->u.rk.count > 0);
     return key->u.rk.oid + key->u.rk.count;
   }
 }
@@ -341,8 +342,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
   
   inv_GetReturnee(inv);
 
-  rngEnd = key_GetRange(inv->key, &rngStart);
-  capros_Range_off_t range = rngEnd - rngStart;
+  rngLast = key_GetRange(inv->key, &rngStart);
 
   switch(inv->entry.code) {
   case OC_capros_key_getType:
@@ -361,6 +361,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
     {
       COMMIT_POINT();
 
+      capros_Range_off_t range = rngLast - rngStart + 1;
       inv->exit.w1 = range;
       inv->exit.w2 = (fixreg_t) (range >> 32);
       inv->exit.code = RC_OK;
@@ -369,24 +370,27 @@ RangeKey(Invocation* inv /*@ not null @*/)
     
   case OC_capros_Range_nextSubrange:
     {
-      OID subStart;
-      OID subEnd;
       // FIXME: this should wait until all disks are mounted.
 
       COMMIT_POINT();
 
       OID startOffset = w1w2Offset(inv) + rngStart;
 
-      if (startOffset >= rngEnd) {
+      if (startOffset > rngLast) {
 	inv->exit.code = RC_capros_Range_RangeErr;
 	break;
       }
 
       /* FIX: This only works for 32-bit subranges */
 
-      objC_FindFirstSubrange(startOffset, rngEnd, &subStart, &subEnd);
+      OID subStart;
+      OID subLast;
+      if (! objC_FindFirstSubrange(startOffset, rngLast, &subStart, &subLast)) {
+	inv->exit.code = RC_capros_Range_RangeErr;
+	break;
+      }
 
-      range = subEnd - subStart;
+      capros_Range_off_t range = subLast - subStart + 1;
       if (range >= (uint64_t) UINT32_MAX)
 	range = UINT32_MAX;
 
@@ -402,42 +406,27 @@ RangeKey(Invocation* inv /*@ not null @*/)
     
   case OC_capros_Range_makeSubrange:
     {
-      OID newLen;
-      OID newEnd;
-      Key *key = 0;
-
       COMMIT_POINT();
 
       /* This implementation allows for 64 bit offsets, but only 32
        * bit limits, which is nuts! */
+
       OID newStart = w1w2Offset(inv) + rngStart;
-
-      /* This is not an issue with the broken interface, but with the
-       * 48 bit length representation and a fixed interface we could
-       * get caught here by a representable bounds problem. */
-      newLen = inv->entry.w3;
-      newLen = min(newLen, UINT32_MAX);
-
-      newEnd = newLen + newStart;
+      OID newLen = inv->entry.w3;
+      OID newLast = newLen + newStart - 1;
 
       /* REMEMBER: malicious arithmetic might wrap! */
-      if ((newEnd < newStart) ||
-          (newStart < rngStart) ||
-	  (newStart >= rngEnd) ||
-	  (newEnd <= rngStart) ||
-	  (newEnd > rngEnd)) {
+      if ((rngStart > newStart) ||
+          (newStart > newLast) ||
+	  (newLast > rngLast)) {
 	inv->exit.code = RC_capros_Range_RangeErr;
 	break;
       }
 
-      key = inv->exit.pKey[0];
-
+      Key * key = inv->exit.pKey[0];
       if (key) {
 	/* Unchain the old key so we can overwrite it... */
-       
-	if (key)
-	  key_NH_Unchain(key);
-       
+	key_NH_Unchain(key);
 
 	keyBits_InitType(key, KKT_Range);
 	key->u.rk.oid = newStart;
@@ -467,11 +456,11 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       OID oid = key_GetObjectPtr(key)->oid;
       
-      if ( oid < rngStart || oid >= rngEnd ) {
+      if (oid < rngStart || oid > rngLast) {
 	inv->exit.code = RC_capros_Range_RangeErr;
         break;
       }
-      range = oid - rngStart;
+      capros_Range_off_t range = oid - rngStart;
       
       /* FIX: there is a register size assumption here! */
       assert (sizeof(range) == sizeof(uint64_t));
@@ -505,7 +494,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       dprintf(true, "Rescinding OID %#llx\n", oid);
 #endif
       
-      if ( oid < rngStart || oid >= rngEnd ) {
+      if (oid < rngStart || oid > rngLast) {
 	COMMIT_POINT();
 
 	inv->exit.code = RC_capros_Range_RangeErr;
@@ -597,7 +586,7 @@ rangeGetWaitCap:
       OID kstart;
       OID kend = key_GetRange(key, &kstart);
   
-      if (kstart >= rngEnd || kend <= rngStart)
+      if (kstart > rngLast || kend <= rngStart)
 	break;
 
       /* They overlap; need to figure out how. */
@@ -626,7 +615,7 @@ rangeGetWaitCap:
   case OC_capros_Range_getFrameCounts:
   {
     OID oid = w1w2Offset(inv) + rngStart;
-    if (oid >= rngEnd) {
+    if (oid > rngLast) {
       COMMIT_POINT();
       inv->exit.code = RC_capros_Range_RangeErr;
       break;
@@ -670,7 +659,7 @@ rangeGetWaitCap:
     inv_CopyIn(inv, sizeof(stringParams), &stringParams);
 
     OID oid = w1w2Offset(inv) + rngStart;
-    if (oid >= rngEnd
+    if (oid > rngLast
         || OIDToObIndex(oid) != 0) {
       COMMIT_POINT();
       inv->exit.code = RC_capros_Range_RangeErr;

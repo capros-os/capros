@@ -153,8 +153,8 @@ bool objC_HaveSource(OID oid);
 void objC_ddb_DumpSources();
 #endif
 
-void objC_FindFirstSubrange(OID start, OID end, 
-                            OID* subStart /*@ not null @*/, OID* subEnd /*@ not null @*/);
+bool objC_FindFirstSubrange(OID limStart, OID limLast, 
+  OID * subStart, OID * subLast);
 
 
 #endif /* __OBJECTCACHE_H__ */

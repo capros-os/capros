@@ -115,7 +115,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
   /** Create a range key for a subrange of this range.
    *
    * Returns a range key for a subrange of the current range,
-   * begininng at /offset/ and extending for /len/ frames.
+   * begininng at /offset/ and extending for /len/ OIDs.
    */
   capros.Range makeSubrange(
     unsigned long long /* should be off_t, but CapIDL has a bug */ offset,

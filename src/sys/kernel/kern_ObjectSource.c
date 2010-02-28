@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006, 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -324,17 +324,15 @@ GetObject(OID oid, const ObjectLocator * pObjLoc)
   }
 }
 
-void
-objC_FindFirstSubrange(OID limStart, OID limEnd, 
-  OID* subStart /*@ not null @*/, OID* subEnd /*@ not null @*/)
+bool
+objC_FindFirstSubrange(OID limStart, OID limLast, 
+  OID* subStart /*@ not null @*/, OID* subLast /*@ not null @*/)
 {
   int i = LookupRange(limStart, obRanges, nObRanges);
   if (i < 0 || obRanges[i].end < limStart) {
     i++;	// limStart is not in a range, so consider the next range
     if (i >= nObRanges) {
-      // No next range.
-      *subStart = *subEnd = ~0llu;
-      return;
+      return false;	// No next range.
     }
   }
 
@@ -342,18 +340,20 @@ objC_FindFirstSubrange(OID limStart, OID limEnd,
   // limStart <= rng->end;
 
   OID mySubStart = max(limStart, rng->start);
-  OID mySubEnd = min(limEnd, rng->end);
+  OID mySubLast = min(limLast, rng->end - 1);
 
-  if (mySubEnd < mySubStart)
-    mySubEnd = mySubStart;	// no range here
+  if (mySubLast < mySubStart)
+    return false;	// No next range.
 
   *subStart = mySubStart;
-  *subEnd = mySubEnd;
+  *subLast = mySubLast;
 
   DEBUG(findfirst)
     printf("ObCache::FindFirstSubrange(): limStart %#llx, "
-	   "limEnd %#llx  nObRanges %d subStart %#llx subEnd %#llx\n",
-           limStart, limEnd, nObRanges, mySubStart, mySubEnd);
+	   "limLast %#llx  nObRanges %d subStart %#llx subLast %#llx\n",
+           limStart, limLast, nObRanges, mySubStart, mySubLast);
+
+  return true;
 }
 
 #ifdef OPTION_DDB

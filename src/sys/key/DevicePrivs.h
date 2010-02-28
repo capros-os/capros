@@ -208,6 +208,7 @@ devPrivs_DeclarePFHProcess(Invocation * inv)
 INLINE void
 devPrivs_publishMem(Invocation * inv, kpa_t base, kpa_t bound, bool readOnly)
 {
+printf("*****publishMem base=%#llx bound=%#llx\n", base, bound);////
   if ((base % EROS_PAGE_SIZE)
       || (bound % EROS_PAGE_SIZE)
       || (base >= bound) ) {
