@@ -31,6 +31,7 @@
 #include <linux/usb.h>
 #include <linux/pci.h>
 #include <domain/PCIDrvr.h>
+#include "../../core/cap.h"
 #include "../../core/hcd.h"
 
 #define dbg_init 0x1
@@ -41,10 +42,8 @@
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 
-extern int ehci_hcd_init(void);
-
-int
-capros_hcd_initialization(void)
+void
+driver_main(void)
 {
   int ret;
   result_t result;
@@ -53,10 +52,15 @@ capros_hcd_initialization(void)
 
   PCIDriver_mainInit("PCI EHCI");
 
+int usb_init(void);
+  ret = usb_init();
+  assert(!ret);
+
+extern int ehci_hcd_init(void);
   ret = ehci_hcd_init();
   if (ret) {
     DEBUG (init) kprintf(KR_OSTREAM, "ehci_hcd_init returned %d\n", ret);
-    return ret;
+    assert(false);	// FIXME
   }
 
   // Create USB Registry.
@@ -113,7 +117,27 @@ extern const struct hc_driver ehci_pci_hc_driver;
                          "ehci_pci_driver.probe returned %d (irq=%d)\n",
                          ret, thePCIDev.irq);
     thePCIDev.dev.driver = NULL;
+    assert(false);	// FIXME
   }
 
-  return ret;
+  result = cap_init();
+  assert(result == RC_OK);	// FIXME
+  // FIXME Destroy self if result != RC_OK.
+
+  // Return to the registry, still in KR_RETURN:
+  Message Msg = {
+    .snd_invKey = KR_RETURN,
+    .snd_w1 = 0,
+    .snd_w2 = 0,
+    .snd_w3 = 0,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = 0,
+  };
+  Msg.snd_code = result;
+  PSEND(&Msg);
+
+  cap_main();
 }

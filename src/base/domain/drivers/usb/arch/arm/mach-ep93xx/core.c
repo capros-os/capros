@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,7 +32,7 @@ Approved for public release, distribution unlimited. */
 
 #include <asm/hardware.h>
 #include <asm/io.h>
-//#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
+#include "../../../core/cap.h"
 
 // Stuff from arch/arm/mach-ep93xx/core.c
 
@@ -63,13 +63,20 @@ static struct platform_device ep93xx_ohci_device = {
 	.resource	= ep93xx_ohci_resources,
 };
 
-extern int ohci_hcd_mod_init(void);
-int capros_hcd_initialization(void)
+void
+driver_main(void)
 {
   int err;
   result_t result;
+
+int usb_init(void);
+  err = usb_init();
+  assert(!err);
+
+extern int ohci_hcd_mod_init(void);
   err = ohci_hcd_mod_init();
-  if (err) return err;
+  if (err)
+    assert(false);	// FIXME
 
   // Create USB Registry.
   // KR_APP2(0) has the constructor.
@@ -107,8 +114,13 @@ int capros_hcd_initialization(void)
 extern struct platform_driver ohci_hcd_ep93xx_driver;
   ep93xx_ohci_device.dev.driver = &ohci_hcd_ep93xx_driver.driver;
   err = (*ohci_hcd_ep93xx_driver.probe)(&ep93xx_ohci_device);
-  if (err)
+  if (err) {
     ep93xx_ohci_device.dev.driver = NULL;
+    assert(false);	// FIXME
+  }
 
-  return err;
+  result = cap_init();
+  assert(result == RC_OK);	// FIXME
+
+  cap_main();
 }

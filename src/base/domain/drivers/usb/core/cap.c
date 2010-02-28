@@ -426,33 +426,22 @@ HandleGetEndpointDescriptors(Message * msg,
   msg->snd_invKey = KR_VOID;
 }
 
-/*
- * Start here.
- */
-void
-driver_main(void)
+result_t
+cap_init(void)
 {
-  int retval;
   result_t result;
-
-  Message msgs;
-  Message * const msg = &msgs;  // to address it consistently
-
-int usb_init(void);
-  retval = usb_init();
-  assert(!retval);
-
-int capros_hcd_initialization(void);
-  if (capros_hcd_initialization()) {
-    assert(false);    // FIXME handle error
-  }
 
   // Allocate slots for resume keys to waiters:
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
                           LKSN_NIWC, LKSN_NIWC);
-  if (result != RC_OK) {
-    assert(false);      // FIXME handle error
-  }
+  return result;
+}
+
+void
+cap_main(void)
+{
+  Message Msg;
+  Message * const msg = &Msg;  // to address it consistently
 
   msg->rcv_key0 = KR_ARG(0);
   msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
