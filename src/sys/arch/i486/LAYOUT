@@ -1,7 +1,7 @@
 /* -*- indented-text -*-  */
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
  *         which defines traceregs_t (trace regs aren't yet used)
  * - GenProcOffsets.awk to produce
  *         sys/arch/(EROS_TARGET)/BUILD/(EROS_CONFIG)/process_asm_offsets.h
- *         which defines some offsets in the Process and fixregs_t structures
+ *         which defines some offsets in the Process and savearea_t structures
  *         for assembly code
  * - GenSaveArea.awk to produce
  *         sys/arch/(EROS_TARGET)/BUILD/(EROS_CONFIG)/gen.SaveArea.h
@@ -80,9 +80,9 @@ Approved for public release, distribution unlimited. */
  * proc name endian type
  *    defines a field used in assembler code. (endian is not used.)
  * fix ...
- *    defines a field in fixregs_t
+ *    defines a field in savearea_t
  * fpu ...
- *    defines a field in floatregs_t
+ *    defines a field in floatsavearea_t
  * gen ...
  *    defines a field used in assembler code, and also in
  *    ArchDescrip and RegMove.
@@ -92,18 +92,18 @@ Approved for public release, distribution unlimited. */
  * Register layout for the x86. This file describes, in one place:
  *
  *  - The layout of the x86 trap frame used by EROS
- *  - The layout and content of the fixregs{} structure
+ *  - The layout and content of the savearea_t structure
  *  - The positions of all fields in the Process structure that
  *    might need to be referenced from assembly language.
  *  - The layout and content of the floatregs{} structure
  *  - The locations (node, slot, offset) where the values listed above
  *    are saved in a domain (if the value is saved)
  *  - Miscellaneous useful bitfield positions that should to be
- *    included the generated fixregs.h or floatregs.h files
+ *    included the generated gen.SaveArea.h or floatregs.h files
  *
  * The kernel exports non-privileged state to userland via two
- * structures called fixregs_t and floatregs_t. We will soon augment
- * these with vfixregs_t (containing "virtual" registers).  The x86
+ * structures called savearea_t, floatsavearea_t, and pseudoregs_t.
+ * The x86
  * does not allow us to just use these structures directly to describe
  * the trap frame as seen by the kernel. For example the Error and
  * Exception codes get dumped out by the processor in an inconvenient
@@ -128,8 +128,8 @@ Approved for public release, distribution unlimited. */
  * begin/end bracketing. Opaque fields are not referenced from
  * assembly code.
  *
- * Fields marked by /fix/ are included in the fixregs_t structure.
- * Fields marked by /fpu/ are included in the floatregs_t structure.
+ * Fields marked by /fix/ are included in the savearea_t structure.
+ * Fields marked by /fpu/ are included in the floatsavearea_t structure.
  * FIX and FPU fields appear in their respective structures in the
  * same order that they are listed here.
  *
@@ -161,7 +161,7 @@ arch "i486" EIP ESP
 keysize 16
 
 /*
- * mask values generate bitfield extraction macros into fixregs.h
+ * mask values generate bitfield extraction macros into gen.SaveArea.h
  *
  * mask reg  field      bit   bitlen
 */
