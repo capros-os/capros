@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -29,11 +29,9 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Debug.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
 #include "IDT.h"
-
-extern void halt(char);
+#include "asm.h"
 
 bool
 DivZeroFault(savearea_t* sa)

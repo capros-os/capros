@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -34,8 +34,7 @@ Approved for public release, distribution unlimited. */
 #include "Process486.h"
 #include <arch-kerninc/Process.h>
 #include "IDT.h"
-
-extern void halt(char);
+#include "asm.h"
 
 bool
 SSFault(savearea_t* sa)

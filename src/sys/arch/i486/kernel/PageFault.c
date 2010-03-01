@@ -43,7 +43,7 @@ Approved for public release, distribution unlimited. */
 #include "Process486.h"
 #include <arch-kerninc/PTE.h>
 #include "IDT.h"
-#include "lostart.h"
+#include "asm.h"
 #include "Cpu.h"
 #include "Segment.h"
 

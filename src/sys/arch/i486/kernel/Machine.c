@@ -44,6 +44,7 @@ Approved for public release, distribution unlimited. */
 #include "Process486.h"
 #include "CMOS.h"
 #include "Cpu.h"
+#include "asm.h"
 
 #include "GDT.h"
 #include "IDT.h"
@@ -160,7 +161,7 @@ mach_BootInit()
 
   assert(IRQ_FROM_EXCEPTION(iv_IRQ0) == 0);
 
-  /*  printf("Kernel is mapped. CR0 = 0x%x\n", flags); */
+  printf("Kernel is mapped. CR0 = %#x\n", ReadCR0());
 
   /*  printf("Pre enable: intdepth=%d\n", IDT::intdepth); */
 

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PCI.h>
 #include <kerninc/IRQ.h>
 #include "Segment.h"
+#include "asm.h"
 
 #define dbg_bios32	0x1	/* steps in taking snapshot */
 #define dbg_pcibios	0x2	/* migration state machine */
@@ -68,8 +69,6 @@ Approved for public release, distribution unlimited. */
 
 /* These are derived from MindShare's PCI System Architecture: */
 #define PCIBIOSFUN(x) (0xb100 | (x))
-
-extern void halt(char);
 
 enum PciFn {
   pcifn_BiosPresent     = PCIBIOSFUN(0x1),

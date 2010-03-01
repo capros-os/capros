@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2009, Strawberry Development Group
+ * Copyright (C) 2005-2007, 2009, 2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -46,6 +46,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/i486/io.h>
 #include "IDT.h"
 #include "GDT.h"
+#include "asm.h"
 
 #ifdef OPTION_DDB
 #include "Debug386.h"
@@ -57,7 +58,6 @@ Approved for public release, distribution unlimited. */
 extern void EnableCounters(uint32_t ctl);
 extern void DisableCounters();
 /*}*/
-extern void halt(char);
 
 #define MAX_TRAP_DEPTH 2
 

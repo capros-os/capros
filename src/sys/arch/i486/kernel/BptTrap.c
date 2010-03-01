@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/util.h>
 #include <kerninc/Process.h>
 #include "IDT.h"
+#include "asm.h"
 
 #ifdef OPTION_DDB
 #include "Debug386.h"

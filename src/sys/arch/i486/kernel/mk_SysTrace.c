@@ -33,7 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <eros/Invoke.h>
 #include <idl/capros/arch/i386/SysTrace.h>
-#include "lostart.h"
+#include "asm.h"
 
 const char *mach_ModeName(uint32_t mode);
 bool mach_SetCounterMode(uint32_t mode);

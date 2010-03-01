@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <arch-kerninc/Process.h>
 #include "IDT.h"
+#include "asm.h"
 
 #define pi_copy_cap  0		/* handled in fast path */
 #define pi_xchg_cap  1		/* handled in fast path */
@@ -46,8 +47,6 @@ Approved for public release, distribution unlimited. */
 #define dbg_flags	( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
-
-extern void halt(char);
 
 bool
 PseudoInstrException(savearea_t *sa)

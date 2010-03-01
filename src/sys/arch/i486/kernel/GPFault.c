@@ -36,8 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Process.h>
 #include "Segment.h"
 #include "IDT.h"
-
-extern void halt(char);
+#include "asm.h"
 
 bool
 GPFault(savearea_t *sa)
