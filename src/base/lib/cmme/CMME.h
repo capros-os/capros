@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #define LK_LGSTACK_AREA 17
 #define LK_STACK_AREA (1ul << LK_LGSTACK_AREA)	// 0x00020000
 
-#define LK_MAPS_BASE 0x00800000	// area for ioremap()
+#define LK_MAPS_BASE 0x00800000	// area for maps_mapPage_locked() etc.
 /* N.B.: LK_MAPS_BASE must be greater than or equal to PIO_RESERVED
  * (in linuxk/iomap.c) else the latter will get confused. */
 

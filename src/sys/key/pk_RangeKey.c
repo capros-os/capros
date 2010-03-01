@@ -306,7 +306,7 @@ key_GetRange(Key * key, /* out */ OID * rngStart)
   else {
     *rngStart = key->u.rk.oid;
     assert(key->u.rk.count > 0);
-    return key->u.rk.oid + key->u.rk.count;
+    return key->u.rk.oid + key->u.rk.count - 1;
   }
 }
 

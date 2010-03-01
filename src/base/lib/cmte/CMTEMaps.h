@@ -37,6 +37,8 @@ long maps_reserve(unsigned long pageSize /* size in pages */ );
 void maps_liberate(unsigned long pgOffset,
                    unsigned long pageSize /* size in pages */ );
 result_t maps_mapPage(unsigned long pgOffset, cap_t pageCap);
+long maps_reserveAndMapRange(cap_t rangeCap,
+  capros_Range_off_t firstPageOfs, unsigned int nPages, bool readOnly);
 long maps_reserveAndMapBlock(cap_t blockPageCap, unsigned int nPages);
 
 #endif // __CMTEMAPS_H

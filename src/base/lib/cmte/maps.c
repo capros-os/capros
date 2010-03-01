@@ -65,6 +65,23 @@ maps_mapPage(unsigned long pgOffset, cap_t pageCap)
   return result;
 }
 
+// See comments at maps_reserveAndMapRange_lockde.
+// Uses KR_TEMP0 and KR_TEMP1.
+long
+maps_reserveAndMapRange(cap_t rangeCap,
+  capros_Range_off_t firstPageOfs,
+  unsigned int nPages, bool readOnly)
+{
+  CMTEMutex_lock(&mapsLock);
+
+  long result = maps_reserveAndMapRange_locked(rangeCap,
+                  firstPageOfs, nPages, readOnly);
+
+  CMTEMutex_unlock(&mapsLock);
+
+  return result;
+}
+
 // Returns page offset within maps area, or -1 if can't allocate.
 // Uses KR_TEMP0 and KR_TEMP1.
 long

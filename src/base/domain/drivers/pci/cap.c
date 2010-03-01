@@ -327,12 +327,12 @@ pci_main(void)
                               & ~ (resource_size_t)(EROS_PAGE_SIZE - 1);
             // Use the following address as the location of the cap
             // in KR_KEYSTORE.
-            capros_Node_extAddr_t pageCap
+            capros_Node_extAddr_t rangeCap
                 = (cap_t) &pdev->resourceMemPublished[resourceNum];
 
             if (! pdev->resourceMemPublished[resourceNum]) {
               result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-                         pageCap, pageCap);
+                         rangeCap, rangeCap);
               assert(result == RC_OK);	// FIXME
               result = capros_DevPrivs_publishMem(KR_DEVPRIVS,
                          startPage, endPage, KR_TEMP0);
@@ -340,18 +340,19 @@ pci_main(void)
                 kprintf(KR_OSTREAM, "PCI: publishMem returned %#x!\n", result);
                 assert(result == RC_OK);	// FIXME
               }
-              result = capros_Node_swapSlotExtended(KR_KEYSTORE, pageCap,
+              result = capros_Node_swapSlotExtended(KR_KEYSTORE, rangeCap,
                          KR_TEMP0, KR_VOID);
               assert(result == RC_OK);
             } else {
-              result = capros_Node_getSlotExtended(KR_KEYSTORE, pageCap,
+              result = capros_Node_getSlotExtended(KR_KEYSTORE, rangeCap,
                          KR_TEMP0);
               assert(result == RC_OK);
             }
 
             msg->snd_w1 = capros_PCIDev_ResourceMem
-                          | (flags & IORESOURCE_PREFETCH);
+                      | (flags & (IORESOURCE_PREFETCH | IORESOURCE_READONLY));
             assert(IORESOURCE_PREFETCH == capros_PCIDev_ResourcePrefetch);
+            assert(IORESOURCE_READONLY == capros_PCIDev_ResourceReadOnly);
             msg->snd_w2 = pci_resource_end(pdev, resourceNum) + 1
                           - pci_resource_start(pdev, resourceNum);
             msg->snd_w3 = pci_resource_start(pdev, resourceNum) - startPage;

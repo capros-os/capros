@@ -96,7 +96,7 @@ uint32_t mach_ReadCacheType(void);
     kpsize_t bound = base + size;
 
     int ret;
-    PmemInfo * pmi;	// value isn't used
+    PmemInfo * pmi;
     switch (mp->type) {
     case 1:		// RAM
     {
@@ -115,6 +115,8 @@ uint32_t mach_ReadCacheType(void);
     }
 
     case 4567:	// this is a private convention, not part of multiboot
+      physMem_CheckOverlap(base, bound, &pmi);
+      assert(!pmi);	// Device regs should not overlap!
       ret = physMem_AddRegion(base, bound, MI_DEVICEMEM, &pmi);
       assert(!ret);
       break;

@@ -52,6 +52,7 @@ interface PCIDev extends key
   const unsigned long ResourceIO = 256;	// 0x100
   const unsigned long ResourceMem = 512;	// 0x200
   const unsigned long ResourcePrefetch = 4096;	// 0x1000
+  const unsigned long ResourceReadOnly = 8192;	// 0x2000
 
   exception InvalidResource;
 
@@ -61,12 +62,13 @@ interface PCIDev extends key
   If resourceNum is too large, InvalidResource is raised.
 
   If the resource is a memory resource,
-    flags will have ResourceMem and may have ResourcePrefetch,
+    flags will have ResourceMem
+      and may have ResourcePrefetch and/or ResourceReadOnly,
     size will have the size of the resource in bytes,
     firstIOPort will have the offset from the beginning of the first page
       of the resource to the first byte of the resource,
-    and the method returns a capability to the first page of the resource.
-    (Use Page.getNthPage to get subsequent pages if any.)
+    and the method returns a capability to the a Range object
+      covering the pages of memory.
 
   If the resource is an IO port resource,
     flags will have ResourceIO,

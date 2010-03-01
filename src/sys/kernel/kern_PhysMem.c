@@ -301,29 +301,46 @@ physMem_FreeAll(PmemInfo * pmi)
   }
 }
 
-// Returns 0 if OK, 1 if range overlaps an existing PmemInfo,
-// 2 if can't allocate space.
+/* Check if the proposed base and bound overlap any existing PmemInfo.
+ * If there is an existing PmemInfo that overlaps base,
+ *   this procedure returns false and sets *ppmi to a pointer to that PmemInfo.
+ * If no PmemInfo overlaps base, but some PmemInfo overlaps the
+ *   rest of the range,
+ *   this procedure returns true
+ *     and sets *ppmi to a pointer to the lowest such PmemInfo.
+ * Otherwise we return true and set *ppmi to NULL.
+ */
+bool
+physMem_CheckOverlap(kpa_t base, kpa_t bound, PmemInfo ** ppmi)
+{
+  unsigned int i;
+  PmemInfo * lowestPmi = NULL;
+
+  for (i = 0; i < physMem_nPmemInfo; i++) {
+    PmemInfo * pmi = &physMem_pmemInfo[i];
+    if (base >= pmi->base && base < pmi->bound) {
+      *ppmi = pmi;
+      return false;
+    }
+    if (pmi->base >= base && pmi->base < bound) {
+      if (lowestPmi == NULL
+          || pmi->base < lowestPmi->base )
+        lowestPmi = pmi;
+    }
+  }
+  
+  *ppmi = lowestPmi;
+  return true;
+}
+
+// Returns 0 if OK, 2 if can't allocate space.
 int
 physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, PmemInfo ** ppmi)
 {
-  PmemInfo *kmi = &physMem_pmemInfo[physMem_nPmemInfo];
-  unsigned int i = 0;
-
-  if (type == MI_DEVICEMEM) {
-    /* Do not do this check for the bootup cases, as some of those
-     * actually do overlap. */
-    for (i = 0; i < physMem_nPmemInfo; i++) {
-      if (base >= physMem_pmemInfo[i].base && base < physMem_pmemInfo[i].bound)
-	return 1;
-
-      if (bound > physMem_pmemInfo[i].base && bound <= physMem_pmemInfo[i].bound)
-	return 1;
-    }
-  }
-
   if (physMem_nPmemInfo >= MAX_PMEMINFO)
     return 2;
 
+  PmemInfo *kmi = &physMem_pmemInfo[physMem_nPmemInfo];
   kmi->base = base;
   kmi->bound = bound;
   kmi->type = type;

@@ -90,6 +90,7 @@ void physMem_Init();
 void physMem_Init_MD();	// machine-dependent
 
 PmemInfo * physMem_ChooseRegion(kpsize_t sz, PmemConstraint *);
+bool physMem_CheckOverlap(kpa_t base, kpa_t bound, PmemInfo ** ppmi);
 int
 physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, PmemInfo ** ppmi);
 

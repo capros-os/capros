@@ -216,28 +216,56 @@ printf("*****publishMem base=%#llx bound=%#llx\n", base, bound);////
     return;
   }
 
-  PmemInfo * pmi;
-  int ret = physMem_AddRegion(base, bound, MI_DEVICEMEM, &pmi);
-  if (ret == 1) {
-    inv->exit.code = RC_capros_key_NoAccess;
-    return;
-  } else if (ret == 2) {
-    inv->exit.code = RC_capros_DevPrivs_AllocFail;
+  OID oidCount = ((bound - base) >> EROS_PAGE_LGSIZE)
+                      * EROS_OBJECTS_PER_FRAME;
+  if (oidCount > UINT32_MAX) {
+    // the range is too large to be represented in the count of a range key
+    inv->exit.code = RC_capros_key_RequestError;
     return;
   }
 
-  PageHeader * pageH = objC_AddDevicePages(pmi);
-  if (!pageH) {
-    // FIXME remove the region added above
-    inv->exit.code = RC_capros_DevPrivs_AllocFail;
-    return;
+  PmemInfo * pmi;
+  // Ensure pages are set up, one fragment at a time.
+  kpa_t checked;
+  for (checked = base; checked < bound; ) {
+    kpa_t fragBound;
+    if (physMem_CheckOverlap(base, bound, &pmi)) {
+      // base is not already set up; we need to do it.
+      if (pmi)
+        fragBound = pmi->base;
+      else
+        fragBound = bound;
+
+      int ret = physMem_AddRegion(base, fragBound, MI_DEVICEMEM, &pmi);
+      if (ret) {
+        inv->exit.code = RC_capros_DevPrivs_AllocFail;
+        return;
+      }
+
+      PageHeader * pageH = objC_AddDevicePages(pmi);
+      if (!pageH) {
+        // FIXME remove the region added above
+        inv->exit.code = RC_capros_DevPrivs_AllocFail;
+        return;
+      }
+      PhysPageSource_Init(pmi);
+    } else {
+      // base is already set up by pmi.
+    }
+    checked = pmi->bound;
   }
-  PhysPageSource_Init(pmi);
 
   Key * key = inv->exit.pKey[0];
   if (key) {
     key_NH_Unchain(key);
-    key_SetToObj(key, pageH_ToObj(pageH), KKT_Page, 0, 0);
+    assert(! keyBits_IsHazard(key));
+    // Return a Range cap for the pages.
+    keyBits_InitType(key, KKT_Range);
+    key->keyPerms = 0;
+    key->keyData = 0;
+    key->u.rk.oid = OID_RESERVED_PHYSRANGE
+                    + (base >> EROS_PAGE_LGSIZE) * EROS_OBJECTS_PER_FRAME;
+    key->u.rk.count = oidCount;
   }
 
   inv->exit.code = RC_OK;

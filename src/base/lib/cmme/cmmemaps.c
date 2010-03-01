@@ -217,6 +217,7 @@ maps_fini(void)
 }
 
 // Uses KR_TEMP0.
+// Returns a SpaceBank exception if can't allocate a needed GPT.
 result_t
 maps_mapPage_locked(unsigned long pgOffset, cap_t pageCap)
 {
@@ -252,6 +253,67 @@ maps_mapPage_locked(unsigned long pgOffset, cap_t pageCap)
     assert(result == RC_OK);
 
   return RC_OK;
+}
+
+/* rangeCap is a key register containing a capability to a Range.
+ * firstPageOfs is the offset relative to that Range
+ * of the first page to map.
+ * nPages is the number of consecutive pages to map.
+ *
+ * This procedure reserves address space for the pages and
+ * maps them all into the space.
+ *
+ * It returns:
+ *   -1 if we couldn't allocate virtual addresses;
+ *   -2 if our SpaceBank can't allocate a needed GPT;
+ *   -3 if the specified offset and nPages is not contained in the Range;
+ *   -4 if a frame in the range is not of type capros_Range_otPage;
+ *   the nonnegative page offset within the maps area, if successful.
+ *
+ * This procedure uses KR_TEMP0 and KR_TEMP1.
+ */
+long
+maps_reserveAndMapRange_locked(cap_t rangeCap,
+  capros_Range_off_t firstPageOfs,
+  unsigned int nPages, bool readOnly)
+{
+  result_t result;
+  unsigned int i;
+
+  // Allocate virtual addresses for the memory.
+  long blockStart = maps_reserve_locked(nPages);
+  if (blockStart < 0)
+    return -1;
+
+  unsigned long pgOffset = blockStart;
+  for (i = 0; i < nPages; i++, firstPageOfs+=EROS_OBJECTS_PER_FRAME) {
+    // Get page cap to map.
+    capros_Range_obType oldType;
+    result = capros_Range_getCap(rangeCap,
+               capros_Range_otPage, firstPageOfs, &oldType, KR_TEMP1);
+    if (result != RC_OK) {	// should be RC_capros_Range_RangeErr
+      maps_liberate_locked(blockStart, nPages);
+      return -3;
+    }
+    if (oldType != capros_Range_otNone) {	// frame type is wrong
+      // (This should not happen with device or DMA pages.)
+      maps_liberate_locked(blockStart, nPages);
+      return -4;
+    }
+    // Map the page.
+    if (readOnly) {
+      result = capros_Memory_reduce(KR_TEMP1,
+                 capros_Memory_readOnly, KR_TEMP1);
+      assert(result != RC_OK);
+    }
+    result = maps_mapPage_locked(pgOffset++, KR_TEMP1);
+    if (result != RC_OK) {
+      maps_liberate_locked(blockStart, nPages);
+      return -2;
+    }
+  }
+
+  return blockStart;
 }
 
 /* blockPageCap is a key register containing a capability to a Page

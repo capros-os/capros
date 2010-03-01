@@ -40,6 +40,9 @@ capros_PCIDriverConstructorExtended_NewDeviceData theNdd;
 
 /*
  * Clobbers KR_TEMP2.
+ *
+ * On exit, KR_RETURN has a resume key to the registry;
+ * the caller must invoke it.
  */
 int
 PCIDriver_mainInit(const char * devName)
@@ -119,8 +122,9 @@ int pci_setup_device(struct pci_dev *dev);
       // Round up to page boundary:
       resource_size_t endPage = (end + (EROS_PAGE_SIZE - 1))
                        & ~ (resource_size_t)(EROS_PAGE_SIZE - 1);
-      long pageNum = maps_reserveAndMapBlock(KR_TEMP2,
-                                             endPage >> EROS_PAGE_LGSIZE);
+      long pageNum = maps_reserveAndMapRange(KR_TEMP2,
+                       0, endPage >> EROS_PAGE_LGSIZE,
+                       flags & capros_PCIDev_ResourceReadOnly);
       DEBUG (init) kprintf(KR_OSTREAM, "%s resource endPg=%#x pgNum=%#x\n",
                            devName, (unsigned int)endPage, pageNum);
       if (pageNum < 0) {

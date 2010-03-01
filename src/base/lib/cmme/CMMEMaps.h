@@ -24,6 +24,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>	// get result_t
+#include <idl/capros/Range.h>
 
 result_t maps_init(void);
 void maps_fini(void);
@@ -35,6 +36,8 @@ void maps_liberate_locked(unsigned long pgOffset,
 void * maps_pgOffsetToAddr(unsigned long pgOffset);
 unsigned long maps_addrToPgOffset(unsigned long addr);
 result_t maps_mapPage_locked(unsigned long pgOffset, cap_t pageCap);
+long maps_reserveAndMapRange_locked(cap_t rangeCap,
+  capros_Range_off_t firstPageOfs, unsigned int nPages, bool readOnly);
 long maps_reserveAndMapBlock_locked(cap_t blockPageCap, unsigned int nPages);
 void maps_getCap(unsigned long pgOffset, cap_t pageCap);
 
