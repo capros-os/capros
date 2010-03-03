@@ -163,6 +163,11 @@
           <dd>Print the Process at the specified address.
               If no address is specified, this command prints the current
               Process.
+          <dt>show floatregs[&lt;address&gt;]
+          <dd>Print the floating point registers
+              of the Process at the specified address.
+              If no address is specified, this command prints the registers
+              of the current Process.
           <dt>show sa &lt;address&gt
           <dd>Print the registers in the fixregs_t
               save area at the specified address.
@@ -220,7 +225,7 @@
   </td>
   <td>
   <em>Copyright 2000, 2001 by The EROS Group,
-      2005, 2006, 2007, 2008, 2009 by Strawberry Development Group.
+      2005-2010 by Strawberry Development Group.
       All rights reserved.
       For terms of redistribution, see the <a
       href="../../legal/license/GPL.html">GNU General Public License</a></em>
