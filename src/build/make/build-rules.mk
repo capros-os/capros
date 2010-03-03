@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group
+# Copyright (C) 2005-2010, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -28,8 +28,8 @@ include $(EROS_SRC)/build/make/makevars.mk
 endif
 
 # The following variables depend on things set in the makefile:
-GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) -DCAPROS_MACH_$(CAPROS_MACH) $(DEF)
-GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(OPTIM) $(GPLUS_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
+GCCFLAGS=$(CFLAGS) $(GCC_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) -DCAPROS_MACH_$(CAPROS_MACH) $(DEF)
+GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(GPLUS_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
 MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"$(CAPROS_DOMAIN)/\" -DCAPROS_LOCALDIR=$(CAPROS_LOCALDIR) -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include $(LINUXINC)
 
 # __ASSEMBLER__ gets defined automatically, but Linux requires:
