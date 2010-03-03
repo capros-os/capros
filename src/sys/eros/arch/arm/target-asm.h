@@ -2,7 +2,7 @@
 #define __TARGET_ASM_ARM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -38,6 +38,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #if !(defined(EROS_TARGET_arm))
 #error "Inappropriate target file included"
 #endif
+
+//#define EROS_HAVE_FPU	// No Floating Point Unit
 
 #if 0
 #define EROS_KSTACK_SIZE	0x2000 /* two pages */

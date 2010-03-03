@@ -3,9 +3,10 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2010, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -49,8 +50,6 @@
 #define NORETURN __attribute__ ((noreturn))
 
 #define BITFIELD_PACK_LOW	/* bitfields pack low-order bits first */
-
-#define EROS_HAVE_FPU
 
 #ifndef NULL
 #define NULL (0L)

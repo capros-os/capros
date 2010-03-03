@@ -2,7 +2,7 @@
 #define __TARGET_ARM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -52,8 +52,6 @@
 
 #define BITFIELD_PACK_LOW	/* bitfields pack low-order bits first */
 /***** Verify this! */
-
-/*#define EROS_HAVE_FPU */
 
 #ifndef NULL
 #define NULL (0L)
