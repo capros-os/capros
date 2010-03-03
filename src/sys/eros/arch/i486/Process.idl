@@ -4,6 +4,8 @@ package capros.arch.i386;
  */
 interface Process extends capros.Process raises (capros.key.RequestError) {
 
+  typedef array<unsigned <16>,5> FPUData_t;
+
   struct Registers {
     // CommonRegisters32 fields:
     unsigned long len;
@@ -29,16 +31,21 @@ interface Process extends capros.Process raises (capros.key.RequestError) {
     unsigned <16> DS;
     unsigned <16> FS;
     unsigned <16> GS;
-/*
-  uint32_t  fp_ctrlReg;
-  uint32_t  fp_statusReg;
-  uint32_t  fp_tagWord;
-  uint32_t  fip;		// floating instruction pointer
-  uint32_t  fcs;		// floating code seg
-  uint32_t  fdp;		// floating data pointer
-  uint32_t  fds;		// floating data segment
-  uint16_t  st[8][5];		// register values
-*/
+    // x87 FPU state:
+    unsigned <16> FPU_ControlWord;
+    unsigned <16> FPU_StatusWord;
+    unsigned <16> FPU_TagWord;
+    unsigned long FPU_InstructionPointer;
+    unsigned <16> FPU_InstructionPointerSelector;
+    unsigned <16> FPU_Opcode;
+    unsigned long FPU_OperandPointer;
+    unsigned <16> FPU_OperandPointerSelector;
+    // The following does not work due to a bug in CapIDL:
+    // array<FPUData_t,8> Data;
+    // CapIDL generates incorrect output for the following:
+    // array<array<unsigned <16>,5>,8> Data;
+    // Third time's the charm:
+    array<unsigned <8>,80> FPU_Data;
   };
 
   // Segment register values:

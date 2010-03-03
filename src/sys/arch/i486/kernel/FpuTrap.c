@@ -37,46 +37,67 @@ Approved for public release, distribution unlimited. */
 bool
 DeviceNotAvailException(savearea_t *sa)
 {
+#ifdef EROS_HAVE_FPU
+
+  // We should always have EM=0 and MP=1,
+  // in which case this exception can only happen if TS=1.
+  assert((ReadCR0() & (CR0_TS | CR0_EM | CR0_MP)) == (CR0_TS | CR0_MP));
+
   if (sa_IsKernel(sa)) {
-    dprintf(true, "Kernel floating point error\n");
-    DumpFixRegs(sa);
+    dprintf(true, "Kernel using floating point\n");
     halt('f');
   }
 
-#ifndef EROS_HAVE_FPU
-#error not supported
+#if 0
+  printf("Fpu Not Avail fault, proc=%#x EIP=%#x fpuOwner=%#x.\n",
+         act_CurContext(), act_CurContext()->trapFrame.EIP, proc_fpuOwner);
+#endif
+
+  assert(proc_fpuOwner != proc_Current());	// else we would have cleared TS
+
+#if 0
+  printf("Forcing FPU load for proc %#x.\n", proc_Current());
+#endif
+  proc_Current()->hazards |= hz_NumericsUnit;
+
 #else
-
-  if (proc_fpuOwner == act_CurContext()) {
-    /* If the current process owns the FPU, then this fault should be
-     * taken seriously:
-     */
-
-#if 0
-    uint16_t msw;
-    __asm__ __volatile__("smsw %0\n\t" : "=r" (msw));
-
-
-    dprintf(false, "Active context 0x%08x fp fault pc=0x%08x"
-		    " msw=0x%04x\n",
-		    act_CurContext(), sa->EIP, msw);
-    act_CurContext()->SaveFPU();
-    act_CurContext()->DumpFloatRegs();
-    
-    dprintf(true, "Pausing...\n");
+  Debugger();	// No FPU?
 #endif
-    
-    if (act_CurContext())
-      proc_SetFault(act_CurContext(), capros_Process_FC_FPFault, sa->EIP);
-  }
-  else {
-#if 0
-    dprintf(false, "Forcing numerics load for ctxt 0x%08x...\n",
-		    Thread::CurContext());
-#endif
-    act_CurContext()->hazards |= hz_NumericsUnit;
+
+  return false;
+}
+
+bool
+CoprocErrorFault(savearea_t* sa)
+{
+#ifdef EROS_HAVE_FPU
+
+  /* The following can occur:
+     1. Process A uses the FPU and generates an unmasked exception condition.
+     2. Before process A executes its next FPU instruction,
+        the kernel switches context to process B.
+        The exception condition is still pending.
+     3. Process B (or a subsequent process) attempts to execute
+        an FPU instruction. Because process A is still the fpuOwner,
+        the kernel saves process A's FPU state.
+     4. The fsave instruction executed by the kernel causes the
+        pending floating point exception to be recognized,
+        which gets us here.
+     That is why we allow an exception at FsaveInstruction.
+  */
+
+extern void FsaveInstruction();
+  if (sa_IsKernel(sa)
+      && sa->EIP != (uint32_t)FsaveInstruction) {
+    dprintf(true, "Kernel floating point exception\n");
+    halt('o');
   }
 
+  // This fault belongs to proc_fpuOwner, not proc_Current().
+  proc_SetFault(proc_fpuOwner, capros_Process_FC_FPFault, sa->EIP);
+
+#else
+  Debugger();	// No FPU?
 #endif
 
   return false;

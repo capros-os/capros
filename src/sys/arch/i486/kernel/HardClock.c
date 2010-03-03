@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/CPU.h>
 
 volatile uint64_t sysT_now = 0llu;
-volatile uint64_t sysT_wakeup = ~(0llu);
+volatile uint64_t sysT_wakeup = UINT64_MAX;
 
 /* The timer chip on the PC has three channels. There is a fourth on
  * the PS/2, but for the moment I am ignoring that platform.
@@ -65,7 +65,7 @@ volatile uint64_t sysT_wakeup = ~(0llu);
  * give sysT_Wakeup() as the handler function.
  * There is a fast path interrupt filter such that the only interrupts
  * that actually make it to the interrupt dispatch mechanism are the
- * ones where a wake up is really required (wakeup > now).
+ * ones where a wake up is really required (sysT_now >= sysT_wakeup).
  */
 
 /* Speed of the actual base tick rate, in ticks/sec */

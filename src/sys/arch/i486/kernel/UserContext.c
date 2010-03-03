@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2005-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -23,6 +23,7 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Node.h>
 #include <arch-kerninc/KernTune.h>
@@ -44,6 +45,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/ProcessKeeper.h>
 #include <kerninc/Invocation.h>
 #include "Process486.h"
+#include "asm.h"
 
 #include "gen.REGMOVE.h"
 /* #define MSGDEBUG
@@ -51,9 +53,6 @@ Approved for public release, distribution unlimited. */
  * #define XLATEDEBUG
  */
 
-#ifdef EROS_HAVE_FPU
-Process *proc_fpuOwner;
-#endif
 #ifdef OPTION_SMALL_SPACES
 /* Pointer to the (contiguous) page tables for small spaces. */
 PTE * proc_smallSpaces = 0;
@@ -88,6 +87,8 @@ proc_DumpPseudoRegs(Process* thisPtr)
 void 
 proc_DumpFloatRegs(Process* thisPtr)
 {
+  proc_fpuRegsToProcess(thisPtr);
+
   printf("fctrl: 0x%04x fstatus: 0x%04x ftag: 0x%04x fopcode 0x%04x\n",
 		 thisPtr->fpuRegs.f_ctrl, 
 		 thisPtr->fpuRegs.f_status, 
@@ -451,18 +452,17 @@ proc_FlushFixRegs(Process * thisPtr)
 }
 
 #ifdef EROS_HAVE_FPU
+
+Process *proc_fpuOwner;
+
 void 
 proc_SaveFPU(Process* thisPtr)
 {
   assert(proc_fpuOwner == thisPtr);
 
-  mach_EnableFPU();
+  FPUSave(&thisPtr->fpuRegs);
 
-  __asm__ __volatile__("fnsave %0\n\t" : "=m" (thisPtr->fpuRegs));
-
-  proc_fpuOwner = 0;
-
-  mach_DisableFPU();
+  proc_fpuOwner = NULL;
 }
 
 void 
@@ -471,33 +471,38 @@ proc_LoadFPU(Process* thisPtr)
   /* FPU is unloaded, or is owned by some other process.  Unload
    * that, and load the current process's FPU state in it's place.
    */
+  // printf("proc_LoadFPU old %#x new %#x\n", proc_fpuOwner, thisPtr);
   if (proc_fpuOwner)
     proc_SaveFPU(proc_fpuOwner);
 
-  assert(proc_fpuOwner == 0);
+  assert(proc_fpuOwner == NULL);
 
-  mach_EnableFPU();
-
-  __asm__ __volatile__("frstor %0\n\t"
-		       : /* no outputs */
-		       : "m" (thisPtr->fpuRegs));
+  FPURestore(&thisPtr->fpuRegs);
 
   proc_fpuOwner = thisPtr;
-  mach_DisableFPU();
-
   thisPtr->hazards &= ~hz_NumericsUnit;
+}
+
+// Given that ! (thisPtr->hazards & hz_FloatRegs),
+// ensure that thisPtr->fpuRegs are valid.
+void
+proc_fpuRegsToProcess(Process * thisPtr)
+{
+  if (thisPtr == proc_fpuOwner)
+    proc_SaveFPU(thisPtr);
 }
 
 /* This version requires no annex node. */
 void 
 proc_FlushFloatRegs(Process* thisPtr)
 {
-  uint8_t *rootkey0 = 0;
   assert ((thisPtr->hazards & hz_FloatRegs) == 0);
   assert (thisPtr->procRoot);
   assert (objH_IsDirty(DOWNCAST(thisPtr->procRoot, ObjectHeader)));
 
-  rootkey0 = (uint8_t *) (node_GetKeyAtSlot(thisPtr->procRoot, 0));
+  proc_fpuRegsToProcess(thisPtr);
+
+  uint8_t * rootkey0 = (uint8_t *) (node_GetKeyAtSlot(thisPtr->procRoot, 0));
 
   UNLOAD_FLOAT_REGS;
 
@@ -604,6 +609,19 @@ proc_GetRegs32(Process * thisPtr,
   regs->FS     = thisPtr->trapFrame.FS;
   regs->GS     = thisPtr->trapFrame.GS;
 
+#ifdef EROS_HAVE_FPU
+  regs->FPU_ControlWord                = thisPtr->fpuRegs.f_ctrl;
+  regs->FPU_StatusWord                 = thisPtr->fpuRegs.f_status;
+  regs->FPU_TagWord                    = thisPtr->fpuRegs.f_tag;
+  regs->FPU_InstructionPointer         = thisPtr->fpuRegs.f_ip;
+  regs->FPU_InstructionPointerSelector = thisPtr->fpuRegs.f_cs;
+  regs->FPU_Opcode                     = thisPtr->fpuRegs.f_opcode;
+  regs->FPU_OperandPointer             = thisPtr->fpuRegs.f_dp;
+  regs->FPU_OperandPointerSelector     = thisPtr->fpuRegs.f_ds;
+  // f_r0 through f_r7 are consecutive and contiguous.
+  memcpy(&regs->FPU_Data[0], &thisPtr->fpuRegs.f_r0, 80);
+#endif
+
   return true;
 }
 
@@ -613,35 +631,6 @@ proc_SetCommonRegs32MD(Process * thisPtr,
 {
   thisPtr->trapFrame.EIP    = regs->pc;
   thisPtr->trapFrame.ESP    = regs->sp;
-}
-
-void
-proc_SetRegs32(Process * thisPtr,
-  struct capros_arch_i386_Process_Registers * regs)
-{
-  proc_SetCommonRegs32(thisPtr,
-                       (struct capros_Process_CommonRegisters32 *) regs);
-  
-  thisPtr->trapFrame.EDI    = regs->EDI;
-  thisPtr->trapFrame.ESI    = regs->ESI;
-  thisPtr->trapFrame.EBP    = regs->EBP;
-  thisPtr->trapFrame.EBX    = regs->EBX;
-  thisPtr->trapFrame.EDX    = regs->EDX;
-  thisPtr->trapFrame.ECX    = regs->ECX;
-  thisPtr->trapFrame.EAX    = regs->EAX;
-  thisPtr->trapFrame.EFLAGS = regs->EFLAGS;
-  thisPtr->trapFrame.CS     = regs->CS;
-  thisPtr->trapFrame.SS     = regs->SS;
-  thisPtr->trapFrame.ES     = regs->ES;
-  thisPtr->trapFrame.DS     = regs->DS;
-  thisPtr->trapFrame.FS     = regs->FS;
-  thisPtr->trapFrame.GS     = regs->GS;
-
-#if 0
-  dprintf(true, "SetRegs(): ctxt=0x%08x: EFLAGS now 0x%08x\n", this, trapFrame.EFLAGS);
-#endif
-
-  proc_ValidateRegValues(thisPtr);
 }
 
 /* May Yield. */

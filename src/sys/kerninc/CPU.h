@@ -3,8 +3,10 @@
 
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2010, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,7 +28,8 @@
 
 typedef struct CPU CPU;
 struct CPU {
-  uint64_t preemptTime;		/* when this processor should be preempted */
+  uint64_t preemptTime;		/* when this processor should be preempted,
+				in ticks */
 };
 
 #if NCPU == 1

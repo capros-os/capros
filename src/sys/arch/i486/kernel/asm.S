@@ -1,7 +1,7 @@
 	.file	"asm.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -23,6 +23,7 @@
 
 #include <eros/arch/i486/asm.h>
 #include <eros/arch/i486/target-asm.h>
+#include "asm.h"
 
 	.text
 
@@ -30,9 +31,55 @@ ENTRY(ReadCR0)
 	movl %cr0,%eax
 	ret
 
+ENTRY(WriteCR0)
+	movl 4(%esp),%eax
+	movl %eax,%cr0
+	ret
+
+#ifdef EROS_HAVE_FPU
+
+ENTRY(FPUInit)
+	fninit
+	ret
+
+ENTRY(FPUSave)
+	clts		// ClearTSFlag()
+ENTRY(FsaveInstruction)	// this instruction can trap
+	fsave 0(%eax)
+	// Set the TS flag
+	movl %cr0,%eax
+	orl $CR0_TS,%eax
+	movl %eax,%cr0
+	ret
+
+ENTRY(FPURestore)
+	clts		// ClearTSFlag()
+	frstor 0(%eax)
+	// Set the TS flag
+	movl %cr0,%eax
+	orl $CR0_TS,%eax
+	movl %eax,%cr0
+	ret
+
+#if 0 // not needed
+// Return the FPU Control Word in %ax.
+ENTRY(ReadFCW)
+	pushl	%ebp
+	movl	%esp,%ebp
+	sub $4,%esp
+	
+	fnstcw 0(%esp)
+	popl %eax
+
+	leave
+	ret
+#endif
+
 ENTRY(ClearTSFlag)
 	clts
 	ret
+
+#endif // EROS_HAVE_FPU
 
 ENTRY(rdtsc)
 	pushl	%ebp

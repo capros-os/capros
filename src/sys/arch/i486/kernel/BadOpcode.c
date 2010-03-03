@@ -89,19 +89,6 @@ InvalTSSFault(savearea_t* sa)
 }
 
 bool
-CoprocErrorFault(savearea_t* sa)
-{
-  if ( sa_IsKernel(sa) ) {
-    debug_Backtrace(0, true);
-    halt('o');
-  }
-
-  proc_SetFault(act_CurContext(), capros_Process_FC_FPFault, sa->EIP);
-
-  return false;
-}
-
-bool
 AlignCheckFault(savearea_t* sa)
 {
   if ( sa_IsKernel(sa) ) {

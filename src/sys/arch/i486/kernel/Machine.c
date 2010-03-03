@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -323,38 +323,32 @@ mach_HardReset()
 }
 
 #ifdef EROS_HAVE_FPU
+
 void
 mach_InitializeFPU()
 {
-  __asm__ __volatile__("fninit\n\t"
-		       "smsw %%ax\n\t"
-		       "orw $0x1a,%%ax\n\t"
-		       "lmsw %%ax\n\t"	/* Turn on TS,MP bits. */
-		       : /* no outputs */
-		       : /* no inputs */
-		       : "ax" /* eax smashed */);
+  FPUInit();
+
+  uint32_t cr0 = ReadCR0();
+  cr0 &= ~ CR0_EM;
+  cr0 |= CR0_ET | CR0_TS | CR0_MP;
+  WriteCR0(cr0);
 }
 
 void
 mach_DisableFPU()
 {
-  __asm__ __volatile__("smsw %%ax\n\t"
-		       "orw $0xa,%%ax\n\t"
-		       "lmsw %%ax\n\t"	/* Turn on TS,MP bits. */
-		       : /* no outputs */
-		       : /* no inputs */
-		       : "ax" /* eax smashed */);
+  uint32_t cr0 = ReadCR0();
+  assert((cr0 & (CR0_EM | CR0_MP)) == CR0_MP);	// should always have EM=0, MP=1
+  cr0 |= CR0_TS;
+  WriteCR0(cr0);
 }
 
 void
 mach_EnableFPU()
 {
-  __asm__ __volatile__("smsw %%ax\n\t"
-		       "andw $0xfff1,%%ax\n\t"
-		       "lmsw %%ax\n\t"	/* Turn off TS,EM,MP bits. */
-		       : /* no outputs */
-		       : /* no inputs */
-		       : "ax" /* eax smashed */);
+  assert((ReadCR0() & (CR0_EM | CR0_MP)) == CR0_MP); // should have EM=0, MP=1
+  ClearTSFlag();
 }
 #endif
 

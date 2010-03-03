@@ -20,11 +20,31 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+// Control Register 0 declarations:
+
+#define CR0_MP 0x2
+#define CR0_EM 0x4
+#define CR0_TS 0x8
+#define CR0_ET 0x10
+
+#ifndef __ASSEMBLER__
+
 uint32_t ReadCR0();
+void WriteCR0(uint32_t cr0);
+
+#ifdef EROS_HAVE_FPU
+void FPUInit(void);
+void FPUSave(floatsavearea_t * p);
+void FPURestore(const floatsavearea_t * p);
+//uint16_t ReadFCW(void);
 void ClearTSFlag();
+#endif
+
 uint64_t rdtsc();
 void halt(char c);
 uint32_t rdcounter0();
 uint32_t rdcounter1();
+
+#endif // __ASSEMBLER__
 
 #endif /* __ASM_H__ */

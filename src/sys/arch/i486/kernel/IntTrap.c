@@ -223,7 +223,6 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
 #ifndef NESTED_INTERRUPT_SUPPRESS
   irq_DISABLE();
 #endif
-  assert(local_irq_disabled());
   
   /* 
    * If the activity is yielding voluntarily, it MUST be rescheduled.

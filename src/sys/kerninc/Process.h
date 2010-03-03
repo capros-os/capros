@@ -2,7 +2,7 @@
 #define __PROCESS_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -112,8 +112,10 @@ enum Hazards {
   // unused         0x08u,
   hz_Schedule     = 0x10u,
 #ifdef EROS_HAVE_FPU
-  hz_FloatRegs    = 0x20u,
-  hz_NumericsUnit = 0x40u,	/* need to load FPU */
+  hz_FloatRegs    = 0x20u,	/* need to copy float regs
+			from process's Nodes to the struct Process. */
+  hz_NumericsUnit = 0x40u,	/* this process needs to use the FPU,
+				but isn't proc_fpuOwner. */
 #endif
   hz_SingleStep   = 0x80u 	/* context may have a live activity */
 };
@@ -355,6 +357,7 @@ void proc_DeliverResult(Process* thisPtr, struct Invocation* inv /*@ not null @*
 void proc_FlushFixRegs(Process* thisPtr);
 #ifdef EROS_HAVE_FPU
 void proc_LoadFloatRegs(Process* thisPtr);
+void proc_fpuRegsToProcess(Process * thisPtr);
 void proc_FlushFloatRegs(Process* thisPtr);
 #endif
 void proc_FlushKeyRegs(Process* thisPtr);

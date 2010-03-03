@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -23,6 +23,7 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
@@ -36,9 +37,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/arch/i386/Process.h>
 
 #include "Process486.h"
-
-void proc_SetRegs32(Process * thisPtr,
-       struct capros_arch_i386_Process_Registers * regs);
 
 /* May Yield. */
 void
@@ -92,7 +90,38 @@ ProcessKey(Invocation * inv)
 
       inv_CopyIn(inv, sizeof(regs), &regs);
 
-      proc_SetRegs32(proc, &regs);
+      proc_SetCommonRegs32(proc,
+                           (struct capros_Process_CommonRegisters32 *) &regs);
+      
+      proc->trapFrame.EDI    = regs.EDI;
+      proc->trapFrame.ESI    = regs.ESI;
+      proc->trapFrame.EBP    = regs.EBP;
+      proc->trapFrame.EBX    = regs.EBX;
+      proc->trapFrame.EDX    = regs.EDX;
+      proc->trapFrame.ECX    = regs.ECX;
+      proc->trapFrame.EAX    = regs.EAX;
+      proc->trapFrame.EFLAGS = regs.EFLAGS;
+      proc->trapFrame.CS     = regs.CS;
+      proc->trapFrame.SS     = regs.SS;
+      proc->trapFrame.ES     = regs.ES;
+      proc->trapFrame.DS     = regs.DS;
+      proc->trapFrame.FS     = regs.FS;
+      proc->trapFrame.GS     = regs.GS;
+
+#ifdef EROS_HAVE_FPU
+      proc->fpuRegs.f_ctrl	= regs.FPU_ControlWord;
+      proc->fpuRegs.f_status	= regs.FPU_StatusWord;
+      proc->fpuRegs.f_tag	= regs.FPU_TagWord;
+      proc->fpuRegs.f_ip	= regs.FPU_InstructionPointer;
+      proc->fpuRegs.f_cs	= regs.FPU_InstructionPointerSelector;
+      proc->fpuRegs.f_opcode	= regs.FPU_Opcode;
+      proc->fpuRegs.f_dp	= regs.FPU_OperandPointer;
+      proc->fpuRegs.f_ds	= regs.FPU_OperandPointerSelector;
+      // f_r0 through f_r7 are consecutive and contiguous.
+      memcpy(&proc->fpuRegs.f_r0, &regs.FPU_Data[0], 80);
+#endif
+
+      proc_ValidateRegValues(proc);
 
       inv->exit.code = RC_OK;
       break;

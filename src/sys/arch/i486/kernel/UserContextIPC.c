@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -96,14 +96,11 @@ ExitTheKernel_MD(Process * thisPtr)
   }
   
 #ifdef EROS_HAVE_FPU
-  /* This is the right place to enable, but probably not the right
-     place to *disable*. */
   if (proc_fpuOwner == thisPtr) {
     mach_EnableFPU();
   }
-  else if (proc_fpuOwner) {
+  else
     mach_DisableFPU();
-  }
 #endif
   
   thisPtr->md.cpuStack = mach_GetCPUStackTop();
