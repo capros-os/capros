@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -509,8 +509,9 @@ NextTimeInterrupt(Reserve *current)
     NextReplenishTime = r->nextDeadline;
   }
   
-  if (current == 0) {
-    //printf("starting NextTimeInterrupt(0)...\n");
+  if (current == NULL) {
+    //printf("starting NextTimeInterrupt(NULL)...\n");
+    // below is probably wrong:
     if (NextReplenishTime < now)
       mintime = now + mach_MillisecondsToTicks(QUANTA);
     else

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -700,7 +700,7 @@ act_EnsureRunnable(void)
     cpu->preemptTime = NextTimeInterrupt(r);
   }
   else {
-    cpu->preemptTime = NextTimeInterrupt(0);
+    cpu->preemptTime = NextTimeInterrupt(NULL);
   }
 
   sysT_ResetWakeTime();
