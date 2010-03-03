@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, 2009, Strawberry Development Group.
+ * Copyright (C) 2005, 2007, 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -39,6 +39,8 @@ Approved for public release, distribution unlimited. */
 #if !(defined(EROS_TARGET_i486))
 #error "Inappropriate target file"
 #endif
+
+#define EROS_HAVE_FPU
 
 #if 0
 #define EROS_KSTACK_SIZE	0x2000) /* two pages */
