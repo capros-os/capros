@@ -751,6 +751,28 @@ db_ctxt_print_cmd(db_expr_t addr, int have_addr,
   }
 }
 
+void
+db_show_floatregs_cmd(db_expr_t addr, int have_addr,
+		  db_expr_t cnt/* count */, char * mdf/* modif */)
+{
+#ifdef EROS_HAVE_FPU
+  if (have_addr) {
+    if (IsValidProcPtr((Process *)addr))
+      proc_DumpFloatRegs((Process *)addr);
+    else
+      db_printf("Not a valid process pointer.\n");
+  } else {
+    Process * proc = proc_curProcess;
+    if (proc)
+      proc_DumpFloatRegs(proc);
+    else
+      db_printf("No current process.\n");
+  }
+#else
+  db_printf("No floating point unit.\n");
+#endif
+}
+
 
 extern void db_continue_cmd(db_expr_t, int, db_expr_t, char*);
 void

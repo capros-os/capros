@@ -329,10 +329,6 @@ db_object_print_cmd(db_expr_t /* addr */, int /* have_addr */,
 /*
  * 'show' commands
  */
-#if 0
-extern void	db_show_all_procs(db_expr_t, int, db_expr_t, char*);
-extern void	db_show_callout(db_expr_t, int, db_expr_t, char*);
-#endif
 extern void	db_listbreak_cmd(db_expr_t, int, db_expr_t, char*);
 #ifdef OPTION_OPTION_DDB_WATCH
 extern void	db_listwatch_cmd(db_expr_t, int, db_expr_t, char*);
@@ -351,6 +347,7 @@ extern void	db_activity_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_inv_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_entry_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_exit_print_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_floatregs_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_invokee_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_invokee_keys_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_depend_cmd(db_expr_t, int, db_expr_t, char*);
@@ -383,14 +380,6 @@ extern void	db_show_sizes_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_gdt(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_walkinfo_cmd(db_expr_t, int, db_expr_t, char*);
 
-struct db_command db_show_all_cmds[] = {
-#if 0
-	{ "procs",	db_show_all_procs,0,	0 },
-	{ "callout",	db_show_callout,0,	0 },
-#endif
-	{ (char *)0 }
-};
-
 struct db_command db_show_pages_cmds[] = {
 	{ "all",      db_show_pages_cmd,	0,	0 },
 	{ "persistent", db_show_pages_persistent_cmd,	0,	0 },
@@ -408,13 +397,13 @@ struct db_command db_show_nodes_cmds[] = {
 struct db_command db_show_cmds[] = {
 	{ "activities", db_show_uactivity_cmd,	0,	0 },
 	{ "activity",   db_activity_print_cmd,	0,	0 },
-	{ "all",	0,			0,	db_show_all_cmds },
 	{ "breaks",	db_listbreak_cmd, 	0,	0 },
 	{ "cckr",       db_ctxt_kr_print_cmd,	0,	0 },
 	/* 	{ "count",	db_show_counters_cmd,	0,	0 }, */
 	{ "depend",	db_show_depend_cmd,	0,	0 },
 	{ "entry",      db_entry_print_cmd,	0,	0 },
 	{ "exit",       db_exit_print_cmd,	0,	0 },
+	{ "floatregs",  db_show_floatregs_cmd,	0,	0 },
 #ifdef EROS_TARGET_i486
 	{ "gdt",	db_show_gdt,	 	0,	0 },
 #endif
@@ -607,9 +596,6 @@ struct db_command db_command_table[] = {
 	{ "break",	db_breakpoint_cmd,	0,		0 },
 	{ "c",		db_continue_cmd,	0,		0 },
 	{ "call",	db_fncall,		CS_OWN,		0 },
-#if 0
-	{ "callout",	db_show_callout,	0,		0 },
-#endif
 	{ "check",	0,			0,		db_check_cmds },
 	{ "continue",	db_continue_cmd,	0,		0 },
 	{ "d",		db_delete_cmd,		0,		0 },
@@ -633,9 +619,6 @@ struct db_command db_command_table[] = {
 	{ "print",	db_print_cmd,		0,		0 },
 #ifdef OPTION_KERN_PROFILE
 	{ "profile",	0,			0,		db_prof_cmds },
-#endif
-#if 0
-	{ "ps",		db_show_all_procs,	0,		0 },
 #endif
 	{ "rb",		db_reboot_cmd,		0,		0 },
 	{ "reboot",	db_reboot_cmd,		0,		0 },
