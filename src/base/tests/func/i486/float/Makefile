@@ -1,9 +1,7 @@
 #
-# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2010, Strawberry Development Group.
+# Copyright (C) 2010, Strawberry Development Group
 #
-# This file is part of the CapRos Operating System,
-# and is derived from the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,10 +21,22 @@ default: install
 
 CROSS_BUILD=yes
 
-EROS_SRC=../../../..
+EROS_SRC=../../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=float
-CLEANDIRS=halt iopl store pcconsole
+TARGETS=$(BUILDDIR)/test
+OPTIM=-O
+OBJECTS=$(BUILDDIR)/test.o $(BUILDDIR)/getFloat.o $(BUILDDIR)/asm.o
+INC=-I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
+
+install all: $(TARGETS)
+
+include ../../../test.mk
+
+$(BUILDDIR)/test: $(OBJECTS) $(LIBDEP)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(CROSSLIBS)
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+
+-include $(BUILDDIR)/.*.m
