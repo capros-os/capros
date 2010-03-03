@@ -27,6 +27,43 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/arch/i386/Process.h>
 #endif
 
+#if defined(EROS_TARGET_i486)
+/* This is defined in file scope instead of on the stack,
+ * because we want all unspecified fields to be zero. */
+struct capros_arch_i386_Process_Registers i386_regs = {
+    .len = sizeof(struct capros_arch_i386_Process_Registers),
+    .arch = capros_Process_ARCH_I386,
+    .procFlags = 0,
+    .faultCode = 0,
+    .faultInfo = 0,
+    .pc = 0,
+    .sp = 0,
+    .EDI = 0,
+    .ESI = 0,
+    .EBP = 0,
+    .EBX = 0, 
+    .EDX = 0,
+    .ECX = 0,
+    .EAX = 0,
+    .EFLAGS = 0x200,	// interrupt enable
+    .CS = capros_arch_i386_Process_CodeSeg,
+    .SS = capros_arch_i386_Process_DataSeg,
+    .DS = capros_arch_i386_Process_DataSeg,
+    .ES = capros_arch_i386_Process_DataSeg,
+    .FS = capros_arch_i386_Process_DataSeg,
+    .GS = capros_arch_i386_Process_PseudoSeg,
+    .FPU_ControlWord = 0x037f,
+    .FPU_StatusWord = 0,
+    .FPU_TagWord = 0xffff,
+    .FPU_InstructionPointer = 0,
+    .FPU_InstructionPointerSelector = capros_arch_i386_Process_CodeSeg,
+    .FPU_Opcode = 0,
+    .FPU_OperandPointer = 0,
+    .FPU_OperandPointerSelector = capros_arch_i386_Process_DataSeg,
+    /* Data is zero; in addition, we have set the Tags to Empty. */
+  };
+#endif
+
 uint32_t
 create_new_process(uint32_t krBank, uint32_t krDomKey)
 {
@@ -73,31 +110,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
   DEBUG kdprintf(KR_OSTREAM, "Got new process key:\n");
 
   /* Write valid values into the registers: */
-  struct capros_arch_i386_Process_Registers regs = {
-    .len = sizeof(struct capros_arch_i386_Process_Registers),
-    .arch = capros_Process_ARCH_I386,
-    .procFlags = 0,
-    .faultCode = 0,
-    .faultInfo = 0,
-    .pc = 0,
-    .sp = 0,
-    .EDI = 0,
-    .ESI = 0,
-    .EBP = 0,
-    .EBX = 0, 
-    .EDX = 0,
-    .ECX = 0,
-    .EAX = 0,
-    .EFLAGS = 0x200,	// interrupt enable
-    .CS = capros_arch_i386_Process_CodeSeg,
-    .SS = capros_arch_i386_Process_DataSeg,
-    .DS = capros_arch_i386_Process_DataSeg,
-    .ES = capros_arch_i386_Process_DataSeg,
-    .FS = capros_arch_i386_Process_DataSeg,
-    .GS = capros_arch_i386_Process_PseudoSeg
-  };
-
-  (void) capros_arch_i386_Process_setRegisters(krDomKey, regs);
+  (void) capros_arch_i386_Process_setRegisters(krDomKey, i386_regs);
 
 #elif defined(EROS_TARGET_arm)
 
