@@ -1,7 +1,7 @@
 # -*- makefile-mode -*-
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2006-2008, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -175,7 +175,7 @@ $(CONFIG).eros.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS)
 $(CONFIG).eros.debug.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS)
 	$(LINK) --library-path==/usr/lib -r -o $@ \
 		lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS)
-	$(OBJDUMP) --syms --stabs $@ | sort > syms.debug ## debug
+	echo "Look in <test>/BUILDDIR/syms." > syms
 	$(OBJDUMP) --disassemble $@ > disassembled ## debug
 	#$(SIZE) $(CONFIG).eros.o
 	#$(SIZE) $(CONFIG).eros.debug.o
