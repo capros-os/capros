@@ -1,7 +1,7 @@
 	.file	"interrupt.S"
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -935,7 +935,7 @@ ENTRY(intr_InvokeKey)
 	 * 
 	 */
 	
-	movl	FX_OFF_EBP(%ebp),%EBX	  /* user EBP to %EBX */
+	movl	FX_OFF_EBP(%ebp),%ebx	  /* user EBP to %ebx */
 	
 	/* Do the high address first to give the store unit maximal
 	   opportunities to merge the writes. 
@@ -1511,23 +1511,22 @@ L_return_from_fast_path:
 #endif
 	
 	/* Reload target address space:	 */
-	movl	%cr3,%ebx
 	
 #ifdef OPTION_SMALL_SPACES
 	cmpl	$0,PR_OFF_bias(%esp)
-	jnz	1f
+	jnz	2f	// small space: any mapping table will do
 #endif
 	
+	movl	%cr3,%ebx
 	cmpl	%ebx,PR_OFF_MappingTable(%esp)
 	je      1f
 	
 	movl	PR_OFF_MappingTable(%esp),%ebx
 	movl	%ebx,%cr3  /* restore user address space */
 	
-1:	movl	%EBX,28+EXT(tss_TaskTable)
-	movl	%ebx,PR_OFF_MappingTable(%esp)
+1:	movl	%ebx,28+EXT(tss_TaskTable)
 	
-	addl	$PR_OFF_PUSHA,%esp
+2:	addl	$PR_OFF_PUSHA,%esp
 	
 	popa
 
@@ -1618,23 +1617,22 @@ ENTRY(resume_v86_task)
 	movl	%EDX,4+EXT(tss_TaskTable)
 
 	/* Reload target address space:	 */
-	movl	%cr3,%ebx
 	
 #ifdef OPTION_SMALL_SPACES
 	cmpl	$0,PR_OFF_bias(%esp)
-	jnz	1f
+	jnz	2f	// small space: any mapping table will do
 #endif
 	
+	movl	%cr3,%ebx
 	cmpl	%ebx,PR_OFF_MappingTable(%esp)
 	je      1f
 	
 	movl	PR_OFF_MappingTable(%esp),%ebx
 	movl	%ebx,%cr3  /* restore user address space */
 	
-1:	movl	%EBX,28+EXT(tss_TaskTable)
-	movl	%ebx,PR_OFF_MappingTable(%esp)
+1:	movl	%ebx,28+EXT(tss_TaskTable)
 	
-	addl	$PR_OFF_PUSHA,%esp
+2:	addl	$PR_OFF_PUSHA,%esp
 
 	popa
 	
