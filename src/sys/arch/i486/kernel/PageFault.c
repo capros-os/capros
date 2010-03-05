@@ -714,6 +714,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   else	// the large space case follows
 #endif
   {	// beginning of large space case
+    assertex(p, p->md.smallPTE == 0 && p->md.bias == 0);
+
     PageHeader * pTableHdr1;
     if (GetFirstLevelMappingTable(p, va, isWrite, &pTableHdr1, &wi))
       goto fault_exit;
@@ -875,6 +877,8 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
   return pTable;
 }
 
+/* Find/create and lock all mapping tables needed by proc,
+ * which is part of the user-mode Page Fault Handler (disk driver). */
 void
 proc_LockAllMapTabs(Process * proc)
 {

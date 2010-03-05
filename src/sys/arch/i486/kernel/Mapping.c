@@ -814,6 +814,7 @@ mach_SetMappingTable(kpmap_t pAddr)
 		       : "r" (pAddr) );
 }
 
+#if 0	// not used
 kpmap_t
 mach_GetMappingTable()
 {
@@ -823,6 +824,7 @@ mach_GetMappingTable()
 		       : "=r" (result));
   return result;
 }
+#endif
 
 void
 mach_EnableVirtualMapping()

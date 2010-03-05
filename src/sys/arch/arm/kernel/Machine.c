@@ -130,40 +130,54 @@ mach_HardReset()
   SYSCON.DeviceCfg = dc & ~SYSCONDeviceCfg_SWRST;
 }
 
+/* If proc == NULL, load the current process's address space. */
 bool	// returns true if successful
 mach_LoadAddrSpace(Process * proc)
 {
-  kpa_t newTTBR = proc->md.firstLevelMappingTable;
-  uint32_t pid = proc->md.pid;
-  uint32_t dacr = proc->md.dacr;
+  kpa_t newTTBR;
+  uint32_t pid;
+  uint32_t dacr;
 
-  // Validate everything, because proc is a user-supplied address.
-
-  if (newTTBR & 0x3fff) {	// not aligned
-    printf("TTBR invalid.\n");
-    return false;
+  if (!proc) {
+    proc = proc_Current();
   }
-  uint32_t km = FLPT_FCSEVA[KTextVA >> L1D_ADDR_SHIFT];
-  // Must point to good memory.
-  uint32_t * newTTBRVA = KPAtoP(uint32_t *, newTTBR);
-  uint32_t * ttbrEntVA = &newTTBRVA[KTextVA >> L1D_ADDR_SHIFT];
-  uint8_t b;
-  if (! SafeLoadByte((uint8_t *)ttbrEntVA, &b)	// Must point to good memory.
-      || *ttbrEntVA != km ) {	// Must map the kernel.
-    printf("TTBR invalid.\n");
-    return false;
-  }
+  if (!proc) {
+    newTTBR = FLPT_NullPA;
+    pid = 0;
+    dacr = 0x1;
+  } else {
+    newTTBR = proc->md.firstLevelMappingTable;
+    pid = proc->md.pid;
+    dacr = proc->md.dacr;
 
-  if (pid & ~ PID_MASK
-      || pid >= (NumSmallSpaces << PID_SHIFT)) {
-    printf("PID invalid.\n");
-    return false;
-  }
+    // Validate everything, because proc is a user-supplied address.
 
-  if (dacr & 0xaaaaaaaa		// only client or no access
-      || ! (dacr & 0x1) ) {	// must have client access to domain 0
-    printf("DACR invalid.\n");
-    return false;
+    if (newTTBR & 0x3fff) {	// not aligned
+      printf("TTBR invalid.\n");
+      return false;
+    }
+    uint32_t km = FLPT_FCSEVA[KTextVA >> L1D_ADDR_SHIFT];
+    // Must point to good memory.
+    uint32_t * newTTBRVA = KPAtoP(uint32_t *, newTTBR);
+    uint32_t * ttbrEntVA = &newTTBRVA[KTextVA >> L1D_ADDR_SHIFT];
+    uint8_t b;
+    if (! SafeLoadByte((uint8_t *)ttbrEntVA, &b)	// Must point to good memory.
+        || *ttbrEntVA != km ) {	// Must map the kernel.
+      printf("TTBR invalid.\n");
+      return false;
+    }
+
+    if (pid & ~ PID_MASK
+        || pid >= (NumSmallSpaces << PID_SHIFT)) {
+      printf("PID invalid.\n");
+      return false;
+    }
+
+    if (dacr & 0xaaaaaaaa		// only client or no access
+        || ! (dacr & 0x1) ) {	// must have client access to domain 0
+      printf("DACR invalid.\n");
+      return false;
+    }
   }
 
   kpa_t oldTTBR = mach_ReadTTBR();

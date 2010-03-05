@@ -1841,11 +1841,13 @@ db_show_walkinfo_cmd(db_expr_t addr, int have_addr,
   db_print_segwalk((const SegWalk *) addr);
 }
 
+Process * debuggerAddrSpace = NULL;	// NULL means current process
+
 void
 db_addrspace_cmd(db_expr_t addr, int have_addr,
 		 db_expr_t cnt/* count */, char * mdf/* modif */)
 {
-  Process * proc =
-    have_addr ? (Process *) addr : act_CurContext();
-  mach_LoadAddrSpace(proc);
+  Process * proc = have_addr ? (Process *) addr : NULL;
+  if (mach_LoadAddrSpace(proc))
+    debuggerAddrSpace = proc;
 }

@@ -1514,12 +1514,12 @@ L_return_from_fast_path:
 	
 #ifdef OPTION_SMALL_SPACES
 	cmpl	$0,PR_OFF_bias(%esp)
-	jnz	2f	// small space: any mapping table will do
+	jne	2f	// small space: any mapping table will do
 #endif
 	
 	movl	%cr3,%ebx
 	cmpl	%ebx,PR_OFF_MappingTable(%esp)
-	je      1f
+	je      1f	// already loaded
 	
 	movl	PR_OFF_MappingTable(%esp),%ebx
 	movl	%ebx,%cr3  /* restore user address space */
@@ -1620,12 +1620,12 @@ ENTRY(resume_v86_task)
 	
 #ifdef OPTION_SMALL_SPACES
 	cmpl	$0,PR_OFF_bias(%esp)
-	jnz	2f	// small space: any mapping table will do
+	jne	2f	// small space: any mapping table will do
 #endif
 	
 	movl	%cr3,%ebx
 	cmpl	%ebx,PR_OFF_MappingTable(%esp)
-	je      1f
+	je      1f	// already loaded
 	
 	movl	PR_OFF_MappingTable(%esp),%ebx
 	movl	%ebx,%cr3  /* restore user address space */

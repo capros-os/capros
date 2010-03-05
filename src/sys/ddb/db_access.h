@@ -37,3 +37,5 @@ void db_put_value (db_addr_t, size_t, db_expr_t);
 
 void db_read_bytes (db_addr_t, int, char *);
 void db_write_bytes (db_addr_t, int, char *);
+
+extern struct Process * debuggerAddrSpace;

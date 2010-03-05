@@ -26,6 +26,7 @@
  * rights to redistribute these changes.
  */
 
+#include <string.h>
 #include <arch-kerninc/db_machdep.h>
 
 #include <ddb/db_access.h>
@@ -33,12 +34,12 @@
 #include <ddb/db_variables.h>
 #include <ddb/db_output.h>
 #include <kernel/Segment.h>
+#include <kerninc/Process.h>
+#include <kerninc/Process-inline.h>
 
 /*#include <kerninc/util.h>*/
 
 extern bool db_sym_numargs(db_sym_t sym, int *nargp, const char **argnames);
-
-extern int strcmp(const char *c1, const char *c2);
 
 /*
  * Machine register set.
@@ -80,7 +81,16 @@ db_addr_t	db_trap_symbol_value = 0;
 db_addr_t	db_syscall_symbol_value = 0;
 db_addr_t	db_kdintr_symbol_value = 0;
 bool	db_trace_symbols_found = false;
-bool isUser;
+
+uva_t userSpaceOffset;
+
+static void
+SetUserSpace(Process * proc)
+{
+  userSpaceOffset = proc ? KUVA + proc->md.bias : 0;
+  if (proc)
+    mach_LoadAddrSpace(proc);
+}
 
 void
 db_find_trace_symbols()
@@ -107,11 +117,11 @@ db_numargs(struct i386_frame * fpp/* fp */)
 	int	inst;
 	int	args;
 
-	argp = (int *)db_get_value((int)&fp->f_retaddr, 4, false);
+	argp = (int *)db_get_value((int)&fp->f_retaddr + userSpaceOffset, 4, false);
 	if (argp < (int *)VM_MIN_KERNEL_ADDRESS || argp > (int *)&etext) {
 		args = 5;
 	} else {
-		inst = db_get_value((int)argp, 4, false);
+		inst = db_get_value((int)argp + userSpaceOffset, 4, false);
 		if ((inst & 0xff) == 0x59)	/* popl %ecx */
 			args = 1;
 		else if ((inst & 0xffff) == 0xc483)	/* addl %n, %esp */
@@ -123,6 +133,12 @@ db_numargs(struct i386_frame * fpp/* fp */)
 #else
 	return 0;
 #endif
+}
+
+static void *
+GetFramePtrFromSyscallStack(savearea_t * trapFrame)
+{
+  return (void *) db_get_value(trapFrame->ESP + 8 + userSpaceOffset, 4, false);
 }
 
 /* 
@@ -142,22 +158,29 @@ db_nextframe(struct i386_frame **fp, /* in/out */
 	     int is_trap	/* in */
 	     )
 {
-	uva_t offset = isUser ? KUVA : 0;
 	switch (is_trap) {
 	    case NONE:
+	    {
 		*ip = (db_addr_t)
-			db_get_value((int) &(*fp)->f_retaddr + offset, 4, false);
+			db_get_value((int) &(*fp)->f_retaddr + userSpaceOffset,
+			             4, false);
 		*fp = (struct i386_frame *)
-			db_get_value((int) &(*fp)->f_frame + offset, 4, false);
+			db_get_value((int) &(*fp)->f_frame + userSpaceOffset,
+			             4, false);
 		break;
+	    }
 
 	    default: {
 		savearea_t *tf; /* trap frame */
 
 		/* The only argument to trap() or syscall() is the trapframe. */
-		tf = * ((savearea_t **)argp);/* on EROS, the */
-						  /* trapframe ptr */
+		tf = * ((savearea_t **)argp);/* on EROS, the trapframe ptr */
 
+		if (tf->DS == sel_DomainData) {	// entering user space
+                  SetUserSpace(container_of(tf, Process, trapFrame));
+                } else
+                  SetUserSpace(NULL);	// continuing in kernel space
+		    
 		*fp = (struct i386_frame *)tf->EBP;
 		*ip = (db_addr_t)tf->EIP;
 		switch (is_trap) {
@@ -169,8 +192,8 @@ db_nextframe(struct i386_frame **fp, /* in/out */
 		  /* All syscalls do a pusha and then use ebp for other than
 		     the frame pointer.
 		     Get the saved ebp from the pusha frame. */
-		  *fp = (struct i386_frame *)
-			db_get_value(tf->ESP + 8 + KUVA, 4, false);
+		  *fp = GetFramePtrFromSyscallStack(tf);
+
 		  db_printf("--- IPC (EIP=0x%08x OC=%d sa=0x%08x) ---\n",
 			    tf->EIP, tf->EAX, tf);
 		  break;
@@ -180,8 +203,6 @@ db_nextframe(struct i386_frame **fp, /* in/out */
 			break;
 #endif
 		}
-		isUser = (tf->DS == sel_DomainData);
-		    
 		break;
 	    }
 	}
@@ -216,14 +237,34 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     count = 65535;
 
   if (!have_addr) {
+    // Just "trace": start from kernel stack.
+    SetUserSpace(NULL);
     frame = (struct i386_frame *)ddb_regs.EBP;
     callpc = (db_addr_t)ddb_regs.EIP;
-    isUser = false;
   } else {
-    frame = (struct i386_frame *)addr;
+    // "trace <addr>": start from that process's stack.
+    Process * proc = (Process *)addr;
+    SetUserSpace(proc);
+
+    /* The capability-invocation stubs do not follow the normal stack
+       frame protocol. ebp does not have the frame pointer.
+       (The reason is that we need ebp to carry a value from the Message
+       structure into the kernel.)
+       Check for that case and find the true stack frame pointer.
+       Note: we check for EIP pointing to an int 0x31 instruction.
+       This fails to catch the case of nearby instructions, 
+       but should catch the majority of cases. */
+
+    uint16_t instr = db_get_value(proc->trapFrame.EIP + userSpaceOffset,
+                                  2, false);
+    if (instr == 0x31cd) {	// int 0x31
+      frame = GetFramePtrFromSyscallStack(&proc->trapFrame);
+    } else {
+      frame = (struct i386_frame *) proc->trapFrame.EBP;
+    }
+
     callpc = (db_addr_t)
-      db_get_value((int)&frame->f_retaddr, 4, false);
-    isUser = true;
+      db_get_value((int)&frame->f_retaddr + userSpaceOffset, 4, false);
   }
 
   lastframe = 0;
@@ -240,7 +281,7 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
 
     if (lastframe == 0 && sym == NULL) {
       /* Symbol not found, peek at code */
-      int	instr = db_get_value(callpc, 4, false);
+      int instr = db_get_value(callpc + userSpaceOffset, 4, false);
 
       offset = 1;
       if ((instr & 0x00ffffff) == 0x00e58955 ||
@@ -324,7 +365,7 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     while (narg) {
       if (argnp)
 	db_printf("%s=", *argnp++);
-      db_printf("%x", db_get_value((int)argp, 4, false));
+      db_printf("%x", db_get_value((int)argp + userSpaceOffset, 4, false));
       argp++;
       if (--narg != 0)
 	db_printf(",");
@@ -339,7 +380,7 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
       /* Frame really belongs to next callpc */
       lastframe = (struct i386_frame *)(ddb_regs.ESP-4);
       callpc = (db_addr_t)
-	db_get_value((int)&lastframe->f_retaddr, 4, false);
+	db_get_value((int)&lastframe->f_retaddr + userSpaceOffset, 4, false);
 #if 0
       db_printf("Next frame call pc: 0x%08x is_trap=%d\n",
 		callpc, is_trap);
@@ -369,4 +410,7 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     db_printf(":\n");
   }
 #endif
+
+  // Restore current user space:
+  mach_LoadAddrSpace(debuggerAddrSpace);
 }

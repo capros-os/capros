@@ -106,13 +106,8 @@ mach_BootInit()
    * when the mapping is updated.
    */
   
-  /* DANGER! No console use permitted between the mapping enable and
-     the GDT enable! */
-
   (void) mach_SetMappingTable(KernPageDir_pa); /* Well known address! */
   (void) mach_EnableVirtualMapping();
-
-  printf("FB updated -- now virtual\n");
 
   printf("About to load GDT\n");
 
@@ -438,9 +433,19 @@ mach_ModeName(uint32_t mode)
   return ModeNames[mode];
 }
 
+/* If proc == NULL, load the current process's address space. */
 bool    // returns true if successful
 mach_LoadAddrSpace(Process * proc)
 {
-  // FIXME: Need to figure out how to do this.
+  if (!proc) {
+    proc = proc_Current();
+    if (!proc) {
+      mach_SetMappingTable(KernPageDir_pa);
+      return true;
+    }
+  }
+  // If proc has a small space, setting the mapping table is unnecessary,
+  // but harmless.
+  mach_SetMappingTable(proc->md.MappingTable);
   return true;
 }

@@ -700,8 +700,7 @@ cantrun:
 	}
 
 	// Restore current address space in case we changed it.
-	Process * proc = proc_curProcess;
-	if (proc && ! mach_LoadAddrSpace(proc))
+	if (! mach_LoadAddrSpace(NULL))
 		goto cantrun;
 
 	db_recover = savejmp;
