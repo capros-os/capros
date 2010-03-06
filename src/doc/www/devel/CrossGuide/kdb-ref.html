@@ -38,8 +38,9 @@
         <dt>help
         <dd>Print a list of commands.
         <p>
-        <dt>trace [<i>frame</i>] [,<i>count</i>]
-        <dd>Print a stack trace.
+        <dt>trace [<i>proc</i>] [,<i>count</i>]
+        <dd>Print a stack trace of the specified process, or if no process
+            is specified, the kernel and current process. 
         <p>
         <dt>c
         <dd>Continue execution
@@ -163,7 +164,7 @@
           <dd>Print the Process at the specified address.
               If no address is specified, this command prints the current
               Process.
-          <dt>show floatregs[&lt;address&gt;]
+          <dt>show floatregs [&lt;address&gt;]
           <dd>Print the floating point registers
               of the Process at the specified address.
               If no address is specified, this command prints the registers
