@@ -312,9 +312,12 @@ ConsumePbuf(struct TCPSocket * sock)
     sock->recvQOut = &sock->recvQ[0];	// wrap around
 }
 
-unsigned int
+uint8_t recvFlags;
+/* Sets recvFlags and returns the number of bytes to send to client. */
+static unsigned int
 GatherRecvData(struct TCPSocket * sock, unsigned int maxLen)
 {
+  recvFlags = 0;
   if (! sock->recvQNum)
     return 0;		// No data. Delivering final RemoteClosed.
 
@@ -323,6 +326,9 @@ GatherRecvData(struct TCPSocket * sock, unsigned int maxLen)
   while (1) {
     assert(sock->recvQNum);
     struct pbuf * p = sock->curRecvPbuf;
+    if (p->flags & PBUF_FLAG_PUSH)
+      recvFlags |= capros_TCPSocket_flagPush;
+    // FIXME deal with Urgent flag, when lwip implements it
     unsigned int remaining = p->len - sock->curRecvBytesProcessed;
 		// bytes remaining to be processed in this pbuf
     unsigned int len;
@@ -374,11 +380,12 @@ ReturnToReceiver(struct TCPSocket * sock, unsigned int bytesReceived,
                                        slot+sco_receiver, KR_TEMP0);
   assert(result == RC_OK);
 
+  unsigned int flags = bytesReceived ? recvFlags : 0;
   Message Msg = {
     .snd_invKey = KR_TEMP0,
     .snd_code = rc,
     .snd_w1 = bytesReceived,
-    .snd_w2 = 0,	// urgent flag is not implemented yet
+    .snd_w2 = flags,
     .snd_w3 = 0,
     .snd_key0 = KR_VOID,
     .snd_key1 = KR_VOID,
@@ -389,7 +396,8 @@ ReturnToReceiver(struct TCPSocket * sock, unsigned int bytesReceived,
   };
   PSEND(&Msg);	// prompt send
   sock->receiving = false;
-  DEBUG(rx) kprintf(KR_OSTREAM, "lwip woke rcvr\n");
+  DEBUG(rx) kprintf(KR_OSTREAM, "lwip woke rcvr, rc=%#x, flgs=%#x\n",
+                    rc, flags);
 }
 
 // Call when the other end will send no more.
@@ -511,7 +519,7 @@ TCPReceive(Message * msg)
     msg->snd_data = sndBuf;
     msg->snd_len = bytesReceived;
     msg->snd_w1 = bytesReceived;
-    msg->snd_w2 = 0;	// urgent flag is not implemented yet
+    msg->snd_w2 = recvFlags;
   } else {
     result_t result;
     // Save the caller:
@@ -910,6 +918,7 @@ err_tcp(void * arg, err_t err)
       CompleteConnection(sock, err);
       // Fall into default
     default:
+      DEBUG(conn) kprintf(KR_OSTREAM, "ERR_ABRT or RST, closing connection.\n");
       // Discard the recv queue.
       while (sock->recvQNum) {
         ConsumePbuf(sock);

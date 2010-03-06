@@ -66,6 +66,7 @@ ethInput(void * data, unsigned int length)
   uint8_t * b = data;
 
   DEBUG(rx) {
+    printk("Eth rcvd: ");
 #if 1	// show input data
     printPacket(data, length, 56);
 #endif
