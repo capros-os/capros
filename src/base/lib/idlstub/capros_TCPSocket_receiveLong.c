@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -32,10 +32,12 @@ capros_TCPSocket_receiveLong(uint32_t _self, uint32_t length,
   uint8_t * data)
 {
   result_t result;
-  uint8_t myFlags;
+  uint8_t myFlags = 0;
   uint32_t resid = length;
 
-  while (resid) {
+  // While we are not being asked to push data to the app,
+  // and we have space to read more:
+  while (! (myFlags & capros_TCPSocket_flagPush) && resid) {
     uint32_t rqLen = resid;
     if (rqLen > capros_TCPSocket_maxReceiveLength)
       rqLen = capros_TCPSocket_maxReceiveLength;
