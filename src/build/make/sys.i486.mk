@@ -56,6 +56,7 @@ np: $(BUILDDIR)/sysimg $(KERNPATH).o
 	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
 	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
 	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(BUILDDIR)/kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
+	$(OBJDUMP) --disassemble $(BUILDDIR)/kernimg > $(BUILDDIR)/kerndis
 	$(OBJDUMP) --syms --stabs $(BUILDDIR)/kernimg | sort > $(BUILDDIR)/syms
 	scp $(BUILDDIR)/kernimg $(CAPROS_BOOT_PARTITION)/CapROS-kernimg
 
@@ -66,6 +67,7 @@ p: $(BUILDDIR)/sysimg $(BUILDDIR)/psysimg $(KERNPATH).o
 	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
 	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
 	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(BUILDDIR)/kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
+	$(OBJDUMP) --disassemble $(BUILDDIR)/kernimg > $(BUILDDIR)/kerndis
 	$(OBJDUMP) --syms --stabs $(BUILDDIR)/kernimg | sort > $(BUILDDIR)/syms
 	scp $(BUILDDIR)/kernimg $(CAPROS_BOOT_PARTITION)/CapROS-kernimg
 
