@@ -31,7 +31,7 @@
 #define dbg_init 0x1
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_init)////
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
