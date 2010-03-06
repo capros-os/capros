@@ -53,11 +53,10 @@
 #include "../../cap.h"
 
 #define dbg_tx     0x1
-#define dbg_rx     0x2
 #define dbg_errors 0x4
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_errors | dbg_tx | dbg_rx)////
+#define dbg_flags   ( 0u | dbg_errors )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -69,7 +68,7 @@
 /* A few user-configurable values.
    These may be modified when a driver module is loaded. */
 
-static int debug = 7;////1;	/* 1 normal messages, 0 quiet .. 7 verbose. */
+static int debug = 3;////1;	/* 1 normal messages, 0 quiet .. 7 verbose. */
 static int max_interrupt_work = 20;
 
 #if 0 // CapROS
@@ -1634,8 +1633,8 @@ static int rhine_rx(struct net_device *dev, int limit)
 			break;
 
 		if (debug > 4)
-			printk(KERN_DEBUG "rhine_rx() status is %8.8x.\n",
-			       desc_status);
+			printk(KERN_DEBUG "rhine_rx() status is %8.8x. c=%d l=%d\n",
+			       desc_status, count, limit);
 
 		if ((desc_status & (RxWholePkt | RxErr)) != RxWholePkt) {
 			if ((desc_status & RxWholePkt) != RxWholePkt) {

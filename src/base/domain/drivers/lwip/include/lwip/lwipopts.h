@@ -1,7 +1,7 @@
 #ifndef __LWIP_LWIPOPTS_H__
 #define __LWIP_LWIPOPTS_H__
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -56,7 +56,8 @@ Approved for public release, distribution unlimited. */
 #if 0
 //#define ETHARP_DEBUG LWIP_DBG_ON
 //#define IP_DEBUG    LWIP_DBG_ON
-//#define TCP_DEBUG   LWIP_DBG_ON
+#define TCP_DEBUG   LWIP_DBG_ON
+#define TCP_INPUT_DEBUG LWIP_DBG_ON
 //#define LWIP_DBG_MIN_LEVEL LWIP_DBG_LEVEL_SEVERE // leave this at the default
 #else	// normally, want to see severe errors
 #define TCP_OUTPUT_DEBUG LWIP_DBG_ON
