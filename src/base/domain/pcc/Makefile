@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group
+# Copyright (C) 2006-2010, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -48,6 +48,8 @@ $(BUILDDIR)/proccre: $(BUILDDIR)/proccre.o $(DOMCRT0) $(DOMLIB)
 
 $(BUILDDIR)/pcc: $(BUILDDIR)/pcc.o $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/pcc.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/pccdisassembled
 
 pcc.c: $(BUILDDIR)/constituents.h
 proccre.c: $(BUILDDIR)/constituents.h
