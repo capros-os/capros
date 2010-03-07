@@ -1,0 +1,6 @@
+
+#define fourByteVal(a,b,c,d) ((((a)*256+(b))*256+(c))*256+(d))
+
+netConfig = number(fourByteVal(192,168,0,32),	// IP address
+                   fourByteVal(255,255,255,0),	// mask
+                   fourByteVal(192,168,0,1) )	// gateway
