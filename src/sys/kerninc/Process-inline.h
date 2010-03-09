@@ -2,7 +2,7 @@
 #define __PROCESS_INLINE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -32,9 +32,16 @@ Approved for public release, distribution unlimited. */
 INLINE Process *
 proc_Current(void)
 {
+  /* The following assertion is true *most* of the time, but there are
+     small windows when the state is in transition.
+     If the kernel is interrupted then and the interrupt code calls
+     proc_Current(), this assertion would fail. 
+     (That is difficult to debug, since the debugger also calls proc_Current().)
+
   assert((proc_curProcess == NULL && (act_Current() == NULL
                                       || ! act_HasProcess(act_Current())))
          || (act_GetProcess(act_Current()) == proc_curProcess));
+   */
   return proc_curProcess;	// could be NULL
 }
 
