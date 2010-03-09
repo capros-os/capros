@@ -1,0 +1,43 @@
+/*
+ * Copyright (C) 2009-2010, Strawberry Development Group.
+ * All rights reserved.
+ */
+
+// Constituents for the confined program:
+TCPPort(ConfinedPort, ConfinedPortNum);
+confinedconstit = new node;
+confinedconstit[0] = misc Discrim;
+confinedconstit[1] = misc Sleep;
+confinedconstit[2] = misc RTC;
+confinedconstit[3] = snode_c;
+confinedconstit[4] = FileSrvC;
+confinedconstit[5] = iks_c;
+confinedconstit[6] = misc Console;
+confinedconstit[7] = ConfinedPort;
+
+BOOT_CONSTRUCTOR(uploaderHttpc, uploaderHttp);
+
+PROD_SPACE(uploaderHttpc) = small program LIBDIR "uploaderHttp";
+PROD_PC(uploaderHttpc) = symbol LIBDIR "uploaderHttp" _start;
+
+PROD_CONSTIT(uploaderHttpc, KC_OSTREAM, 0) = misc Console;
+PROD_CONSTIT(uploaderHttpc, KC_PROTOSPC, 1) = protospace;
+PROD_CONSTIT(uploaderHttpc, KC_ZSC, 2) = zs_c;
+PROD_CONSTIT(uploaderHttpc, KC_FileSrvC, 3) = FileSrvC;
+PROD_CONSTIT(uploaderHttpc, KC_DemoConstit, 4) = confinedconstit as ro node key;
+PROD_CONSTIT(uploaderHttpc, KC_DemoSym, 5) = number("confined");
+
+uploaderResource.space = small program LIBDIR "uploaderResource";
+uploaderResource.space = uploaderResource.space with page at 0x1f000;
+
+uploaderResource = new process;
+uploaderResource pc = symbol LIBDIR "uploaderResource" _start;
+uploaderResource space = uploaderResource.space;
+uploaderResource schedule = sched(8);
+uploaderResource symtab = number("uploaderResource");
+uploaderResource key reg KR_SELF = uploaderResource;
+uploaderResource key reg KR_BANK = primebank;
+uploaderResource key reg KR_SCHED = sched(8);
+uploaderResource key reg KR_APP(0) = misc Console;
+uploaderResource key reg KR_APP(1) = uploaderHttpc;
+run uploaderResource;

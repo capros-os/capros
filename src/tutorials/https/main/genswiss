@@ -1,0 +1,2 @@
+# generate a swiss number
+dd if=/dev/random bs=8 count=1 2>/dev/null | base64 | sed -f b64.sed

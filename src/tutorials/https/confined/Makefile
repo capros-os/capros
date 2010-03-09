@@ -1,9 +1,7 @@
 #
-# Copyright (C) 2001, Jonathan S. Shapiro.
-# Copyright (C) 2008-2010, Strawberry Development Group.
+# Copyright (C) 2010, Strawberry Development Group
 #
-# This file is part of the CapROS Operating System,
-# and is derived from the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,20 +17,22 @@
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-# This material is based upon work supported by the US Defense Advanced
-# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-# Approved for public release, distribution unlimited.
+CROSS_BUILD=yes
 
-default: package
-
-EROS_SRC=..
+EROS_SRC=../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=hello-small
-DIRS+=hello-constituents
-DIRS+=hello-large
-DIRS+=triv-keeper
-# config is an example only. Do not build here.
-# https requires configuration, so don't build it by default.
+TARGETS=$(BUILDDIR)/confined
+INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I.
 
-include $(EROS_SRC)/build/make/pkgrules.mk
+include $(EROS_SRC)/build/make/makerules.mk
+
+install all: $(TARGETS)
+
+$(BUILDDIR)/confined: $(BUILDDIR)/confined.o $(LIBDEP)
+	$(CROSSLINK) $(BUILDDIR)/confined.o $(SMALL_SPACE) $(CROSSLIBS) -o $@ -lm
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(STRIP) -s $@
+
+-include $(BUILDDIR)/.*.m
