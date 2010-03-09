@@ -29,14 +29,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/Reserve.h>
 #include <asm/thread_info.h>
 #include <drivers/driver.map>
-#include <drivers/lwip/arm/lwipCap.h>
+#include <drivers/lwip/lwipCap.h>
 
 /*********************************************
  * Driver for lwIP - lightweight Internet Protocol.
  *********************************************/
 
-eth_prog = program segtree LIBDIR "drivers/lwip/arm/lwip";
-eth_pc = symbol LIBDIR "drivers/lwip/arm/lwip" _start;
+eth_prog = program segtree LIBDIR "drivers/lwip/lwip";
+eth_pc = symbol LIBDIR "drivers/lwip/lwip" _start;
 
 BOOT_DOMCRE(eth);
 

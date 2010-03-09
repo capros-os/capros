@@ -22,7 +22,7 @@ EROS_SRC=../../../../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-INSTALL_DIR=$(CAPROS_DOMAIN)/drivers/lwip/x86
+INSTALL_DIR=$(CAPROS_DOMAIN)/drivers/lwip
 
 DIRS=../via-rhine
 

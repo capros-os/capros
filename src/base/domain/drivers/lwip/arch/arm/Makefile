@@ -25,7 +25,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 LWIP_ROOT=../..
 include $(LWIP_ROOT)/common.mk
 
-INSTALL_DIR=$(CAPROS_DOMAIN)/drivers/lwip/arm
+INSTALL_DIR=$(CAPROS_DOMAIN)/drivers/lwip
 
 INC+=-I$(INSTALL_DIR)	# for cap.c to get lwipCap.h
 
