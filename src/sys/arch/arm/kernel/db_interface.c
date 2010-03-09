@@ -184,39 +184,43 @@ FramePtr_GetNextFrame(FramePtr fp)
   return db_get_value((int)(fp-12), 4, false);
 }
 
+static void
+SetUserSpace(Process * proc)
+{
+  if (proc)
+    mach_LoadAddrSpace(proc);
+}
+
 void
 db_stack_trace_cmd(db_expr_t addr, int have_addr,
 		   db_expr_t count, char *modif)
 {
-  bool	kernel_only = true;
-  bool	trace_thread = false;
-
   {	// scan modifiers
     register char *cp = modif;
     register char c;
 
     while ((c = *cp++) != 0) {
-      if (c == 't')
-	trace_thread = true;
-      if (c == 'u')
-	kernel_only = false;
+      // No modifiers are used.
     }
   }
 
   if (count == -1)
     count = 65535;
 
-  db_addr_t callpc = 0;
-  FramePtr frame = 0;
+  db_addr_t callpc;
+  FramePtr frame;
 
   if (!have_addr) {
+    // Just "trace": start from kernel stack.
+    SetUserSpace(NULL);
     frame = (FramePtr)ddb_regs.r11;	// fp register
     callpc = (db_addr_t)ddb_regs.r15;	// pc register
-  } else if (trace_thread) {
-    db_printf ("db_interface.c: can't trace thread\n");
   } else {
-    frame = (FramePtr)addr;
-    callpc = (db_addr_t) FramePtr_GetRetAddr(frame);
+    // "trace <addr>": start from that process's stack.
+    Process * proc = (Process *)addr;
+    SetUserSpace(proc);
+    frame = (FramePtr) proc->trapFrame.r11;	// fp register
+    callpc = (db_addr_t) proc->trapFrame.r15;	// pc
   }
   FramePtr prevFrame = 0;
 
@@ -250,6 +254,7 @@ tryCurrent:
             if (p) {
               frame = p->trapFrame.r11;
               callpc = p->trapFrame.r15;
+              SetUserSpace(p);	// want current proc's addr space
             }
           }
           break;
@@ -283,6 +288,9 @@ tryCurrent:
 
     --count;
   }
+
+  // Restore current user space:
+  mach_LoadAddrSpace(debuggerAddrSpace);
 }
 
 /*
