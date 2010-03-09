@@ -46,5 +46,6 @@ DYNDRIVER_CONSTRUCTOR(rhine, drivers/lwip/via-rhine/lwip, "rhine", 0)
 PROD_CONSTIT(rhine_c, , KC_NetConfig) = netConfig;
 PROD_CONSTIT(rhine_c, , KC_VOLSIZE) = volsize;
 #define rhine_cReq rhine_cRequestor
+#define NEED_PCI_DRIVER
 
 #endif

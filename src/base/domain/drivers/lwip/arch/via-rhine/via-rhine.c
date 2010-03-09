@@ -52,8 +52,10 @@
 #include <lwipCap.h>
 #include "../../cap.h"
 
-#define dbg_tx     0x1
-#define dbg_errors 0x4
+#define dbg_errors 0x1
+#define dbg_tx     0x2
+#define dbg_rx     0x4
+#define dbg_intr   0x8
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_errors )
@@ -489,6 +491,7 @@ static inline u32 get_intr_status(struct net_device *dev)
 	/* On Rhine-II, Bit 3 indicates Tx descriptor write-back race. */
 	if (rp->quirks & rqStatusWBRace)
 		intr_status |= ioread8(ioaddr + IntrStatus2) << 16;
+	DEBUG(intr) printk("Rhine intr %#x\n", intr_status);
 	return intr_status;
 }
 
@@ -1706,6 +1709,7 @@ static int rhine_rx(struct net_device *dev, int limit)
 			skb->protocol = eth_type_trans(skb, dev);
 			netif_receive_skb(skb);
 #else
+			DEBUG(rx) printk("Rhine: %d ", entry);
 			ethInput(rp->rx_data + entry * rp->rx_buf_sz, pkt_len);
 #endif // CapROS
 			rp->stats.rx_bytes += pkt_len;
@@ -1717,9 +1721,9 @@ static int rhine_rx(struct net_device *dev, int limit)
 
 	/* Refill the Rx ring buffers. */
 	for (; rp->cur_rx - rp->dirty_rx > 0; rp->dirty_rx++) {
-#if 0 // CapROS
-		struct sk_buff *skb;
+		// struct sk_buff *skb;
 		entry = rp->dirty_rx % RX_RING_SIZE;
+#if 0 // CapROS
 		if (rp->rx_skbuff[entry] == NULL) {
 			skb = netdev_alloc_skb(dev, rp->rx_buf_sz);
 			rp->rx_skbuff[entry] = skb;
