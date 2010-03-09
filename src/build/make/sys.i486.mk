@@ -46,12 +46,18 @@ ifndef PRANGESIZE
 PRANGESIZE=300
 endif
 
+bootPartitionDef:
+	@if [ "$(CAPROS_BOOT_PARTITION)" = "" ]; then \
+		echo "You must define CAPROS_BOOT_PARTITION!"; \
+		exit 1; \
+	fi
+
 // Link kernel and non-persistent objects:
 # To run with non-persistent objects only, leave RESTART_CKPT empty
 #   and run without a disk.
 # To restart from a checkpoint on disk, run with a disk and
 #   set RESTART_CKPT to "-p" to properly link device drivers.
-np: $(BUILDDIR)/sysimg $(KERNPATH).o
+np: $(BUILDDIR)/sysimg $(KERNPATH).o bootPartitionDef
 	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(RESTART_CKPT) $(BUILDDIR)/imgdata
 	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
 	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
@@ -61,7 +67,7 @@ np: $(BUILDDIR)/sysimg $(KERNPATH).o
 	scp $(BUILDDIR)/kernimg $(CAPROS_BOOT_PARTITION)/CapROS-kernimg
 
 // Link kernel and non-persistent and persistent objects:
-p: $(BUILDDIR)/sysimg $(BUILDDIR)/psysimg $(KERNPATH).o
+p: $(BUILDDIR)/sysimg $(BUILDDIR)/psysimg $(KERNPATH).o bootPartitionDef
 	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg -p $(BUILDDIR)/imgdata
 	$(EROS_ROOT)/host/bin/npgen -s $(PRANGESIZE) -b 0x0100000000000000 $(BUILDDIR)/psysimg -a $(BUILDDIR)/imgdata
 	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o

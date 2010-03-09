@@ -158,8 +158,6 @@ HOST_FD=/dev/fd0H1440
 #
 # EROS_HD is the disk device that will have a CapROS system
 # written to it.
-# CAPROS_BOOT_PARTITION is the name of a partition. Files used by GRUB
-# to boot the system will be located here. 
 #
 # DANGER, WILL ROBINSON!!!!
 #
@@ -177,7 +175,6 @@ HOST_FD=/dev/fd0H1440
 ###############################################################
 ifndef EROS_HD
 EROS_HD=/dev/null
-CAPROS_BOOT_PARTITION=/boot
 endif
 
 CAPIDL=$(EROS_SRC)/build/bin/capidl
@@ -383,6 +380,7 @@ showme:
 	@echo "EROS_CONFIG: " $(EROS_CONFIG)
 	@echo "CAPROS_MACH: " $(CAPROS_MACH)
 	@echo "CAPROS_LOCALDIR: " $(CAPROS_LOCALDIR)
+	@echo "CAPROS_BOOT_PARTITION: " $(CAPROS_BOOT_PARTITION)
 	@echo "BUILDDIR:" $(BUILDDIR)
 
 MAKEVARS_LOADED=1
