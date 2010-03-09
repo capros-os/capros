@@ -1,3 +1,5 @@
+#ifndef __USBHCD_MAP_
+#define __USBHCD_MAP_
 /*
  * Copyright (C) 2010, Strawberry Development Group.
  *
@@ -18,12 +20,6 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
-#include <drivers/dyndriver.map>
-#include <drivers/usbregistry.map>
+#include <drivers/pciehci.map>
 
-// Constructor for use by PCI registry
-
-DYNDRIVER_CONSTRUCTOR(pciehci, drivers/usbhcdehci, "pciehci", 0)
-PROD_CONSTIT(pciehci_c, , KC_APP2(0)) = usbreg_c;
-#define pciehci_cReq pciehci_cRequestor
-#define NEED_PCI_DRIVER
+#endif
