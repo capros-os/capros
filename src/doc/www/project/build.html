@@ -17,40 +17,54 @@
 	    look at the code, you can simply go to the 
 	    <a href="http://sourceforge.net/projects/capros/">
 	    Project page</a>
-            and click on "Browse CVS".
+            and click on "Develop" and then "Browse code".
             SourceForge also has instructions for getting
             anonymous access to CVS. 
 	  </p>
 	  <h1>2. Building CapROS</h1>
 	  <p>
-          These instructions are for building for the Intel architecture.
-          A port also exists for the ARM architecture; see
+          The <b>host</b> system is the system on which you build CapROS
+          and do any development.
+          The <b>target</b> system is the system on which you run CapROS.
+	  <p>
+          These instructions apply when the host and target are both
+          the Intel IA32 (x86) architecture.
+          The target system could be the same computer as the host system
+          (rebooted to run CapROS),
+          or it could be a separate computer (possibly a virtual machine).
+	  <p>
+          A port also exists for the ARM architecture target; see
           <a href="#ARMBuild">below</a>. 
 	  </p>
           <h2>2.1. Package Requirements</h2>
 	  <p>
             CapROS is built using Linux. If your system doesn't have the
             following packages, you may need to obtain and install them. 
-            You must also have GRUB installed, because CapROS is
-            loaded by GRUB using the Multiboot specification.
           </p>
-          <h3>2.1.2. For Fedora</h3>
+          <h3>2.1.1. For Fedora</h3>
             <ul>
             <li>Some versions need transfig.
             </ul>
-          <h3>2.1.3. For Debian Sarge</h3>
+          <h3>2.1.2. For Debian Sarge</h3>
             <ul>
             <li>libgmp3-dev -- Multiprecision arithmetic library</li>
             <li>binutils-dev -- for libbfd</li>
             <li>gawk</li>
             </ul>
-	  <h2>2.2. Building the Cross Compilation Tools</h2>
+	  <h2>2.2. Obtaining the Cross Compilation Tools</h2>
 	  <p>
+            Even though the host and target machines both have the
+            Intel IA32 architecture, cross tools are necessary because
+            most tools have dependencies on the underlying operating system.
             CapROS uses its own cross-compilation tools 
             for stability.
             We acknowledge and thank the
             <a "http://www.coyotos.org/">Coyotos</a> project
             for hosting these tools. 
+	  <p>
+            Tools are available for Fedora Core 10 (and earlier systems).
+            We hope to have tools for later systems soon. 
+            Some have had success building CapROS on Fedora Core 11. 
       <h3>2.2.1 Setting up on Linux/YUM Systems</h3>
       <p>
 	If you are running Fedora, you can add the YUM
@@ -163,9 +177,10 @@ capros-i386-xenv - 0.1.6.4fc6.i386
             and downloading the CapROS CVS repository.
             The projectname is capros, and the module name is eros
             (we haven't yet changed the name of the module).
-            After setting CVSROOT appropriately, use the command
+            After setting CVSROOT appropriately, use the commands:
 	  <ul>
 <pre>
+cd <i>somewhere</i>
 cvs checkout -P eros
 </pre>
 	  </ul>
@@ -180,7 +195,7 @@ cvs checkout -P eros
 	  </p>
 	  <ul>
 <pre>
-cd somewhere/eros/src
+cd <i>somewhere</i>/eros/src
 make
 </pre>
 	  </ul>
@@ -190,126 +205,12 @@ make
           <ul>
           <li>clean - remove all generated files
           <li>distclean - clean, and also remove install directories under eros/
+          <li>update - get the latest version
           </ul>
-	  <h2>2.4. Running a non-persistent test program</h2>
+	<h1>3. Running CapROS</h1>
+	  <h2>3.1. Supported Hardware</h2>
 	  <p>
-            The <em>target system</em> is the IA32 computer on which you will
-            run CapROS. It could be the same as your development system
-            or it could be a separate computer. 
-	  </p>
-	  <p>
-            IA32 CapROS is loaded by <a href=http://www.gnu.org/software/grub/>
-            GRUB</a>.
-            To run CapROS, the target system must have a boot partition
-            with a file system where GRUB will find the file to load.
-            Define CAPROS_BOOT_PARTITION as the name of this partition.
-            For example, if the target system is the same as the
-            development system:
-	  </p>
-	  <ul>
-<pre>
-export CAPROS_BOOT_PARTITION=/boot
-</pre>
-	  </ul>
-	  <p>
-            The CapROS file is copied to the target system using <tt>scp</tt>.
-            If the target system is a separate computer, you'll need to
-            boot Linux (or any system that responds to
-            <tt>scp</tt>) on that computer,
-            and you'll need to configure it to allow <tt>ssh</tt>
-            from the development computer.
-            CAPROS_BOOT_PARTITION can be any path acceptable to <tt>scp</tt>.
-            If the target system's host name is "target", you would define:
-	  </p>
-	  <ul>
-<pre>
-export CAPROS_BOOT_PARTITION=target:/boot
-</pre>
-	  </ul>
-	  <p>
-            To compile and load the test program into the target system:
-	  </p>
-	  <ul>
-<pre>
-cd somewhere/eros/src/tutorials/hello-large
-make np
-</pre>
-	  </ul>
-	  <p>
-            To run the test program, boot the target computer, and type the
-            following commands to GRUB:
-	  </p>
-	  <ul>
-<pre>
-root (hd0,1)     # or the appropriate value for your boot partition
-kernel --type=multiboot /CapROS-kernimg
-</pre>
-	  </ul>
-	  <p>
-            You may wish to add an item to your GRUB menu.lst file
-            with these commands. 
-	  </p>
-	  <h2>2.5. Running a persistent test program</h2>
-	  <p> 
-            CapROS supports USB disks.
-            You must have a disk with a partition formatted for CapROS. 
-	    Use your handy
-	    <tt>fdisk</tt> equivalent to create a partition, and give it
-	    type 0x95.
-	  </p>
-	  <p>
-            We suggest that the partition size be several times the
-            size of your RAM (for the checkpoint log)
-            plus however much space you expect to need for application data.
-	  </p>
-	  <p>
-            Before using the CapROS partition for the first time,
-            you must format it. You do this on the development system
-            by defining the shell variable EROS_HD as the device name
-            for this partition. For example for a local disk:
-	  </p>
-	  <ul>
-<pre>
-export EROS_HD=/dev/hda1
-</pre>
-	  </ul>
-	  <p>
-            or, for example for a USB disk:
-	  </p>
-	  <ul>
-<pre>
-export EROS_HD=/dev/sdb1
-</pre>
-	  </ul>
-	  <p>
-            You can create your own volmap file to allocate the log
-            and other space. Use tutorials/volmap as a starting point.
-            Note that only the amount of space specified in the
-            volmap file will be used. Any additional space in the
-            partition will be ignored.
-	  </p>
-	  <p>
-            Then format the partition. You only need to do this once.
-            This may take a while. 
-	  </p>
-	  <ul>
-<pre>
-cd somewhere/eros/src/tutorials/hello-large
-make init.hd
-</pre>
-	  </ul>
-	  <p>
-            Then build and load the persistent system, for example:
-	  </p>
-	  <ul>
-<pre>
-cd somewhere/eros/src/base/tests/func/http
-make p
-</pre>
-	  </ul>
-	  <h1>3. Supported Hardware</h1>
-	  <p>
-	    CapROS supports the following hardware (all
+	    IA32 CapROS supports the following hardware (all
 	    trademarks belong to their respective owners):
 	  </p>
 	  <table>
@@ -320,7 +221,7 @@ make p
                 and Vmware. 
 		We have no way to test every processor.
                 If you have a problem with a particular processor,
-                we'll try to help get it working, up to a point.
+                we'll try, up to a point, to help get it working.
                 <p> For ARM, see section 4 below.
 		<p> CapROS does not yet fully support:
                 <ul>
@@ -359,9 +260,9 @@ make p
 	      <td><strong>Disk</strong></td>
 	      <td>CapROS supports USB disks that meet the Mass Storage Class
                 Specification. This includes most USB "thumb" drives.
-                <p>The QA practice for the many manufacturers of thumb drives
+                <p>Note, the QA practice for the many manufacturers of thumb drives
                 seems to be "If it works with Windows, ship it." 
-                Some of these drives do not actually work properly.
+                Some of these drives do not actually meet the specification.
                 The CapROS driver, which is derived from Linux,
                 includes hundreds of work-arounds for bugs in specific
                 models.
@@ -381,7 +282,231 @@ make p
                 virtual machines.
 	      </td>
 	    </tr>
+	    <tr valign="top">
+	      <td><strong>Serial port</strong></td>
+              <td> CapROS supports the RS232 serial port that is standard
+                on most PCs. See below for configuring the serial port
+                as a console. 
+	      </td>
+	    </tr>
 	  </table>
+	  <h2>3.2. Target System Setup</h2>
+	  <h3>3.2.1. GRUB configuration</h3>
+	  <p>
+            The target system must have
+            <a href=http://www.gnu.org/software/grub/> GRUB</a>
+            installed, because CapROS is
+            loaded by GRUB using the Multiboot specification.
+	  <p>
+            The target system must have a boot partition
+            with a file system where GRUB will find the file to load.
+            Define CAPROS_BOOT_PARTITION as the name of this partition.
+            For example, if the target system is the same as the
+            host system:
+	  </p>
+	  <ul>
+<pre>
+export CAPROS_BOOT_PARTITION=/boot
+</pre>
+	  </ul>
+	  <p>
+            The CapROS file is copied to the target system using <tt>scp</tt>.
+            If the target system is a separate computer, you'll need to
+            boot Linux (or any system that responds to
+            <tt>scp</tt>) on that computer,
+            and you'll need to configure it to allow <tt>ssh</tt>
+            from the host computer.
+            CAPROS_BOOT_PARTITION can be any path acceptable to <tt>scp</tt>.
+            If the target system's host name is "target", you would define:
+	  </p>
+	  <ul>
+<pre>
+export CAPROS_BOOT_PARTITION=target:/boot
+</pre>
+	  </ul>
+	  <p>
+            To boot CapROS, boot the target computer, stopping the boot
+            when it comes to running GRUB. Type the
+            following commands to GRUB:
+	  </p>
+	  <ul>
+<pre>
+root (hd0,1)     # or the appropriate value for your boot partition
+kernel --type=multiboot /CapROS-kernimg
+</pre>
+	  </ul>
+	  <p>
+            You will probably want to add an item to your GRUB menu.lst file
+            with these commands. 
+	  </p>
+	  <h3>3.2.2. Console configuration</h3>
+	  <p>
+            Console output can go to the display console and/or to the
+            target system's serial port.
+            The default configuration is to send console output to the
+            display only.
+	  <p>
+            The display has the disadvantage that information you want
+            can scroll off the top of the screen. 
+            (Also, in the future when CapROS supports a windowing GUI
+            on the display, console output can't go there.)
+            If you want you can 
+            change the configuration so console output is always sent to the
+            serial port, and also to the display during kernel boot only.
+            Also, in this configuration, the kernel debugger takes input from 
+            the serial port instead of the target system's keyboard.
+            To do this, define the following in your environment:
+	  </p>
+	  <ul>
+<pre>
+export EROS_CONFIG=DEVEL
+</pre>
+	  </ul>
+	  <p>
+            To use the output on the serial port, you'll need to connect it
+            to the serial port of another computer, using a "null modem" cable.
+            A program such as minicom can then capture and display the output.
+            The serial configuration is 57,600 baud, 8-N-1.
+	  <h3>3.2.3. Network Configuration</h3>
+	  <p>
+            Network configuration means defining the IP address, mask,
+            gateway, and security certificate for your target CapROS system.
+            You only need to do this if you are using the IP network.
+            Because this information is specific to each system,
+            you should keep it in a place outside of the CapROS source tree.
+            The CapROS source tree includes only a sample configuration
+            which you should copy and modify.
+	  </p>
+	  <p>
+            Copy the sample configuration directory and files:
+	  </p>
+	  <ul>
+<pre>
+cp -r <i>somewhere</i>/eros/src/tutorials/config <i>myconfig</i>
+</pre>
+	  </ul>
+	  <p>
+            You need to define the environment variable EROS_ROOT:
+	  </p>
+	  <ul>
+<pre>
+export EROS_ROOT=<i>somewhere</i>/eros
+</pre>
+	  </ul>
+	  <p>
+            or you may simply define it in <i>myconfig</i>/Makefile.
+	  </p>
+	  <p>
+            Edit the file <i>myconfig</i>/eth.map to specify your
+            IP address, mask, and gateway address.
+	  </p>
+	  <p>
+            To use HTTPS, you need a security certificate and private key.
+            You can generate a self-signed certificate by typing the
+            following and answering a few questions:
+	  </p>
+	  <ul>
+<pre>
+cd <i>myconfig</i>
+make genkeys
+</pre>
+	  </ul>
+	  <p>
+            Then install the files by typing:
+	  </p>
+	  <ul>
+<pre>
+cd <i>myconfig</i>
+make install
+</pre>
+	  </ul>
+	  <h2>3.3. Running a non-persistent test program</h2>
+	  <p>
+            Make sure you rebuild CapROS after making any configuration changes.
+	  </p>
+	  <p>
+            To compile and load the test program into the target system:
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/tutorials/hello-large
+make np
+</pre>
+	  </ul>
+	  <p>
+            To run the test program, boot CapROS as described above.
+            You will see some messages as the kernel boots,
+            followed by the output of the test program.
+	  </p>
+	  <p>
+            Other test programs you can run can be found in other
+            directories under <tt>eros/src/tutorials</tt>
+            and <tt>eros/src/base/tests</tt>.
+	  </p>
+	  <h2>3.4. Running a persistent test program</h2>
+	  <h3>3.4.1. Disk setup</h3>
+	  <p> 
+            CapROS supports USB disks.
+            You must have a USB disk with a partition formatted for CapROS. 
+	    Use a disk utility such as
+	    <tt>fdisk</tt> to create a partition, and give it
+	    type 0x95.
+	  </p>
+	  <p>
+            We suggest that the partition size be several times the
+            size of your RAM (for the checkpoint log)
+            plus however much space you expect to need for application data.
+	  </p>
+	  <p>
+            Before using the CapROS partition for the first time,
+            you must format it. You do this on the host system
+            by defining the shell variable EROS_HD as the device name
+            for this partition. For example:
+	  </p>
+	  <ul>
+<pre>
+export EROS_HD=/dev/sdb1
+</pre>
+	  </ul>
+	  <p>
+            You can create your own volmap file to allocate the log
+            and other space. Use tutorials/volmap as a starting point.
+            Note that only the amount of space specified in the
+            volmap file will be used. Any additional space in the
+            partition will be ignored.
+	  </p>
+	  <p>
+            Then format the partition. You only need to do this
+            to the partition once.
+            This may take a while. 
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/tutorials/hello-large
+make init.hd
+</pre>
+	  </ul>
+	  <h3>3.4.2. Running the Test Program</h3>
+	  <p>
+            Test programs that you can run can be found
+            under <tt>eros/src/tutorials</tt>
+            and <tt>eros/src/base/tests</tt>.
+            If the directory has a <tt>pimgmap</tt> file,
+            it is meant to be run in a persistent system,
+            otherwise it is to be run in a non-persistent system.
+            To build and load the test, type for example:
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/base/tests/func/http
+make p
+</pre>
+	  </ul>
+	  <p>
+            There is a web-key demonstration in
+            <tt>eros/src/tutorials/https</tt>.
+            Be sure to read and follow the README file in that directory.
+	  </p>
 	  <h1><a name="ARMBuild">4. Building for ARM</a></h1>
 	  <p>
           CapROS can run on the ARMv4 architecture.
