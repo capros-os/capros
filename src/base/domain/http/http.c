@@ -1643,6 +1643,8 @@ readExtend(ReaderState *rs, ReadPtrs *rp) {
     err = SSL_get_error(rs->plain, rc);
     switch (err) {
     default:
+      /* Note, it may be normal to get an error here if the other end
+         closes the connection. */
       DEBUG(errors)
         DBGPRINT(DBGTARGET, "HTTP:%d: SSL error %d rc %d\n", __LINE__, err, rc);
       print_SSL_error_queue();
