@@ -23,10 +23,12 @@
 #define HTTPSPortNum 443
 #define HTTPSPortNumString "443"
 #define ConfinedPortNum 4084 // an available registered port.
-#define ConfinedPortNumString "4084" // an available registered port.
+#define ConfinedPortNumString "4084"
 
 // The home page will be at the URL:
 // https://<your ip address>:HTTPSPortNum/#s=HomePageSwissNum
+// Some browsers may require a filename in front of the "#":
+// https://<your ip address>:HTTPSPortNum/demo.html#s=HomePageSwissNum
 #define HomePageSwissNum "gOiO2ZGtgJo"
 
 // The uploader for the confined program will be at the URL:
