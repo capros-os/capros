@@ -29,7 +29,9 @@
 // #include <drivers/pciehci.map>
 #include <drivers/lwip/via-rhine/lwip.map>
 
+#ifdef NEED_PCI_DRIVER
 #include <drivers/pciregistry.map>
+#endif
 
 /*
  * Test domain

@@ -1,6 +1,6 @@
 /* -*- C -*- */
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -45,7 +45,7 @@ Approved for public release, distribution unlimited. */
 rsakey = segtree LIBDIR "config/privkey.pem";
 certificate = segtree LIBDIR "config/cacert.pem";
 
-TCPPort(443);	// http over TLS/SSL
+TCPPort(HTTPPort, 443);	// http over TLS/SSL
 
 // Constituents for HTTP:
 #include <idl/capros/HTTP.h>
@@ -77,7 +77,7 @@ test key reg KR_SCHED = sched(8);
 test key reg KR_APP(0) = misc Console;
 test key reg KR_APP(1) = httpconstits as ro node key;
 test key reg KR_APP(2) = netlistener_c;
-test key reg KR_APP(3) = TCPPort443;
+test key reg KR_APP(3) = HTTPPort;
 test key reg KR_APP(4) = metacon;
 test key reg KR_APP(5) = iks_c;
 test key reg KR_APP(6) = FileSrvC;
