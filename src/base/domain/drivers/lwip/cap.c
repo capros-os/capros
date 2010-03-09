@@ -903,16 +903,19 @@ err_tcp(void * arg, err_t err)
   struct TCPSocket * sock = arg;
   ValidateSock(sock);	// actually, the pcb may be freed by this time
 
-  DEBUG(errors) kprintf(KR_OSTREAM,
-                        "err_tcp %d sock %#x state %d rcvQNum %d\n",
-                         err, sock, sock->TCPSk_state, sock->recvQNum);
-
   switch (err) {
-  default:
-    assert(false);	// unexpected error
+  default:	// unexpected error
+    DEBUG(errors) kdprintf(KR_OSTREAM,
+                           "err_tcp %d sock %#x state %d rcvQNum %d\n",
+                            err, sock, sock->TCPSk_state, sock->recvQNum);
 
   case ERR_ABRT:
   case ERR_RST:
+    DEBUG(errors) kprintf(KR_OSTREAM,
+                    "err_tcp connection %s sock %#x state %d rcvQNum %d\n",
+                    (err == ERR_ABRT ? "aborted" : "reset"),
+                    sock, sock->TCPSk_state, sock->recvQNum);
+
     switch (sock->TCPSk_state) {
     case TCPSk_state_Connect:
       CompleteConnection(sock, err);
