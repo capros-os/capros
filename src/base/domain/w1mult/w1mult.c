@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -764,10 +764,11 @@ MarkForSampling(uint32_t hbCount, Link * samplingQueue,
   DEBUG(doall) kprintf(KR_OSTREAM, "MarkForSampling hbCount=%#x\n", hbCount);
   *samplingListHead = NULL;
   unsigned int i;
-  for (i = 0, hbCount = (hbCount << 1) + 1;
+  uint32_t mask;
+  for (i = 0, mask = 0;
        i <= maxLog2Seconds;
-       i++, samplingQueue++, hbCount >>= 1) {
-    if (hbCount & 1) {
+       i++, samplingQueue++, mask = mask * 2 + 1) {
+    if ((hbCount & mask) == 0) {
       // Mark all devices on this samplingQueue.
       Link * lk;
       struct W1Device * dev;
