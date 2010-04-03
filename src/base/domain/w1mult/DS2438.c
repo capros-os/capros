@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -149,7 +149,7 @@ AddressRecallAndReadPage(struct W1Device * dev, unsigned int page)
   int tries = 0;
   while (1) {
     AddressDevice(dev);
-    int status = RecallAndReadPage(dev, 0);
+    int status = RecallAndReadPage(dev, page);
     if (status) {
       if (status == capros_W1Bus_StatusCode_BusError
           || status == capros_W1Bus_StatusCode_CRCError) {

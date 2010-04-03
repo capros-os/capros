@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -224,30 +224,32 @@ ReadMemPage(struct W1Device * dev, unsigned int addr)
     }
     DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 ReadMemPage got status %d!\n",
                           status);
-    if (++tries >= 4)
+    if (++tries >= 4) {
+      // Let's try fixing this with a big hammer:
+      busNeedsReinit = true;
       return status;
+    }
     AddressDevice(dev);
   }
 }
 
-/* This is called to initialize a device that has been found on the network.
-This is called at least on every reboot.
-This procedure can issue device I/O, but must not take a long time.
-The device is addressed, since we just completed a searchROM that found it.
-*/
-void
-DS2450_InitDev(struct W1Device * dev)
+// The caller must address the device before calling.
+// Returns false iff OK.
+static enum {
+  POR_WasOK,
+  POR_NowOK,
+  POR_Error}
+CheckPOR(struct W1Device * dev)
 {
   int i;
+  int ret;
 
-  // AddressDevice(dev);	not necessary
   int status = ReadMemPage(dev, 8);	// read page 1
   if (status) {
     DEBUG(errors) kprintf(KR_OSTREAM,
-           "DS2450 read config status=%d, bytes=%d data= %#.2x %#.2x %#.2x\n",
+           "DS2451 read config status=%d, bytes=%d data= %#.2x %#.2x %#.2x\n",
            status, RunPgmMsg.rcv_sent, inBuf[0], inBuf[1], inBuf[2]);
-    dev->found = false;
-    return;
+    return POR_Error;
   }
   memcpy(&dev->u.ad.devCfg, &inBuf, 8);
   // Check power-on reset:
@@ -263,8 +265,7 @@ DS2450_InitDev(struct W1Device * dev)
           if (++tries < 4)
             continue;	// try again
         }
-        dev->found = false;
-        return;
+        return POR_Error;
       }
       break;
     }
@@ -273,13 +274,34 @@ DS2450_InitDev(struct W1Device * dev)
     for (i = 0; i < 4; i++) {
       dev->u.ad.devCfg[i].cfghi &= ~ hi_POR;
     }
+    ret = POR_NowOK;
+  } else {
+    ret = POR_WasOK;
   }
 
-  DEBUG(ad) kprintf(KR_OSTREAM, "DS2450 %#llx is found.\n",
-                   dev->rom);
   if (dev->u.ad.requestedCfg[0].cfglo != 0xff) {	// if it's configured
     CheckConfigured(dev);
   }
+  return ret;
+}
+
+/* This is called to initialize a device that has been found on the network.
+This is called at least on every reboot.
+This procedure can issue device I/O, but must not take a long time.
+The device is addressed, since we just completed a searchROM that found it.
+*/
+void
+DS2450_InitDev(struct W1Device * dev)
+{
+  int i;
+
+  // AddressDevice(dev);	not necessary
+  if (CheckPOR(dev) == POR_Error) {
+    dev->found = false;
+    return;
+  }
+  DEBUG(ad) kprintf(KR_OSTREAM, "DS2450 %#llx is found.\n",
+                   dev->rom);
 
   // Ensure we log the next readings:
   for (i = 0; i < 4; i++) {
@@ -311,6 +333,17 @@ from going off in sync. */
 
 struct W1Device * DS2450_samplingListHead;
 
+bool anyHadPOR;
+static void
+CheckPORHB(struct W1Device * dev)
+{
+  // The device is on active branches, so we can just address it:
+  ProgramReset();
+  ProgramMatchROM(dev);
+  if (CheckPOR(dev) == POR_NowOK)
+    anyHadPOR = true;	// We reset POR
+}
+
 bool ds2450ConvertedOK;
 
 /* We can save addressing each individual device
@@ -323,6 +356,7 @@ Convert(struct Branch * br)
 {
   DEBUG(doall) kprintf(KR_OSTREAM, "Convert called.\n");
   int tries = 0;
+  int triesLimit = 3;
   while (1) {
     /* Convert only on this branch, so we must have a smart-on: */
     EnsureBranchSmartReset(br);
@@ -346,10 +380,26 @@ Convert(struct Branch * br)
     }
     if (! CheckCRC16()) {
       DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 Convert got CRC error.\n");
-      if (++tries < 4)
+      if (++tries < triesLimit)
         continue;	// try again
+      /* Perhaps the CRC consistently fails because a device on the branch
+         lost power and regained it. If so, it needs to be reset. */
+      DoEachWorkFunction = &CheckPORHB;
+      anyHadPOR = false;
+      DoEach(br);
+      if (anyHadPOR) {
+        /* We did at least one power-on reset. Try harder. */
+        triesLimit = 6;
+        if (tries < triesLimit) {
+          DEBUG(errors)
+            kprintf(KR_OSTREAM, "DS2450 retrying after clearing POR\n");
+          continue;
+        }
+      }
+      DEBUG(errors)
+        kprintf(KR_OSTREAM, "DS2450 giving up, no POR\n");
       ds2450ConvertedOK = false;
-      return;
+      return;	// give up
     }
     return;	// all is OK
   }
