@@ -48,6 +48,7 @@ Approved for public release, distribution unlimited. */
 #include "w1mult.h"
 #include "w1multConfig.h"
 #include "DS18B20.h"
+#include "DS2408.h"
 #include "DS2438.h"
 #include "DS2450.h"
 
@@ -536,6 +537,7 @@ HeartbeatAction(void * arg)
   lastHeartbeatTime = currentTime;
 
   // Let each type of device do its thing:
+  DS2408_HeartbeatAction(heartbeatCount);
 /* DS18B20 and DS2438 both respond to Convert T (0x44).
  * Thus when the DS18B20 heartbeat broadcasts a Convert T command
  * (that is, issues it after a Skip ROM), some DS2438's may also convert.
@@ -592,6 +594,7 @@ EnableHeartbeat(uint32_t bit)
       busNeedsReinit = true;
     }
     if (busNeedsReinit) {
+      DEBUG(errors) kprintf(KR_OSTREAM, "w1mult: rescanning bus\n");
       ScanBus();
     }
     if (heartbeatDisable == 0) {	// ScanBus was successful
@@ -1161,6 +1164,9 @@ SearchPath(struct Branch * br)
           case famCode_DS18B20:	// thermometer
             DS18B20_InitDev(dev);
             break;
+          case famCode_DS2408:	// battery monitor
+            DS2408_InitDev(dev);
+            break;
           case famCode_DS2438:	// battery monitor
             DS2438_InitDev(dev);
             break;
@@ -1407,6 +1413,7 @@ main(void)
 
   // Let each device type initialize:
   DS18B20_Init();
+  DS2408_Init();
   DS2438_Init();
   DS2450_Init();
 
@@ -1454,6 +1461,9 @@ main(void)
       break;
     case famCode_DS18B20:
       DS18B20_InitStruct(dev);
+      break;
+    case famCode_DS2408:
+      DS2408_InitStruct(dev);
       break;
     case famCode_DS2438:
       DS2438_InitStruct(dev);
@@ -1568,6 +1578,10 @@ main(void)
 
       case famCode_DS18B20:
         DS18B20_ProcessRequest(dev, &Msg);
+        break;
+
+      case famCode_DS2408:
+        DS2408_ProcessRequest(dev, &Msg);
         break;
 
       case famCode_DS2438:

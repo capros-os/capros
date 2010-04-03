@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group
+# Copyright (C) 2008, 2010, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -21,8 +21,6 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: install
-
 EROS_SRC=../../..
 CROSS_BUILD=yes
 include $(EROS_SRC)/build/make/makevars.mk
@@ -32,6 +30,7 @@ HEADERS=w1multConfig.h
 TARGETS=$(BUILDDIR)/w1mult
 OBJECTS=$(BUILDDIR)/w1mult.o
 OBJECTS+= $(BUILDDIR)/DS18B20.o
+OBJECTS+= $(BUILDDIR)/DS2408.o
 OBJECTS+= $(BUILDDIR)/DS2450.o
 OBJECTS+= $(BUILDDIR)/DS2438.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include

@@ -41,6 +41,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_thermom 0x20
 #define dbg_ad    0x40
 #define dbg_bm    0x80
+#define dbg_gpio8 0x100
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_errors )
@@ -61,7 +62,8 @@ Approved for public release, distribution unlimited. */
 // The family code is the low byte of the ROM ID.
 enum {
   famCode_DS18B20 = 0x28,	// temperature
-  famCode_DS2409  = 0x1f,	// coupler2438
+  famCode_DS2408  = 0x29,	// 8-channel programmable I/O
+  famCode_DS2409  = 0x1f,	// coupler
   famCode_DS2438  = 0x26,	// battery monitor
   famCode_DS2450  = 0x20,	// A-D
   famCode_DS2502  = 0x09,	// a DS9097U has one of these
@@ -113,6 +115,9 @@ struct W1Device {
       uint16_t hysteresis;
       int hysteresisLow;
     } thermom;
+    struct {		// DS2408 8-channel programmable I/O
+      uint8_t outputState;
+    } pio8;
     struct {
       Link samplingQueueLink;
       struct portCfg {
@@ -151,6 +156,8 @@ struct w1Timer {
   void * arg;
   void (*function)(void * arg);	
 };
+
+extern bool busNeedsReinit;
 
 result_t CreateLog(int32_t * pSlot);
 void GetLogfile(unsigned int slot);
