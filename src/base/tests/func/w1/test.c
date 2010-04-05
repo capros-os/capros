@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -159,7 +159,7 @@ DoRunProgram(void)
   { result_t result = DoRunProgram(); \
     ckOK \
     if (RunPgmMsg.rcv_w1 != capros_W1Bus_StatusCode_OK) \
-      kdprintf(KR_OSTREAM, "Got status %d", RunPgmMsg.rcv_w1); \
+      kdprintf(KR_OSTREAM, "Got status %d\n", RunPgmMsg.rcv_w1); \
   }
 
 void
