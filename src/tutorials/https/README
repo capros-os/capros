@@ -1,6 +1,6 @@
 This tutorial does several things:
 
-1. It serves a web page.
+1. It serves a web page with dynamic content.
 2. It serves a URL where you may download the target system's security
    certificate.
 3. It serves a URL where you may upload a program that will be executed
