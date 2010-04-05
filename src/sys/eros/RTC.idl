@@ -11,6 +11,15 @@ interface RTC extends key raises (key.RequestError) {
   /** Get the current time. */
   time_t getTime();
 
+  /** Sleep until a specified time or a restart occurs.
+  If a system restart occurs (and the caller is persistent),
+  the operation raises key.Restart at that time.
+  */
+  void sleepTillTimeOrRestart(time_t wakeupTime);
+
+  /** Sleep until a specified time. */
+  client void sleepTillTime(time_t wakeupTime);
+
   /** Get the time of the checkpoint from which the system was restarted,
   and the time of the restart. */
   void getRestartTimes(out time_t checkpointTime, out time_t restartTime);

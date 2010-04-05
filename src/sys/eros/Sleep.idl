@@ -18,9 +18,11 @@ interface Sleep extends key raises(key.Restart) {
   // Due to a bug in capidl, it does not work to use nanoseconds_t here.
   getTimeMonotonic();
 
-  /* Returns the time in nanoseconds since some time in the past. 
-  Never returns the same value twice.
-  The value returned is monotonic increasing over checkpoint/restart.
+  /* Returns the persistent monotonic time. 
+  Its value is saved on a checkpoint and restored on restart.
+  This time base runs at the same speed as monotonic time while the system
+  is running, and stops between checkpoint and the subsequent restart.
+
   This operation waits if necessary until the restart procedure has completed,
   therefore it should be used only by persistent processes. */
   unsigned long long
@@ -49,7 +51,10 @@ interface Sleep extends key raises(key.Restart) {
 
   /** Sleep until getPersistentMonotonicTime() >= ns.
   This operation waits if necessary until the restart procedure has completed,
-  therefore it should be used only by persistent processes. */
+  therefore it should be used only by persistent processes.
+
+  Use this method if you want to wait until the system has been
+  actually running for a given length of time. */
   client void sleepTillPersistent(unsigned long long /* nanoseconds_t */ ns);
 
   /** Sleep until either getPersistentMonotonicTime() >= ns

@@ -40,6 +40,9 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+// From mk_SleepKey:
+void SleepInvokee(Process * invokee, uint64_t wakeupTime);
+
 void
 RTCKey(Invocation * inv)
 {
@@ -56,6 +59,28 @@ RTCKey(Invocation * inv)
 
     DEBUG(get) printf("RTC_getTime %u\n", inv->exit.w1);
     break;
+
+  case OC_capros_RTC_sleepTillTimeOrRestart:
+  {
+    uint32_t wakeupTimeRTC = inv->entry.w1;
+    uint32_t nowRTC = RtcRead();
+    // Compare, rather than subtract, to avoid overflow.
+    if (wakeupTimeRTC <= nowRTC) {
+      COMMIT_POINT();
+      break;
+    }
+    uint32_t duration = wakeupTimeRTC - nowRTC;
+    uint64_t wakeupTime = sysT_Now()
+                   + mach_NanosecondsToTicks(duration * 1000000000ULL);
+    // Compare with sleepCommon in mk_SleepKey.c.
+
+    COMMIT_POINT();
+    Process * invokee = inv->invokee;
+    if (! invokee)
+      break;	// no one to wake up at the end of the wait
+    SleepInvokee(invokee, wakeupTime);
+    return;	// don't call ReturnMessage
+  }
 
   case OC_capros_RTC_getRestartTimes:
 
