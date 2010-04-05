@@ -1,0 +1,43 @@
+#ifndef __DS2408MULT_MAP_
+#define __DS2408MULT_MAP_
+
+/*
+ * Copyright (C) 2010, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/*********************************************************
+ * DS2408MULT program.
+ *********************************************************/
+
+#define DS2408MULT(name, ds2408cap) \
+  name##_ds2408m_proc = new process; \
+  name##_ds2408m_proc pc = symbol LIBDIR "ds2408mult" _start; \
+  name##_ds2408m_proc.space = small program LIBDIR "ds2408mult"; \
+  name##_ds2408m_proc.space = name##_ds2408m_proc.space with page at 0x1f000; \
+  name##_ds2408m_proc space = name##_ds2408m_proc.space; \
+  name##_ds2408m_proc schedule = sched(8); \
+  name##_ds2408m_proc symtab = number("ds2408" #name); \
+  name##_ds2408m_proc key reg 7 = misc Console; \
+  name##_ds2408m_proc key reg 8 = ds2408cap; \
+  run name##_ds2408m_proc;
+
+#define DS2408MULTBIT(name, bitmask) \
+  start name##_ds2408m_proc bitmask;
+
+#endif
