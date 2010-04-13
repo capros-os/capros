@@ -420,6 +420,13 @@ AllDevsNotFound(void)
   }
 }
 
+static void
+SetBusNeedsReinit(void)
+{
+  busNeedsReinit = true;
+  AllDevsNotFound();
+}
+
 // Return true if Restart exception or void key, false if OK.
 static bool
 CheckRestart(result_t result)
@@ -485,7 +492,7 @@ RunProgram(void)
 
   case capros_W1Bus_StatusCode_BusShorted:
   case capros_W1Bus_StatusCode_BusError:
-    busNeedsReinit = true;
+    SetBusNeedsReinit();
   // The following are not too serious:
   case capros_W1Bus_StatusCode_CRCError:
   case capros_W1Bus_StatusCode_Timeout:
@@ -591,7 +598,7 @@ EnableHeartbeat(uint32_t bit)
       COPY_KEYREG(KR_NEXTW1BUS, KR_W1BUS);
       haveNextBusKey = false;
       haveBusKey = true;
-      busNeedsReinit = true;
+      SetBusNeedsReinit();
     }
     if (busNeedsReinit) {
       DEBUG(errors) kprintf(KR_OSTREAM, "w1mult: rescanning bus\n");
@@ -1050,6 +1057,7 @@ SearchPath(struct Branch * br)
   uint64_t rom;
   uint64_t discrep;
 
+  assert(br->childCouplers == NULL && br->childDevices == NULL);
   assert(ProgramIsClear());
 
   AddressPath(br, true);
@@ -1144,6 +1152,7 @@ SearchPath(struct Branch * br)
         struct W1Device * dev = &devices[i];
         if (dev->rom == rom
             && dev->parentBranch == br) {
+          assert(! dev->found);	// better not find it more than once
           // Do device-independent initialization:
           dev->found = true;
           dev->sampling = false;
