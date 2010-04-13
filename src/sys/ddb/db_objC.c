@@ -192,8 +192,8 @@ objC_ddb_dump_procs(void)
   for (i = 0; i < KTUNE_NCONTEXT; i++) {
     Process * proc = &proc_ContextCache[i];
     if (proc->procRoot) {
-      printf("%#x oid=%#llx (%s)",
-        proc, node_ToObj(proc->procRoot)->oid, proc_Name(proc) );
+      printf("%#x oid=%#llx",
+        proc, node_ToObj(proc->procRoot)->oid );
       if (keyBits_IsType(&proc->procRoot->slot[ProcSymSpace], KKT_Number)) {
         db_printf(" (");
         db_eros_print_number_as_string(&proc->procRoot->slot[ProcSymSpace]);

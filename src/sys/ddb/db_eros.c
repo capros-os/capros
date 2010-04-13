@@ -355,7 +355,7 @@ db_eros_print_context(Process *cc)
   if (! cc->procRoot && cc->isUserContext)
     db_printf("Process is free\n");
   else {
-    db_printf("proc=%#x (%s)", cc, proc_Name(cc));
+    db_printf("proc=%#x", cc);
     const char * stateName;
     switch (cc->runState) {
     default: stateName = "?"; break;

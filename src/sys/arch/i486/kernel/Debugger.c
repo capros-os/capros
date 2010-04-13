@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright 2010, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -78,8 +80,7 @@ debug_Backtrace(const char *msg, bool shouldHalt)
   }
 
   else if ( act_IsUser(act_Current()) ) {
-    printf("Backtrace() called -- curthread (0x%08x) = %s\n",
-		 act_Current(), act_Name(act_Current()));
+    printf("Backtrace() called -- curAct = %#x\n", act_Current());
   }
 
   else {
@@ -89,11 +90,7 @@ debug_Backtrace(const char *msg, bool shouldHalt)
     Word* tStackTop = tStack + pkt->threadStackSize;
 #endif
 
-
-    printf("Backtrace() on 0x%08x (%s)\n",
-		 act_Current(),
-		 act_Name(act_Current()));
-
+    printf("Backtrace() called -- curAct = %#x\n", act_Current());
   }
 
   /*

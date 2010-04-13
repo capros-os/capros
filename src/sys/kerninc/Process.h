@@ -203,9 +203,6 @@ struct Process {
 
   char              arch[4];
 
-  /* Useful to have a name for diagnostic purposes. */
-  char              name[8];
-
   ProcStat          stats;
 };
 
@@ -306,12 +303,6 @@ INLINE bool
 proc_IsKernel(const Process * thisPtr)
 {
   return !thisPtr->isUserContext;
-}
-
-INLINE const char* 
-proc_Name(Process* thisPtr)
-{
-  return thisPtr->name;
 }
 
 void proc_DumpFixRegs(Process* thisPtr);

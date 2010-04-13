@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -627,16 +627,6 @@ proc_AllocUserContexts(void)
     p->hazards = 0u;	/* deriver should change this! */
     p->curActivity = 0;
     proc_InitProcessMD(p);
-    
-    p->name[0] = 'u';
-    p->name[1] = 's';
-    p->name[2] = 'e';
-    p->name[3] = 'r';
-    p->name[4] = '0' + (i / 100);
-    p->name[5] = '0' + ((i % 100) / 10);
-    p->name[6] = '0' + (i % 10);
-    p->name[7] = 0;
-
   }
 
   proc_ContextCache = contextCache;

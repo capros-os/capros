@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -43,7 +43,7 @@ Approved for public release, distribution unlimited. */
 
 Process *
 kproc_Init(
-           const char *myName,
+           const char *myName,	// not used
            ReadyQueue *rq,
            void (*pc)(),
            uint32_t * stkBottom, uint32_t * stkTop)
@@ -53,7 +53,6 @@ kproc_Init(
    * We are constructing a save area by hand.  Have a look at the
    * comments in switch.S to see what that must look like.
    */
-  int i = 0;
   Process *p = proc_allocate(false);
 
   p->hazards = 0;
@@ -63,10 +62,6 @@ kproc_Init(
 #endif
   p->readyQ = rq;
   
-  for (i = 0; i < 8; i++)
-    p->name[i] = myName[i];
-  p->name[7] = 0;
-
   p->runState = RS_Running;
 
   memset(&p->trapFrame, 0, sizeof(p->trapFrame));

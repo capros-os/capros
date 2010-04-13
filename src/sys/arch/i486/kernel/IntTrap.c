@@ -177,11 +177,11 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
   if ( saveArea == 0 ||	// FIXME: can't be zero!?
        ( sa_IsKernel(saveArea) && !ValidEIP(saveArea->EIP) ) ) {
     /* halt('e'); */
-    fatal("Bogus save area 0x%08x vecno %d\n"
-		  "   EIP=0x%08x CurActivity = %s ctxt=0x%08x\n",
+    fatal("Bogus save area %#x vecno %d\n"
+		  "   EIP=%#x CurActivity = %#x ctxt=%#x\n",
 		  saveArea, vecNumber,
 		  saveArea ? saveArea->EIP : 0,
-                  act_Name(curActivity), act_CurContext());
+                  curActivity, act_CurContext());
   }
 #endif
   

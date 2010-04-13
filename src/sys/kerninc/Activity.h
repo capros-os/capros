@@ -2,7 +2,7 @@
 #define __ACTIVITY_H__
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -260,8 +260,6 @@ void act_ForceResched(void);
 void ExitTheKernel(void) NORETURN;
 void ExitTheKernel_MD(Process *);		// architecture-dependent
 void resume_process(Process *) NORETURN;	// architecture-dependent
-
-const char* act_Name(Activity* thisPtr);
 
 void act_DeleteActivity(Activity* t);
 void act_DeleteCurrent(void);

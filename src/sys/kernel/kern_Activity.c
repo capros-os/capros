@@ -467,8 +467,8 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
 #endif
 
   if (thisPtr->state != act_Running && ! link_isSingleton(&thisPtr->q_link) )
-    fatal("Activity 0x%08x (%s) REqueues q=0x%08x lastq=0x%08x state=%d\n",
-		  thisPtr, act_Name(thisPtr), &q, thisPtr->lastq, thisPtr->state);
+    fatal("Activity %#x REqueues q=0x%08x lastq=0x%08x state=%d\n",
+		  thisPtr, &q, thisPtr->lastq, thisPtr->state);
 
   act_Enqueue(thisPtr, q);
 
@@ -798,8 +798,7 @@ sq_WakeAll(StallQueue * q)
 	extern bool ddb_activity_uqueue_debug;
         
 	if (ddb_activity_uqueue_debug && act_IsUser(t) )
-	  dprintf(true, "Waking up activity 0x%08x (%s)\n",
-		  t, act_Name(t));
+	  dprintf(true, "Waking up activity %#x\n", t);
     }
 #endif
 
@@ -911,39 +910,6 @@ act_ValidateActivity(Activity* thisPtr)
       assert(act_GetProcess(thisPtr)->runState == RS_Waiting);
     }
   }
-}
-
-const char* 
-act_Name(Activity* thisPtr)
-{
-  static char userActivityName[] = "userXXX\0";
-  uint32_t ndx = 0;
-
-  if (! act_IsUser(thisPtr))
-    return proc_Name(act_GetProcess(thisPtr));	// kernel process name
-    
-  ndx = thisPtr - &act_ActivityTable[0];
-
-  if (ndx >= 100) {
-    userActivityName[4] = (ndx / 100) + '0';
-    ndx = ndx % 100;
-    userActivityName[5] = (ndx / 10) + '0';
-    ndx = ndx % 10;
-    userActivityName[6] = ndx + '0';
-    userActivityName[7] = 0;
-  }
-  else if (ndx >= 10) {
-    userActivityName[4] = (ndx / 10) + '0';
-    ndx = ndx % 10;
-    userActivityName[5] = ndx + '0';
-    userActivityName[6] = 0;
-  }
-  else {
-    userActivityName[4] = ndx + '0';
-    userActivityName[5] = 0;
-  }
-
-  return userActivityName;
 }
 
 /* May Yield. */
