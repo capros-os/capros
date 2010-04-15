@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2001-2002 by David Brownell
+ * Copyright (c) 2010, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -36,6 +37,8 @@
 #endif
 
 #ifdef	DEBUG
+#define PAGE_SIZE 4096	// just for buffer sizes
+#define STUB_DEBUG_FILES // no debugfs on CapROS
 
 /* check the values in the HCSPARAMS register
  * (host controller _Structural_ parameters)

@@ -38,6 +38,7 @@
 //#include <linux/debugfs.h>
 #include <linux/fs.h>
 //#include <linux/types.h>
+//#define DEBUG
 
 #include "../core/hcd.h"
 
@@ -1099,6 +1100,7 @@ int __init ehci_hcd_init(void)
 		 sizeof(struct ehci_qh), sizeof(struct ehci_qtd),
 		 sizeof(struct ehci_itd), sizeof(struct ehci_sitd));
 
+#if 0 // CapROS
 #ifdef DEBUG
 	ehci_debug_root = debugfs_create_dir("ehci", NULL);
 	if (!ehci_debug_root) {
@@ -1106,6 +1108,7 @@ int __init ehci_hcd_init(void)
 		goto err_debug;
 	}
 #endif
+#endif // CapROS
 
 #ifdef PLATFORM_DRIVER
 	retval = platform_driver_register(&PLATFORM_DRIVER);
@@ -1153,12 +1156,12 @@ clean1:
 	platform_driver_unregister(&PLATFORM_DRIVER);
 clean0:
 #endif
-#endif // CapROS
 #ifdef DEBUG
 	debugfs_remove(ehci_debug_root);
 	ehci_debug_root = NULL;
 err_debug:
 #endif
+#endif // CapROS
 	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
 	return retval;
 }
@@ -1179,10 +1182,10 @@ static void __exit ehci_hcd_cleanup(void)
 #ifdef PS3_SYSTEM_BUS_DRIVER
 	ps3_ehci_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);
 #endif
-#endif // CapROS
 #ifdef DEBUG
 	debugfs_remove(ehci_debug_root);
 #endif
+#endif // CapROS
 	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
 }
 module_exit(ehci_hcd_cleanup);

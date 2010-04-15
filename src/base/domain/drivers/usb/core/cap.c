@@ -39,6 +39,7 @@ Approved for public release, distribution unlimited. */
 
 #include "hcd.h"
 #include "usb.h"
+#undef DEBUG
 
 unsigned long capros_Errno_ExceptionToErrno(unsigned long excep);
 unsigned long capros_Errno_ErrnoToException(unsigned long errno);

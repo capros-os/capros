@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2008-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -22,6 +22,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <linux/pm.h>
+//#define DEBUG
 
 /* Functions local to drivers/usb/core/ */
 
