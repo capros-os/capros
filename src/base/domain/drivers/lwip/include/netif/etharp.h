@@ -85,13 +85,34 @@ PACK_STRUCT_END
 #  include "arch/epstruct.h"
 #endif
 
+#define SIZEOF_ETH_HDR (14 + ETH_PAD_SIZE)
+
+#if ETHARP_SUPPORT_VLAN
+
+#ifdef PACK_STRUCT_USE_INCLUDES
+#  include "arch/bpstruct.h"
+#endif
+PACK_STRUCT_BEGIN
+struct eth_vlan_hdr {
+  PACK_STRUCT_FIELD(u16_t tpid);
+  PACK_STRUCT_FIELD(u16_t prio_vid);
+} PACK_STRUCT_STRUCT;
+PACK_STRUCT_END
+#ifdef PACK_STRUCT_USE_INCLUDES
+#  include "arch/epstruct.h"
+#endif
+
+#define SIZEOF_VLAN_HDR 4
+#define VLAN_ID(vlan_hdr) (htons((vlan_hdr)->prio_vid) & 0xFFF)
+
+#endif /* ETHARP_SUPPORT_VLAN */
+
 #ifdef PACK_STRUCT_USE_INCLUDES
 #  include "arch/bpstruct.h"
 #endif
 PACK_STRUCT_BEGIN
 /** the ARP message */
 struct etharp_hdr {
-  PACK_STRUCT_FIELD(struct eth_hdr ethhdr);
   PACK_STRUCT_FIELD(u16_t hwtype);
   PACK_STRUCT_FIELD(u16_t proto);
   PACK_STRUCT_FIELD(u16_t _hwlen_protolen);
@@ -106,24 +127,15 @@ PACK_STRUCT_END
 #  include "arch/epstruct.h"
 #endif
 
-#ifdef PACK_STRUCT_USE_INCLUDES
-#  include "arch/bpstruct.h"
-#endif
-PACK_STRUCT_BEGIN
-struct ethip_hdr {
-  PACK_STRUCT_FIELD(struct eth_hdr eth);
-  PACK_STRUCT_FIELD(struct ip_hdr ip);
-} PACK_STRUCT_STRUCT;
-PACK_STRUCT_END
-#ifdef PACK_STRUCT_USE_INCLUDES
-#  include "arch/epstruct.h"
-#endif
+#define SIZEOF_ETHARP_HDR 28
+#define SIZEOF_ETHARP_PACKET (SIZEOF_ETH_HDR + SIZEOF_ETHARP_HDR)
 
 /** 5 seconds period */
 #define ARP_TMR_INTERVAL 5000
 
 #define ETHTYPE_ARP       0x0806
 #define ETHTYPE_IP        0x0800
+#define ETHTYPE_VLAN      0x8100
 #define ETHTYPE_PPPOEDISC 0x8863  /* PPP Over Ethernet Discovery Stage */
 #define ETHTYPE_PPPOE     0x8864  /* PPP Over Ethernet Session Stage */
 
@@ -151,6 +163,11 @@ void etharp_arp_input(struct netif *netif, struct eth_addr *ethaddr,
 err_t etharp_output(struct netif *netif, struct pbuf *q, struct ip_addr *ipaddr);
 err_t etharp_query(struct netif *netif, struct ip_addr *ipaddr, struct pbuf *q);
 err_t etharp_request(struct netif *netif, struct ip_addr *ipaddr);
+/** For Ethernet network interfaces, we might want to send "gratuitous ARP";
+ *  this is an ARP packet sent by a node in order to spontaneously cause other
+ *  nodes to update an entry in their ARP cache.
+ *  From RFC 3220 "IP Mobility Support for IPv4" section 4.6. */
+#define etharp_gratuitous(netif) etharp_request((netif), &(netif)->ip_addr)
 
 err_t ethernet_input(struct pbuf *p, struct netif *netif);
 
