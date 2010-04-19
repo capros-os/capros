@@ -65,7 +65,7 @@ struct sswt_cb
 void
 sys_mbox_fetch(sys_mbox_t mbox, void **msg)
 {
-  u32_t time;
+  u32_t time_needed;
   struct sys_timeouts *timeouts;
   struct sys_timeo *tmptimeout;
   sys_timeout_handler h;
@@ -76,18 +76,18 @@ sys_mbox_fetch(sys_mbox_t mbox, void **msg)
 
   if (!timeouts || !timeouts->next) {
     UNLOCK_TCPIP_CORE();
-    time = sys_arch_mbox_fetch(mbox, msg, 0);
+    time_needed = sys_arch_mbox_fetch(mbox, msg, 0);
     LOCK_TCPIP_CORE();
   } else {
     if (timeouts->next->time > 0) {
       UNLOCK_TCPIP_CORE();
-      time = sys_arch_mbox_fetch(mbox, msg, timeouts->next->time);
+      time_needed = sys_arch_mbox_fetch(mbox, msg, timeouts->next->time);
       LOCK_TCPIP_CORE();
     } else {
-      time = SYS_ARCH_TIMEOUT;
+      time_needed = SYS_ARCH_TIMEOUT;
     }
 
-    if (time == SYS_ARCH_TIMEOUT) {
+    if (time_needed == SYS_ARCH_TIMEOUT) {
       /* If time == SYS_ARCH_TIMEOUT, a timeout occured before a message
          could be fetched. We should now call the timeout handler and
          deallocate the memory allocated for the timeout. */
@@ -97,7 +97,7 @@ sys_mbox_fetch(sys_mbox_t mbox, void **msg)
       arg = tmptimeout->arg;
       memp_free(MEMP_SYS_TIMEOUT, tmptimeout);
       if (h != NULL) {
-        LWIP_DEBUGF(SYS_DEBUG, ("smf calling h=%p(%p)\n", (void*)&h, arg));
+        LWIP_DEBUGF(SYS_DEBUG, ("smf calling h=%p(%p)\n", *(void**)&h, arg));
         h(arg);
       }
 
@@ -107,8 +107,8 @@ sys_mbox_fetch(sys_mbox_t mbox, void **msg)
       /* If time != SYS_ARCH_TIMEOUT, a message was received before the timeout
          occured. The time variable is set to the number of
          milliseconds we waited for the message. */
-      if (time < timeouts->next->time) {
-        timeouts->next->time -= time;
+      if (time_needed < timeouts->next->time) {
+        timeouts->next->time -= time_needed;
       } else {
         timeouts->next->time = 0;
       }
@@ -125,7 +125,7 @@ sys_mbox_fetch(sys_mbox_t mbox, void **msg)
 void
 sys_sem_wait(sys_sem_t sem)
 {
-  u32_t time;
+  u32_t time_needed;
   struct sys_timeouts *timeouts;
   struct sys_timeo *tmptimeout;
   sys_timeout_handler h;
@@ -139,12 +139,12 @@ sys_sem_wait(sys_sem_t sem)
     sys_arch_sem_wait(sem, 0);
   } else {
     if (timeouts->next->time > 0) {
-      time = sys_arch_sem_wait(sem, timeouts->next->time);
+      time_needed = sys_arch_sem_wait(sem, timeouts->next->time);
     } else {
-      time = SYS_ARCH_TIMEOUT;
+      time_needed = SYS_ARCH_TIMEOUT;
     }
 
-    if (time == SYS_ARCH_TIMEOUT) {
+    if (time_needed == SYS_ARCH_TIMEOUT) {
       /* If time == SYS_ARCH_TIMEOUT, a timeout occured before a message
         could be fetched. We should now call the timeout handler and
         deallocate the memory allocated for the timeout. */
@@ -154,7 +154,7 @@ sys_sem_wait(sys_sem_t sem)
       arg = tmptimeout->arg;
       memp_free(MEMP_SYS_TIMEOUT, tmptimeout);
       if (h != NULL) {
-        LWIP_DEBUGF(SYS_DEBUG, ("ssw h=%p(%p)\n", (void*)&h, (void *)arg));
+        LWIP_DEBUGF(SYS_DEBUG, ("ssw h=%p(%p)\n", *(void**)&h, (void *)arg));
         h(arg);
       }
 
@@ -164,8 +164,8 @@ sys_sem_wait(sys_sem_t sem)
       /* If time != SYS_ARCH_TIMEOUT, a message was received before the timeout
          occured. The time variable is set to the number of
          milliseconds we waited for the message. */
-      if (time < timeouts->next->time) {
-        timeouts->next->time -= time;
+      if (time_needed < timeouts->next->time) {
+        timeouts->next->time -= time_needed;
       } else {
         timeouts->next->time = 0;
       }
@@ -203,7 +203,7 @@ sys_timeout(u32_t msecs, sys_timeout_handler h, void *arg)
   timeouts = sys_arch_timeouts();
 
   LWIP_DEBUGF(SYS_DEBUG, ("sys_timeout: %p msecs=%"U32_F" h=%p arg=%p\n",
-    (void *)timeout, msecs, (void*)&h, (void *)arg));
+    (void *)timeout, msecs, *(void**)&h, (void *)arg));
 
   if (timeouts == NULL) {
     LWIP_ASSERT("sys_timeout: timeouts != NULL", timeouts != NULL);
@@ -264,13 +264,15 @@ sys_untimeout(sys_timeout_handler h, void *arg)
     if ((t->h == h) && (t->arg == arg)) {
       /* We have a match */
       /* Unlink from previous in list */
-      if (prev_t == NULL)
+      if (prev_t == NULL) {
         timeouts->next = t->next;
-      else
+      } else {
         prev_t->next = t->next;
+      }
       /* If not the last one, add time of this one back to next */
-      if (t->next != NULL)
+      if (t->next != NULL) {
         t->next->time += t->time;
+      }
       memp_free(MEMP_SYS_TIMEOUT, t);
       return;
     }

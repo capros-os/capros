@@ -45,6 +45,19 @@
 #include "lwip/snmp.h"
 #include "lwip/igmp.h"
 #include "netif/etharp.h"
+#if ENABLE_LOOPBACK
+#include "lwip/sys.h"
+#if LWIP_NETIF_LOOPBACK_MULTITHREADING
+#include "lwip/tcpip.h"
+#endif /* LWIP_NETIF_LOOPBACK_MULTITHREADING */
+#endif /* ENABLE_LOOPBACK */
+
+#if LWIP_AUTOIP
+#include "lwip/autoip.h"
+#endif /* LWIP_AUTOIP */
+#if LWIP_DHCP
+#include "lwip/dhcp.h"
+#endif /* LWIP_DHCP */
 
 #if LWIP_NETIF_STATUS_CALLBACK
 #define NETIF_STATUS_CALLBACK(n) { if (n->status_callback) (n->status_callback)(n); }
@@ -106,6 +119,10 @@ netif_add(struct netif *netif, struct ip_addr *ipaddr, struct ip_addr *netmask,
 #if LWIP_IGMP
   netif->igmp_mac_filter = NULL;
 #endif /* LWIP_IGMP */
+#if ENABLE_LOOPBACK
+  netif->loop_first = NULL;
+  netif->loop_last = NULL;
+#endif /* ENABLE_LOOPBACK */
 
   /* remember netif specific state information data */
   netif->state = state;
@@ -114,6 +131,9 @@ netif_add(struct netif *netif, struct ip_addr *ipaddr, struct ip_addr *netmask,
 #if LWIP_NETIF_HWADDRHINT
   netif->addr_hint = NULL;
 #endif /* LWIP_NETIF_HWADDRHINT*/
+#if ENABLE_LOOPBACK && LWIP_LOOPBACK_MAX_PBUFS
+  netif->loop_cnt_current = 0;
+#endif /* ENABLE_LOOPBACK && LWIP_LOOPBACK_MAX_PBUFS */
 
   netif_set_addr(netif, ipaddr, netmask, gw);
 
@@ -258,14 +278,14 @@ netif_set_ipaddr(struct netif *netif, struct ip_addr *ipaddr)
   if ((ip_addr_cmp(ipaddr, &(netif->ip_addr))) == 0)
   {
     /* extern struct tcp_pcb *tcp_active_pcbs; defined by tcp.h */
-    LWIP_DEBUGF(NETIF_DEBUG | 1, ("netif_set_ipaddr: netif address being changed\n"));
+    LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_STATE, ("netif_set_ipaddr: netif address being changed\n"));
     pcb = tcp_active_pcbs;
     while (pcb != NULL) {
       /* PCB bound to current local interface address? */
       if (ip_addr_cmp(&(pcb->local_ip), &(netif->ip_addr))) {
         /* this connection must be aborted */
         struct tcp_pcb *next = pcb->next;
-        LWIP_DEBUGF(NETIF_DEBUG | 1, ("netif_set_ipaddr: aborting TCP pcb %p\n", (void *)pcb));
+        LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_STATE, ("netif_set_ipaddr: aborting TCP pcb %p\n", (void *)pcb));
         tcp_abort(pcb);
         pcb = next;
       } else {
@@ -290,7 +310,7 @@ netif_set_ipaddr(struct netif *netif, struct ip_addr *ipaddr)
   snmp_insert_ipaddridx_tree(netif);
   snmp_insert_iprteidx_tree(0,netif);
 
-  LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE | 3, ("netif: IP address of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+  LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: IP address of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
     netif->name[0], netif->name[1],
     ip4_addr1(&netif->ip_addr),
     ip4_addr2(&netif->ip_addr),
@@ -310,7 +330,7 @@ void
 netif_set_gw(struct netif *netif, struct ip_addr *gw)
 {
   ip_addr_set(&(netif->gw), gw);
-  LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE | 3, ("netif: GW address of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+  LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: GW address of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
     netif->name[0], netif->name[1],
     ip4_addr1(&netif->gw),
     ip4_addr2(&netif->gw),
@@ -334,7 +354,7 @@ netif_set_netmask(struct netif *netif, struct ip_addr *netmask)
   /* set new netmask to netif */
   ip_addr_set(&(netif->netmask), netmask);
   snmp_insert_iprteidx_tree(0, netif);
-  LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE | 3, ("netif: netmask of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+  LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: netmask of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
     netif->name[0], netif->name[1],
     ip4_addr1(&netif->netmask),
     ip4_addr2(&netif->netmask),
@@ -388,16 +408,18 @@ void netif_set_up(struct netif *netif)
     NETIF_STATUS_CALLBACK(netif);
 
 #if LWIP_ARP
-    /** For Ethernet network interfaces, we would like to send a
-     *  "gratuitous ARP"; this is an ARP packet sent by a node in order
-     *  to spontaneously cause other nodes to update an entry in their
-     *  ARP cache. From RFC 3220 "IP Mobility Support for IPv4" section 4.6.
-     */ 
+    /* For Ethernet network interfaces, we would like to send a "gratuitous ARP" */ 
     if (netif->flags & NETIF_FLAG_ETHARP) {
-      etharp_query(netif, &(netif->ip_addr), NULL);
+      etharp_gratuitous(netif);
     }
 #endif /* LWIP_ARP */
-    
+
+#if LWIP_IGMP
+    /* resend IGMP memberships */
+    if (netif->flags & NETIF_FLAG_IGMP) {
+      igmp_report_groups( netif);
+    }
+#endif /* LWIP_IGMP */
   }
 }
 
@@ -450,24 +472,33 @@ void netif_set_link_up(struct netif *netif )
 {
   netif->flags |= NETIF_FLAG_LINK_UP;
 
+#if LWIP_DHCP
+  if (netif->dhcp) {
+    dhcp_network_changed(netif);
+  }
+#endif /* LWIP_DHCP */
+
+#if LWIP_AUTOIP
+  if (netif->autoip) {
+    autoip_network_changed(netif);
+  }
+#endif /* LWIP_AUTOIP */
+
+  if (netif->flags & NETIF_FLAG_UP) {
 #if LWIP_ARP
-  /** For Ethernet network interfaces, we would like to send a
-   *  "gratuitous ARP"; this is an ARP packet sent by a node in order
-   *  to spontaneously cause other nodes to update an entry in their
-   *  ARP cache. From RFC 3220 "IP Mobility Support for IPv4" section 4.6.
-   */ 
+  /* For Ethernet network interfaces, we would like to send a "gratuitous ARP" */ 
   if (netif->flags & NETIF_FLAG_ETHARP) {
-    etharp_query(netif, &(netif->ip_addr), NULL);
+    etharp_gratuitous(netif);
   }
 #endif /* LWIP_ARP */
 
 #if LWIP_IGMP
-  /* resend IGMP memberships */
-  if (netif->flags & NETIF_FLAG_IGMP) {
-    igmp_report_groups( netif);
-  }
+    /* resend IGMP memberships */
+    if (netif->flags & NETIF_FLAG_IGMP) {
+      igmp_report_groups( netif);
+    }
 #endif /* LWIP_IGMP */
-
+  }
   NETIF_LINK_CALLBACK(netif);
 }
 
@@ -493,7 +524,158 @@ u8_t netif_is_link_up(struct netif *netif)
  */
 void netif_set_link_callback(struct netif *netif, void (* link_callback)(struct netif *netif ))
 {
-    if ( netif )
-        netif->link_callback = link_callback;
+  if (netif) {
+    netif->link_callback = link_callback;
+  }
 }
 #endif /* LWIP_NETIF_LINK_CALLBACK */
+
+#if ENABLE_LOOPBACK
+/**
+ * Send an IP packet to be received on the same netif (loopif-like).
+ * The pbuf is simply copied and handed back to netif->input.
+ * In multithreaded mode, this is done directly since netif->input must put
+ * the packet on a queue.
+ * In callback mode, the packet is put on an internal queue and is fed to
+ * netif->input by netif_poll().
+ *
+ * @param netif the lwip network interface structure
+ * @param p the (IP) packet to 'send'
+ * @param ipaddr the ip address to send the packet to (not used)
+ * @return ERR_OK if the packet has been sent
+ *         ERR_MEM if the pbuf used to copy the packet couldn't be allocated
+ */
+err_t
+netif_loop_output(struct netif *netif, struct pbuf *p,
+       struct ip_addr *ipaddr)
+{
+  struct pbuf *r;
+  err_t err;
+  struct pbuf *last;
+#if LWIP_LOOPBACK_MAX_PBUFS
+  u8_t clen = 0;
+#endif /* LWIP_LOOPBACK_MAX_PBUFS */
+  SYS_ARCH_DECL_PROTECT(lev);
+  LWIP_UNUSED_ARG(ipaddr);
+
+  /* Allocate a new pbuf */
+  r = pbuf_alloc(PBUF_LINK, p->tot_len, PBUF_RAM);
+  if (r == NULL) {
+    return ERR_MEM;
+  }
+#if LWIP_LOOPBACK_MAX_PBUFS
+  clen = pbuf_clen(r);
+  /* check for overflow or too many pbuf on queue */
+  if(((netif->loop_cnt_current + clen) < netif->loop_cnt_current) ||
+    ((netif->loop_cnt_current + clen) > LWIP_LOOPBACK_MAX_PBUFS)) {
+      pbuf_free(r);
+      r = NULL;
+      return ERR_MEM;
+  }
+  netif->loop_cnt_current += clen;
+#endif /* LWIP_LOOPBACK_MAX_PBUFS */
+
+  /* Copy the whole pbuf queue p into the single pbuf r */
+  if ((err = pbuf_copy(r, p)) != ERR_OK) {
+    pbuf_free(r);
+    r = NULL;
+    return err;
+  }
+
+  /* Put the packet on a linked list which gets emptied through calling
+     netif_poll(). */
+
+  /* let last point to the last pbuf in chain r */
+  for (last = r; last->next != NULL; last = last->next);
+
+  SYS_ARCH_PROTECT(lev);
+  if(netif->loop_first != NULL) {
+    LWIP_ASSERT("if first != NULL, last must also be != NULL", netif->loop_last != NULL);
+    netif->loop_last->next = r;
+    netif->loop_last = last;
+  } else {
+    netif->loop_first = r;
+    netif->loop_last = last;
+  }
+  SYS_ARCH_UNPROTECT(lev);
+
+#if LWIP_NETIF_LOOPBACK_MULTITHREADING
+  /* For multithreading environment, schedule a call to netif_poll */
+  tcpip_callback((void (*)(void *))(netif_poll), netif);
+#endif /* LWIP_NETIF_LOOPBACK_MULTITHREADING */
+
+  return ERR_OK;
+}
+
+/**
+ * Call netif_poll() in the main loop of your application. This is to prevent
+ * reentering non-reentrant functions like tcp_input(). Packets passed to
+ * netif_loop_output() are put on a list that is passed to netif->input() by
+ * netif_poll().
+ */
+void
+netif_poll(struct netif *netif)
+{
+  struct pbuf *in;
+  SYS_ARCH_DECL_PROTECT(lev);
+
+  do {
+    /* Get a packet from the list. With SYS_LIGHTWEIGHT_PROT=1, this is protected */
+    SYS_ARCH_PROTECT(lev);
+    in = netif->loop_first;
+    if(in != NULL) {
+      struct pbuf *in_end = in;
+#if LWIP_LOOPBACK_MAX_PBUFS
+      u8_t clen = pbuf_clen(in);
+      /* adjust the number of pbufs on queue */
+      LWIP_ASSERT("netif->loop_cnt_current underflow",
+        ((netif->loop_cnt_current - clen) < netif->loop_cnt_current));
+      netif->loop_cnt_current -= clen;
+#endif /* LWIP_LOOPBACK_MAX_PBUFS */
+      while(in_end->len != in_end->tot_len) {
+        LWIP_ASSERT("bogus pbuf: len != tot_len but next == NULL!", in_end->next != NULL);
+        in_end = in_end->next;
+      }
+      /* 'in_end' now points to the last pbuf from 'in' */
+      if(in_end == netif->loop_last) {
+        /* this was the last pbuf in the list */
+        netif->loop_first = netif->loop_last = NULL;
+      } else {
+        /* pop the pbuf off the list */
+        netif->loop_first = in_end->next;
+        LWIP_ASSERT("should not be null since first != last!", netif->loop_first != NULL);
+      }
+      /* De-queue the pbuf from its successors on the 'loop_' list. */
+      in_end->next = NULL;
+    }
+    SYS_ARCH_UNPROTECT(lev);
+
+    if(in != NULL) {
+      /* loopback packets are always IP packets! */
+      if(ip_input(in, netif) != ERR_OK) {
+        pbuf_free(in);
+      }
+      /* Don't reference the packet any more! */
+      in = NULL;
+    }
+  /* go on while there is a packet on the list */
+  } while(netif->loop_first != NULL);
+}
+
+#if !LWIP_NETIF_LOOPBACK_MULTITHREADING
+/**
+ * Calls netif_poll() for every netif on the netif_list.
+ */
+void
+netif_poll_all(void)
+{
+  struct netif *netif = netif_list;
+  /* loop through netifs */
+  while (netif != NULL) {
+    netif_poll(netif);
+    /* proceed to next network interface */
+    netif = netif->next;
+  }
+}
+#endif /* !LWIP_NETIF_LOOPBACK_MULTITHREADING */
+#endif /* ENABLE_LOOPBACK */
