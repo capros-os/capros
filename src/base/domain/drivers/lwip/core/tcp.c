@@ -71,7 +71,8 @@ const char *tcp_state_str[] = {
 /* Incremented every coarse grained timer shot (typically every 500 ms). */
 u32_t tcp_ticks;
 const u8_t tcp_backoff[13] =
-    { 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7};
+//  { 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7};
+    { 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2};
  /* Times per slowtmr hits */
 const u8_t tcp_persist_backoff[7] = { 3, 6, 12, 24, 48, 96, 120 };
 
@@ -455,7 +456,7 @@ tcp_recved(struct tcp_pcb *pcb, u16_t len)
   if (wnd_inflation >= TCP_WND_UPDATE_THRESHOLD) 
     tcp_ack_now(pcb);
 
-  LWIP_DEBUGF(TCP_DEBUG, ("tcp_recved: recveived %"U16_F" bytes, wnd %"U16_F" (%"U16_F").\n",
+  LWIP_DEBUGF(TCP_DEBUG, ("tcp_recved: received %"U16_F" bytes, wnd %"U16_F" (%"U16_F").\n",
          len, pcb->rcv_wnd, TCP_WND - pcb->rcv_wnd));
 }
 
@@ -590,10 +591,10 @@ tcp_slowtmr(void)
   prev = NULL;
   pcb = tcp_active_pcbs;
   if (pcb == NULL) {
-    LWIP_DEBUGF(TCP_DEBUG, ("tcp_slowtmr: no active pcbs\n"));
+    //LWIP_DEBUGF(TCP_DEBUG, ("tcp_slowtmr: no active pcbs\n"));
   }
   while (pcb != NULL) {
-    LWIP_DEBUGF(TCP_DEBUG, ("tcp_slowtmr: processing active pcb\n"));
+    //LWIP_DEBUGF(TCP_DEBUG, ("tcp_slowtmr: processing active pcb\n"));
     LWIP_ASSERT("tcp_slowtmr: active pcb->state != CLOSED\n", pcb->state != CLOSED);
     LWIP_ASSERT("tcp_slowtmr: active pcb->state != LISTEN\n", pcb->state != LISTEN);
     LWIP_ASSERT("tcp_slowtmr: active pcb->state != TIME-WAIT\n", pcb->state != TIME_WAIT);
@@ -1031,7 +1032,7 @@ tcp_alloc(u8_t prio)
     }
   }
   if (pcb != NULL) {
-    memset(pcb, 0, sizeof(struct tcp_pcb));
+    memset(pcb, 0, sizeof(struct tcp_pcb));	// pcb->state = CLOSED;
     pcb->prio = TCP_PRIO_NORMAL;
     pcb->snd_buf = TCP_SND_BUF;
     pcb->snd_queuelen = 0;
@@ -1335,8 +1336,7 @@ tcp_debug_state_str(enum tcp_state s)
 void
 tcp_debug_print(struct tcp_hdr *tcphdr)
 {
-  LWIP_DEBUGF(TCP_DEBUG, ("TCP header:\n"));
-  LWIP_DEBUGF(TCP_DEBUG, ("+-------------------------------+\n"));
+  LWIP_DEBUGF(TCP_DEBUG, ("+-----------TCP header:---------+\n"));
   LWIP_DEBUGF(TCP_DEBUG, ("|    %5"U16_F"      |    %5"U16_F"      | (src port, dest port)\n",
          ntohs(tcphdr->src), ntohs(tcphdr->dest)));
   LWIP_DEBUGF(TCP_DEBUG, ("+-------------------------------+\n"));

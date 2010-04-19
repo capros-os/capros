@@ -736,6 +736,7 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
              IP_PROTO_TCP, seg->p->tot_len);
 #endif
   TCP_STATS_INC(tcp.xmit);
+  //tcp_debug_print(seg->tcphdr);
 
 #if LWIP_NETIF_HWADDRHINT
   ip_output_hinted(seg->p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,

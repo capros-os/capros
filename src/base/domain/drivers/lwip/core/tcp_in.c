@@ -135,8 +135,8 @@ tcp_input(struct pbuf *p, struct netif *inp)
   if (inet_chksum_pseudo(p, (struct ip_addr *)&(iphdr->src),
       (struct ip_addr *)&(iphdr->dest),
       IP_PROTO_TCP, p->tot_len) != 0) {
-      LWIP_DEBUGF(TCP_INPUT_DEBUG, ("tcp_input: packet discarded due to failing checksum 0x%04"X16_F"\n",
-        inet_chksum_pseudo(p, (struct ip_addr *)&(iphdr->src), (struct ip_addr *)&(iphdr->dest),
+    LWIP_DEBUGF(TCP_INPUT_DEBUG, ("tcp_input: packet discarded due to failing checksum 0x%04"X16_F"\n",
+      inet_chksum_pseudo(p, (struct ip_addr *)&(iphdr->src), (struct ip_addr *)&(iphdr->dest),
       IP_PROTO_TCP, p->tot_len)));
 #if TCP_DEBUG
     tcp_debug_print(tcphdr);
@@ -152,7 +152,7 @@ tcp_input(struct pbuf *p, struct netif *inp)
   /* Move the payload pointer in the pbuf so that it points to the
      TCP data instead of the TCP header. */
   hdrlen = TCPH_HDRLEN(tcphdr);
-  if(pbuf_header(p, -(hdrlen * 4))){
+  if (pbuf_header(p, -(hdrlen * 4))) {
     /* drop short packets */
     LWIP_DEBUGF(TCP_INPUT_DEBUG, ("tcp_input: short packet\n"));
     TCP_STATS_INC(tcp.lenerr);
@@ -220,8 +220,8 @@ tcp_input(struct pbuf *p, struct netif *inp)
       }
     }
 
-  /* Finally, if we still did not get a match, we check all PCBs that
-     are LISTENing for incoming connections. */
+    /* Finally, if we still did not get a match, we check all PCBs that
+       are LISTENing for incoming connections. */
     prev = NULL;
     for(lpcb = tcp_listen_pcbs.listen_pcbs; lpcb != NULL; lpcb = lpcb->next) {
       if ((ip_addr_isany(&(lpcb->local_ip)) ||
@@ -316,7 +316,7 @@ tcp_input(struct pbuf *p, struct netif *inp)
         }
       
         if (recv_data != NULL) {
-          if(flags & TCP_PSH) {
+          if (flags & TCP_PSH) {
             recv_data->flags |= PBUF_FLAG_PUSH;
           }
 
@@ -575,7 +575,7 @@ tcp_process(struct tcp_pcb *pcb)
   switch (pcb->state) {
   case SYN_SENT:
     LWIP_DEBUGF(TCP_INPUT_DEBUG, ("SYN-SENT: ackno %"U32_F" pcb->snd_nxt %"U32_F" unacked %"U32_F"\n", ackno,
-     pcb->snd_nxt, ntohl(pcb->unacked->tcphdr->seqno)));
+      pcb->snd_nxt, ntohl(pcb->unacked->tcphdr->seqno)));
     /* received SYN ACK with expected sequence number? */
     if ((flags & TCP_ACK) && (flags & TCP_SYN)
         && ackno == ntohl(pcb->unacked->tcphdr->seqno) + 1) {
@@ -858,7 +858,8 @@ tcp_receive(struct tcp_pcb *pcb)
             /* Clause 5 */
             if (pcb->lastack == ackno) {
               found_dupack = 1;
-              if (pcb->dupacks + 1 > pcb->dupacks)
+// Change below avoids a gcc warning.
+              if ((u8_t)(pcb->dupacks + 1) > pcb->dupacks)
                 ++pcb->dupacks;
               if (pcb->dupacks > 3) {
                 /* Inflate the congestion window, but not if it means that

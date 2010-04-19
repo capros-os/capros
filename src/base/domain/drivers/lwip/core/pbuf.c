@@ -217,6 +217,9 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
       PBUF_POOL_IS_EMPTY();
       return NULL;
     }
+#ifdef MALLOC_DEBUG
+    p->poison0 = p->poison1 = POISON3;
+#endif
     p->type = type;
     p->next = NULL;
 
