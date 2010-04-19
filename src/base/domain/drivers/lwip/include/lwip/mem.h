@@ -45,7 +45,7 @@ extern "C" {
 typedef size_t mem_size_t;
 
 /* aliases for C library malloc() */
-#define mem_init()
+static inline void mem_init(void) {}
 /* in case C library malloc() needs extra protection,
  * allow these defines to be overridden.
  */
@@ -78,7 +78,7 @@ typedef u16_t mem_size_t;
 
 #if MEM_USE_POOLS
 /** mem_init is not used when using pools instead of a heap */
-#define mem_init()
+static inline void mem_init(void) {}
 /** mem_realloc is not used when using pools instead of a heap:
     we can't free part of a pool element and don't want to copy the rest */
 #define mem_realloc(mem, size) (mem)

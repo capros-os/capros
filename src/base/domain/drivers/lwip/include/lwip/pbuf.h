@@ -62,6 +62,10 @@ typedef enum {
 #define PBUF_FLAG_PUSH 0x01U
 
 struct pbuf {
+#ifdef MALLOC_DEBUG
+  void * poison0; 
+  void * poison1;
+#endif
   /** next pbuf in singly linked pbuf chain */
   struct pbuf *next;
 
