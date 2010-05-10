@@ -3,16 +3,14 @@ package capros;
 /** Interface for process key creation/manipulation.
  */
 interface ProcTool extends key {
-  /* FIX: Some of the key types here are wrong because Node/Process
-     haven't been converted yet. */
 
   /** Make a process key from a node key */
-  capros.key makeProcess(capros.key krNode);
+  capros.Process makeProcess(capros.Node krNode);
 
   /* If procKey is a process key and brand is its brand,
   this operation returns a node key to the root of procKey.
   Otherwise it raises key.NoAccess. */
-  capros.key identifyProcess(capros.key procKey, capros.key brand);
+  capros.Node identifyProcess(capros.Process procKey, capros.key brand);
 
   /** Identify a gate key with brand.
 
@@ -24,7 +22,7 @@ interface ProcTool extends key {
     in keyInfo, 0 if gateKey is a resume key
                 and the keyData if it is a start key.
   */
-  void canOpener(capros.key gateKey, capros.key brand, out capros.key nodeKey,
+  void canOpener(capros.key gateKey, capros.key brand, out capros.Node nodeKey,
 		 out unsigned long keyType, out unsigned long keyInfo);
 
   /* If GPTKey is a key to a GPT without the noCall restriction,
@@ -34,13 +32,13 @@ interface ProcTool extends key {
   in keyType, 0 if the keeper is a start key or 1 if a resume key; and
   in keyInfo, the keyInfo if the keeper is a start key or 0 if a resume key.
   Otherwise it raises RequestError. */ 
-  void identGPTKeeper(capros.key GPTKey, capros.key brand, 
-			  out capros.key GPTOut, 
+  void identGPTKeeper(capros.GPT GPTKey, capros.key brand, 
+			  out capros.GPT GPTOut, 
 			  out unsigned long keyType,
 			  out unsigned long keyInfo);
 
-  void identForwarderTarget(capros.key forwarder, capros.key brand, 
-			  out capros.key nonOpaqueForwarder, 
+  void identForwarderTarget(capros.Forwarder forwarder, capros.key brand, 
+			  out capros.Forwarder nonOpaqueForwarder, 
 			  out unsigned long keyType, // 1 start, 2 resume
 			  out unsigned long keyInfo);
 };
