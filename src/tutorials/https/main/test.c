@@ -261,6 +261,7 @@ cmme_main(void)
   result = capros_Constructor_seal(KR_HTTPBuilder, KR_TEMP2);
   ckOK
 
+  // Create a NetListener
   result = capros_Node_getSlot(KR_CONSTIT, KC_NetListenerC, KR_TEMP0);
   ckOK
   result = capros_Constructor_request(KR_TEMP0, KR_BANK, KR_SCHED,
