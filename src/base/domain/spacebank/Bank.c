@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan Adams.
- * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2007-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -101,6 +101,36 @@ bank_initializeBank(Bank *bank,
  *
  *     Always succeeds.
  */
+
+#if 0	// for debugging memory leaks
+static void
+PrintAlloc(char * alloc, OID oid)
+{
+  // Kludge to get caller's name:
+  char name[12];
+  Message Msg = {
+    .snd_invKey = KR_SRANGE,
+    .snd_key0 = KR_RETURN,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_len = 0,
+    .snd_code = 12345,
+    .rcv_key0 = KR_VOID,
+    .rcv_key1 = KR_VOID,
+    .rcv_key2 = KR_VOID,
+    .rcv_rsmkey = KR_VOID,
+    .rcv_limit = 12,
+    .rcv_data = name,
+  };
+  CALL(&Msg);
+
+  kprintf(KR_OSTREAM, "SB %s %#llx for %.12s\n", alloc, oid, name);
+}
+#else
+static void
+PrintAlloc(char * alloc, OID oid)
+{}
+#endif
 
 
 /*    If /type/ is a multiple-object-per-frame type, returns the
@@ -733,6 +763,8 @@ BankDeallocObject(Bank * bank, uint32_t kr)
   if (code != RC_OK) {
      return code; /* "not a strong key" */ 
   }
+  //if (baseType == capros_Range_otPage)
+    PrintAlloc("dealloc", oid);
   if ( ! bank_deallocOID(bank, obType, oid)) {
      kpanic(KR_OSTREAM,
             "SpaceBank: Dealloc failed after contains succeeded!\n");
@@ -810,6 +842,7 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
     }
     uint32_t offset = ffs(obj_frame->frameMap) - 1;
     oid = obj_frame->frameOid | offset;
+    PrintAlloc("alloc", oid);
 
     obj_frame->frameMap &= ~(1u << offset);
 
@@ -845,6 +878,7 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
 			   objects_per_frame[baseType]);
 
     oid = newFrame;
+    PrintAlloc("alloc", oid);
   }
   
   /* now create the key */

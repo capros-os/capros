@@ -48,6 +48,11 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Check.h>
 #endif
 
+#ifdef CALLERID
+#include <kerninc/Process.h>
+#include <string.h>
+#endif
+
 const unsigned int objectsPerFrame[2] = {
   [capros_Range_otPage] = 1,
   [capros_Range_otNode] = DISK_NODES_PER_PAGE
@@ -100,7 +105,7 @@ const unsigned int objectsPerFrame[2] = {
  * to eat into the keyData field. I'm deferring that primarily for
  * time reasons.
  */
-/* (CRL) Another approach is to force the beginning and of a range
+/* (CRL) Another approach is to force the beginning and end of a range
  * to align on a frame boundary (which seems reasonable), and use the fact
  * that EROS_OBJECTS_PER_FRAME is 256. Any such range can be represented
  * in 14 bytes. */
@@ -345,6 +350,28 @@ RangeKey(Invocation* inv /*@ not null @*/)
   rngLast = key_GetRange(inv->key, &rngStart);
 
   switch(inv->entry.code) {
+
+#ifdef CALLERID // kludge to allow the spacebank to print its caller
+  case 12345:
+  {
+    char name[12];
+    proc_SetupExitString(inv->invokee, inv, 12);
+    Key * k = inv->entry.key[0];
+    key_Prepare(k);
+    COMMIT_POINT();
+   
+    if (keyBits_IsProcessType(k)) {
+      Key * symk = node_GetKeyAtSlot(k->u.gk.pContext->procRoot, ProcSymSpace);
+      memcpy(name, &symk->u.nk.value[0], 12);
+    } else {
+      memset(name, 0, 12);
+    }
+    inv_CopyOut(inv, 12, name);
+    inv->exit.code = RC_OK;
+    break;
+  }
+#endif
+
   case OC_capros_key_getType:
     COMMIT_POINT();
 
