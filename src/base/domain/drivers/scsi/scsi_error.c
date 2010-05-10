@@ -14,7 +14,7 @@
  *	September 30, 2002 Mike Anderson (andmike@us.ibm.com)
  */
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group
+ * Copyright (C) 2008-2010, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -621,7 +621,7 @@ void scsi_eh_prep_cmnd(struct scsi_cmnd *scmd, struct scsi_eh_save *ses,
 	ses->cmnd = scmd->cmnd;
 	ses->data_direction = scmd->sc_data_direction;
 	ses->sdb = scmd->sdb;
-	ses->next_rq = scmd->request->next_rq;
+	//ses->next_rq = scmd->request->next_rq;
 	ses->result = scmd->result;
 	ses->underflow = scmd->underflow;
 	ses->prot_op = scmd->prot_op;
@@ -630,7 +630,7 @@ void scsi_eh_prep_cmnd(struct scsi_cmnd *scmd, struct scsi_eh_save *ses,
 	scmd->cmnd = ses->eh_cmnd;
 	memset(scmd->cmnd, 0, BLK_MAX_CDB);
 	memset(&scmd->sdb, 0, sizeof(scmd->sdb));
-	scmd->request->next_rq = NULL;
+	//scmd->request->next_rq = NULL;
 
 	if (sense_bytes) {
 		scmd->sdb.length = min_t(unsigned, SCSI_SENSE_BUFFERSIZE,
@@ -683,7 +683,7 @@ void scsi_eh_restore_cmnd(struct scsi_cmnd* scmd, struct scsi_eh_save *ses)
 	scmd->cmnd = ses->cmnd;
 	scmd->sc_data_direction = ses->data_direction;
 	scmd->sdb = ses->sdb;
-	scmd->request->next_rq = ses->next_rq;
+	//scmd->request->next_rq = ses->next_rq;
 	scmd->result = ses->result;
 	scmd->underflow = ses->underflow;
 	scmd->prot_op = ses->prot_op;
