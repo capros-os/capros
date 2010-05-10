@@ -24,6 +24,7 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
+#include <eros/machine/cap-instr.h>
 #include <domain/Runtime.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/Node.h>
@@ -73,10 +74,14 @@ main(void)
   extern unsigned long __rt_stack_size;
   if (__rt_stack_size > EROS_PAGE_SIZE) {
     unsigned long stackSize = EROS_PAGE_SIZE;
+    if (__rt_stack_size > LK_STACK_AREA)
+      __rt_stack_size = LK_STACK_AREA;	// biggest we support
+
     // Get node with l2v==17.
-    result = capros_GPT_getSlot(KR_TEMP3, LK_STACK_BASE >> 22, KR_TEMP2);
+    // (It should already be in KR_TEMP2, but this is cheap insurance.)
+    result = capros_GPT_getSlot(KR_TEMP3, LK_STACK_BASE / 0x400000, KR_TEMP2);
     assert(result == RC_OK);
-    // Get existing stack page:
+    // Get existing stack page. (Careful - we are running on this stack.)
     result = capros_GPT_getSlot(KR_TEMP2, 0, KR_TEMP0);
     assert(result == RC_OK);
     result = capros_Memory_makeGuarded(KR_TEMP0, 0, KR_TEMP0);
@@ -87,13 +92,11 @@ main(void)
     result = capros_GPT_setL2v(KR_TEMP1, EROS_PAGE_LGSIZE);
     assert(result == RC_OK);
     result = capros_GPT_setSlot(KR_TEMP1,
-               (LK_STACK_AREA - stackSize) / EROS_PAGE_SIZE, KR_TEMP0);
+               (LK_STACK_AREA - EROS_PAGE_SIZE) / EROS_PAGE_SIZE, KR_TEMP0);
     assert(result == RC_OK);
     result = capros_GPT_setSlot(KR_TEMP2, 0, KR_TEMP1);
     assert(result == RC_OK);
 
-    if (__rt_stack_size > LK_STACK_AREA)
-      __rt_stack_size = LK_STACK_AREA;	// biggest we support
     while (stackSize < __rt_stack_size) {
       result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_TEMP0);
       assert(result == RC_OK);	// TODO handle
@@ -108,17 +111,39 @@ main(void)
 
   /* Tear down everything. */
 
-  // Do we need to call the library to let it clean up?
-
-  // Set up caps for destruction.
   result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP3);
   assert(result == RC_OK);
   result = capros_GPT_getSlot(KR_TEMP3, LK_STACK_BASE / 0x400000, KR_TEMP2);
   assert(result == RC_OK);
-  result = capros_GPT_getSlot(KR_TEMP3, LK_DATA_BASE / 0x400000, KR_TEMP0);
-  assert(result == RC_OK);
   result = capros_GPT_getSlot(KR_TEMP2, 0, KR_TEMP1);
   assert(result == RC_OK);
+  // Deallocate any stack we allocated.
+  if (__rt_stack_size > EROS_PAGE_SIZE) {
+    unsigned long stackSize = __rt_stack_size;
+    while (stackSize > EROS_PAGE_SIZE) {
+      result = capros_GPT_getSlot(KR_TEMP1,
+                 (LK_STACK_AREA - stackSize) / EROS_PAGE_SIZE, KR_TEMP0);
+      assert(result == RC_OK);
+      result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+      assert(result == RC_OK);
+      stackSize -= EROS_PAGE_SIZE;
+    }
+    result = capros_GPT_getSlot(KR_TEMP1,
+               (LK_STACK_AREA - EROS_PAGE_SIZE) / EROS_PAGE_SIZE, KR_TEMP0);
+    assert(result == RC_OK);
+    result = capros_Memory_makeGuarded(KR_TEMP0,
+               LK_STACK_AREA - EROS_PAGE_SIZE, KR_TEMP0);
+    assert(result == RC_OK);
+    result = capros_GPT_setSlot(KR_TEMP2, 0, KR_TEMP0);
+    assert(result == RC_OK);
+    result = capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
+    assert(result == RC_OK);
+    COPY_KEYREG(KR_TEMP0, KR_TEMP1);	// move page to KR_TEMP1
+  }
+
+  result = capros_GPT_getSlot(KR_TEMP3, LK_DATA_BASE / 0x400000, KR_TEMP0);
+  assert(result == RC_OK);
+  // KR_TEMP0, KR_TEMP1, KR_TEMP2, and KR_TEMP3 are now set up for destruction.
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_INTERPRETERSPACE,
              KR_ARG(0));
   assert(result == RC_OK);

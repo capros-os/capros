@@ -208,10 +208,21 @@ maps_init(void)
   return RC_OK;
 }
 
+// Clobbers KR_TEMP0.
 void
 maps_fini(void)
 {
   result_t result;
+  int i;
+
+  // Free any l2v 12 GPTs.
+  for (i = 0; i < capros_GPT_nSlots; i++) {
+    result = capros_GPT_getSlot(KR_MAPS_GPT, i, KR_TEMP0);
+    assert(result == RC_OK);
+    result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+    // result may indicate an error if there was no l2v 12 GPT here.
+  }
+
   result = capros_SpaceBank_free1(KR_BANK, KR_MAPS_GPT);
   assert(result == RC_OK);
 }
@@ -236,7 +247,8 @@ maps_mapPage_locked(unsigned long pgOffset, cap_t pageCap)
   result = capros_GPT_setSlot(KR_TEMP0, gpt12slot, pageCap);
   if (result == RC_capros_key_Void) {
     // Need to create the l2v == 12 GPT
-    // (We never free this GPT, even if all the space in it is unmapped.)
+    // (Even if all the space in this GPT is unmapped,
+    // we don't free it until maps_fini().)
     result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP0);
     if (result != RC_OK)
       return result;
