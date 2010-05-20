@@ -4,7 +4,7 @@
 #define NR_OPEN	        1024
 
 #define NGROUPS_MAX    65536	/* supplemental group IDs are available */
-#define ARG_MAX       131072	/* # bytes of args + environ for exec() */
+//#define ARG_MAX       131072	/* # bytes of args + environ for exec() */
 #define LINK_MAX         127	/* # links a file may have */
 #define MAX_CANON        255	/* size of the canonical input queue */
 #define MAX_INPUT        255	/* size of the type-ahead buffer */
