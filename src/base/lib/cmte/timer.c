@@ -290,7 +290,8 @@ update_soonest_wait(Link * prev)
 
 /* Call CMTETimer_setup once before using any timers.
  * Returns RC_capros_key_RequestError if called more than once.
- * Otherwise returns a result from CMTEThread_create. */
+ * Otherwise returns a result from CMTEThread_create. 
+ * (No need to undo this when the program is finished.) */
 result_t
 CMTETimer_setup(void)
 {
