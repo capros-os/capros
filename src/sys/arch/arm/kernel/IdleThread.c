@@ -72,13 +72,12 @@ IdleActivity_Start(void)
 
 #if 1
     // Show idle activity
-    volatile int x;
     int i;
-    for (i=0; i<10000000; i++)
-      (void)x;
+    for (i=0; i<15; i++)
+      SpinWaitUs(33333);
     printf("i\b");
-    for (i=0; i<10000000; i++)
-      (void)x;
+    for (i=0; i<15; i++)
+      SpinWaitUs(33333);
     printf("I\b");
 #else
     __asm__ ("mcr p15,0,r0,c7,c0,4");	// wait for interrupt
