@@ -8,6 +8,13 @@ interface RTC extends key raises (key.RequestError) {
   /** The GMT time in seconds since 1/1/1970. */
   typedef unsigned long time_t;
 
+  /** getTime always returns a value between (not including)
+      time_zero and time_infinite. */
+  const time_t time_zero = 0;
+  /* The following should be 4294967295, but the IDL compiler
+     doesn't declare it unsigned in C. Then the C compiler complains. */
+  const time_t time_infinite = 2147483647;
+
   /** Get the current time. */
   time_t getTime();
 
