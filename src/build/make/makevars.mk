@@ -126,7 +126,7 @@ NATIVE_RANLIB=ranlib
 
 NATIVE_GCC=gcc
 ifndef GCCWARN
-MOPSWARN=-Wall -Winline -Wno-format -Wno-char-subscripts
+MOPSWARN=-Wall -Wno-format -Wno-char-subscripts
 GCCWARN=$(MOPSWARN) -Werror
 endif
 
