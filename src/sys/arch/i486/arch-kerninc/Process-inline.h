@@ -2,7 +2,7 @@
 #define __MACHINE_PROCESS_INLINE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -36,7 +36,7 @@ Approved for public release, distribution unlimited. */
 INLINE bool
 proc_HasIRQDisabled(Process * p)
 {
-  return ! p->trapFrame.EFLAGS & MASK_EFLAGS_Interrupt;
+  return ! (p->trapFrame.EFLAGS & MASK_EFLAGS_Interrupt);
 }
 
 INLINE uint32_t

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -604,7 +604,7 @@ key_CalcCheck(const Key * thisPtr)
   uint32_t ck = 0;
 
   for (i = 0; i < (sizeof(Key) / sizeof(uint32_t)); i++) 
-    ck ^= pWKey[i];
+    ck ^= *pWKey++;
 
   return ck;
 }
