@@ -777,6 +777,8 @@ ExitTheKernel(void)
 		  act_Current() - act_ActivityTable);
 #endif
 
+  proc_LogState(thisPtr, Disp_FromSched);
+
   // Call architecture-dependent C code for resuming a process.
   ExitTheKernel_MD(thisPtr);
 

@@ -448,10 +448,24 @@ supStackMsg:	.asciz "Supervisor Stack is 0x%x should be 0x%x\n"
 1:
 #endif
 
+#ifdef STATEDEBUG
+	ldr r0,=proc_curProcess
+	ldr r0,[r0]
+	mov r1,#Trap_FromInt
+	bl proc_LogState
+#endif
+
 	bl HandleDeferredWork
 
-	ldr lr,=proc_curProcess
-	ldr r0,[lr]		// current Process
+#ifdef STATEDEBUG
+	ldr r0,=proc_curProcess
+	ldr r0,[r0]
+	mov r1,#Disp_FromInt
+	bl proc_LogState 
+#endif
+
+	ldr r0,=proc_curProcess
+	ldr r0,[r0]		// current Process
 	b resume_process
 
 /***********************************************************************

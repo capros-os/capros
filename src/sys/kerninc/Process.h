@@ -54,6 +54,17 @@ struct SegWalk;
 
 #endif /* __ASSEMBLER__ */
 
+/* STATEDEBUG causes process state to be saved for debugging
+ * on every trap and dispatch. */
+#define STATEDEBUG////
+
+// only used with STATEDEBUG:
+#define Disp_FromSched (-2)
+#define Disp_FromInt   (-1)
+#define Trap_FromInt   1
+#define Trap_FromInv   2
+#define Trap_FromPgFlt 3
+
 /* Every process in memory has an associated process structure.
  * Process structures for kernel activities are dedicated to the activity.
  * Process structures for user activities are caches of state in nodes.
@@ -103,6 +114,14 @@ struct SegWalk;
 #define KF_DDBTRAP   0x80 /* process traps should be reported by DDB */
 
 #ifndef __ASSEMBLER__
+
+#ifdef STATEDEBUG
+#define NumSavedStates 6
+struct SavedState {
+  uint32_t cause;
+  savearea_t state;
+};
+#endif
 
  /* Hazards are architecture-dependent and should perhaps be moved. */
 enum Hazards {
@@ -200,6 +219,11 @@ struct Process {
 #endif
 
   Node              *keysNode;
+
+#ifdef STATEDEBUG
+  struct SavedState * lastSavedState;
+  struct SavedState savedStates[NumSavedStates];
+#endif
 
   char              arch[4];
 
@@ -383,6 +407,12 @@ void proc_SetCommonRegs32MD(Process * thisPtr,
 
 struct Invocation;
 void ProcessKeyCommon(struct Invocation * inv, Process *);
+
+#ifdef STATEDEBUG
+void proc_LogState(Process * proc, int32_t cause);
+#else
+static inline void proc_LogState(Process * proc, int32_t cause) {}
+#endif
 
 #endif /* __ASSEMBLER__ */
 

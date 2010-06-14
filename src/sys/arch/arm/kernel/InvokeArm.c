@@ -383,6 +383,8 @@ InvokeArm(Process * invokerProc,
          invokerProc->trapFrame.r0, invokerProc->trapFrame.r13);
 #endif
 
+  proc_LogState(invokerProc, Trap_FromInv);
+
   assert(local_irq_disabled());	// disabled right after exception
 
   /* Enable IRQ interrupts. */

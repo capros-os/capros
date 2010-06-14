@@ -423,6 +423,8 @@ PageFault(unsigned int type,
 
   assert(local_irq_disabled());	// disabled right after exception
 
+  proc_LogState(proc, Trap_FromPgFlt);
+
   /* Enable IRQ interrupts. */
   irq_ENABLE();
 

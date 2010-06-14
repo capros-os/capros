@@ -23,6 +23,7 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Process.h>
 #include <kerninc/Key.h>
@@ -39,6 +40,17 @@ Approved for public release, distribution unlimited. */
 
 Process * proc_ContextCache = NULL;
 Process * proc_ContextCacheRegion = NULL;
+
+#ifdef STATEDEBUG
+void
+proc_LogState(Process * proc, int32_t cause)
+{
+  if (++proc->lastSavedState >= &proc->savedStates[NumSavedStates])
+    proc->lastSavedState = &proc->savedStates[0];
+  proc->lastSavedState->cause = cause;
+  memcpy(&proc->lastSavedState->state, &proc->trapFrame, sizeof(savearea_t));
+}
+#endif
 
 // Returns the process's activity to be deleted.
 Activity *
@@ -523,7 +535,7 @@ check_Process(Process * p)
     }
 
     if (! p->keysNode) {
-      if (! p->hazards & hz_KeyRegs)
+      if (! (p->hazards & hz_KeyRegs))
         return false;
     } else {
       if (node_ToObj(p->keysNode)->obType != ot_NtKeyRegs) {
@@ -605,9 +617,6 @@ proc_AllocUserContexts(void)
     printf("Context caches already allocated at 0x%08x\n", contextCache);
   }
 
-  /* This is to make sure that the name field does not overflow: */
-  assert (KTUNE_NCONTEXT < 1000);
-
   for (i = 0; i < KTUNE_NCONTEXT; i++) {
     int k;
     Process *p = &contextCache[i];
@@ -626,6 +635,11 @@ proc_AllocUserContexts(void)
     p->processFlags = 0;
     p->hazards = 0u;	/* deriver should change this! */
     p->curActivity = 0;
+
+#ifdef STATEDEBUG
+  p->lastSavedState = &p->savedStates[0];
+#endif
+
     proc_InitProcessMD(p);
   }
 

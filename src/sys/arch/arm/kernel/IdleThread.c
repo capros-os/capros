@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -73,11 +73,11 @@ IdleActivity_Start(void)
 #if 1
     // Show idle activity
     int i;
-    for (i=0; i<15; i++)
-      SpinWaitUs(33333);
+    for (i=0; i<16; i++)
+      SpinWaitUs(31250);
     printf("i\b");
-    for (i=0; i<15; i++)
-      SpinWaitUs(33333);
+    for (i=0; i<16; i++)
+      SpinWaitUs(31250);
     printf("I\b");
 #else
     __asm__ ("mcr p15,0,r0,c7,c0,4");	// wait for interrupt
