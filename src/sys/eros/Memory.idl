@@ -15,7 +15,7 @@ interface Memory extends key {
   const unsigned long readOnly = 8;
 
   /* Returns a key to the memory object with reduced permissions. */
-  capros.key reduce(unsigned long restrictions);
+  Memory reduce(unsigned long restrictions);
 
   /* Returns the guard of this key. */
   addr_t getGuard();
