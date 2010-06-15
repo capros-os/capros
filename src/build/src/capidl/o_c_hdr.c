@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006-2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -532,6 +532,19 @@ output_c_type(Symbol *s, FILE *out, int indent)
 }
 
 static void
+print_typedef(Symbol *s, FILE *out, int indent)
+{
+  print_asmifdef(out);
+  do_indent(out, indent);
+  fprintf(out, "typedef ");
+  output_c_type(s->type, out, indent);
+  fprintf(out, " %s", symbol_QualifiedName(s,'_'));
+  output_c_type_trailer(s->type, out, 0);
+  fprintf(out, ";\n");
+  print_asmendif(out);
+}
+
+static void
 symdump(Symbol *s, FILE *out, int indent)
 {
   if (s->docComment)
@@ -597,13 +610,7 @@ symdump(Symbol *s, FILE *out, int indent)
 
       fprintf(out, "\n");
 
-      print_asmifdef(out);
-
-      do_indent(out, indent);
-      fprintf(out, "typedef unsigned long %s;\n",
-	      symbol_QualifiedName(s,'_'));
-
-      print_asmendif(out);
+      print_typedef(s, out, indent);
 
       for(i = 0; i < vec_len(s->children); i++)
 	symdump(symvec_fetch(s->children,i), out, indent + 2);
@@ -732,15 +739,7 @@ symdump(Symbol *s, FILE *out, int indent)
 
   case sc_typedef:
     {
-      print_asmifdef(out);
-      do_indent(out, indent);
-      fprintf(out, "typedef ");
-      output_c_type(s->type, out, indent);
-      fputc(' ', out);
-      fprintf(out, "%s", symbol_QualifiedName(s,'_'));
-      output_c_type_trailer(s->type, out, 0);
-      fprintf(out, ";\n");
-      print_asmendif(out);
+      print_typedef(s, out, indent);
       break;
     }
 
