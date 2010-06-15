@@ -67,9 +67,15 @@
             Some have had success building CapROS on Fedora Core 11. 
       <h3>2.2.1 Setting up on Linux/YUM Systems</h3>
       <p>
-	If you are running Fedora, you can add the YUM
+	If you are running Fedora Core 11 or greater, you can add the YUM
 	repository to your <tt>yum</tt> and
 	<tt>up2date</tt> configurations by executing:
+      </p>
+      <pre>
+su -c 'rpm -Uvh http://dev.eros-os.com/YUM/coyotos/Fedora/11/Coyotos-Repository.noarch.rpm'
+</pre>
+      <p>
+	Older versions of Fedora Core would use:
       </p>
       <pre>
 su -c 'rpm -ivh http://www.coyotos.org/YUM/coyotos/6/i386/Coyotos-Repository-3.2-2.fc6.noarch.rpm'
