@@ -44,6 +44,7 @@ DIRS+=ipltool
 #DIRS+=cons_front
 DIRS+=ckptr
 DIRS+=console
+DIRS+=ds2408mult
 DIRS+=w1mult
 DIRS+=nplink
 #DIRS+=dionysix
