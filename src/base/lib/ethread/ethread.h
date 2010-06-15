@@ -2,7 +2,7 @@
 #define __ETHREAD_H__
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -35,12 +35,12 @@ Approved for public release, distribution unlimited. */
    except that KR_SELF will be a process key to the new process,
    and KR_TEMP0 is unspecified.
  */
-/* Clobbers only KR_TEMP0. */
+/* Clobbers only KR_TEMP0. kr_new_thread cannot be KR_TEMP0. */
 /* Returns: an exception from capros_ProcCre_createProcess,
    RC_Ethread_Unexpected_Err, or RC_OK. */
 uint32_t 
-ethread_new_thread1(cap_t kr_bank, uint32_t stack_pointer,
-		   uint32_t program_counter,
+ethread_new_thread1(cap_t kr_bank, void * stack_pointer,
+		   void * program_counter,
 		   /* result */ cap_t kr_new_thread);
 
 /* After calling ethread_new_thread1, call ethread_start to start

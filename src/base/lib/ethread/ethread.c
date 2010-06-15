@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2007-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -41,12 +41,15 @@ Approved for public release, distribution unlimited. */
 
 /* Convenience routine for creating an EROS thread */
 uint32_t 
-ethread_new_thread1(cap_t kr_bank, uint32_t stack_pointer,
-		    uint32_t program_counter,
+ethread_new_thread1(cap_t kr_bank, void * stack_pointer,
+		    void * program_counter,
 		    /* result */ cap_t kr_new_thread)
 {
   uint32_t kr;
   result_t result;
+
+  if (kr_new_thread == KR_TEMP0)
+    return RC_Ethread_Unexpected_Err;
   
   result = capros_ProcCre_createProcess(KR_CREATOR, kr_bank, kr_new_thread);
   if (result != RC_OK)
@@ -83,8 +86,8 @@ ethread_new_thread1(cap_t kr_bank, uint32_t stack_pointer,
     .procFlags = 0,
     .faultCode = 0,
     .faultInfo = 0,
-    .pc = program_counter,
-    .sp = stack_pointer
+    .pc = (uint32_t)program_counter,
+    .sp = (uint32_t)stack_pointer
   };
   
   result = capros_Process_setRegisters32(kr_new_thread, regs);
@@ -126,7 +129,7 @@ ethread_new_thread(cap_t kr_bank, uint32_t stack_size,
     return RC_Ethread_Malloc_Err;
 
   result = ethread_new_thread1(kr_bank,
-                   (uint32_t)stack + stack_size, program_counter,
+                   (uint8_t *)stack + stack_size, (void *)program_counter,
 		   kr_new_thread);
   if (result != RC_OK) {
     free(stack);

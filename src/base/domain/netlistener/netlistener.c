@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -134,8 +134,8 @@ processRequest(Message *argmsg)
       capros_Process_getKeyReg(KR_SELF, KR_ARG(0), KR_TCPPortNum);
       capros_Process_getKeyReg(KR_SELF, KR_ARG(1), KR_CONNECTION_HANDLER_C);
       result = ethread_new_thread1(KR_BANK,
-                                   (uint32_t)listenStack + sizeof(listenStack),
-				   (uint32_t)&listen, KR_LISTENPROC);
+                                   (uint8_t *)listenStack + sizeof(listenStack),
+				   &listen, KR_LISTENPROC);
       if (RC_OK == result) {
         haveListener = true;	// true forevermore
         ethread_start(KR_LISTENPROC);
