@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -572,7 +572,8 @@ OL2Receive(void)
 
   /* Notifications for phone ring and off-hook have a bug: no start char
      and no CRC. */
-  bool workaround = recvrMessage[2] == 0x37;
+  ////bool workaround = recvrMessage[2] == 0x37;
+  bool workaround = false;
   if (! workaround) {
     assert(recvrMessage[0] == startCharacter);
   }
@@ -704,10 +705,7 @@ SetUpSession2(void)
   }
 #if (PROTOCOL > 1) 
   // Enable notifications.
-  // Firmware v. 2.16a has bugs in notifications.
-  // We could read the firmware version and check. But really,
-  // the rest of the system is depending on notifications. 
-  // All we could do is complain.
+  // (Firmware v. 2.16a has bugs in notifications.)
   sendMessage[2] = 0x15;
   sendMessage[3] = 1;
   if (! OL2Send(2))
@@ -724,6 +722,24 @@ SetUpSession2(void)
   }
 #endif
   return true;
+}
+
+void
+WriteNotification(void * notif, unsigned int sz, uint32_t * pTrailer)
+{
+  result_t result;
+
+  // Fill in header and trailer:
+  capros_Logfile_recordHeader * rh = (capros_Logfile_recordHeader *)notif;
+  rh->length = sz;
+  *pTrailer = sz;
+  rh->rtc = getRTC();
+  
+  result = capros_Sleep_getPersistentMonotonicTime(KR_SLEEP, &rh->id);
+  assert(result == RC_OK);
+
+  result = capros_Logfile_appendRecord(KR_LOGFILE, sz, (uint8_t *)notif);
+  assert(result == RC_OK);
 }
 
 unsigned int ReceiverThreadNum;
@@ -816,13 +832,136 @@ ReceiverThread(void * arg)
       if (GetSeqNo() == 0) {
         // It is a notification.
         assert(recvLen >= 3);	// else HAI error FIXME
-#if 0
         unsigned int msgType = recvrMessage[2];
         unsigned int objType = recvrMessage[3];
+#if 0
         unsigned int objNum = (recvrMessage[5] << 8) + recvrMessage[6];
-        kprintf(KR_OSTREAM, "++++HAI notif %#x %#x %d\n", msgType, objType, objNum);
+        kprintf(KR_OSTREAM, "++++HAI notif %#x %#x %#x %d\n",
+                msgType, objType, recvrMessage[4], objNum);
 #endif
-////...
+        // Parse the notification.
+        switch (msgType) {
+        default: ;
+          kdprintf(KR_OSTREAM, "HAI notif type %#x invalid.\n", msgType);
+          break;
+
+        case 0x3b: ;	// Object extended status
+#define checkObjectStatusLength(n) \
+           if (recvrMessage[4] != n) \
+             kdprintf(KR_OSTREAM, "HAI notif length invalid.\n");
+          uint8_t * objData = &recvrMessage[5];
+          switch (objType) {
+          default: ;
+            kdprintf(KR_OSTREAM, "HAI notif status type %#x invalid.\n", objType);
+            break;
+
+          case 0x01:	// zone status
+          {
+            checkObjectStatusLength(4);
+            // loop over zones reported.
+            for (; recvLen >= 6; objData += 4, recvLen -= 4) {
+              capros_HAI_ZoneNotification notif = {
+                .type = capros_HAI_NotificationType_Zone,
+                .objectNumber = (objData[0] << 8) + objData[1],
+                .status = objData[2],
+                .loopReading = objData[3],
+                .padding1 = 0,
+                .padding2 = 0,
+                .padding3 = 0
+              };
+              WriteNotification(&notif, sizeof(notif), &notif.trailer);
+            }
+            break;
+          }
+
+          case 0x02:	// unit status
+          {
+            checkObjectStatusLength(5);
+            // loop over units reported.
+            for (; recvLen >= 7; objData += 5, recvLen -= 5) {
+              capros_HAI_UnitNotification notif = {
+                .type = capros_HAI_NotificationType_Unit,
+                .objectNumber = (objData[0] << 8) + objData[1],
+                .status = objData[2],
+                .time = (objData[3] << 8) + objData[4],
+                .padding2 = 0,
+                .padding3 = 0
+              };
+              WriteNotification(&notif, sizeof(notif), &notif.trailer);
+            }
+            break;
+          }
+
+          case 0x06:	// thermostat status
+          {
+            checkObjectStatusLength(14);
+            // loop over thermostats reported.
+            for (; recvLen >= 16; objData += 14, recvLen -= 14) {
+              capros_HAI_ThermostatNotification notif = {
+                .type = capros_HAI_NotificationType_Thermostat,
+                .objectNumber = (objData[0] << 8) + objData[1],
+                .status = objData[2],
+                .temperature = objData[3],
+                .heatSetpoint = objData[4],
+                .coolSetpoint = objData[5],
+                .systemMode = objData[6],
+                .fanMode = objData[7],
+                .holdStatus = objData[8],
+                .humidity = objData[9],
+                .humidifySetpoint = objData[10],
+                .dehumidifySetpoint = objData[11],
+                .outdoorTemperature = objData[12],
+                .HCHDStatus = objData[13],
+                .padding = 0,
+                .padding2 = 0
+              };
+              WriteNotification(&notif, sizeof(notif), &notif.trailer);
+            }
+            break;
+          }
+
+          case 0x08:	// aux sensor status
+          {
+            checkObjectStatusLength(6);
+            // loop over aux sensors reported.
+            for (; recvLen >= 8; objData += 6, recvLen -= 6) {
+              capros_HAI_AuxSensorNotification notif = {
+                .type = capros_HAI_NotificationType_AuxSensor,
+                .objectNumber = (objData[0] << 8) + objData[1],
+                .outputStatus = objData[2],
+                .value = objData[3],
+                .lowSetpoint = objData[4],
+                .highSetpoint = objData[5],
+                .padding1 = 0,
+                .padding3 = 0
+              };
+              WriteNotification(&notif, sizeof(notif), &notif.trailer);
+            }
+            break;
+          }
+
+          // Unsupported object notifications:
+          case 0x05:	// area
+          case 0x07:	// message
+          case 0x0a:	// audio zone
+          case 0x0e:	// access control reader
+          case 0x0f:	// access control reader lock
+            break;
+          }
+          break;
+
+        case 0x37:
+        {
+          uint8_t * objData = &recvrMessage[3];
+          for (; recvLen >= 3; objData += 2, recvLen -= 2) {
+            capros_HAI_OtherNotification notif = {
+              .type = capros_HAI_NotificationType_Other,
+              .event = (objData[0] << 8) + objData[1]
+            };
+            WriteNotification(&notif, sizeof(notif), &notif.trailer);
+          }
+        }
+        }
       } else {
         // It is a response.
         if (sendState == mstate_NeedResponse) {
@@ -1061,12 +1200,13 @@ cmte_main(void)
   result = capros_Constructor_request(KR_LOGFILEC, KR_BANK, KR_SCHED, KR_VOID,
              KR_LOGFILE);
   assert(result == RC_OK);	// FIXME
-  // Save data 32 days:
+  // Save data only 2 days, because it will soon be copied into other logs.
   result = capros_Logfile_setDeletionPolicyByID(KR_LOGFILE,
-             32*24*60*60*1000000000ULL);
+             2*24*60*60*1000000000ULL);
   assert(result == RC_OK);
   // Create read-only cap once now, since there is no shortage of cap regs.
-  result = capros_Logfile_getReadOnlyCap(KR_LOGFILE, KR_LOGFILERO);
+  result = capros_Logfile_reduce(KR_LOGFILE, capros_Logfile_readOnly,
+                                 KR_LOGFILERO);
   assert(result == RC_OK);
 
   // Get configuration data:
@@ -1095,6 +1235,7 @@ cmte_main(void)
     Msg.snd_w1 = 0;
     Msg.snd_w2 = 0;
     Msg.snd_w3 = 0;
+    Msg.snd_key0 = KR_VOID;
 
     switch (Msg.rcv_code) {
     default:
@@ -1103,6 +1244,10 @@ cmte_main(void)
 
     case OC_capros_key_getType:
       Msg.snd_w1 = IKT_capros_HAI;
+      break;
+
+    case OC_capros_HAI_getNotificationsLog:
+      Msg.snd_key0 = KR_LOGFILERO;
       break;
 
     case OC_capros_HAI_getSystemStatus:

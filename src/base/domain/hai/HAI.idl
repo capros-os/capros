@@ -96,7 +96,7 @@ interface HAI extends key
     AudioZone = 10,
     AccessControlReader = 14,
     AccessControlReaderLock = 15,
-    OtherEvent = 255
+    Other = 255
   };
 
   struct ZoneNotification {
@@ -146,7 +146,13 @@ interface HAI extends key
     unsigned byte systemMode;
     unsigned byte fanMode;
     unsigned byte holdStatus;
-    unsigned short padding;
+    unsigned byte humidity;
+    unsigned byte humidifySetpoint;
+    unsigned byte dehumidifySetpoint;
+    unsigned byte outdoorTemperature;
+    unsigned byte HCHDStatus;
+    unsigned byte padding;
+    unsigned long padding2;
     unsigned long trailer;
   };
 
@@ -216,15 +222,14 @@ interface HAI extends key
   };
 
   /* For a generic notification, use Notification to access the type field.
+     This has the maximum size of any notification.
      Since the size is unknown, do not access anything after the type field. */
-  typedef MessageNotification Notification;
+  typedef ThermostatNotification Notification;
 
-  /* GetNotifications
-     This operation waits (if necessary) until there is a record in the
-     notifications Logfile newer than id, and then returns a capability
-     to the Logfile.
-     Raises Already if a caller is already waiting. */
-  Logfile GetNotifications(Logfile.RecordID id);
+  /* getNotificationsLog
+     This operation returns a read only capability to the Logfile
+     containing all notifications. */
+  Logfile getNotificationsLog();
 };
 
 /* Interface for internal use. */
