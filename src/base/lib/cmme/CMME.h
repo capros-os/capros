@@ -49,6 +49,7 @@ Approved for public release, distribution unlimited. */
 #define KR_OSTREAM    KR_APP(0)
 #define KR_MAPS_GPT   KR_APP(1)
 #define KR_CMME(i)    KR_APP(2+(i))	// first available key reg for program
+// KR_CMME(14) is the most you can define.
 
 
 /* Required constituents of constructors: */
