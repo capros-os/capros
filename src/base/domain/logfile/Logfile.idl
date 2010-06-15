@@ -10,6 +10,7 @@ interface Logfile extends key raises(OutOfSequence)
   exception OutOfSequence;
   exception NoRecord;
   exception Full;
+  exception Already;
 
   typedef unsigned<64> RecordID;
   const RecordID nullRecordID = 0;
@@ -85,6 +86,9 @@ interface Logfile extends key raises(OutOfSequence)
   The id of the returned record can be used on a subsequent call
   to continue getting sequential records.
 
+  If the record is longer than maxLenToReceive, the first maxLenToReceive
+  bytes are returned, and lengthGotten will be maxLenToReceive.
+
   Raises NoRecord if there is no such record.
   */
   // Order code 2:
@@ -98,6 +102,9 @@ interface Logfile extends key raises(OutOfSequence)
 
   The id of the returned record can be used on a subsequent call
   to continue getting sequential records.
+
+  If the record is longer than maxLenToReceive, the first maxLenToReceive
+  bytes are returned, and lengthGotten will be maxLenToReceive.
 
   Raises NoRecord if there is no such record.
   */
@@ -127,10 +134,14 @@ interface Logfile extends key raises(OutOfSequence)
 
   /* This operation instructs the log to automatically delete records
   whose id is less than (the id of the newest record minus the specified age).
+
   If record ids are a time value, this deletes records older than a
-  specified amount.
+  specified amount. If the id is the persistent monotonic timestamp of the data,
+  the units are nanoseconds.
+
   If record ids are consecutive serial numbers, this sets a maximum
   number of records in the Logfile.
+
   Raises key.NoAccess if the invoked capability is read-only.
   */
   void setDeletionPolicyByID(unsigned<64> /*RecordID*/ age);
@@ -142,7 +153,34 @@ interface Logfile extends key raises(OutOfSequence)
   */
   void setDeletionPolicyBySpace(unsigned long size);
 
-  /* Return a read-only capability to the Logfile. */
+  /* Get the record with the smallest RecordID greater than thisRL.
+  If thisRL is nullRecordID, get the oldest record.
+  If there is no such record, this operation waits until there is.
+
+  If the record is longer than maxLenToReceive, the first maxLenToReceive
+  bytes are returned, and lengthGotten will be maxLenToReceive.
+
+  Raises key.NoAccess if the invoked capability does not have
+  wait permission.
+
+  Only one caller can wait at a time.
+  This raises Already if a caller is already waiting.
+  */
+  // Order code 6:
+  client
+  void waitNextRecord(RecordID thisRL, unsigned long maxLenToReceive,
+                      out unsigned<8> data,
+                      out unsigned long lengthGotten);
+
+  /* Restrictions: */
+  const unsigned short readOnly = 1;
+  const unsigned short noWait = 2;
+
+  /* Return a capability to the Logfile with possibly reduced permissions. */
+  Logfile reduce(unsigned short restrictions);
+
+  /* Return a read-only capability to the Logfile.
+     (Obsolete, use reduce(readOnly) instead.) */
   Logfile getReadOnlyCap();
 
   /* This object obeys the key.destroy operation.

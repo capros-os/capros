@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -23,6 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <eros/Invoke.h>
+#include <eros/machine/cap-instr.h>
 #include <idl/capros/Logfile.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Page.h>
@@ -35,7 +36,8 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 
 #define KR_OSTREAM KR_APP(0)
-#define KR_MEMROOT KR_APP(1)
+#define KR_WAITER  KR_APP(1)
+#define KR_MEMROOT KR_APP(2)
 /* NOTE!! The 3 or 4 key registers following KR_MEMROOT are a stack of
  * scratch registers for the recursive procedures. */
 #define MemrootL2v 22
@@ -338,7 +340,7 @@ EnsureRangeDeallocated(uint32_t start, uint32_t end)
   EnsureRangeDeallocatedRec(KR_MEMROOT, start, end, MemrootL2v);
 }
 
-/***********************  Record addition and deletion  **********************/
+/***********************  Record deletion  **********************/
 
 capros_Logfile_RecordID deletionPolicyAge = UINT64_MAX;
 uint32_t deletionPolicySize = UINT32_MAX;
@@ -465,126 +467,6 @@ CheckDeletionBySpace(unsigned long newSpace)
 #endif
     DeleteOldestRecord();
   }
-}
-
-void
-AppendRecord(Message * msg)
-{
-  result_t result;
-
-  unsigned long recordLength = msg->rcv_sent;
-#if 0
-  kprintf(KR_OSTREAM, "AppendRecord len=%d %d %d\n", recordLength,
-          messageBuffer[0].length,
-          *(unsigned long *)((uint8_t *)messageBuffer + recordLength
-                               - sizeof(unsigned long)));
-#endif
-  if (recordLength > capros_Logfile_MaxRecordLength
-      || recordLength < sizeof(capros_Logfile_recordHeader)
-                        + sizeof(unsigned long)
-      || recordLength % sizeof(capros_Logfile_RecordID)
-      || recordLength != messageBuffer[0].length ) {
-    msg->snd_code = RC_capros_key_RequestError;
-    return;
-  }
-
-  // Ensure the trailer is correct:
-  *(unsigned long *)
-   ((uint8_t *)messageBuffer + recordLength - sizeof(unsigned long))
-     = recordLength;
-
-  capros_Logfile_RecordID id = messageBuffer[0].id;
-  if (id <= lastIDAdded) {
-    msg->snd_code = RC_capros_Logfile_OutOfSequence;
-    return;
-  }
-
-  uint8_t * tentativeLoc = CBIn;	// where the new record will start
-  if (CBOut > CBIn) {	// the log wraps around
-    /* The + BPSIZE below ensures that CBIn and CBOut don't
-    end up in the same block or page, which would be awkward for the index
-    and for allocation. */
-    if (recordLength + BPSIZE >= CBOut - CBIn) {
-      msg->snd_code = RC_capros_Logfile_Full;
-      return;
-    }
-    // else it will go at tentativeLoc
-  } else {	// the log does not wrap around
-    if (recordLength > CBEnd - CBIn) {	// does not fit at end
-      /* Re the + BPSIZE below, see comment above. */
-      if (recordLength + BPSIZE >= CBOut - CBStart) { // nor at beginning
-        msg->snd_code = RC_capros_Logfile_Full;
-        return;
-      } else {		// wrap around
-        CBLast = CBIn;
-        tentativeLoc = CBStart;
-      }
-    }
-    // else it will go at tentativeLoc
-  }
-  // The record fits and will go at tentativeLoc.
-
-  // Check deletion policy now so we don't temporarily go over the limit.
-  CheckDeletionBySpace(recordLength);
-
-  // Ensure the log is allocated.
-  uint32_t lowAlloc = RoundUpToPage((uint32_t)tentativeLoc);
-  uint32_t highAlloc = RoundUpToPage((uint32_t)tentativeLoc + recordLength);
-  result = EnsureRangeAllocated(lowAlloc, highAlloc);
-  if (result != RC_OK) {
-    msg->snd_code = result;
-    return;
-  }
-
-  // Ensure the index records are allocated.
-  struct IndexRecord * newIndexHi = LogToIndex(tentativeLoc) + 1;
-  uint32_t oldRounded = RoundUpToPage((uint32_t)indexHi);
-  uint32_t newRounded = RoundUpToPage((uint32_t)newIndexHi);
-  if (indexHi > newIndexHi) {	// we begin to wrap
-    result = EnsureRangeAllocated(oldRounded,
-                                  RoundUpToPage((uint32_t)IndexEnd));
-    if (result != RC_OK) {
-      msg->snd_code = result;
-      // Don't bother to deallocate space allocated for log above
-      // or for previous index records.
-      return;
-    }
-    result = EnsureRangeAllocated((uint32_t)IndexStart, newRounded);
-    if (result != RC_OK) {
-      msg->snd_code = result;
-      // Don't bother to deallocate space allocated for log above
-      // or for previous index records.
-      return;
-    }
-  } else {
-    result = EnsureRangeAllocated(oldRounded, newRounded);
-    if (result != RC_OK) {
-      msg->snd_code = result;
-      // Don't bother to deallocate space allocated for log above
-      // or for previous index records.
-      return;
-    }
-  }
-
-  // Whew! Everything is OK to add the record. Do it.
-  memcpy(tentativeLoc, messageBuffer, recordLength);
-  CBIn = tentativeLoc + recordLength;
-  cachedLocation.id = id;
-  cachedLocation.addr = tentativeLoc;
-
-  // Now update the index:
-  struct IndexRecord * ir;
-  for (ir = indexHi; ir != newIndexHi; ++ir) {
-    if (ir == IndexEnd)
-      ir = IndexStart;	// wrap
-    ir->id = id;	// index record refers to the new log record
-    ir->addr = tentativeLoc;
-    numIndexRecords++;
-  }
-  indexHi = ir;
-  totalLogSpace += recordLength;
-  lastIDAdded = id;
-  CheckDeletionByID();
 }
 
 /***********************  Record search  **********************/
@@ -726,6 +608,161 @@ GetPrev(capros_Logfile_RecordID id)
   }
 }
 
+/***********************  Stuff for the waiter  **********************/
+
+bool notifWaiter = false;
+capros_Logfile_RecordID waiterID;
+
+static void
+CheckWaiter(void)
+{
+  assert(RecordsExist());
+  if (notifWaiter && lastIDAdded > waiterID) {
+    uint8_t * rec;
+    rec = GetNext(waiterID);
+    assert(rec);
+
+    Message Msg = {
+      .snd_invKey = KR_WAITER,
+      .snd_key0 = KR_VOID,
+      .snd_key1 = KR_VOID,
+      .snd_key2 = KR_VOID,
+      .snd_rsmkey = KR_VOID,
+      .snd_data = rec,
+      .snd_len = RecToHdr(rec)->length,
+      .snd_code = RC_OK,
+      .snd_w1 = 0,
+      .snd_w2 = 0,
+      .snd_w3 = 0
+    };
+    SEND(&Msg);
+    notifWaiter = false;
+  }
+}
+
+/***********************  Record addition  **********************/
+
+void
+AppendRecord(Message * msg)
+{
+  result_t result;
+
+  unsigned long recordLength = msg->rcv_sent;
+#if 0
+  kprintf(KR_OSTREAM, "AppendRecord len=%d %d %d\n", recordLength,
+          messageBuffer[0].length,
+          *(unsigned long *)((uint8_t *)messageBuffer + recordLength
+                               - sizeof(unsigned long)));
+#endif
+  if (recordLength > capros_Logfile_MaxRecordLength
+      || recordLength < sizeof(capros_Logfile_recordHeader)
+                        + sizeof(unsigned long)
+      || recordLength % sizeof(capros_Logfile_RecordID)
+      || recordLength != messageBuffer[0].length ) {
+    msg->snd_code = RC_capros_key_RequestError;
+    return;
+  }
+
+  // Ensure the trailer is correct:
+  *(unsigned long *)
+   ((uint8_t *)messageBuffer + recordLength - sizeof(unsigned long))
+     = recordLength;
+
+  capros_Logfile_RecordID id = messageBuffer[0].id;
+  if (id <= lastIDAdded) {
+    msg->snd_code = RC_capros_Logfile_OutOfSequence;
+    return;
+  }
+
+  uint8_t * tentativeLoc = CBIn;	// where the new record will start
+  if (CBOut > CBIn) {	// the log wraps around
+    /* The + BPSIZE below ensures that CBIn and CBOut don't
+    end up in the same block or page, which would be awkward for the index
+    and for allocation. */
+    if (recordLength + BPSIZE >= CBOut - CBIn) {
+      msg->snd_code = RC_capros_Logfile_Full;
+      return;
+    }
+    // else it will go at tentativeLoc
+  } else {	// the log does not wrap around
+    if (recordLength > CBEnd - CBIn) {	// does not fit at end
+      /* Re the + BPSIZE below, see comment above. */
+      if (recordLength + BPSIZE >= CBOut - CBStart) { // nor at beginning
+        msg->snd_code = RC_capros_Logfile_Full;
+        return;
+      } else {		// wrap around
+        CBLast = CBIn;
+        tentativeLoc = CBStart;
+      }
+    }
+    // else it will go at tentativeLoc
+  }
+  // The record fits and will go at tentativeLoc.
+
+  // Check deletion policy now so we don't temporarily go over the limit.
+  CheckDeletionBySpace(recordLength);
+
+  // Ensure the log is allocated.
+  uint32_t lowAlloc = RoundUpToPage((uint32_t)tentativeLoc);
+  uint32_t highAlloc = RoundUpToPage((uint32_t)tentativeLoc + recordLength);
+  result = EnsureRangeAllocated(lowAlloc, highAlloc);
+  if (result != RC_OK) {
+    msg->snd_code = result;
+    return;
+  }
+
+  // Ensure the index records are allocated.
+  struct IndexRecord * newIndexHi = LogToIndex(tentativeLoc) + 1;
+  uint32_t oldRounded = RoundUpToPage((uint32_t)indexHi);
+  uint32_t newRounded = RoundUpToPage((uint32_t)newIndexHi);
+  if (indexHi > newIndexHi) {	// we begin to wrap
+    result = EnsureRangeAllocated(oldRounded,
+                                  RoundUpToPage((uint32_t)IndexEnd));
+    if (result != RC_OK) {
+      msg->snd_code = result;
+      // Don't bother to deallocate space allocated for log above
+      // or for previous index records.
+      return;
+    }
+    result = EnsureRangeAllocated((uint32_t)IndexStart, newRounded);
+    if (result != RC_OK) {
+      msg->snd_code = result;
+      // Don't bother to deallocate space allocated for log above
+      // or for previous index records.
+      return;
+    }
+  } else {
+    result = EnsureRangeAllocated(oldRounded, newRounded);
+    if (result != RC_OK) {
+      msg->snd_code = result;
+      // Don't bother to deallocate space allocated for log above
+      // or for previous index records.
+      return;
+    }
+  }
+
+  // Whew! Everything is OK to add the record. Do it.
+  memcpy(tentativeLoc, messageBuffer, recordLength);
+  CBIn = tentativeLoc + recordLength;
+  cachedLocation.id = id;
+  cachedLocation.addr = tentativeLoc;
+
+  // Now update the index:
+  struct IndexRecord * ir;
+  for (ir = indexHi; ir != newIndexHi; ++ir) {
+    if (ir == IndexEnd)
+      ir = IndexStart;	// wrap
+    ir->id = id;	// index record refers to the new log record
+    ir->addr = tentativeLoc;
+    numIndexRecords++;
+  }
+  indexHi = ir;
+  totalLogSpace += recordLength;
+  lastIDAdded = id;
+  CheckDeletionByID();
+  CheckWaiter();
+}
+
 /***********************  Capability server  **********************/
 
 // Destroy self:
@@ -742,7 +779,7 @@ Sepuku(uint32_t finalResult)
 static inline bool
 IsReadOnly(Message * msg)
 {
-  return msg->rcv_keyInfo;
+  return msg->rcv_keyInfo & capros_Logfile_readOnly;
 }
 
 int
@@ -767,6 +804,7 @@ main(void)
     .rcv_data = &messageBuffer,
     .rcv_limit = capros_Logfile_MaxRecordLength
   };
+  Message * msg = &Msg;
 
   capros_Node_getSlotExtended(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
@@ -811,8 +849,18 @@ main(void)
       Sepuku(RC_OK);
       break;
 
+    case OC_capros_Logfile_reduce:
+      if (msg->rcv_w1 & ~(capros_Logfile_readOnly | capros_Logfile_noWait)) {
+        Msg.snd_code = RC_capros_key_RequestError;
+        break;
+      }
+      capros_Process_makeStartKey(KR_SELF,
+               msg->rcv_keyInfo | msg->rcv_w1, KR_TEMP0);
+      Msg.snd_key0 = KR_TEMP0;
+      break;
+
     case OC_capros_Logfile_getReadOnlyCap:
-      capros_Process_makeStartKey(KR_SELF, 1, KR_TEMP0);
+      capros_Process_makeStartKey(KR_SELF, capros_Logfile_readOnly, KR_TEMP0);
       Msg.snd_key0 = KR_TEMP0;
       break;
 
@@ -845,6 +893,26 @@ main(void)
         Msg.snd_data = rec;
         Msg.snd_len = RecToHdr(rec)->length;
       }
+      break;
+
+    case 6:	// OC_capros_Logfile_waitNextRecord
+      if (msg->rcv_keyInfo & capros_Logfile_noWait) {
+        Msg.snd_code = RC_capros_key_NoAccess;
+        break;
+      }
+      if (notifWaiter) {
+        Msg.snd_code = RC_capros_Logfile_Already;
+        break;
+      }
+      id = Msg.rcv_w1 | ((uint64_t)Msg.rcv_w2 << 32);
+      rec = GetNext(id);
+      if (rec)
+        goto returnOneRecord;
+      // Must wait.
+      notifWaiter = true;
+      waiterID = id;
+      COPY_KEYREG(KR_RETURN, KR_WAITER);	// save return cap
+      Msg.snd_invKey = KR_VOID;
       break;
 
     case 3:	// OC_capros_Logfile_getPreviousRecord
