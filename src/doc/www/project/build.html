@@ -527,6 +527,10 @@ su -c 'yum install capros-arm-xenv'
 <pre>
 export EROS_TARGET=arm
 </pre>
+          <p>
+          You also need to set CAPROS_MACH to the board you are using.
+          edb9315 and edb9315a are currently supported. 
+	  </p>
 	  <p>
           The system has been tested on a Cirrus EDB9315 development board,
           which uses the Cirrus EP9315,
@@ -540,8 +544,8 @@ export EROS_TARGET=arm
           for example src/base/tests/perf/nc.
           The kernel text, kernel data, and initial system state are loaded
           into the system's memory
-          from three separate files in /tftpboot
-          (kerneltext, kerneldata, and imgdata respectively).
+          from three separate files in <tt>/tftpboot</tt>
+          (<tt>kerneltext</tt>, <tt>kerneldata</tt>, and <tt>imgdata</tt> respectively).
           Build them:
 <pre>
 make np
