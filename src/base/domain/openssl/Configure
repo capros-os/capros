@@ -530,10 +530,10 @@ my %table=(
 
 ##### CapROS arm
 ## use -mapcs-frame for debugging
-"CapROS-arm", "/capros/host/bin/arm-unknown-capros-gcc:-O -mapcs-frame -Wall -DOPENSSL_IMPLEMENTS_strncasecmp -DNO_SYSLOG -DOPENSSL_NO_DGRAM:::CAPROS::::",
+"CapROS-arm", "\$(EROS_XENV)/bin/arm-unknown-capros-gcc:-O -mapcs-frame -Wall -DOPENSSL_IMPLEMENTS_strncasecmp -DNO_SYSLOG -DOPENSSL_NO_DGRAM:::CAPROS::::",
 
 ##### CapROS i486
-"CapROS-i486", "/capros/host/bin/i386-unknown-capros-gcc:-O -Wall -DOPENSSL_IMPLEMENTS_strncasecmp -DNO_SYSLOG -DOPENSSL_NO_DGRAM:::CAPROS::::",
+"CapROS-i486", "\$(EROS_XENV)/bin/i386-unknown-capros-gcc:-O -Wall -DOPENSSL_IMPLEMENTS_strncasecmp -DNO_SYSLOG -DOPENSSL_NO_DGRAM:::CAPROS::::",
 
 ##### VxWorks for various targets
 "vxworks-ppc405","ccppc:-g -msoft-float -mlongcall -DCPU=PPC405 -I\$(WIND_BASE)/target/h:::VXWORKS:-r:::::",
