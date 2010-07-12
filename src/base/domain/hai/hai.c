@@ -75,7 +75,7 @@ Approved for public release, distribution unlimited. */
 #define KR_LOGFILEC KR_CMTE(4)
 #define KR_Socket  KR_CMTE(5)	// UDP port or TCP socket
 #define KR_LOGFILE KR_CMTE(6)
-#define KR_LOGFILERO KR_CMTE(7)
+// unused	   KR_CMTE(7)
 //#define RESPONSE_TEST
 #ifdef RESPONSE_TEST
 #define KR_SysTrace KR_CMTE(8)	// also initialize this in hai.map
@@ -1204,10 +1204,6 @@ cmte_main(void)
   result = capros_Logfile_setDeletionPolicyByID(KR_LOGFILE,
              2*24*60*60*1000000000ULL);
   assert(result == RC_OK);
-  // Create read-only cap once now, since there is no shortage of cap regs.
-  result = capros_Logfile_reduce(KR_LOGFILE, capros_Logfile_readOnly,
-                                 KR_LOGFILERO);
-  assert(result == RC_OK);
 
   // Get configuration data:
   uint32_t pk0, pk1, pk2, pk3;	// bytes of the private key
@@ -1247,7 +1243,9 @@ cmte_main(void)
       break;
 
     case OC_capros_HAI_getNotificationsLog:
-      Msg.snd_key0 = KR_LOGFILERO;
+      // This cap is read/write, so the recipient can delete records
+      // once they are no longer needed.
+      Msg.snd_key0 = KR_LOGFILE;
       break;
 
     case OC_capros_HAI_getSystemStatus:
