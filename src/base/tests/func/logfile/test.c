@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -94,8 +94,9 @@ main(void)
 			       KR_LOGFILE);
   ckOK
 
-  result = capros_Logfile_deleteOldestRecord(KR_LOGFILE);
-  ckNoRecord
+  // There are no records to delete yet:
+  result = capros_Logfile_deleteByID(KR_LOGFILE, UINT64_MAX);
+  ckOK
 
   currentID += IDIncrement;
   logrecord.hdr.id = currentID;
@@ -157,12 +158,8 @@ main(void)
              (uint8_t *)&rcvrecord, &lengthGotten);
   ckNoRecord
 
-  kprintf(KR_OSTREAM, "About to deleteOldestRecord.\n");
-  result = capros_Logfile_deleteOldestRecord(KR_LOGFILE);
-  ckOK
-
-  kprintf(KR_OSTREAM, "About to deleteOldestRecord.\n");
-  result = capros_Logfile_deleteOldestRecord(KR_LOGFILE);
+  kprintf(KR_OSTREAM, "About to deleteByID.\n");
+  result = capros_Logfile_deleteByID(KR_LOGFILE, currentID+1);
   ckOK
 
 #define numSizes 2

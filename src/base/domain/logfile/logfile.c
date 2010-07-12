@@ -444,15 +444,22 @@ DeleteOldestRecord(void)
 }
 
 void
-CheckDeletionByID(void)
+DeleteByID(capros_Logfile_RecordID id)
 {
-  while (RecordsExist()
-         && lastIDAdded - indexLo->id > deletionPolicyAge) {
+  while (RecordsExist() && indexLo->id < id) {
 #if 0
-    kprintf(KR_OSTREAM, "Deleting for id %llu %llu %llu\n",
-            indexLo->id, lastIDAdded, deletionPolicyAge);
+    kprintf(KR_OSTREAM, "Deleting by id %llu %llu\n",
+            indexLo->id, id);
 #endif
     DeleteOldestRecord();
+  }
+}
+
+void
+CheckDeletionByID(void)
+{
+  if (lastIDAdded >= deletionPolicyAge) {
+    DeleteByID(lastIDAdded - deletionPolicyAge);
   }
 }
 
@@ -872,15 +879,12 @@ main(void)
       AppendRecord(&Msg);
       break;
 
-    case OC_capros_Logfile_deleteOldestRecord:
+    case OC_capros_Logfile_deleteByID:
       if (IsReadOnly(&Msg)) {
         Msg.snd_code = RC_capros_key_NoAccess;
         break;
       }
-      if (! RecordsExist())
-        Msg.snd_code = RC_capros_Logfile_NoRecord;
-      else
-        DeleteOldestRecord();
+      DeleteByID(Msg.rcv_w1 | ((uint64_t)Msg.rcv_w2 << 32));
       break;
 
     case 2:	// OC_capros_Logfile_getNextRecord

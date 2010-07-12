@@ -74,11 +74,11 @@ interface Logfile extends key raises(OutOfSequence)
   void appendRecord(unsigned long length,
                     out unsigned<8> data /* really a ptr to the input data */ );
 
-  /* Delete the oldest record.
-  Raises NoRecord if there are no records.
+  /* Delete all records whose id is less than the specified id.
+
   Raises key.NoAccess if the invoked capability is read-only.
   */
-  void deleteOldestRecord();
+  void deleteByID(unsigned<64> /*RecordID*/ id);
 
   /* Get the record with the smallest RecordID greater than thisRL.
   If thisRL is nullRecordID, get the oldest record.
