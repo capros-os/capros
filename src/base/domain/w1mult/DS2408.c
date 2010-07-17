@@ -98,7 +98,7 @@ AddressWriteOutput(struct W1Device * dev, uint8_t output)
 }
 
 /* This is called to initialize a device that has been found on the network.
-This is called at least on every reboot.
+This is called on every reboot and whenever the bus is rescanned.
 This procedure can issue device I/O, but must not take a long time.
 The device is addressed, since we just completed a searchROM that found it.
 */
@@ -159,6 +159,7 @@ DS2408_ProcessRequest(struct W1Device * dev, Message * msg)
         msg->snd_code = RC_capros_DS2408_BusError;
         break;
       }
+      dev->u.pio8.outputState = output;	// so we can restore it
     }
     break;
   }

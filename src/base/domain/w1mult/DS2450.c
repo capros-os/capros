@@ -247,7 +247,7 @@ CheckPOR(struct W1Device * dev)
   int status = ReadMemPage(dev, 8);	// read page 1
   if (status) {
     DEBUG(errors) kprintf(KR_OSTREAM,
-           "DS2451 read config status=%d, bytes=%d data= %#.2x %#.2x %#.2x\n",
+           "DS2450 read config status=%d, bytes=%d data= %#.2x %#.2x %#.2x\n",
            status, RunPgmMsg.rcv_sent, inBuf[0], inBuf[1], inBuf[2]);
     return POR_Error;
   }

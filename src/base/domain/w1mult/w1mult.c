@@ -69,7 +69,13 @@ static void ScanBus(void);
 
 bool haveBusKey = false;	// no key in KR_W1BUS
 bool haveNextBusKey = false;	// no key in KR_NEXTW1BUS
-bool busNeedsReinit;
+bool busNeedsReinit;		// valid if haveBusKey
+/* We have the following states:
+ * haveBusKey busNeedsReinit
+ *   false      don't care      all dev->found are false
+ *   true         true          some dev->found may be true
+ *   true        false          dev->found are correct (true or false)
+ */
 
 capros_Sleep_nanoseconds_t latestConvertTTime = 0;
 
@@ -431,13 +437,12 @@ SetBusNeedsReinit(void)
 static bool
 CheckRestart(result_t result)
 {
+  assert(haveBusKey);	// else should not have tried to call the bus key
   if (result == RC_capros_key_Restart || result == RC_capros_key_Void) {
     // No bus key, so don't continue heartbeat:
-    if (haveBusKey) {
-      haveBusKey = false;
-      if (! haveNextBusKey)
-        DisableHeartbeat(hbBit_bus);
-    }
+    haveBusKey = false;
+    if (! haveNextBusKey)
+      DisableHeartbeat(hbBit_bus);
     AllDevsNotFound();
     return true;
   }
@@ -466,6 +471,12 @@ int
 RunProgram(void)
 {
   int returnValue;
+
+  if (! haveBusKey) {	// no key, so no point calling it
+    returnValue = -1;
+    goto exit;
+  }
+
   RunPgmMsg.snd_len = outCursor - outBeg;
   result_t result = CALL(&RunPgmMsg);
   if (CheckRestart(result)) {
@@ -1243,6 +1254,12 @@ ScanBus(void)
   int i;
 
 rescan:
+  // Need to clear all dev->found before calling SearchPath(&root):
+  AllDevsNotFound();
+
+  if (! haveBusKey)	// no key, so no point calling it
+    return;
+
   result = capros_W1Bus_resetDevice(KR_W1BUS);
   if (CheckModeResult(result)) return;
 
@@ -1286,6 +1303,9 @@ rescan:
   case capros_W1Bus_StatusCode_OK:
 
     // Search for all ROMs.
+    for (i = 0; i < numDevices; i++) {
+      assert(! devices[i].found);
+    }
     statusCode = SearchPath(&root);
     if (statusCode < 0)
       return;
