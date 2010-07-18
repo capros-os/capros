@@ -409,6 +409,7 @@ RemoteClosed(struct TCPSocket * sock)
     assert(sock->recvQNum == 0);
     ReturnToReceiver(sock, 0, RC_capros_TCPSocket_RemoteClosed);
     sock->remoteCloseDelivered = true;
+    DEBUG(conn) printk("sock=%#x rcd set, state=%d\n", sock, sock->TCPSk_state);
   }
 }
 
@@ -486,6 +487,7 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
       sock->curRecvBytesProcessed = 0;
     }
     WakeAnyReceiver(sock);
+    // WakeAnyReceiver will never call RemoteClosed in this case.
   }
   return ERR_OK;
 }
@@ -515,11 +517,15 @@ TCPReceive(Message * msg)
     if (! bytesReceived) {
       msg->snd_code = RC_capros_TCPSocket_RemoteClosed;
       sock->remoteCloseDelivered = true;
+      DEBUG(conn) printk("sock=%#x rcd set, state=%d\n",
+                         sock, sock->TCPSk_state);
+      CheckFullyClosed(sock);
+    } else {
+      msg->snd_data = sndBuf;
+      msg->snd_len = bytesReceived;
+      msg->snd_w1 = bytesReceived;
+      msg->snd_w2 = recvFlags;
     }
-    msg->snd_data = sndBuf;
-    msg->snd_len = bytesReceived;
-    msg->snd_w1 = bytesReceived;
-    msg->snd_w2 = recvFlags;
   } else {
     result_t result;
     // Save the caller:
@@ -719,6 +725,7 @@ DestroyTCPConnection(struct TCPSocket * sock)
                                             slot, slot+sco_numSlots-1);
   DEBUG(alloc) kprintf(KR_OSTREAM, "%s:%d: Free'ed sock %#x and buffer.\n",
                        __FILE__, __LINE__, sock);
+  DEBUG(conn) printk("Destroying sock=%#x buf=%#x\n", sock, sock->sendBuf);
 
   assert(sock->sendBuf != curRcvBuf);
   mem_free(sock->sendBuf);
@@ -764,7 +771,11 @@ TCPClose(Message * msg)
     return;
   }
 
-  if (! TryClose(sock)) {	// could not close right now
+  if (TryClose(sock)) {
+    DEBUG(conn) printk("sock=%#x set to state_Closed. rcd=%d\n",
+                       sock, sock->remoteCloseDelivered);
+    CheckFullyClosed(sock);
+  } else {		// could not close right now
     // Save the caller:
     result_t result;
     const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
@@ -791,11 +802,15 @@ poll_tcp(void *arg, struct tcp_pcb *pcb)
                          __FILE__, __LINE__);
       // We are trying to close. Try again.
       if (TryClose(sock)) {	// succeeded in closing
+        DEBUG(conn) printk("sock=%#x set to state_Closed. rcd=%d\n",
+                           sock, sock->remoteCloseDelivered);
+        // Return to the caller of TCPClose:
         sendFinished(sock, ERR_OK);
+        CheckFullyClosed(sock);
       }
     } else {
-      DEBUG(mem) kprintf(KR_OSTREAM, "%s:%d: retry send\n",
-                         __FILE__, __LINE__);
+      DEBUG(mem) kprintf(KR_OSTREAM, "%s:%d: retry send, len=%d avail=%d\n",
+                   __FILE__, __LINE__, sock->sendLen, tcp_sndbuf(sock->pcb));
       do_sendmore(sock);
     }
   }
@@ -934,6 +949,8 @@ err_tcp(void * arg, err_t err)
         sendFinished(sock, ERR_CLSD);
       }
       sock->TCPSk_state = TCPSk_state_Closed;
+      DEBUG(conn) printk("sock=%#x set to state_Closed. rcd=%d. Destroying.\n",
+                         sock, sock->remoteCloseDelivered);
       DestroyTCPConnection(sock);
     }
   }
