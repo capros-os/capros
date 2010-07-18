@@ -1118,6 +1118,7 @@ static void remove_intf_ep_devs(struct usb_interface *intf)
 	intf->ep_devs_created = 0;
 }
 
+#if 0 // CapROS
 /**
  * usb_disable_endpoint -- Disable an endpoint by address
  * @dev: the device whose endpoint is being disabled
@@ -1155,6 +1156,7 @@ void usb_disable_endpoint(struct usb_device *dev, unsigned int epaddr,
 			usb_hcd_disable_endpoint(dev, ep);
 	}
 }
+#endif // CapROS
 
 /**
  * usb_reset_endpoint - Reset an endpoint's state.
