@@ -252,14 +252,17 @@ getEp(struct usb_device * udev, unsigned long endpoint)
   }
 }
 
-/* Cached urbs have an urbToCap slot already allocated. */
+/* We cache urbs not so much to save allocation/deallocation of memory,
+ * but to save allocation/deallocation of the urbToCap slot in KEYSTORE. */
 unsigned int numCachedUrbs = 0;
 #define maxCachedUrbs 8
 struct urb * urbCache = NULL;
+CMTEMutex_DECLARE_Unlocked(urbCacheLock);
 
 void
 usb_freeUrbWithCap(struct urb * urb)
 {
+  CMTEMutex_lock(&urbCacheLock);
   if (urb->complete == &DeviceUrbCompletion	// not iso, no packets
       && numCachedUrbs < maxCachedUrbs) {	// add to cache
     numCachedUrbs++;
@@ -274,6 +277,7 @@ usb_freeUrbWithCap(struct urb * urb)
 #endif
     kfree(urb);
   }
+  CMTEMutex_unlock(&urbCacheLock);
 }
 
 static void
@@ -308,14 +312,17 @@ HandleSubmitUrb(Message * msg, struct usb_device * udev, int numPkts)
   // Only urbs with numPkts==0 are cached.
   struct urb * urb;
   capros_Node_extAddr_t resumeCap;
+  CMTEMutex_lock(&urbCacheLock);
   if (! numPkts && urbCache) {
     assert(numCachedUrbs);
     numCachedUrbs--;
     urb = urbCache;
     urbCache = (void *)urb->urb_list.next;
+    CMTEMutex_unlock(&urbCacheLock);
     usb_init_urb(urb);
     resumeCap = urbToCap(urb);
   } else {
+    CMTEMutex_unlock(&urbCacheLock);
     urb = usb_alloc_urb(numPkts, GFP_KERNEL);
     if (! urb) {
       msg->snd_code = RC_capros_Errno_NoMem;
@@ -328,12 +335,11 @@ HandleSubmitUrb(Message * msg, struct usb_device * udev, int numPkts)
     result = capros_SuperNode_allocateRange(KR_KEYSTORE, resumeCap, resumeCap);
     if (result != RC_OK) {
       msg->snd_code = result;
-      goto fail0;
+      // For urbs that have no cap, usb_free_urb is just kfree.
+      kfree(urb);
+      return;
     }
   }
-  /* Remember there is a cap in KR_KEYSTORE associated with this urb,
-  so it can be cached when we are done with it: */
-  urb->hasCap = true;
 
   urb->dev = udev;
   urb->pipe = (inputUrb->endpoint & 0x78080) // endpoint num and direction
@@ -376,7 +382,6 @@ HandleSubmitUrb(Message * msg, struct usb_device * udev, int numPkts)
                resumeCap, resumeCap);
     (void)result;
 #endif
-fail0:
     usb_free_urb(urb);
     return;
   }

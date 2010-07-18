@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -44,6 +44,9 @@ Approved for public release, distribution unlimited. */
 
 #include "hcd.h"	/* for usbcore internals */
 #include "usb.h"
+#ifdef DEBUG
+#include <domain/assert.h>
+#endif
 
 static void cancel_async_set_config(struct usb_device *udev);
 
@@ -76,6 +79,27 @@ static int usb_start_wait_urb(struct urb *urb, int timeout, int *actual_length)
 	init_completion(&ctx.done);
 	urb->context = &ctx;
 	urb->actual_length = 0;
+#ifdef DEBUG
+	bool is_out = true;
+	struct usb_ctrlrequest * setup = NULL;
+  if (usb_pipetype(urb->pipe) == PIPE_CONTROL) {
+    /* urb->setup_packet isn't passed to the HCD (only urb->setup_dma).
+    So validate it here. */
+    setup = (struct usb_ctrlrequest *) urb->setup_packet;
+    assert(setup);	// else caller has a bug
+    is_out = !(setup->bRequestType & USB_DIR_IN) || !setup->wLength;
+    assert(is_out == usb_pipeout(urb->pipe));
+#if 0
+    printk("usb_start_wait_urb: control devnum=%d setup=%#.2x %d %d %d %d\n",
+	urb->dev->devnum,
+	setup->bRequestType, setup->bRequest, setup->wValue,
+	setup->wIndex, setup->wLength);
+#endif
+  } else {
+    printk("usb_start_wait_urb: type %d\n",
+	usb_pipetype(urb->pipe) );
+  }
+#endif
 	retval = usb_submit_urb(urb, GFP_NOIO);
 	if (unlikely(retval))
 		goto out;
@@ -92,7 +116,19 @@ static int usb_start_wait_urb(struct urb *urb, int timeout, int *actual_length)
 			urb->actual_length,
 			urb->transfer_buffer_length);
 	} else
+	{
 		retval = ctx.status;
+#ifdef DEBUG
+	if (!is_out) {
+		printk("usb_start_wait_urb: data=");
+		int i;
+		for (i = 0; i < setup->wLength; i++) {
+			printk(" %.2x", ((uint8_t *)urb->transfer_buffer)[i]);
+		}
+		printk("\n");
+	}
+#endif
+	}
 out:
 	if (actual_length)
 		*actual_length = urb->actual_length;

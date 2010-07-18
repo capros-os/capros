@@ -1,5 +1,5 @@
  /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -43,10 +43,7 @@ static void urb_destroy(struct kref *kref)
 		// kfree(urb->transfer_buffer);
 		BUG_ON(true); // how was transfer_buffer allocated?
 
-	if (urb->hasCap)
-		usb_freeUrbWithCap(urb);
-        else
-		kfree(urb);
+	usb_freeUrbWithCap(urb);
 }
 
 /**
@@ -494,6 +491,13 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
 		urb->interval = min(max, 1 << ilog2(urb->interval));
 	}
 
+#ifdef DEBUG
+#if 1
+	printk("submit_urb: devnum %d ep %d %s\n",
+		urb->dev->devnum, usb_pipeendpoint(urb->pipe),
+		is_out ? "out" : "in");
+#endif
+#endif
 	return usb_hcd_submit_urb(urb, mem_flags);
 }
 EXPORT_SYMBOL_GPL(usb_submit_urb);
