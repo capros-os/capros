@@ -1510,6 +1510,11 @@ main(void)
   // kdprintf(KR_OSTREAM, "w1mult: accepting requests\n");
 
   for(;;) {
+    /* NOTE: at this point, the message to be returned from the previous
+       call is set up in Msg, and may include caps in KR_TEMP0 through
+       KR_TEMP3. This code MUST NOT clobber those cap registers
+       before RETURNing or calling DeliverAnyMessage(&Msg). */
+
     /* Perform any work whose time has come. */
     RecordCurrentTime();
 
@@ -1560,6 +1565,10 @@ main(void)
     Msg.snd_w1 = 0;
     Msg.snd_w2 = 0;
     Msg.snd_w3 = 0;
+    Msg.snd_key0 = KR_VOID;
+    Msg.snd_key1 = KR_VOID;
+    Msg.snd_key2 = KR_VOID;
+    Msg.snd_rsmkey = KR_VOID;
 
     switch (Msg.rcv_keyInfo) {
     case 0xffff:	// nplink has this key

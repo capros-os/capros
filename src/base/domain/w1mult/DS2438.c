@@ -568,12 +568,8 @@ reqerr:
                 dev->u.bm.configReg, newConfig);
     if (dev->u.bm.configReg != newConfig) {
       dev->u.bm.configReg = newConfig;
-      int status = SetConfigurationIfFound(dev);
-      if (status) {
-buserr:
-        msg->snd_code = RC_capros_DS2438_BusError;
-        break;
-      }
+      SetConfigurationIfFound(dev);
+      /* Ignore any status error; we've captured the config in dev. */
     }
     break;
   }
@@ -584,8 +580,11 @@ buserr:
     } else {
       WaitUntilNotBusy();
       int status = AddressRecallAndReadPage(dev, 0);
-      if (status)
-        goto buserr;
+      if (status) {
+buserr:
+        msg->snd_code = RC_capros_DS2438_BusError;
+        break;
+      }
       RecordCurrentRTC();
       msg->snd_w1 = inBuf[5] | (inBuf[6] << 8);
       msg->snd_w2 = currentRTC;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -120,11 +120,11 @@ struct W1Device {
     } pio8;
     struct {
       Link samplingQueueLink;
-      struct portCfg {
-        uint8_t cfglo;
-        uint8_t cfghi;
-      } requestedCfg[4];
-      struct portCfg devCfg[4];
+      /* requestedCfg consists of four pairs of bytes; in each pair,
+         the first byte is cfglo and the second byte is cfghi. 
+         Likewise for devCfg. */
+      uint8_t requestedCfg[8];
+      uint8_t devCfg[8];
       struct {
         int32_t logSlot;	// slot in KR_KEYSTORE with Logfile, -1 if none
         uint16_t hysteresis;

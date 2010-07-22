@@ -33,6 +33,11 @@ Approved for public release, distribution unlimited. */
 #define hi_IR  0x01
 #define hi_POR 0x80
 
+// Macros to access the two configuration bytes for each port
+// in the two arrays devCfg and requestedCfg:
+#define cfglo(i) (i*2+0)
+#define cfghi(i) (i*2+1)
+
 Link DS2450_samplingQueue[maxLog2Seconds+1];
 
 bool converting = false;
@@ -119,8 +124,10 @@ static int
 SendConfig(struct W1Device * dev)
 {
   int i;
-  uint8_t * requestedBytes = (void *)&dev->u.ad.requestedCfg[0];
-  uint8_t * devBytes = (void *)&dev->u.ad.devCfg[0];
+
+  // Define shorter names for the arrays:
+  uint8_t * const requestedBytes = &dev->u.ad.requestedCfg[0];
+  uint8_t * const devBytes = &dev->u.ad.devCfg[0];
 
   // Find the first byte that differs:
   int firstByte;
@@ -137,7 +144,7 @@ SendConfig(struct W1Device * dev)
       break;
   assert(lastByte >= 0);
 
-  DEBUG(ad) kprintf(KR_OSTREAM, "Setting config");
+  DEBUG(ad) kprintf(KR_OSTREAM, "Setting config\n");
   int tries = 0;
   while (1) {
     int status = WriteDS2450MemoryFirst(dev,
@@ -156,7 +163,7 @@ statuserr:
       if (status) goto statuserr;
     }
   }
-  memcpy(&dev->u.ad.devCfg, &dev->u.ad.requestedCfg, 8);
+  memcpy(devBytes, requestedBytes, 8);
   return capros_W1Bus_StatusCode_OK;	// success
 }
 
@@ -173,7 +180,7 @@ DS2450_Init(void)
 static void
 CheckConfigured(struct W1Device * dev)
 {
-  if (dev->u.ad.devCfg != dev->u.ad.requestedCfg) {
+  if (memcmp(&dev->u.ad.devCfg[0], &dev->u.ad.requestedCfg[0], 8)) {
     // The configuration needs to be sent to the device.
     if (converting) {
       // Don't send the configuration now,
@@ -196,7 +203,7 @@ DS2450_InitStruct(struct W1Device * dev)
   int i;
 
   link_Init(&dev->u.ad.samplingQueueLink);
-  dev->u.ad.requestedCfg[0].cfglo = 0xff;  // not configured yet
+  dev->u.ad.requestedCfg[0] = 0xff;  // not configured yet
   for (i = 0; i < 4; i++) {
     dev->u.ad.port[i].logSlot = -1;	// no log yet
   }
@@ -251,9 +258,9 @@ CheckPOR(struct W1Device * dev)
            status, RunPgmMsg.rcv_sent, inBuf[0], inBuf[1], inBuf[2]);
     return POR_Error;
   }
-  memcpy(&dev->u.ad.devCfg, &inBuf, 8);
+  memcpy(&dev->u.ad.devCfg[0], &inBuf, 8);
   // Check power-on reset:
-  if (dev->u.ad.devCfg[0].cfghi & hi_POR) {
+  if (dev->u.ad.devCfg[cfghi(0)] & hi_POR) {
     DEBUG(ad) kprintf(KR_OSTREAM, "DS2450 %#llx had POR\n", dev->rom);
     int tries = 0;
     while (1) {
@@ -272,14 +279,14 @@ CheckPOR(struct W1Device * dev)
     
     // Clear POR in devCfg:
     for (i = 0; i < 4; i++) {
-      dev->u.ad.devCfg[i].cfghi &= ~ hi_POR;
+      dev->u.ad.devCfg[cfghi(i)] &= ~ hi_POR;
     }
     ret = POR_NowOK;
   } else {
     ret = POR_WasOK;
   }
 
-  if (dev->u.ad.requestedCfg[0].cfglo != 0xff) {	// if it's configured
+  if (dev->u.ad.requestedCfg[0] != 0xff) {	// if it's configured
     CheckConfigured(dev);
   }
   return ret;
@@ -420,12 +427,15 @@ readData(struct W1Device * dev)
                        dev->rom, DS2450_sampledTime);
   int i;
   for (i = 0; i < 4; i++) {
-    if (! (dev->u.ad.requestedCfg[i].cfglo & lo_OE)) {	// input port
-      uint16_t data = inBuf[i*2] | (inBuf[i*2+1] << 8);
+    if (! (dev->u.ad.requestedCfg[cfglo(i)] & lo_OE)) {	// input port
+      uint16_t data = inBuf[i*2+0] | (inBuf[i*2+1] << 8);
+      DEBUG(ad) kprintf(KR_OSTREAM, "Port %u data %#.4x hyst %u hl %u\n",
+                        i, data, dev->u.ad.port[i].hysteresis,
+                        dev->u.ad.port[i].hysteresisLow);
       if (data < dev->u.ad.port[i].hysteresisLow
           || data > dev->u.ad.port[i].hysteresisLow
                            + dev->u.ad.port[i].hysteresis ) {
-        // Temperature changed sufficiently to log.
+        // Data changed sufficiently to log.
         if (AddLogRecord16(dev->u.ad.port[i].logSlot,
                            DS2450_sampledRTC,
                            DS2450_sampledTime, data, 0)) {
@@ -522,7 +532,7 @@ static void
 ReturnLog(struct W1Device * dev,
   unsigned int i, cap_t kr, uint8_t * sndkey)
 {
-  if (dev->u.ad.requestedCfg[i].cfglo & lo_OE) {	// output port
+  if (dev->u.ad.requestedCfg[cfglo(i)] & lo_OE) {	// output port
     *sndkey = KR_VOID;		// no log needed for output
   } else {		// input port
     result_t result = capros_Node_getSlotExtended(KR_KEYSTORE,
@@ -572,15 +582,15 @@ err: ;
           }
         }
       }
-      struct portCfg * cfg = &dev->u.ad.requestedCfg[0];
       unsigned int minLog2Seconds = maxLog2Seconds;
       for (i = 0; i < 4; i++) {
         if (portConfig[i].output) {
-          cfg[i].cfglo = lo_OE | (portConfig[i].rangeOrOutput ? lo_OC : 0) | 1;
-          cfg[i].cfghi = hi_IR;
+          dev->u.ad.requestedCfg[cfglo(i)] = lo_OE
+                      | (portConfig[i].rangeOrOutput ? lo_OC : 0) | 1;
+          dev->u.ad.requestedCfg[cfghi(i)] = hi_IR;
         } else {
-          cfg[i].cfglo = portConfig[i].bitsToConvert & 0xf;
-          cfg[i].cfghi = (portConfig[i].rangeOrOutput ? hi_IR : 0);
+          dev->u.ad.requestedCfg[cfglo(i)] = portConfig[i].bitsToConvert & 0xf;
+          dev->u.ad.requestedCfg[cfghi(i)] = (portConfig[i].rangeOrOutput ? hi_IR : 0);
           if (portConfig[i].log2Seconds < minLog2Seconds)
             minLog2Seconds = portConfig[i].log2Seconds;
         }
