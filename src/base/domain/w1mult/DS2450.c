@@ -38,6 +38,18 @@ Approved for public release, distribution unlimited. */
 #define cfglo(i) (i*2+0)
 #define cfghi(i) (i*2+1)
 
+/* Some information about states of dev->u.ad:
+
+   If requestedCfg[0] == 0xff, the client has never configured
+     the device, requestedCfg[1 through 7] are unused, and for each port i,
+     port[i].hysteresis and port[i].hysteresisLow are unused.
+
+   Otherwise, requestedCfg has the client's configuration.
+   For each port i, requestedCfg[cfglo(i)] & lo_OE is nonzero if the port
+     is configured for output, zero for input.
+     If for output, port[i].hysteresis and port[i].hysteresisLow are unused.
+ */
+
 Link DS2450_samplingQueue[maxLog2Seconds+1];
 
 bool converting = false;
@@ -162,6 +174,7 @@ statuserr:
       status = WriteDS2450Memory(dev, requestedBytes[i]);
       if (status) goto statuserr;
     }
+    break;	// succeeded, no more tries
   }
   memcpy(devBytes, requestedBytes, 8);
   return capros_W1Bus_StatusCode_OK;	// success
@@ -300,8 +313,6 @@ The device is addressed, since we just completed a searchROM that found it.
 void
 DS2450_InitDev(struct W1Device * dev)
 {
-  int i;
-
   // AddressDevice(dev);	not necessary
   if (CheckPOR(dev) == POR_Error) {
     dev->found = false;
@@ -309,11 +320,6 @@ DS2450_InitDev(struct W1Device * dev)
   }
   DEBUG(ad) kprintf(KR_OSTREAM, "DS2450 %#llx is found.\n",
                    dev->rom);
-
-  // Ensure we log the next readings:
-  for (i = 0; i < 4; i++) {
-    dev->u.ad.port[i].hysteresisLow = 0x20000;
-  }
 }
 
 /* At the end of heartbeat work, all DS2450's are idle, so we can
@@ -593,9 +599,9 @@ err: ;
           dev->u.ad.requestedCfg[cfghi(i)] = (portConfig[i].rangeOrOutput ? hi_IR : 0);
           if (portConfig[i].log2Seconds < minLog2Seconds)
             minLog2Seconds = portConfig[i].log2Seconds;
+          dev->u.ad.port[i].hysteresis = portConfig[i].hysteresis;
+          dev->u.ad.port[i].hysteresisLow = 0x20000;	// log the next reading
         }
-        dev->u.ad.port[i].hysteresis = portConfig[i].hysteresis;
-        dev->u.ad.port[i].hysteresisLow = 0x20000;	// log the next reading
       }
 
       link_Unlink(&dev->u.ad.samplingQueueLink);

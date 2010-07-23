@@ -7,6 +7,7 @@ interface DS2450 extends key
 
   If output is true, the port is configured for output,
     and rangeOrOutput specifies the output value (true = 1 = high).
+    Other fields are ignored.
 
   If output is false, the port is configured for input.
     rangeOrOutput specifies the input range (0 = 2.55V, 1 = 5.10 V).
@@ -34,7 +35,8 @@ interface DS2450 extends key
   Returns, for each port configured for input,
   a read-only capability to the port's Logfile,
   containing records of type Logfile.LogRecord16 
-  in which the value field is unsigned data for that port.
+  in which the value field is *unsigned* data for that port
+  (despite the fact that the value field is declared as signed).
 
   May raise SpaceBank.LimitReached.
   */
