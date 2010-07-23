@@ -296,10 +296,6 @@ DS2438_InitDev(struct W1Device * dev)
     }
   }
 
-  // Ensure we log the next readings:
-  dev->u.bm.tempHysteresisLow = 16384;
-  dev->u.bm.voltHysteresisLow = 16384;
-
   DEBUG(bm) kprintf(KR_OSTREAM, "DS2438 %#llx is found.\n",
                    dev->rom);
 }

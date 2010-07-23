@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -187,9 +187,6 @@ DS18B20_InitDev(struct W1Device * dev)
     dev->found = false;
     return;
   }
-
-  // Ensure we log the next readings:
-  dev->u.thermom.hysteresisLow = 16384;
 
   dev->u.thermom.spadConfig = inBuf[4] & 0x60;
   if (dev->u.thermom.resolution != 255) {	// if it's configured
