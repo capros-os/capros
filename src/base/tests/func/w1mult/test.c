@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -43,6 +43,9 @@ Approved for public release, distribution unlimited. */
 #include <domain/domdbg.h>
 #include <domain/assert.h>
 
+#define POOL_SOLAR 0
+#define TEMPS 0
+
 #define KC_SNODEC 0
 
 #define KR_OSTREAM  KR_APP(1)
@@ -53,8 +56,8 @@ Approved for public release, distribution unlimited. */
 #define dev_pool_DS18B20 4
 #define dev_pool_DS2450  5
 #define dev_attic_DS18B20 6
-#define dev_HVAC1_DS2450 17
-#define dev_HVAC2_DS2450 18
+#define dev_HVAC0_DS2450 17
+#define dev_HVAC1_DS2450 18
 #define dev_poolReturn_DS18B20 19
 #define dev_poolSolar_DS18B20 20
 
@@ -187,11 +190,7 @@ PrintADDevN(int n)
     if (result != RC_capros_Logfile_NoRecord) {
       ckOK
       assert(len == sizeof(rec16));
-#if 0
-      kprintf(KR_OSTREAM, "%#.4x ", rec16.value);
-#else
-      kprintf(KR_OSTREAM, "%u ", rec16.value);
-#endif
+      kprintf(KR_OSTREAM, "%u ", (uint16_t)rec16.value);
     } else {
       kprintf(KR_OSTREAM, ". ");
     }
@@ -216,15 +215,19 @@ main(void)
 
   kprintf(KR_OSTREAM, "Starting.\n");
 
+#if POOL_SOLAR
+  configureAD(dev_pool_DS2450);
+#endif
+#if TEMPS
 //  configureTemp(3);
   configureTemp(dev_pool_DS18B20);
-  configureAD(dev_pool_DS2450);
   configureTemp(dev_attic_DS18B20);
- // configureTemp(13);
-  configureAD(dev_HVAC1_DS2450);
-  configureAD(dev_HVAC2_DS2450);
   configureTemp(dev_poolReturn_DS18B20);
   configureTemp(dev_poolSolar_DS18B20);
+ // configureTemp(13);
+#endif
+  configureAD(dev_HVAC0_DS2450);
+//  configureAD(dev_HVAC1_DS2450);
 
   // Give it a chance to get started:
   result = capros_Sleep_sleep(KR_SLEEP, 3000);	// sleep 3 seconds
@@ -233,15 +236,19 @@ main(void)
   kprintf(KR_OSTREAM, "Looping.\n");
 
   for (;;) {
+#if POOL_SOLAR
+    PrintADDevN(dev_pool_DS2450);
+#endif
+#if TEMPS
     //PrintTempDevN(3);
     PrintTempDevN(dev_pool_DS18B20);
-    PrintADDevN(dev_pool_DS2450);
     PrintTempDevN(dev_attic_DS18B20);
-    //PrintTempDevN(13);
-//    PrintADDevN(dev_HVAC1_DS2450);
-//    PrintADDevN(dev_HVAC2_DS2450);
     PrintTempDevN(dev_poolReturn_DS18B20);
     PrintTempDevN(dev_poolSolar_DS18B20);
+    //PrintTempDevN(13);
+#endif
+    PrintADDevN(dev_HVAC0_DS2450);
+//    PrintADDevN(dev_HVAC1_DS2450);
 
     result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
     assert(result == RC_OK || result == RC_capros_key_Restart);
