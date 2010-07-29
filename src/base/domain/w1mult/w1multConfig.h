@@ -33,6 +33,7 @@ enum {
 struct W1DevConfig {
   short thisIndex;	// -1 means end of entries
   short parentIndex;	// -1 means no parent coupler
+			// -2 means no device here
   uint8_t mainOrAux;	// which branch of parent coupler
   uint64_t rom;
 };

@@ -420,9 +420,11 @@ AllDevsNotFound(void)
   for (i = 0; i < numDevices; i++) {
     struct W1Device * dev = &devices[i];
     dev->found = false;
-    // We may have lost the state of the devices:
-    if (w1dev_IsCoupler(dev))
-        dev->u.coupler.activeBranch = branchUnknown;
+    if (dev->configured) {
+      // We may have lost the state of the devices:
+      if (w1dev_IsCoupler(dev))
+          dev->u.coupler.activeBranch = branchUnknown;
+    }
   }
 }
 
@@ -1161,7 +1163,8 @@ SearchPath(struct Branch * br)
       large numbers of devices. */
       for (i = 0; i < numDevices; i++) {
         struct W1Device * dev = &devices[i];
-        if (dev->rom == rom
+        if (dev->configured
+            && dev->rom == rom
             && dev->parentBranch == br) {
           assert(! dev->found);	// better not find it more than once
           // Do device-independent initialization:
@@ -1312,12 +1315,16 @@ rescan:
     if (statusCode > 0)
       goto rescan;
 
+    bool someNotFound = false;
     for (i = 0; i < numDevices; i++) {
-      if (! devices[i].found) {
-        kprintf(KR_OSTREAM, "ROM %#.16llx configured but not found.\n",
+      if (devices[i].configured && ! devices[i].found) {
+        kprintf(KR_OSTREAM, "\007ROM %#.16llx configured but not found.\n",
                 devices[i].rom);
+        someNotFound = true;
       }
     }
+    if (someNotFound)
+      goto rescan;
 
     heartbeatCount = 0;
     RecordCurrentTime();
@@ -1461,46 +1468,52 @@ main(void)
     assert(numDevices < maxDevices);	// else device array is too small
     assert(cfg->parentIndex < (int)numDevices);  // parent must already be defined
     struct W1Device * dev = &devices[numDevices];
-    if (cfg->parentIndex < 0) {		// no parent coupler
-      dev->parentBranch = &root;
-    } else {
-      assert(cfg->parentIndex < numDevices);
-      struct W1Device * parentCoup = &devices[cfg->parentIndex];
-      switch (cfg->mainOrAux) {
-      case branch_main:
-        dev->parentBranch = &parentCoup->u.coupler.mainBranch;
-        break;
-      case branch_aux:
-        dev->parentBranch = &parentCoup->u.coupler.auxBranch;
-        break;
-      default:
-        kdprintf(KR_OSTREAM, "Configuration error %d\n", numDevices);
-      }
-    }
-    dev->rom = cfg->rom;
     // dev->found = false; // part of AllDevsNotFound
-    dev->callerWaiting = false;
-    dev->onWorkList = false;
-    // Do device-specific initialization:
-    switch (w1dev_getFamilyCode(dev)) {
-    case famCode_DS2409:
-      dev->u.coupler.mainBranch.whichBranch = capros_W1Bus_stepCode_setPathMain;
-      dev->u.coupler.auxBranch.whichBranch = capros_W1Bus_stepCode_setPathAux;
-      // dev->u.coupler.activeBranch = branchUnknown; // part of AllDevsNotFound
-      break;
-    case famCode_DS18B20:
-      DS18B20_InitStruct(dev);
-      break;
-    case famCode_DS2408:
-      DS2408_InitStruct(dev);
-      break;
-    case famCode_DS2438:
-      DS2438_InitStruct(dev);
-      break;
-    case famCode_DS2450:
-      DS2450_InitStruct(dev);
-      break;
-    default: break;
+    if (cfg->parentIndex == -2) {		// no device here
+      dev->configured = false;
+    } else {
+      dev->configured = true;
+      if (cfg->parentIndex == -1) {		// no parent coupler
+        dev->parentBranch = &root;
+      } else {
+        assert(cfg->parentIndex < numDevices);
+        struct W1Device * parentCoup = &devices[cfg->parentIndex];
+        switch (cfg->mainOrAux) {
+        case branch_main:
+          dev->parentBranch = &parentCoup->u.coupler.mainBranch;
+          break;
+        case branch_aux:
+          dev->parentBranch = &parentCoup->u.coupler.auxBranch;
+          break;
+        default:
+          kdprintf(KR_OSTREAM, "Configuration error %d\n", numDevices);
+        }
+      }
+      dev->rom = cfg->rom;
+      dev->callerWaiting = false;
+      dev->onWorkList = false;
+      // Do device-specific initialization:
+      switch (w1dev_getFamilyCode(dev)) {
+      case famCode_DS2409:
+        dev->u.coupler.mainBranch.whichBranch
+         = capros_W1Bus_stepCode_setPathMain;
+        dev->u.coupler.auxBranch.whichBranch = capros_W1Bus_stepCode_setPathAux;
+        // dev->u.coupler.activeBranch = branchUnknown; // part of AllDevsNotFound
+        break;
+      case famCode_DS18B20:
+        DS18B20_InitStruct(dev);
+        break;
+      case famCode_DS2408:
+        DS2408_InitStruct(dev);
+        break;
+      case famCode_DS2438:
+        DS2438_InitStruct(dev);
+        break;
+      case famCode_DS2450:
+        DS2450_InitStruct(dev);
+        break;
+      default: break;
+      }
     }
 
     numDevices++;
@@ -1609,6 +1622,7 @@ main(void)
     {
       assert(Msg.rcv_keyInfo < numDevices);
       struct W1Device * dev = &devices[Msg.rcv_keyInfo];
+      assert(dev->configured);
 
       switch (w1dev_getFamilyCode(dev)) {
       default:

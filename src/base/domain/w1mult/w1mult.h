@@ -94,6 +94,7 @@ struct W1Device {
   struct W1Device * nextChild;
   struct W1Device * nextInSamplingList;
   struct W1Device * nextInWorkList;
+  bool configured;
   bool onWorkList;
   bool sampling;
   bool callerWaiting;	// whether snode slot has a resume key for this dev
