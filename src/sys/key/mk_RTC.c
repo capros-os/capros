@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -40,9 +40,6 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-// From mk_SleepKey:
-void SleepInvokee(Process * invokee, uint64_t wakeupTime);
-
 void
 RTCKey(Invocation * inv)
 {
@@ -78,6 +75,7 @@ RTCKey(Invocation * inv)
     Process * invokee = inv->invokee;
     if (! invokee)
       break;	// no one to wake up at the end of the wait
+    /* FIXME: If the RTC is adjusted, we should wake up this guy. */
     SleepInvokee(invokee, wakeupTime);
     return;	// don't call ReturnMessage
   }
@@ -91,16 +89,29 @@ RTCKey(Invocation * inv)
 
     break;
 
+  case OC_capros_RTCSet_addTime:
+    DEBUG(set) printf("RTCSet_addTime %u\n", inv->entry.w1);
+
+    COMMIT_POINT();
+
+    uint32_t newTime = RtcRead() + inv->entry.w1;
+    goto addSet;
+
   case OC_capros_RTCSet_setTime:
     DEBUG(set) printf("RTCSet_setTime %u\n", inv->entry.w1);
 
     COMMIT_POINT();
 
+    newTime = inv->entry.w1;
+
+  addSet: ;
     if (inv->key->u.nk.value[0] == 0) {
       inv->exit.code = RC_capros_key_UnknownRequest;
     }
 
-    int ret = RtcSet(inv->entry.w1);
+    /* FIXME: If the RTC is adjusted, we should wake up procs
+       waiting on the RTC. */
+    int ret = RtcSet(newTime);
     if (ret < 0) {
       inv->exit.code = RC_capros_key_RequestError;
     }

@@ -5,7 +5,7 @@ package capros;
 */
 interface RTC extends key raises (key.RequestError) {
 
-  /** The GMT time in seconds since 1/1/1970. */
+  /** The UTC time in seconds since 1/1/1970. */
   typedef unsigned long time_t;
 
   /** getTime always returns a value between (not including)
@@ -19,6 +19,8 @@ interface RTC extends key raises (key.RequestError) {
   time_t getTime();
 
   /** Sleep until a specified time or a restart occurs.
+  This may also wake up at any earlier time, so on return the caller
+  must check the time, or use sleepTillTime instead.
   If a system restart occurs (and the caller is persistent),
   the operation raises key.Restart at that time.
   */
@@ -36,4 +38,9 @@ interface RTCSet extends RTC {
   /** If the specified time can't be represented in the hardware,
   we raise key.RequestError. */
   void setTime(RTC.time_t newTime);
+
+  /** Add timeChange (which may be positive or negative) to the RTC.
+  If the specified time can't be represented in the hardware,
+  we raise key.RequestError. */
+  void addTime(long timeChange);
 };
