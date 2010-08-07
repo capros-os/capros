@@ -61,6 +61,7 @@ DoMigrationStep(void)
 
 /* Most of the work of restart and migration is done in the kernel.
  * This thread just drives the execution.
+ * This thread is started when both restart areas are mounted.
  */
 /* Note, beware of accessing a page both from this process and from
  * the kernel. On some architectures (ARM), that can result in
