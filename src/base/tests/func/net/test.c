@@ -27,6 +27,10 @@ Approved for public release, distribution unlimited. */
  * On that host, you must enable both UDP and TCP port 7 in the firewall, and
  * enable the echo-dgram and echo-stream services.
  *
+ * It also uses the time service on that host.
+ * On that host you must enable UDP port 37 in the firewall,
+ * and enable the time-dgram service.
+ *
  * This test also waits for a connection on TCP port 7. To give it one,
  * you can ...
 */
@@ -34,11 +38,6 @@ Approved for public release, distribution unlimited. */
 #include <string.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/capros/SpaceBank.h>
-#include <idl/capros/GPT.h>
-#include <idl/capros/SuperNode.h>
-#include <idl/capros/Sleep.h>
-#include <idl/capros/DevPrivs.h>
 #include <idl/capros/NPIP.h>
 #include <idl/capros/NPLinkee.h>
 
@@ -230,9 +229,26 @@ main(void)
           lenRecvd, sourceIPAddr, sourceIPPort,
           r[0], r[1], r[2], r[3]);
 
+  // Try the time service (RFC 868) on the server.
+#define timePort 37
+
+  kprintf(KR_OSTREAM, "UDP send to time server.\n");
+  result = capros_UDPPort_send(KR_UDPPort, testIPAddr, timePort, 0, NULL);
+  ckOK
+
+  kprintf(KR_OSTREAM, "UDP receive.\n");
+  result = capros_UDPPort_receive(KR_UDPPort, sizeof(r),
+			&sourceIPAddr, &sourceIPPort,
+                        &lenRecvd, &r[0]);
+  ckOK
+  kprintf(KR_OSTREAM, "Received %d bytes from %#x:%d: %#x %#x %#x %#x\n",
+          lenRecvd, sourceIPAddr, sourceIPPort,
+          r[0], r[1], r[2], r[3]);
+
   kprintf(KR_OSTREAM, "Destroying UDP port.\n");
   result = capros_key_destroy(KR_UDPPort);
   ckOK
+
 
   // Test Listen.
   kprintf(KR_OSTREAM, "Starting Listen test on TCP port 7.\n");
