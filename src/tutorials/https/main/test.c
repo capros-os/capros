@@ -34,6 +34,8 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/File.h>
 #include <idl/capros/IndexedKeyStore.h>
 #include <idl/capros/HTTP.h>
+#include <idl/capros/HTTPResourceGetConstructor.h>
+#include <idl/capros/HTTPResourceGetConstructorExtended.h>
 #include <idl/capros/NetListener.h>
 
 #include <domain/CMME.h>
@@ -179,41 +181,23 @@ cmme_main(void)
   static char homeFileTrailer[] = "</BODY></HTML>";
   AppendToHomeFile(homeFileTrailer, sizeof(homeFileTrailer)-1);
 
-  // Get initial PC for HTTPRGet object.
-  capros_Node_getSlotExtended(KR_CONSTIT, KC_HTTPRGetPC, KR_TEMP0);
-  uint32_t number32;
-  result = capros_Number_get32(KR_TEMP0, &number32);
+  capros_Node_getSlotExtended(KR_CONSTIT, KC_HomePageLimit, KR_TEMP0);
+  uint32_t sendLimit;
+  result = capros_Number_get32(KR_TEMP0, &sendLimit);
   ckOK
 
-  // Make a constructor for the home page object.
-  capros_Node_getSlotExtended(KR_CONSTIT, KC_MetaCon, KR_TEMP0);
-  result = capros_Constructor_request(KR_TEMP0, KR_BANK, KR_SCHED, KR_VOID,
+  // Make a HTTPResource for the home page object.
+  result = capros_HTTPResourceGetConstructor_construct(KR_TEMP0,
+             KR_BANK, KR_SCHED,
+             KR_VOID, KR_VOID, KR_VOID,
              KR_TEMP1);
   ckOK
-  capros_Node_getSlotExtended(KR_CONSTIT, KC_HTTPRGetSpace, KR_TEMP0);
-  result = capros_Constructor_insertAddrSpace32(KR_TEMP1, KR_TEMP0,
-             number32);
-  ckOK
-  result = capros_Constructor_insertConstituent(KR_TEMP1, 0, KR_OSTREAM);
-  ckOK
-  capros_Node_getSlot(KR_CONSTIT, KC_HTTPConstit, KR_TEMP0);
-  result = capros_Node_getSlot(KR_TEMP0, capros_HTTP_KC_ProtoSpace,
-                               KR_TEMP0);
-  result = capros_Constructor_insertConstituent(KR_TEMP1, 1, KR_TEMP0);
-  ckOK
   capros_Node_getSlotExtended(KR_CONSTIT, KC_HomePageC, KR_TEMP0);
-  result = capros_Constructor_insertConstituent(KR_TEMP1, 2, KR_TEMP0);
+  const cap_t homePageCap = KR_TEMP2;
+  result = capros_HTTPResourceGetConstructorExtended_init(KR_TEMP1,
+             KR_TEMP0, sendLimit, homePageCap);
   ckOK
-  capros_Node_getSlotExtended(KR_CONSTIT, KC_HomePageLimit, KR_TEMP0);
-  result = capros_Constructor_insertConstituent(KR_TEMP1, 3, KR_TEMP0);
-  ckOK
-  result = capros_Constructor_seal(KR_TEMP1, KR_TEMP0);
-  ckOK
-  // Create the one instance of the home page HTTPResource.
-  result = capros_Constructor_request(KR_TEMP0, KR_BANK, KR_SCHED, KR_VOID,
-             KR_TEMP0);
-  ckOK
-  const cap_t homePageCap = KR_TEMP0;
+
   // Put home page object in directory.
   result = capros_IndexedKeyStore_put(KR_HTTPDirectory, homePageCap,
              11, (uint8_t *)HomePageSwissNum);

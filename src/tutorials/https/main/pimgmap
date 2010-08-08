@@ -80,8 +80,7 @@ PROD_CONSTIT(test_c, , KC_NetListenerC) = netlistener_c;
 PROD_CONSTIT(test_c, , KC_HTTPSPort) = HTTPSPort;
 PROD_CONSTIT(test_c, , KC_DemoResource) = start uploaderResource 0;
 PROD_CONSTIT(test_c, , KC_SysTrace) = misc SysTrace;
-PROD_CONSTIT(test_c, , KC_HTTPRGetSpace) = httprget.space;
-PROD_CONSTIT(test_c, , KC_HTTPRGetPC) = httprget.pc;
+PROD_CONSTIT(test_c, , KC_HTTPRGetC) = httprgetc;
 PROD_CONSTIT(test_c, , KC_HomePageC) = homehttprhc;
 PROD_CONSTIT(test_c, , KC_HomePageLimit) = homehttprhLimit;
 
