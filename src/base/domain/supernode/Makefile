@@ -46,7 +46,7 @@ interfaces: $(IDL)
 
 supernode.c: $(BUILDDIR)/constituents.h
 
-$(BUILDDIR)/supernode: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
+$(BUILDDIR)/supernode: $(OBJECTS) $(LIBDEP)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 ## and for debugging:
 	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
