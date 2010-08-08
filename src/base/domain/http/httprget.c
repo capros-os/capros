@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -40,29 +40,23 @@ An HTTPResource that allows only GET and HEAD methods.
 
 #define KC_OSTREAM 0
 #define KC_PROTOSPC 1
-#define KC_HTTPRHC 2	// a Constructor for an HTTPResourceHandler
-#define KC_HTTPRHSendLimit 3
 
 #define KR_OSTREAM    KR_APP(0)
+#define KR_HTTPRHC    KR_APP(1)
 
 int
 main(void)
 {
   result_t result;
   uint32_t sendLimit;
-
-  capros_Node_getSlotExtended(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-
-  capros_Node_getSlotExtended(KR_CONSTIT, KC_HTTPRHSendLimit, KR_TEMP0);
-  capros_Number_get32(KR_TEMP0, &sendLimit);
-
 #define bufSize capros_HTTPResource_maxLengthOfPathAndQuery
   uint8_t buf[bufSize];
 
-  capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP0);
+  capros_Node_getSlotExtended(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+
   Message Msg = {
     .snd_invKey = KR_RETURN,
-    .snd_key0 = KR_TEMP0,
+    .snd_key0 = KR_VOID,
     .snd_key1 = KR_VOID,
     .snd_key2 = KR_VOID,
     .snd_rsmkey = KR_VOID,
@@ -71,13 +65,21 @@ main(void)
     .snd_w2 = 0,
     .snd_w3 = 0,
     .snd_len = 0,
-    .rcv_key0 = KR_VOID,
+    .rcv_key0 = KR_HTTPRHC,
     .rcv_key1 = KR_VOID,
     .rcv_key2 = KR_VOID,
     .rcv_rsmkey = KR_RETURN,
     .rcv_data = buf,
     .rcv_limit = bufSize
   };
+
+  // Call back to our caller to get KR_HTTPRHC and sendLimit.
+  result = CALL(&Msg);
+  sendLimit = Msg.rcv_w1;
+
+  capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP0);
+  Msg.snd_key0 = KR_TEMP0;
+  Msg.rcv_key0 = KR_VOID;
 
   while (1) {
     RETURN(&Msg);
@@ -120,9 +122,8 @@ main(void)
       case capros_HTTPResource_Method_HEAD:
         // Ignore path and query.
 
-        // Get the Constructor for an HTTPResourceHandler
-        capros_Node_getSlotExtended(KR_CONSTIT, KC_HTTPRHC, KR_TEMP2);
-        result = capros_Constructor_request(KR_TEMP2,
+        // Construct the HTTPResourceHandler
+        result = capros_Constructor_request(KR_HTTPRHC,
                    KR_BANK, KR_SCHED, KR_VOID,
                    KR_TEMP0);
         switch (result) {

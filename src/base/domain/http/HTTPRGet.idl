@@ -1,0 +1,11 @@
+package capros;
+
+interface HTTPResourceGetConstructorExtended extends key {
+  HTTPResource init(Constructor constr, unsigned long sendLimit);
+};
+
+interface HTTPResourceGetConstructor extends ConstructorRequestor {
+  void construct(SpaceBank bank, key sched,
+                 out key unused1, out key unused2, out key unused3,
+                 out HTTPResourceGetConstructorExtended ret);
+};

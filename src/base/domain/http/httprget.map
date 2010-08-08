@@ -3,7 +3,7 @@
 #define __HTTPRGET_MAP_
 
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -25,8 +25,11 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-// Components for a httprget constructor.
-httprget.space = small program LIBDIR "httprget";
-httprget.pc = symbol LIBDIR "httprget" _start;
+BOOT_CONSTRUCTOR(httprgetc, httprget)
+PROD_SPACE(httprgetc) = small program LIBDIR "httprget";
+PROD_PC(httprgetc) = symbol LIBDIR "httprget" _start;
+PROD_CONSTIT(httprgetc, , 0) = misc Console;
+PROD_CONSTIT(httprgetc, , 1) = protospace;
+httprgetc = start httprgetc_process 1;	// requestor key
 
 #endif // __HTTPRGET_MAP_
