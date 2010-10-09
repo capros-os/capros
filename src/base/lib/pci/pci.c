@@ -1880,6 +1880,8 @@ pci_set_cacheline_size(struct pci_dev *dev)
 	    (cacheline_size % pci_cache_line_size) == 0)
 		return 0;
 
+dev_printk(KERN_DEBUG, &dev->dev, "cache line size is %d"
+		   "\n", cacheline_size << 2);////
 	/* Write the correct value. */
 	pci_write_config_byte(dev, PCI_CACHE_LINE_SIZE, pci_cache_line_size);
 	/* Read it back. */
@@ -1887,8 +1889,14 @@ pci_set_cacheline_size(struct pci_dev *dev)
 	if (cacheline_size == pci_cache_line_size)
 		return 0;
 
+#if 0////
 	dev_printk(KERN_DEBUG, &dev->dev, "cache line size of %d is not "
 		   "supported\n", pci_cache_line_size << 2);
+#else
+	dev_printk(KERN_DEBUG, &dev->dev, "cache line size of %d is not "
+		   "supported, got %d\n", pci_cache_line_size << 2,
+			cacheline_size << 2);
+#endif
 
 	return -EINVAL;
 }
