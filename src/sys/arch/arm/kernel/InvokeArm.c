@@ -78,13 +78,13 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   /* Not hazarded because invocation key */
   unsigned int invSlot = invKeyAndType & 0xff;
   if (invSlot >= EROS_NODE_SIZE) {
-    fatal("Invalid invKey: should fault the user\n"); // FIXME
+    fatal("Invalid invKey %u: should fault the user\n", invSlot); // FIXME
   }
   inv->key = &thisPtr->keyReg[invSlot];
 
   unsigned int typ = (invKeyAndType >> 8) & 0xff;
   if (!INVTYPE_ISVALID(typ)) {
-    fatal("Invalid invType: should fault the user\n"); // FIXME
+    fatal("Invalid invType %u: should fault the user\n", typ); // FIXME
   }
   inv->invType = typ;
 
