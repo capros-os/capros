@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2006, 2008-2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -75,6 +75,7 @@ DIRS+=memmap
 # DIRS+=net # from EROS, not used in CapROS
 # DIRS+=eterm # broken due to RETRY_SET_LIK
 # DIRS+=rangeAl # broken, compilation errors
+DIRS+=RTCAdjust
 DIRS+=timer
 
 DIRS+=devclock
