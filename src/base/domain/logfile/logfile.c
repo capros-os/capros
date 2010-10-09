@@ -44,6 +44,7 @@ Approved for public release, distribution unlimited. */
 
 #define dbg_memory 0x1
 #define dbg_server 0x2
+#define dbg_index  0x4
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
@@ -381,6 +382,7 @@ DeleteOldestRecord(void)
           CBOut, indexLo, indexLo->addr, numIndexRecords, CBIn);
 #endif
   assert(CBOut == indexLo->addr);
+  assert(indexLo == LogToIndex(CBOut));
 
   if (cachedLocation.addr == CBOut) {
     // We are deleting the cached location. Invalidate the cache.
@@ -389,32 +391,40 @@ DeleteOldestRecord(void)
   }
 
   unsigned long recordLength = RecToHdr(CBOut)->length;
-  uint8_t * endRecord = CBOut + recordLength;
-  uint8_t * newOut = endRecord;
+  uint8_t * newOut = CBOut + recordLength;
   struct IndexRecord * newIndexLo = LogToIndex(newOut);
-  if (newOut == CBIn) {		// we are deleting the last record
+  if (newOut == CBIn) {		// we are deleting the only record
     assert(recordLength == totalLogSpace);
-    assert(indexHi = indexLo + 1);
-    /* In this case, we don't move indexLo up to newIndexLo,
-    because that could require allocating a new page at newIndexLo
-    (different from the existing one at indexLo), which might fail.
-    Instead we move indexHi down to indexLo. */
-    EnsureRangeDeallocated(RoundUpToPage((uint32_t)indexLo),
-                           RoundUpToPage((uint32_t)indexHi));
-    indexHi = indexLo;
+    assert(indexHi == indexLo + 1);
+    uint32_t deallLo, deallHi;
+    if (newIndexLo == indexLo) {
+      deallLo = RoundUpToPage((uint32_t)indexLo);
+      deallHi = RoundUpToPage((uint32_t)indexHi);
+    } else {
+      deallLo = RoundDownToPage((uint32_t)indexLo);
+      deallHi = RoundDownToPage((uint32_t)indexHi);
+    }
+    DEBUG(index) kprintf(KR_OSTREAM, "%s:%d: Deallocating index empty %#x to %#x\n",
+                         __FILE__, __LINE__, deallLo, deallHi);
+    EnsureRangeDeallocated(deallLo, deallHi);
     DeallocateLogRecord(CBOut, newOut);
+    assert(newIndexLo == LogToIndex(newOut));
+    indexHi = newIndexLo;
   } else {
     assert(recordLength < totalLogSpace);
 
     uint32_t lowDealloc = RoundDownToPage((uint32_t)indexLo);
     uint32_t hiKeep = RoundUpToPage((uint32_t)indexHi);
     maxEquals(lowDealloc, hiKeep);	// don't dealloc indexHi
-    if (CBOut >= CBIn && endRecord == CBLast) {
+    if (CBOut >= CBIn && newOut == CBLast) {
       assert(indexHi > IndexStart);	// there is a record at the start
       // The log will no longer wrap.
       newOut = CBStart;
       newIndexLo = IndexStart;
       CBLast = CBEnd;
+      DEBUG(index) kprintf(KR_OSTREAM, "%s:%d: Deallocating index wrap %#x to %#x\n",
+                         __FILE__, __LINE__,
+                         lowDealloc, RoundUpToPage((uint32_t)IndexEnd));
       EnsureRangeDeallocated(lowDealloc, RoundUpToPage((uint32_t)IndexEnd));
       // Deallocate the log record:
       EnsureRangeDeallocated(RoundDownToPage((uint32_t)CBOut),
@@ -427,16 +437,23 @@ DeleteOldestRecord(void)
         indexLo->id = RecToHdr(newOut)->id;
       } else {
         // Deallocate index record(s).
+        DEBUG(index) kprintf(KR_OSTREAM, "%s:%d: Deallocating index %#x to %#x\n",
+                             __FILE__, __LINE__,
+                             lowDealloc,
+                             RoundDownToPage((uint32_t)newIndexLo));
         EnsureRangeDeallocated(lowDealloc,
                                RoundDownToPage((uint32_t)newIndexLo));
       }
       DeallocateLogRecord(CBOut, newOut);
     }
-    indexLo = newIndexLo;
+    assert(newOut == newIndexLo->addr);
+    assert(newIndexLo == LogToIndex(newOut));
   }
+  indexLo = newIndexLo;
 
   totalLogSpace -= recordLength;
   CBOut = newOut;
+  assert(indexLo == LogToIndex(CBOut));
 
   numIndexRecords = indexHi - indexLo;
   if ((signed long)numIndexRecords < 0)
@@ -723,6 +740,9 @@ AppendRecord(Message * msg)
   uint32_t oldRounded = RoundUpToPage((uint32_t)indexHi);
   uint32_t newRounded = RoundUpToPage((uint32_t)newIndexHi);
   if (indexHi > newIndexHi) {	// we begin to wrap
+    DEBUG(index) kprintf(KR_OSTREAM, "%s:%d: Allocating index, wrap1 %#x to %#x\n",
+                         __FILE__, __LINE__, oldRounded,
+                         RoundUpToPage((uint32_t)IndexEnd));
     result = EnsureRangeAllocated(oldRounded,
                                   RoundUpToPage((uint32_t)IndexEnd));
     if (result != RC_OK) {
@@ -731,6 +751,8 @@ AppendRecord(Message * msg)
       // or for previous index records.
       return;
     }
+    DEBUG(index) kprintf(KR_OSTREAM, "%s:%d: Allocating index, wrap2 %#x to %#x\n",
+                         __FILE__, __LINE__, (uint32_t)IndexStart, newRounded);
     result = EnsureRangeAllocated((uint32_t)IndexStart, newRounded);
     if (result != RC_OK) {
       msg->snd_code = result;
@@ -739,6 +761,8 @@ AppendRecord(Message * msg)
       return;
     }
   } else {
+    DEBUG(index) kprintf(KR_OSTREAM, "%s:%d: Allocating index %#x to %#x\n",
+                         __FILE__, __LINE__, oldRounded, newRounded);
     result = EnsureRangeAllocated(oldRounded, newRounded);
     if (result != RC_OK) {
       msg->snd_code = result;
