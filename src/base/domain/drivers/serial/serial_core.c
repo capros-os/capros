@@ -1,7 +1,7 @@
 /*
  *  Copyright 1999 ARM Limited
  *  Copyright (C) 2000-2001 Deep Blue Solutions Ltd.
- * Copyright (C) 2007, 2009, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, 2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -2042,6 +2042,11 @@ DECLARE_WAIT_QUEUE_HEAD(read_wait_queue_head);
 void
 readTimeoutFunction(unsigned long data)
 {
+#if 1////
+  bool empty = list_empty(&read_wait_queue_head.task_list);
+  kprintf(KR_OSTREAM, "ds2480b: readTimeoutFunction, task_list is %s\n",
+          empty ? "empty" : "nonempty");
+#endif
   wake_up(&read_wait_queue_head);
 }
 
