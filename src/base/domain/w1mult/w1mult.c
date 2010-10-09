@@ -641,7 +641,7 @@ PPSmartOn(capros_W1Bus_StatusCode status, void * arg)
     if (coup->u.coupler.activeBranch == br->whichBranch)
       coup->u.coupler.activeBranch = branchUnknown;
     br->shorted = true;
-    kdprintf(KR_OSTREAM, "Coup %#.16llx br %#x is shorted!!\n",
+    kprintf(KR_OSTREAM, "Coup %#.16llx br %#x is shorted!!\n",
              coup->rom, br->whichBranch);
     break;
 
@@ -1270,8 +1270,8 @@ rescan:
   result = capros_W1Bus_setSpeed(KR_W1BUS, capros_W1Bus_W1Speed_flexible);
   if (CheckRestart(result)) return;
 
-  result = capros_W1Bus_setPDSR(KR_W1BUS, capros_W1Bus_PDSR_PDSR137);
-        // 1.37 V/us
+  result = capros_W1Bus_setPDSR(KR_W1BUS, capros_W1Bus_PDSR_PDSR110);
+        // 1.10 V/us
   if (CheckModeResult(result)) return;
 
   result = capros_W1Bus_setW1LT(KR_W1BUS, capros_W1Bus_W1LT_W1LT11);    // 11 us

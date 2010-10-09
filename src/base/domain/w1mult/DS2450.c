@@ -94,7 +94,8 @@ WriteDS2450MemoryFirst(struct W1Device * dev,
       if (++tries < 4)
         continue;	// try again
       DEBUG(errors) kprintf(KR_OSTREAM,
-                      "DS2450 write memory CRC error, giving up\n");
+                      "DS2450 %#llx write memory CRC error, giving up\n",
+                      dev->rom);
       return capros_W1Bus_StatusCode_CRCError;
     }
     if (inBuf[2] != data) {
@@ -219,6 +220,8 @@ DS2450_InitStruct(struct W1Device * dev)
   dev->u.ad.requestedCfg[0] = 0xff;  // not configured yet
   for (i = 0; i < 4; i++) {
     dev->u.ad.port[i].logSlot = -1;	// no log yet
+    // Ensure the first input configuration will be different:
+    dev->u.ad.port[i].lastConfig.bitsToConvert = 0;
   }
 }
 
@@ -594,13 +597,22 @@ err: ;
           dev->u.ad.requestedCfg[cfglo(i)] = lo_OE
                       | (portConfig[i].rangeOrOutput ? lo_OC : 0) | 1;
           dev->u.ad.requestedCfg[cfghi(i)] = hi_IR;
+          // Ensure the next input configuration will be different:
+          dev->u.ad.port[i].lastConfig.bitsToConvert = 0;
         } else {
-          dev->u.ad.requestedCfg[cfglo(i)] = portConfig[i].bitsToConvert & 0xf;
-          dev->u.ad.requestedCfg[cfghi(i)] = (portConfig[i].rangeOrOutput ? hi_IR : 0);
+          // Standardize so comparison will be consistent:
+          portConfig[i].rangeOrOutput = portConfig[i].rangeOrOutput ? hi_IR : 0;
+          // Is there any change?
+          if (memcmp(&portConfig[i], &dev->u.ad.port[i].lastConfig,
+                     sizeof(capros_DS2450_portConfiguration))) { // a change
+            dev->u.ad.port[i].hysteresisLow = 0x20000;	// log the next reading
+            dev->u.ad.port[i].lastConfig = portConfig[i];
+          }
+          dev->u.ad.requestedCfg[cfglo(i)] = portConfig[i].bitsToConvert;
+          dev->u.ad.requestedCfg[cfghi(i)] = portConfig[i].rangeOrOutput;
+          dev->u.ad.port[i].hysteresis = portConfig[i].hysteresis;
           if (portConfig[i].log2Seconds < minLog2Seconds)
             minLog2Seconds = portConfig[i].log2Seconds;
-          dev->u.ad.port[i].hysteresis = portConfig[i].hysteresis;
-          dev->u.ad.port[i].hysteresisLow = 0x20000;	// log the next reading
         }
       }
 

@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/W1Bus.h>
 #include <idl/capros/RTC.h>
 #include <idl/capros/Logfile.h>
+#include <idl/capros/DS2450.h>
 #include <domain/Runtime.h>
 
 #define dbg_errors 0x1
@@ -130,6 +131,7 @@ struct W1Device {
         int32_t logSlot;	// slot in KR_KEYSTORE with Logfile, -1 if none
         uint16_t hysteresis;
         unsigned long hysteresisLow;
+        capros_DS2450_portConfiguration lastConfig;
       } port[4];
     } ad;
     struct {		// DS2438 battery monitor

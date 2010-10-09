@@ -11,7 +11,7 @@ interface DS2450 extends key
 
   If output is false, the port is configured for input.
     rangeOrOutput specifies the input range (0 = 2.55V, 1 = 5.10 V).
-    The input will be sampled every 2**log2Seconds seconds.
+    The input will be sampled at least every 2**log2Seconds seconds.
     The input value will have bitsToConvert bits of resolution
       (1 <= bitsToConvert <= 16).
       Note, the DS2450 has only 8 bits of accuracy.
@@ -32,6 +32,12 @@ interface DS2450 extends key
   };
 
   /*
+  Set the device configuration.
+
+  For each port, if there is a change from the previous configuration
+  of that port (or this is the first configuration),
+  the next input reading will be logged regardless of hysteresis.
+
   Returns, for each port configured for input,
   a read-only capability to the port's Logfile,
   containing records of type Logfile.LogRecord16 
