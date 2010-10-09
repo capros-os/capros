@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004 Evgeniy Polyakov <johnpol@2ka.mipt.ru>
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -986,7 +986,7 @@ execute:
           uint8_t result = cm->status.results[0];
           DEBUG(prog) printk("search result=%#x", result);
           if (result & RES_EOS)
-            assert(false);  // can't happen because we search for 1 at a time
+            goto terminateNoDevice;
           if (result & RES_NRS)	// this also seems to happen with bus errors
             goto terminateNoDevice;
         }
