@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -162,8 +162,12 @@ configureBM(int n, bool vdd)
   SaveLog(maxDevs + n, KR_TEMP1);
 
   result = capros_DS2438_configureCurrent(KR_TEMP0,
-             capros_DS2438_CurrentConfig_AccumNoEE);
+             0 /* every 1 sec */,
+             0 /* full resolution */,
+             0 /* hysteresis */,
+             KR_TEMP1);
   ckOK
+  SaveLog(maxDevs*2 + n, KR_TEMP1);
 }
 
 void
@@ -260,12 +264,22 @@ PrintBM(int n)
   }
 #endif
 
-#if 0
-  result = capros_DS2438_getCurrent(KR_TEMP0, &data16);
-  if (result != RC_capros_DS2438_Offline) {
+#if 1
+  GetLogN(maxDevs*2 + n, KR_TEMP0);
+  result = capros_Logfile_getPreviousRecord(KR_TEMP0,
+             capros_Logfile_nullRecordID,
+             sizeof(rec16),
+             (uint8_t *)&rec16,
+             &len );
+  if (result != RC_capros_Logfile_NoRecord) {
     ckOK
-    kprintf(KR_OSTREAM, "current is %d\n",
-            data16);
+    assert(len == sizeof(rec16));
+    time = rec16.header.rtc;
+    data16 = rec16.value;
+    kprintf(KR_OSTREAM, "Dev %d current is raw %d at %#lu sec\n",
+            n, data16, time);
+  } else {
+    kprintf(KR_OSTREAM, "Dev %d current no record\n", n);
   }
 #endif
 }

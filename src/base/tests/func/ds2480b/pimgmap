@@ -1,6 +1,6 @@
 /* -*- C -*- */
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -31,7 +31,7 @@ Approved for public release, distribution unlimited. */
 
 #include <w1mult.map>
 
-w1ser3config = program segtree LIBDIR "w1ser3config";
+w1ser3config = program segtree LIBDIR "config/w1ser3config";
 W1Mult(ser3, w1ser3config)
 
 #include <ds2480b.map>
