@@ -37,6 +37,8 @@ Approved for public release, distribution unlimited. */
  * The return value from start_routine is not used.
  * FIXME: Change it to return void.
  */
+/* FIXME: there should be separate allocate and start functions.
+ * Allocate may fail due to lack of space, but start cannot. */
 #define RC_capros_CMTEThread_NoMoreThreads (-1)
 result_t
 CMTEThread_create(uint32_t stackSize,
