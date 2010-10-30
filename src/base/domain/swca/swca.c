@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008-2010, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -91,6 +91,7 @@ Approved for public release, distribution unlimited. */
 #define keyInfo_swca   0	// client has this key
 #define keyInfo_notify 1	// input thread has this key
 
+bool commDisabled = false;	// whether commands can be issued
 bool haveWaiter = false;	// LKSN_WAITER has a resume key
 uint32_t waiterCode;		// parameters from waiter
 unsigned int waiterAdapterNum;
@@ -1239,13 +1240,16 @@ SendCommand(uint8_t cmd)
   result_t result;
 
   commandTime = monoNow;
-  result = capros_SerialPort_write(KR_SERIAL, 1, &cmd);
-  if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
-    // Set haveSerialKey false here?
-    return;	// too bad
-  if (result != RC_OK) {
-    kdprintf(KR_OSTREAM, "capros_SerialPort_write rc=%#x\n", result);
+  if (! commDisabled) {
+    result = capros_SerialPort_write(KR_SERIAL, 1, &cmd);
+    if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
+      // Set haveSerialKey false here?
+      return;	// too bad
+    if (result != RC_OK) {
+      kdprintf(KR_OSTREAM, "capros_SerialPort_write rc=%#x\n", result);
+    }
   }
+  // else just drop the command. We will recover when comm is enabled.
 }
 
 // monoNow must be current.
@@ -1567,6 +1571,8 @@ WaiterRequest(Message * msg, unsigned int menuNum, unsigned int menuItemNum)
 
   if (haveWaiter) {
     msg->snd_code = RC_capros_SWCA_already;
+  } else if (commDisabled) {
+    msg->snd_code = RC_capros_SWCA_disabled;
   } else {
     waiterMenuNum = menuNum;
     waiterMenuItemNum = menuItemNum;
@@ -1834,6 +1840,14 @@ cmte_main(void)
 
       case OC_capros_SWCA_getLoadAmpsLogfile:
         GetLogfile(&Msg, LKSN_LoadLogs);
+        break;
+
+      case OC_capros_SWCA_disableCommands:
+        commDisabled = true;
+        break;
+
+      case OC_capros_SWCA_enableCommands:
+        commDisabled = false;
         break;
 
       // Requests:
