@@ -219,7 +219,7 @@ DS2450_InitStruct(struct W1Device * dev)
   link_Init(&dev->u.ad.samplingQueueLink);
   dev->u.ad.requestedCfg[0] = 0xff;  // not configured yet
   for (i = 0; i < 4; i++) {
-    dev->u.ad.port[i].logSlot = -1;	// no log yet
+    dev->u.ad.port[i].logSlot = NOLOG;	// no log yet
     // Ensure the first input configuration will be different:
     dev->u.ad.port[i].lastConfig.bitsToConvert = 0;
   }
@@ -495,7 +495,7 @@ DS2450_HeartbeatAction(uint32_t hbCount)
   uint32_t thisCount;
   if (hbCount == 0) {
     // First time after a boot. Sample all devices.
-    thisCount = ~0;
+    thisCount = 0;
   } else {
     thisCount = hbCount + heartbeatSeed;
   }
@@ -582,9 +582,8 @@ err: ;
       }
       // Create all logs before setting requestedCfg.
       for (i = 0; i < 4; i++) {
-        if (! portConfig[i].output
-            && dev->u.ad.port[i].logSlot == -1) {
-          result_t result = CreateLog(&dev->u.ad.port[i].logSlot);
+        if (! portConfig[i].output) {
+          result_t result = EnsureLog(&dev->u.ad.port[i].logSlot);
           if (result != RC_OK) {
             msg->snd_code = result;
             goto err;

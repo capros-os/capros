@@ -42,6 +42,7 @@ capros_Sleep_nanoseconds_t VEEExpiry;
 
 Link DS2438_TSamplingQueue[maxLog2Seconds+1];
 Link DS2438_VSamplingQueue[maxLog2Seconds+1];
+Link DS2438_CSamplingQueue[maxLog2Seconds+1];
 capros_Sleep_nanoseconds_t DS2438_sampledTime;
 capros_RTC_time_t DS2438_sampledRTC;
 
@@ -52,6 +53,7 @@ DS2438_Init(void)
   for (i = 0; i <= maxLog2Seconds; i++) {
     link_Init(&DS2438_TSamplingQueue[i]);
     link_Init(&DS2438_VSamplingQueue[i]);
+    link_Init(&DS2438_CSamplingQueue[i]);
   }
 }
 
@@ -61,19 +63,20 @@ The device hasn't been located on the network yet. */
 void
 DS2438_InitStruct(struct W1Device * dev)
 {
-  result_t result;
   link_Init(&dev->u.bm.tSamplingQueueLink);
   link_Init(&dev->u.bm.vSamplingQueueLink);
-  result = CreateLog(&dev->u.bm.tempLogSlot);
-  assert(result == RC_OK);
-  result = CreateLog(&dev->u.bm.voltLogSlot);
-  assert(result == RC_OK);
+  link_Init(&dev->u.bm.cSamplingQueueLink);
+  dev->u.bm.tempHL.logSlot = NOLOG;
+  dev->u.bm.voltHL.logSlot = NOLOG;
+  dev->u.bm.currentHL.logSlot = NOLOG;
   // Default configuration: accumEE, no Vad.
   dev->u.bm.configReg = scr_IAD | scr_CA | scr_EE | scr_AD;
   dev->u.bm.threshReg = 0;
 }
 
-/* As far as I know, the device can't respond to other commands
+/* Wait until all devices are not busy converting.
+ *
+ * As far as I know, the device can't respond to other commands
  * while it is busy doing a conversion or copying to EEPROM.
  * Wait for those activities to be done.
  * On entry, currentTime must be current. */
@@ -256,6 +259,18 @@ SetConfigurationIfFound(struct W1Device * dev)
   return 0;
 }
 
+static void
+EnsureConfiguration(struct W1Device * dev, unsigned int newConfig)
+{
+  DEBUG(bm) kprintf(KR_OSTREAM, "configC old %#.2x new %#.2x",
+              dev->u.bm.configReg, newConfig);
+  if (dev->u.bm.configReg != newConfig) {
+    dev->u.bm.configReg = newConfig;
+    SetConfigurationIfFound(dev);
+    /* Ignore any status error; we've captured the config in dev. */
+  }
+}
+
 /* This is called to initialize a device that has been found on the network.
 This is called at least on every reboot.
 This procedure can issue device I/O, but must not take a long time.
@@ -307,10 +322,10 @@ from going off in sync. */
 struct W1Device * DS2438_samplingListHead;
 
 static void
-readTemp(struct W1Device * dev)
+ConvertTemp(struct W1Device * dev)
 {
   RecordCurrentTime();
-  WaitUntilNotBusy();
+  // WaitUntilNotBusy();
   // The device is on active branches, so we can just address it:
   ProgramReset();
   ProgramMatchROM(dev);
@@ -321,63 +336,60 @@ readTemp(struct W1Device * dev)
   if (! status) {
     RecordCurrentRTC();
     RecordCurrentTime();
-    DS2438_sampledRTC = currentRTC;
-    DS2438_sampledTime = currentTime;
+    dev->u.bm.tSampledTime = currentTime;
+    dev->u.bm.tSampledRTC = currentRTC;
+    dev->u.bm.tSampled = true;
     latestConvertTTime = currentTime;
-    WaitUntilNotBusy();	// wait for the convert T to finish
-    do {
-      int status = MatchRecallAndReadPage(dev, 0);
-      if (status)
-        goto buserr;
-    } while (inBuf[0] & scr_TB);	// if still busy, try again
-    int16_t temperature = (inBuf[1] | (inBuf[2] << 8)) >> 3;
-    temperature &= dev->u.bm.tempResolutionMask;
-    if (temperature < dev->u.bm.tempHysteresisLow
-        || temperature > dev->u.bm.tempHysteresisLow
-                         + dev->u.bm.tempHysteresis ) {
-      // Temperature changed sufficiently to log.
-      if (AddLogRecord16(dev->u.bm.tempLogSlot,
-                         DS2438_sampledRTC,
-                         DS2438_sampledTime, temperature, 0)) {
-        if (temperature < dev->u.bm.tempHysteresisLow)
-          dev->u.bm.tempHysteresisLow = temperature;
-        else
-          dev->u.bm.tempHysteresisLow = temperature
-                                        - dev->u.bm.tempHysteresis;
-      }
-    }
-  buserr: ;
   }
   DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx temp sampled at %llu\n",
-                       dev->rom, DS2438_sampledTime);
+                       dev->rom, dev->u.bm.tSampledTime);
 }
 
 static void
-readVolts(struct W1Device * dev)
+readResults(struct W1Device * dev)
 {
   do {
     int status = MatchRecallAndReadPage(dev, 0);
-    if (status) return;
-  } while (inBuf[0] & scr_ADB);	// if still busy, try again
-  uint16_t voltage = inBuf[3] | (inBuf[4] << 8);
-  voltage &= dev->u.bm.voltResolutionMask;
-  if (voltage < dev->u.bm.voltHysteresisLow
-      || voltage > dev->u.bm.voltHysteresisLow
-                       + dev->u.bm.voltHysteresis ) {
-    // Temperature changed sufficiently to log.
-    if (AddLogRecord16(dev->u.bm.voltLogSlot,
-                       DS2438_sampledRTC,
-                       DS2438_sampledTime, voltage,
-                       dev->u.bm.voltSelect )) {
-      if (voltage < dev->u.bm.voltHysteresisLow)
-        dev->u.bm.voltHysteresisLow = voltage;
-      else
-        dev->u.bm.voltHysteresisLow = voltage
-                                      - dev->u.bm.voltHysteresis;
+    if (status)
+      return;
+  } while (inBuf[0] & (scr_TB | scr_ADB));	// if still busy, try again
+  if (dev->u.bm.tSampled) {
+    int16_t temperature = (inBuf[1] | (inBuf[2] << 8)) >> 3;
+    if (temperature > 0x7d00 || temperature < -0x3700) {
+      DEBUG(errors) kprintf(KR_OSTREAM, "DS2438 %#llx temp is %#x!\n",
+                            dev->rom, temperature & 0xffff);
+    } else {
+      temperature &= dev->u.bm.tempResolutionMask;
+      HystLog16_log(&dev->u.bm.tempHL, temperature, dev->u.bm.tSampledRTC,
+                    dev->u.bm.tSampledTime, 0);
     }
   }
-  DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx volt sampled at %llu\n",
-                       dev->rom, DS2438_sampledTime);
+  if (dev->u.bm.vSampled) {
+    uint16_t voltage = inBuf[3] | (inBuf[4] << 8);
+    if (voltage > 0x3ff) {
+      DEBUG(errors) kprintf(KR_OSTREAM, "DS2438 %#llx voltage is %#x!\n",
+                            dev->rom, voltage & 0xffff);
+    } else {
+      voltage &= dev->u.bm.voltResolutionMask;
+      HystLog16_log(&dev->u.bm.voltHL, voltage, DS2438_sampledRTC,
+                    DS2438_sampledTime, dev->u.bm.voltSelect);
+      DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx volt sampled at %llu\n",
+                           dev->rom, DS2438_sampledTime);
+    }
+  }
+  if (dev->u.bm.cSampled) {
+    int16_t current = inBuf[5] | (inBuf[6] << 8);
+    int sign = current >> 10;
+    if (sign != 0 && sign != -1) {
+      DEBUG(errors) kprintf(KR_OSTREAM, "DS2438 %#llx current is %#x!\n",
+                            dev->rom, current & 0xffff);
+    } else {
+      current &= dev->u.bm.currentResolutionMask;
+      HystLog16_log(&dev->u.bm.currentHL, current, currentRTC, currentTime, 0);
+      DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx current sampled at %llu\n",
+                           dev->rom, currentTime);
+    }
+  }
 }
 
 /* We can save addressing each individual device
@@ -398,6 +410,8 @@ ConvertV(struct Branch * br)
 void
 DS2438_HeartbeatAction(uint32_t hbCount)
 {
+  struct W1Device * dev;
+
   DEBUG(doall) {
     RecordCurrentTime();
     kprintf(KR_OSTREAM, "DS2438_HeartbeatAction called at %llu ms "
@@ -410,10 +424,27 @@ DS2438_HeartbeatAction(uint32_t hbCount)
   uint32_t thisCount;
   if (hbCount == 0) {
     // First time after a boot. Sample all devices.
-    thisCount = ~0;
+    thisCount = 0;
   } else {
     thisCount = hbCount + heartbeatSeed;
   }
+
+  // First need to clear all the Sampled flags.
+  MarkForSampling(0, &DS2438_TSamplingQueue[0],
+                  &DS2438_samplingListHead,
+                  offsetof(struct W1Device, u.bm.tSamplingQueueLink) );
+  ReMarkForSampling(0, &DS2438_VSamplingQueue[0],
+                  &DS2438_samplingListHead,
+                  offsetof(struct W1Device, u.bm.vSamplingQueueLink) );
+  ReMarkForSampling(0, &DS2438_CSamplingQueue[0],
+                  &DS2438_samplingListHead,
+                  offsetof(struct W1Device, u.bm.cSamplingQueueLink) );
+  for (dev = DS2438_samplingListHead; dev; dev = dev->nextInSamplingList) {
+    dev->u.bm.tSampled = false;
+    dev->u.bm.vSampled = false;
+    dev->u.bm.cSampled = false;
+  }
+  UnmarkSamplingList(DS2438_samplingListHead);
 
   // Sample temperature.
   MarkForSampling(thisCount, &DS2438_TSamplingQueue[0],
@@ -424,7 +455,7 @@ DS2438_HeartbeatAction(uint32_t hbCount)
   for up to 750 ms. Instead, we just read each device individually.
   Convert T takes up to 10 ms. */
   DoAllWorkFunction = &DoEach;
-  DoEachWorkFunction = &readTemp;
+  DoEachWorkFunction = &ConvertTemp;
   DoAll(&root);
   UnmarkSamplingList(DS2438_samplingListHead);
 
@@ -446,24 +477,50 @@ DS2438_HeartbeatAction(uint32_t hbCount)
     VEEExpiry = currentTime + 10000000;
     DEBUG(bm) kprintf(KR_OSTREAM, "Sampled at %llu ms", currentTime/1000000);
 
-    /* Wait right now until the DS2438's aren't busy.
-     * That way, when we continue to the DS18B20 heartbeat, which
-     * broadcasts Convert T, which may inadvertently be seen by DS2438's,
-     * those DS2438's won't be busy and so won't be confused. */
-    WaitUntilNotBusy();
-
-    DoAllWorkFunction = &DoEach;
-    DoEachWorkFunction = &readVolts;
-    DoAll(&root);
+    // Note that every device on the list has been sampled:
+    for (dev = DS2438_samplingListHead; dev; dev = dev->nextInSamplingList) {
+      dev->u.bm.vSampled = true;
+    }
 
     UnmarkSamplingList(DS2438_samplingListHead);
   }
+
+  /* Wait right now until the DS2438's aren't busy. */
+  WaitUntilNotBusy();
+
+  MarkForSampling(thisCount, &DS2438_CSamplingQueue[0],
+                  &DS2438_samplingListHead,
+                  offsetof(struct W1Device, u.bm.cSamplingQueueLink) );
+  if (DS2438_samplingListHead) {
+    RecordCurrentTime();
+    RecordCurrentRTC();
+    for (dev = DS2438_samplingListHead; dev; dev = dev->nextInSamplingList) {
+      dev->u.bm.cSampled = true;	// note we need to report it
+    }
+  }
+
+  // Add devices being sampled for T or V:
+  ReMarkForSampling(thisCount, &DS2438_TSamplingQueue[0],
+                  &DS2438_samplingListHead,
+                  offsetof(struct W1Device, u.bm.tSamplingQueueLink) );
+  ReMarkForSampling(thisCount, &DS2438_VSamplingQueue[0],
+                  &DS2438_samplingListHead,
+                  offsetof(struct W1Device, u.bm.vSamplingQueueLink) );
+
+  // Read all the results:
+  DoAllWorkFunction = &DoEach;
+  DoEachWorkFunction = &readResults;
+  DoAll(&root);
+  UnmarkSamplingList(DS2438_samplingListHead);
+
   DEBUG(doall) kprintf(KR_OSTREAM, "DS2438_HeartbeatAction done\n");
 }
 
 void
 DS2438_ProcessRequest(struct W1Device * dev, Message * msg)
 {
+  result_t result;
+
   switch (msg->rcv_code) {
   default:
     msg->snd_code = RC_capros_key_UnknownRequest;
@@ -485,19 +542,25 @@ DS2438_ProcessRequest(struct W1Device * dev, Message * msg)
 reqerr:
       msg->snd_code = RC_capros_key_RequestError;
     } else {
-      dev->u.bm.tempResolutionMask = (-(1 << 11)) >> (resolution + 6);
-      dev->u.bm.tempHysteresis = hysteresis;
-      dev->u.bm.tempHysteresisLow = 16384;	// log the next reading
+      result = EnsureLog(&dev->u.bm.tempHL.logSlot);
+      if (result != RC_OK) {
+        msg->snd_code = result;
+      } else {
+        dev->u.bm.tempResolutionMask = (-(1 << 11)) >> (resolution + 6);
+        dev->u.bm.tempHL.hysteresis = hysteresis;
+        dev->u.bm.tempHL.hysteresisLow = 16384;	// log the next reading
 
-      link_Unlink(&dev->u.bm.tSamplingQueueLink);
-      if (log2Seconds != 255) {
-        if (log2Seconds > maxLog2Seconds)
-          log2Seconds = maxLog2Seconds;	// no harm in sampling more often
-        link_insertAfter(&DS2438_TSamplingQueue[log2Seconds],
-                         &dev->u.bm.tSamplingQueueLink);
+        link_Unlink(&dev->u.bm.tSamplingQueueLink);
+        dev->u.bm.tSampled = false;
+        if (log2Seconds != 255) {
+          if (log2Seconds > maxLog2Seconds)
+            log2Seconds = maxLog2Seconds;	// no harm in sampling more often
+          link_insertAfter(&DS2438_TSamplingQueue[log2Seconds],
+                           &dev->u.bm.tSamplingQueueLink);
+        }
+        GetLogfile(dev->u.bm.tempHL.logSlot);
+        msg->snd_key0 = KR_TEMP0;
       }
-      GetLogfile(dev->u.bm.tempLogSlot);
-      msg->snd_key0 = KR_TEMP0;
     }
     break;
   }
@@ -520,70 +583,72 @@ reqerr:
         || hysteresis >= 32768 )
       goto reqerr;
 
-    unsigned int vddBit = select ? scr_AD : 0;
-    DEBUG(bm) kprintf(KR_OSTREAM, "configureV %d", vddBit);
-    if ((dev->u.bm.configReg & scr_AD) != vddBit) {	// changing AD bit
-      dev->u.bm.configReg ^= scr_AD;
-      int status = SetConfigurationIfFound(dev);
-      if (status) goto buserr;
+    result = EnsureLog(&dev->u.bm.voltHL.logSlot);
+    if (result != RC_OK) {
+      msg->snd_code = result;
+    } else {
+      dev->u.bm.voltSelect = select;
+      dev->u.bm.voltResolutionMask = (-(1 << 9)) >> (resolution + 9);
+      dev->u.bm.voltHL.hysteresis = hysteresis;
+      dev->u.bm.voltHL.hysteresisLow = 16384;	// log the next reading
+
+      EnsureConfiguration(dev, (dev->u.bm.configReg & ~scr_AD)
+                               | (select ? scr_AD : 0));
+
+      link_Unlink(&dev->u.bm.vSamplingQueueLink);
+      dev->u.bm.vSampled = false;
+      if (log2Seconds != 255) {
+        if (log2Seconds > maxLog2Seconds)
+          log2Seconds = maxLog2Seconds;	// no harm in sampling more often
+        link_insertAfter(&DS2438_VSamplingQueue[log2Seconds],
+                         &dev->u.bm.vSamplingQueueLink);
+      }
+
+      GetLogfile(dev->u.bm.voltHL.logSlot);
+      msg->snd_key0 = KR_TEMP0;
     }
+    break;
+  }
 
-    dev->u.bm.voltSelect = select;
-    dev->u.bm.voltResolutionMask = (-(1 << 9)) >> (resolution + 9);
-    dev->u.bm.voltHysteresis = hysteresis;
-    dev->u.bm.voltHysteresisLow = 16384;	// log the next reading
-
-    link_Unlink(&dev->u.bm.vSamplingQueueLink);
-    if (log2Seconds != 255) {
-      if (log2Seconds > maxLog2Seconds)
-        log2Seconds = maxLog2Seconds;	// no harm in sampling more often
-      link_insertAfter(&DS2438_VSamplingQueue[log2Seconds],
-                       &dev->u.bm.vSamplingQueueLink);
-    }
-
-    GetLogfile(dev->u.bm.voltLogSlot);
-    msg->snd_key0 = KR_TEMP0;
+  case OC_capros_DS2438_configureCurrentOff:
+  {
+    EnsureConfiguration(dev, dev->u.bm.configReg & 0xf8);
+    link_Unlink(&dev->u.bm.cSamplingQueueLink);
+    dev->u.bm.cSampled = false;
     break;
   }
 
   case OC_capros_DS2438_configureCurrent:
   {
-    unsigned int conf = msg->rcv_w1;
-    switch (conf) {
-    default:
+    unsigned int log2Seconds = msg->rcv_w1;
+    int resolution = msg->rcv_w2;
+    unsigned int hysteresis = msg->rcv_w3;
+    if (log2Seconds > 255
+        || resolution > 0
+        || resolution < -10
+        || hysteresis >= 32768 )
       goto reqerr;
-    case capros_DS2438_CurrentConfig_off:
-    case capros_DS2438_CurrentConfig_noAccum:
-    case capros_DS2438_CurrentConfig_AccumNoEE:
-    case capros_DS2438_CurrentConfig_AccumEE:
-      break;
-    }
-    // The CurrentConfig values translate directly to IAD, CA, and EE.
-    unsigned int newConfig = (dev->u.bm.configReg & 0xf8) | conf;
-    DEBUG(bm) kprintf(KR_OSTREAM, "configC old %#.2x new %#.2x",
-                dev->u.bm.configReg, newConfig);
-    if (dev->u.bm.configReg != newConfig) {
-      dev->u.bm.configReg = newConfig;
-      SetConfigurationIfFound(dev);
-      /* Ignore any status error; we've captured the config in dev. */
-    }
-    break;
-  }
-  case OC_capros_DS2438_getCurrent:
-  {
-    if (! dev->found) {
-      msg->snd_code = RC_capros_DS2438_Offline;
+
+    result = EnsureLog(&dev->u.bm.currentHL.logSlot);
+    if (result != RC_OK) {
+      msg->snd_code = result;
     } else {
-      WaitUntilNotBusy();
-      int status = AddressRecallAndReadPage(dev, 0);
-      if (status) {
-buserr:
-        msg->snd_code = RC_capros_DS2438_BusError;
-        break;
-      }
-      RecordCurrentRTC();
-      msg->snd_w1 = inBuf[5] | (inBuf[6] << 8);
-      msg->snd_w2 = currentRTC;
+      dev->u.bm.currentResolutionMask = (-(1 << 10)) >> (resolution + 10);
+      dev->u.bm.currentHL.hysteresis = hysteresis;
+      dev->u.bm.currentHL.hysteresisLow = 16384;	// log the next reading
+
+      // Set IAD, clear CA and EE
+      EnsureConfiguration(dev, (dev->u.bm.configReg & 0xf8) | 0x1);
+
+      link_Unlink(&dev->u.bm.cSamplingQueueLink);
+      dev->u.bm.cSampled = false;
+      if (log2Seconds > maxLog2Seconds)
+        log2Seconds = maxLog2Seconds;	// no harm in sampling more often
+      link_insertAfter(&DS2438_CSamplingQueue[log2Seconds],
+                       &dev->u.bm.cSamplingQueueLink);
+
+      GetLogfile(dev->u.bm.currentHL.logSlot);
+      msg->snd_key0 = KR_TEMP0;
     }
     break;
   }
@@ -599,7 +664,11 @@ buserr:
     if (dev->u.bm.configReg & scr_IAD) {	// current measuring is on
       dev->u.bm.configReg &= ~scr_IAD;	// disable it temporarily
       int status = SetConfigurationIfFound(dev);
-      if (status) goto buserr;
+      if (status) {
+buserr:
+        msg->snd_code = RC_capros_DS2438_BusError;
+        break;
+      }
       dev->u.bm.threshReg = msg->rcv_w1;
       status = SetConfigurationIfFound(dev);
       if (status) goto buserr;

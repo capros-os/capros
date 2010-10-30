@@ -71,6 +71,13 @@ enum {
   famCode_DS9490R = 0x81,	// custom DS2401 in a DS9490R
 };
 
+#define NOLOG (-1)
+struct HystLog {
+  int hysteresis;
+  int hysteresisLow;
+  int32_t logSlot;
+};
+
 struct W1Device;
 
 enum {
@@ -136,18 +143,25 @@ struct W1Device {
     } ad;
     struct {		// DS2438 battery monitor
       Link tSamplingQueueLink;
-      Link vSamplingQueueLink;
-      int32_t tempLogSlot;	// slot in KR_KEYSTORE with temperature Logfile
-      int32_t voltLogSlot;	// slot in KR_KEYSTORE with voltage Logfile
-      uint8_t configReg;
-      uint8_t threshReg;
+      bool tSampled;		// was sampled this heartbeat
+      capros_Sleep_nanoseconds_t tSampledTime;
+      capros_RTC_time_t tSampledRTC;
       int16_t tempResolutionMask;
-      uint16_t tempHysteresis;
-      int tempHysteresisLow;
+      struct HystLog tempHL;
+
+      Link vSamplingQueueLink;
+      bool vSampled;		// was sampled this heartbeat
       uint16_t voltSelect;	// 0 for Vad, 1 for Vdd
       int16_t voltResolutionMask;
-      uint16_t voltHysteresis;
-      unsigned int voltHysteresisLow;
+      struct HystLog voltHL;
+
+      Link cSamplingQueueLink;
+      bool cSampled;		// was sampled this heartbeat
+      int16_t currentResolutionMask;
+      struct HystLog currentHL;
+
+      uint8_t configReg;
+      uint8_t threshReg;
     } bm;
   } u;
 };
@@ -162,12 +176,16 @@ struct w1Timer {
 
 extern bool busNeedsReinit;
 
+#define NO_SNODE_SLOT ((int)-1)
 result_t CreateLog(int32_t * pSlot);
 void GetLogfile(unsigned int slot);
+result_t EnsureLog(int32_t * pSlot);
 bool AddLogRecord16(unsigned int slot,
   capros_RTC_time_t sampledRTC,
   capros_Sleep_nanoseconds_t sampledTime,
   int16_t value, int16_t param);
+void HystLog16_log(struct HystLog * hl, int value,
+  capros_RTC_time_t rtc, capros_Sleep_nanoseconds_t timens, int param);
 
 struct W1Device * BranchToCoupler(struct Branch * br);
 
@@ -238,6 +256,9 @@ extern capros_Sleep_nanoseconds_t latestConvertTTime;
 
 extern struct Branch root;
 
+void ReMarkForSampling(uint32_t hbCount, Link * samplingQueue,
+  struct W1Device * * samplingListHead,
+  size_t devLinkOffset);
 void MarkForSampling(uint32_t hbCount, Link * samplingQueue,
   struct W1Device * * samplingListHead,
   size_t devLinkOffset);

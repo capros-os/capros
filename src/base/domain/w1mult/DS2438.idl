@@ -24,6 +24,10 @@ interface DS2438 extends key
   Returns a read-only capability to the Logfile containing records
   of type Logfile.LogRecord16 
   in which the value field is the temperature in units of 1/32 degree Celsius.
+
+  May raise RequestError.
+  If the Logfile has not been previously created, this may raise
+  SpaceBank.LimitReached.
   */
   Logfile configureTemperature(unsigned byte log2Seconds,
             byte resolution,
@@ -53,6 +57,10 @@ interface DS2438 extends key
   and the param field is 0 for Vad, 1 for Vdd.
 
   May raise BusError.
+
+  May raise RequestError.
+  If the Logfile has not been previously created, this may raise
+  SpaceBank.LimitReached.
   */
   Logfile configureVoltageVdd(unsigned byte log2Seconds,
             byte resolution,
@@ -62,33 +70,48 @@ interface DS2438 extends key
             byte resolution,
             unsigned short hysteresis);
 
-  /* Configure current measurement. 
-  May raise BusError.
-  */
-  unsigned byte enum CurrentConfig {
-    /* No current measurement. */
-    off = 0,
-    /* Current measurement and ICA, but no CCA or DCA. */
-    noAccum = 1,
-    /* Current measurement and ICA, CCA, and DCA, no shadow to EEPROM. */
-    AccumNoEE = 3,
-    /* Current measurement and ICA, CCA, and DCA, shadow to EEPROM. */
-    AccumEE = 7
-  };
-  void configureCurrent(CurrentConfig config);
+  /* Configure current measurement off. */
+  void configureCurrentOff();
 
-  /* Read the latest current measurement.
+  /* Set the current sampling configuration to measure current and ICA,
+     but no CCA or DCA.
+
+  The current will be sampled (that is, read by the system)
+  at least every 2**log2Seconds seconds.
+
   The device measures a differential voltage in units of 0.2441 mV.
+  The sampled value will be truncated to resolution binary bits of resolution.
+  resolution must be between 0 and -10 inclusive.
+  A resolution of 0 means there will be no truncation and values will
+  be reported to the full resolution of 0.2441 mV.
 
-  time is the time at which the current was sampled,
-  in the same units as capros.RTC.getTime.
+  Current changes will not be logged unless they exceed the specified
+  hysteresis, which is in units of 0.2441 mV.
 
-  Raises Offline if the device is not on the network (or hasn't been
-    found yet).
-  May raise BusError.
+  Returns a read-only capability to the Logfile containing records
+  of type Logfile.LogRecord16 
+  in which the value field is the truncated current value
+  in units of 0.2441 mV.
+
+  May raise RequestError.
+  If the Logfile has not been previously created, this may raise
+  SpaceBank.LimitReached.
   */
-  void getCurrent(out short current, out RTC.time_t time);
+  Logfile configureCurrent(unsigned byte log2Seconds,
+            byte resolution,
+            unsigned short hysteresis);
 
+  /* Set the current sampling configuration to measure current and ICA,
+     CCA, and DCA, no shadow to EEPROM.
+
+     Not implemented. */
+
+  /* Set the current sampling configuration to measure current and ICA,
+     CCA, and DCA, shadow to EEPROM.
+
+     Not implemented. */
+
+  /* Read the threshold register. */
   unsigned byte readThreshold();
 
   /* Write the threshold register.

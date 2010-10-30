@@ -167,6 +167,15 @@ GetLogfile(unsigned int slot)
   assert(result == RC_OK);
 }
 
+result_t
+EnsureLog(int32_t * pSlot)
+{
+  if (*pSlot == NOLOG) {
+    return CreateLog(pSlot);
+  }
+  return RC_OK;
+}
+
 /* Add a log record.
  * Returns true iff record was successfully added.
  */
@@ -204,6 +213,21 @@ AddLogRecord16(unsigned int slot,
 
   case RC_OK:
     return true;
+  }
+}
+
+void
+HystLog16_log(struct HystLog * hl, int value,
+  capros_RTC_time_t rtc, capros_Sleep_nanoseconds_t timens, int param)
+{
+  if (   value < hl->hysteresisLow
+      || value > hl->hysteresisLow + hl->hysteresis) {
+    int newLow = value < hl->hysteresisLow ? value : value - hl->hysteresis;
+    // Log the value in the middle of the hysteresis range.
+    if (AddLogRecord16(hl->logSlot, rtc, timens,
+                       newLow + hl->hysteresis/2, param)) {
+      hl->hysteresisLow = newLow;
+    }
   }
 }
 
@@ -736,6 +760,7 @@ AddressDevice(struct W1Device * dev)
 static void
 MarkDevForSampling(struct W1Device * dev)
 {
+  assert(! dev->sampling);
   dev->sampling = true;
   // Mark all parent branches as needsWork too.
   struct Branch * pbr = dev->parentBranch;
@@ -762,6 +787,7 @@ void
 UnmarkSamplingList(struct W1Device * dev)
 {
   while (dev) {
+    assert(dev->sampling);
     dev->sampling = false;
     // Unmark all parent branches as needsWork too.
     struct Branch * pbr = dev->parentBranch;
@@ -780,12 +806,11 @@ UnmarkSamplingList(struct W1Device * dev)
 // samplingQueue is a pointer to
 // the first of an array of (maxLog2Seconds+1) Links.
 void
-MarkForSampling(uint32_t hbCount, Link * samplingQueue,
+ReMarkForSampling(uint32_t hbCount, Link * samplingQueue,
   struct W1Device * * samplingListHead,
   size_t devLinkOffset)
 {
   DEBUG(doall) kprintf(KR_OSTREAM, "MarkForSampling hbCount=%#x\n", hbCount);
-  *samplingListHead = NULL;
   unsigned int i;
   uint32_t mask;
   for (i = 0, mask = 0;
@@ -799,7 +824,7 @@ MarkForSampling(uint32_t hbCount, Link * samplingQueue,
         dev = (struct W1Device *) ((char *)lk - devLinkOffset);
         DEBUG(doall) kprintf(KR_OSTREAM, "MFS i=%d dev %#.16llx found %d\n",
                              i, dev->rom, dev->found);
-        if (dev->found) {
+        if (dev->found && ! dev->sampling) {
           /* Link into the sampling list.
           The sampling list records the devices being sampled,
           so they can be queried later,
@@ -811,6 +836,17 @@ MarkForSampling(uint32_t hbCount, Link * samplingQueue,
       }
     }
   }
+}
+
+// samplingQueue is a pointer to
+// the first of an array of (maxLog2Seconds+1) Links.
+void
+MarkForSampling(uint32_t hbCount, Link * samplingQueue,
+  struct W1Device * * samplingListHead,
+  size_t devLinkOffset)
+{
+  *samplingListHead = NULL;
+  ReMarkForSampling(hbCount, samplingQueue, samplingListHead, devLinkOffset);
 }
 
 static struct Branch *
