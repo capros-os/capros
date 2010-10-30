@@ -148,7 +148,7 @@ DS18B20_InitStruct(struct W1Device * dev)
   result_t result;
   link_Init(&dev->u.thermom.samplingQueueLink);
   result = CreateLog(&dev->u.thermom.logSlot);
-  assert(result == RC_OK);
+  assert(result == RC_OK);	// FIXME
   dev->u.thermom.resolution = 255;  // not specified yet
 }
 
@@ -332,7 +332,7 @@ DS18B20_HeartbeatAction(uint32_t hbCount)
   uint32_t thisCount;
   if (hbCount == 0) {
     // First time after a boot. Sample all devices.
-    thisCount = ~0;
+    thisCount = 0;
   } else {
     thisCount = hbCount + heartbeatSeed;
   }
