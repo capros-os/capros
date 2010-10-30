@@ -79,9 +79,21 @@ interface HAI extends key
   /* Raises NACK if the HAI responded with a Negative Acknowledge message. */
   void setUnitStatus(unsigned short unit, Command cmd, unsigned byte param1);
 
+  /// @brief Get the status of a zone.
+  /* asOf is the time as of which the zone status was read.
+     Bits 0 and 1 of status contain the zone's current condition: */
+  const unsigned byte Status_Condition_Mask = 3;
+  const unsigned byte Status_Condition_Secure = 0;
+  const unsigned byte Status_Condition_NotReady = 1;
+  const unsigned byte Status_Condition_Trouble = 2;
+  /* Other bits of status may be on and are described in the HAI
+     OmniLink II Protocol. */
+  void getZoneStatus(unsigned short zone,
+                     out RTC.time_t asOf,
+                     out unsigned byte status, out unsigned byte loopReading);
+
   /* for future: 
   execute button n
-  get zone n status
   */
 
   /* Notifications */

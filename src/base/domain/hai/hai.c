@@ -1297,6 +1297,33 @@ cmte_main(void)
       break;
     }
 
+    case OC_capros_HAI_getZoneStatus:
+    {
+      unsigned int zone = Msg.rcv_w1;
+      GetLocks();
+      while (1) {	// loop until successful
+        // Using Protocol 3.0:
+        sendMessage[2] = 0x3a;	// request extended object status
+        sendMessage[3] = ot_zone;
+        ShortToBE(zone, &sendMessage[4]);
+        ShortToBE(zone, &sendMessage[6]);
+        int recvLen = OL2SendAndGetReply(6, 0x3b, 7);
+        if (recvLen >= 0
+            && responseMessage[3] == ot_zone
+            && responseMessage[4] >= 4	// length
+            && BEToShort(&responseMessage[5]) == zone
+            && (responseMessage[6] & capros_HAI_Status_Condition_Mask) != 3 ) {
+          Msg.snd_w2 = responseMessage[6];
+          Msg.snd_w3 = responseMessage[7];
+          break;
+        }
+        assert(recvLen == -1);	// NACK not handled yet
+      }
+      ReleaseLocks();
+      Msg.snd_w1 = getRTC();
+      break;
+    }
+
     case OC_capros_HAI_setUnitStatus:
     {
       unsigned int unit = Msg.rcv_w1;
