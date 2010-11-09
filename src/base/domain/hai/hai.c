@@ -1074,8 +1074,6 @@ KeepAliveTimerFunction(unsigned long data)
 {
   result_t result;
 
-  DEBUG(errors) kprintf(KR_OSTREAM, "HAI sending keep-alive.\n");
-
   GetLocks();
 
   // Get the current socket capability.
