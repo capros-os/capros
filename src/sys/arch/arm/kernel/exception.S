@@ -645,7 +645,31 @@ SWI_DisableIRQ_Handler:
 	/* Never need to switch contexts here. Just quickly return. */
 	ldmnefd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
 	// If he didn't have I/O privilege:
-	b SWIOutOfRange
+SWIOutOfRange:
+#ifndef NDEBUG
+	/* Was fault from user mode? */
+	add lr,r12,#1		// add 1 to mode bits of SPSR
+	tst lr,#0b01110		// magic calculation
+	bne SwiBadMode	// Neither user nor system mode
+#endif
+	/* Save registers in current context. */
+	ldr lr,=proc_curProcess
+	ldr lr,[lr]		// current Process
+	str r12,[lr,#PR_OFF_CPSR]!	// save his CPSR
+	str r0,[lr,#8]!		// save r0
+	mov r0,lr		// ptr to r0 in savearea
+	ldmfd sp!,{r12,lr}	// pop saved r12 and user pc
+	str lr,[r0,#-4]		// save user pc
+	stmib r0,{r1-r14}^	// save user r1-r14
+	/* Caution: must not follow this with an instruction that
+        uses a banked register. */
+#ifdef OPTION_DDB
+	mov r11,#2	// for stack tracebank.
+#endif
+	sub r0,r0,#(PR_OFF_CPSR + 8)	// point to Process structure
+	bl InvalidSWI		// continue in C
+	// does not return
+0:	b 0b		// in case it does
 
 
 /***********************  atomic-related SWIs *****************************/
@@ -746,8 +770,6 @@ SWI_XchgKeyReg_Handler:
 	/* Never need to switch contexts here. Just quickly return. */
 	ldmfd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
 
-SWIOutOfRange:
-// The above deserves a better handler, but until then:
 SwiBadMode:
 	stmfd sp!,{r0,r2,r3,r12}	// save registers
 	ldr r0,=SWIMsg

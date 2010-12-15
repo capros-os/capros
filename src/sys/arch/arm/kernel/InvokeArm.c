@@ -376,6 +376,8 @@ InvokeArm(Process * invokerProc,
           uint32_t snd_len)
 {
   assert(invokerProc == proc_Current());
+  assert(local_irq_disabled());	// disabled right after exception
+
 #if 0
   printf("Inv p=%x, type.key %x, oc 0x%x, psr=%x, pc=0x%08x, r0=%x, sp=0x%08x\n",
          invokerProc, typeAndKey, invokerProc->trapFrame.r4,
@@ -385,15 +387,13 @@ InvokeArm(Process * invokerProc,
 
   proc_LogState(invokerProc, Trap_FromInv);
 
-  assert(local_irq_disabled());	// disabled right after exception
-
   /* Enable IRQ interrupts. */
   irq_ENABLE();
 
   assert(invokerProc->faultCode == capros_Process_FC_NoFault);
 
   BeginInvocation();
-  
+
   objH_BeginTransaction();
 
   /* Roll back the invocation PC in case we need to restart this operation */
@@ -402,6 +402,32 @@ InvokeArm(Process * invokerProc,
   proc_SetupEntryBlock(invokerProc, &inv);
 
   proc_DoKeyInvocation(invokerProc);
+
+  irq_DISABLE();
+
+  ExitTheKernel();
+  return;
+}
+
+void /* does not return */
+InvalidSWI(Process * proc)
+{
+  assert(proc == proc_Current());
+  assert(local_irq_disabled());	// disabled right after exception
+
+  proc_LogState(proc, Trap_FromInv);
+
+  /* Enable IRQ interrupts. */
+  irq_ENABLE();
+
+  assert(proc->faultCode == capros_Process_FC_NoFault);
+
+  objH_BeginTransaction();
+
+  /* Roll back the invocation PC */
+  proc_AdjustInvocationPC(proc);
+
+  proc_SetFault(proc, capros_Process_FC_MalformedSyscall, 0);
 
   irq_DISABLE();
 
