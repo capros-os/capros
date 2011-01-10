@@ -135,9 +135,7 @@ struct W1Device {
       uint8_t requestedCfg[8];
       uint8_t devCfg[8];
       struct {
-        int32_t logSlot;	// slot in KR_KEYSTORE with Logfile, -1 if none
-        uint16_t hysteresis;
-        unsigned long hysteresisLow;
+        struct HystLog HL;
         capros_DS2450_portConfiguration lastConfig;
       } port[4];
     } ad;

@@ -42,12 +42,13 @@ Approved for public release, distribution unlimited. */
 
    If requestedCfg[0] == 0xff, the client has never configured
      the device, requestedCfg[1 through 7] are unused, and for each port i,
-     port[i].hysteresis and port[i].hysteresisLow are unused.
+     port[i].HL.hysteresis and port[i].HL.hysteresisLow are unused.
 
    Otherwise, requestedCfg has the client's configuration.
    For each port i, requestedCfg[cfglo(i)] & lo_OE is nonzero if the port
      is configured for output, zero for input.
-     If for output, port[i].hysteresis and port[i].hysteresisLow are unused.
+     If for output, port[i].HL.hysteresis
+       and port[i].HL.hysteresisLow are unused.
  */
 
 Link DS2450_samplingQueue[maxLog2Seconds+1];
@@ -219,7 +220,7 @@ DS2450_InitStruct(struct W1Device * dev)
   link_Init(&dev->u.ad.samplingQueueLink);
   dev->u.ad.requestedCfg[0] = 0xff;  // not configured yet
   for (i = 0; i < 4; i++) {
-    dev->u.ad.port[i].logSlot = NOLOG;	// no log yet
+    dev->u.ad.port[i].HL.logSlot = NOLOG;	// no log yet
     // Ensure the first input configuration will be different:
     dev->u.ad.port[i].lastConfig.bitsToConvert = 0;
   }
@@ -439,22 +440,10 @@ readData(struct W1Device * dev)
     if (! (dev->u.ad.requestedCfg[cfglo(i)] & lo_OE)) {	// input port
       uint16_t data = inBuf[i*2+0] | (inBuf[i*2+1] << 8);
       DEBUG(ad) kprintf(KR_OSTREAM, "Port %u data %#.4x hyst %u hl %u\n",
-                        i, data, dev->u.ad.port[i].hysteresis,
-                        dev->u.ad.port[i].hysteresisLow);
-      if (data < dev->u.ad.port[i].hysteresisLow
-          || data > dev->u.ad.port[i].hysteresisLow
-                           + dev->u.ad.port[i].hysteresis ) {
-        // Data changed sufficiently to log.
-        if (AddLogRecord16(dev->u.ad.port[i].logSlot,
-                           DS2450_sampledRTC,
-                           DS2450_sampledTime, data, 0)) {
-          if (data < dev->u.ad.port[i].hysteresisLow)
-            dev->u.ad.port[i].hysteresisLow = data;
-          else
-            dev->u.ad.port[i].hysteresisLow = data
-                                          - dev->u.ad.port[i].hysteresis;
-        }
-      }
+                        i, data, dev->u.ad.port[i].HL.hysteresis,
+                        dev->u.ad.port[i].HL.hysteresisLow);
+      HystLog16_log(&dev->u.ad.port[i].HL, data,
+                    DS2450_sampledRTC, DS2450_sampledTime, 0);
     }
   }
 }
@@ -545,7 +534,7 @@ ReturnLog(struct W1Device * dev,
     *sndkey = KR_VOID;		// no log needed for output
   } else {		// input port
     result_t result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                        dev->u.ad.port[i].logSlot, kr);
+                        dev->u.ad.port[i].HL.logSlot, kr);
     assert(result == RC_OK);
     *sndkey = kr;
   }
@@ -583,7 +572,7 @@ err: ;
       // Create all logs before setting requestedCfg.
       for (i = 0; i < 4; i++) {
         if (! portConfig[i].output) {
-          result_t result = EnsureLog(&dev->u.ad.port[i].logSlot);
+          result_t result = EnsureLog(&dev->u.ad.port[i].HL.logSlot);
           if (result != RC_OK) {
             msg->snd_code = result;
             goto err;
@@ -604,12 +593,13 @@ err: ;
           // Is there any change?
           if (memcmp(&portConfig[i], &dev->u.ad.port[i].lastConfig,
                      sizeof(capros_DS2450_portConfiguration))) { // a change
-            dev->u.ad.port[i].hysteresisLow = 0x20000;	// log the next reading
+            // log the next reading:
+            dev->u.ad.port[i].HL.hysteresisLow = 0x20000;
             dev->u.ad.port[i].lastConfig = portConfig[i];
           }
           dev->u.ad.requestedCfg[cfglo(i)] = portConfig[i].bitsToConvert;
           dev->u.ad.requestedCfg[cfghi(i)] = portConfig[i].rangeOrOutput;
-          dev->u.ad.port[i].hysteresis = portConfig[i].hysteresis;
+          dev->u.ad.port[i].HL.hysteresis = portConfig[i].hysteresis;
           if (portConfig[i].log2Seconds < minLog2Seconds)
             minLog2Seconds = portConfig[i].log2Seconds;
         }
