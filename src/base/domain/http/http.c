@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -139,8 +139,7 @@ static int setUpContext(SSL_CTX *ctx);
 static void print_SSL_error_queue(void);
 static void push_ssl_data(BIO *network_bio);
 void readInit(SSL *ssl, BIO *network_bio, ReaderState *rs);
-static int readConsumeSeps(ReaderState *rs, ReadPtrs *rp, char *first, 
-			   char *sepStr);
+int readExtend(ReaderState * rs);
 static void readSkipDelim(ReaderState *rs, ReadPtrs *rp);
 static int readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr);
 static int process_http(SSL *ssl, BIO *network_bio, ReaderState *rs);
@@ -1246,6 +1245,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     return 0;
   }
   
+  assert(rp.first == rp.last && rp.first == rs->buf + rs->current);
+  // Done with rp.
+
   /* We've read all the headers and are ready to do the method. First
      we look up the Swiss number and see if we are serving a file, or 
      if some domain will handle the request */
@@ -1268,7 +1270,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       {
         DEBUG(resource) DBGPRINT(DBGTARGET,
                                  "lookUpSwissNumber gave HTTPRequestHandler\n");
-        int ok = handleHTTPRequestHandler(rs, &rp, methodIndex,
+        int ok = handleHTTPRequestHandler(rs, methodIndex,
                    headersLength, contentLength, theSendLimit, expect100);
         capros_key_destroy(KR_FILE);	// done with the HTTPRequestHandler
         if (!ok) {
@@ -1287,7 +1289,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       break;
         
     case capros_HTTPResource_RHType_File:
-      if (! handleFile(rs, &rp, methodIndex, contentLength, expect100)) {
+      if (! handleFile(rs, methodIndex, contentLength, expect100)) {
         DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: hfile returned 0\n");
         freeStorage();
         return 0;
@@ -1358,7 +1360,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
  * @param[in] sepStr is a string of separator characters which delimit the
  *            token. Leading separator characters will be skipped and consumed.
  *
- * @return is 0 if there was an error otherwise 1. If return is 1, rp->first
+ * @return is:
+ *   0 if there was an error. *rp may not be updated.
+ *   1 if no error. If return is 1, rp->first
  *         will point to the token, and rp->next will point to the next
  *         separator. The characters from rp->first to rp->last-1 inclusive
  *         are the token.
@@ -1367,15 +1371,26 @@ static int
 readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr) {
   char *cp;
 
-  if (!readConsumeSeps(rs, rp, rp->last, sepStr)) return 0;
+  readConsume(rs, rp->last);
+
+  // Consume any leading separators:
+  while (1) {
+    if (readEnsure(rs) == 0)
+      return 0;
+    char c = rs->buf[rs->current];
+    if (!strchr(sepStr, c)) {
+      break;
+    }
+    rs->current++;	// Consume the leading separator
+  }
+
   for (;;) {
+    rp->first = rs->buf + rs->current;
+    rp->last = rs->buf + rs->last;
     cp = findSeparator(rp, sepStr);
     if (cp) break;
-    if (!readExtend(rs, rp)) {
-      DEBUG(errors) DBGPRINT(DBGTARGET,
-                             "HTTP:readToken: readExtend failed.\n");
+    if (!readExtend(rs))
       return 0;
-    }
   }
   rp->last = cp;
 
@@ -1531,41 +1546,6 @@ readConsume(ReaderState *rs, char *first) {
 }
 
 /**
- * readConsumeSeps - Indicate that data in the buffer is no longer
- *                   needed and remove any leading separators. This
- *                   routine will re-fill the buffer to remove leading
- *                   separators.
- * 
- * @param[in] rs is the ReaderState for this connection.
- * @param[in] rp is a ReadPtrs.
- * @param[in] first is the first byte in the buffer still needed.
- * @param[in] sepStr is a string of separator characters to scan for
- *
- * @return is 0 if an internal error occured otherwise 1. If the return is 1,
- *         rp will be set to the first non-separator and the amount of input
- *         available.
- */
-
-static int
-readConsumeSeps(ReaderState *rs, ReadPtrs *rp, char *first, char *sepStr) {
-  char c;
-
-  readConsume(rs, first);
-  do {
-    while (rs->current < rs->last) {
-      c = rs->buf[rs->current];
-      if (!strchr(sepStr, c)) {
-	rp->first = rs->buf + rs->current;
-	rp->last = rs->buf + rs->last;
-	return 1;
-      }
-      rs->current++;
-    }
-  } while (readExtend(rs, rp));
-  return 0;
-}
-
-/**
  * scanConsumeSeps - Skip over any leading separators.
  * 
  * @param[in] rp is a ReadPtrs.
@@ -1615,15 +1595,14 @@ readSkipDelim(ReaderState *rs, ReadPtrs *rp) {
  * readExtend - Extend that amount of data in the read buffer
  *
  * @param[in] rs is the ReaderState for the connection.
- * @param[in] rp is a ReadPtrs which will be updated to show the available
- *               data.
  *
  * @return is the result of the operation as follows:
  *     0 - An ssl read error has been detected. bail out
- *     1 - Data is available in ReadPtrs
+ *     1 - (rs->last - rs->current) is greater on exit
+ *         than it was on entry.
  */
 int
-readExtend(ReaderState *rs, ReadPtrs *rp) {
+readExtend(ReaderState *rs) {
   int rc;
   
   if (rs->current) {    /* Some data has been consumed, push it down */
@@ -1632,7 +1611,7 @@ readExtend(ReaderState *rs, ReadPtrs *rp) {
     rs->current = 0;
   }
   /* Read the HTTP request */
-  while (1){
+  while (1) {
     int err;
     
 #ifdef SHORT_READ
@@ -1661,15 +1640,10 @@ readExtend(ReaderState *rs, ReadPtrs *rp) {
     }
     break;
   }
-  if (0 == rc) {   /* Connection shutdown */
-    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP:%d: SSL rc %d\n", __LINE__, rc);
-    return 0;
-  }
-  if (rc > 0) {
-    int bytesToPrint = rc < 500 ? rc : 500;	// limit amount printed
-    DEBUG(http) DBGPRINT(DBGTARGET, "Read: %.*s\n",
-                         bytesToPrint, rs->buf+rs->last);
-  }
+  assert(rc > 0);
+  int bytesToPrint = rc < 500 ? rc : 500;	// limit amount printed
+  DEBUG(http) DBGPRINT(DBGTARGET, "Read: %.*s\n",
+                       bytesToPrint, rs->buf+rs->last);
   rs->last += rc;
   /* rc is the amount of data read from ssl - sanity check it */
   if (rs->last > HTTP_BUFSIZE || rc < 0) {
@@ -1678,9 +1652,27 @@ readExtend(ReaderState *rs, ReadPtrs *rp) {
     print_SSL_error_queue();
     return 0;
   }
-  rp->first = rs->buf;
-  rp->last = rs->buf + rs->last;
   return 1;
+}
+
+/**
+ * readEnsure - Ensure there is some data in the read buffer
+ *
+ * @param[in] rs is the ReaderState for the connection.
+ *
+ * @return is the number of bytes of data in the buffer.
+ * If zero, no data could be read due to an ssl read error.
+ */
+int
+readEnsure(ReaderState * rs) {
+  int len = rs->last - rs->current;
+  if (len > 0) {
+    return len;
+  } else {
+    if (!readExtend(rs))
+      return 0;
+    return rs->last;	// rs->current == 0
+  }
 }
 
 

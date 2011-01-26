@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -123,7 +123,7 @@ extern capros_File_fileLocation theFileSize;
 
 #endif
 
-int readExtend(ReaderState *rs, ReadPtrs *rp);
+int readEnsure(ReaderState * rs);
 void readConsume(ReaderState *rs, char *first);
 int memcmpci(const char *a, const char *b, int len);
 int writeStatusLine(ReaderState *rs, int statusCode);
@@ -134,14 +134,12 @@ int sendUnchunked(ReaderState * rs, int (*readProc)(void *, int));
 bool sendChunked(ReaderState * rs, int (*readProc)(void *, int));
 
 int handleFile(ReaderState * rs,
-  ReadPtrs * rp,
   int methodIndex,
   unsigned long long contentLength,
   int expect100
   );
 
 int handleHTTPRequestHandler(ReaderState * rs,
-  ReadPtrs * rp,
   int methodIndex,
   int headersLength,
   unsigned long long contentLength,

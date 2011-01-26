@@ -1,5 +1,17 @@
 package capros;
 
+/* To construct an HTTPResource that handles only GET (and HEAD):
+   Call HTTPResourceGetConstructor.construct,
+   then using the returned HTTPResourceGetConstructorExtended, call init.
+
+   When a GET or HEAD request comes for that resource,
+   the Constructor constr specified to
+   HTTPResourceGetConstructorExtended.init is invoked to create
+   an HTTPRequestHandler for the request. 
+   sendLimit is the number of bytes the HTTPRequestHandler can receive
+   in the first headers() call. 
+ */
+
 interface HTTPResourceGetConstructorExtended extends key {
   HTTPResource init(Constructor constr, unsigned long sendLimit);
 };

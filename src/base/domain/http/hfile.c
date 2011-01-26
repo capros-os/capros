@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -150,7 +150,6 @@ writeFile(void *buf, int len) {
 // Returns 1 if OK, 0 if error.
 int
 handleFile(ReaderState * rs,
-  ReadPtrs * rp,
   int methodIndex,
   unsigned long long contentLength,
   int expect100
@@ -207,23 +206,20 @@ handleFile(ReaderState * rs,
 
   case Method_PUT:             /* Handle the PUT method */
     {
-      int len;
-      
       if (expect100) {
         writeStatusLine(rs, 100);
         writeSSL(rs, "\r\n", 2);
       }
       /*  Actually receive the file */
       
-      while ( contentLength > 0) {
-        if (!readExtend(rs, rp)) {
-          /* Network I/O error */
+      while (contentLength > 0) {
+        int len = readEnsure(rs);
+        if (len == 0) {		/* Network I/O error */
           destroyFile();
           return 0; /* Kill the connection */
         }
-        len = rp->last - rp->first;
-        if (contentLength < len) len = contentLength;
-        len = writeFile(rp->first, len);
+        if (len > contentLength) len = contentLength;
+        len = writeFile(rs->buf + rs->current, len);
         if (len < 0) {      /* File write error */
           writeStatusLine(rs, 500);
           writeMessage(rs, "File I/O error on write.", 0);
@@ -231,7 +227,7 @@ handleFile(ReaderState * rs,
           return 0;         /* Need to get back in sync with client */
         }
         contentLength -= len;
-        readConsume(rs, rp->first+len);
+        rs->current += len;	// consume the data
       }
       closeFile();
       writeStatusLine(rs, 200);

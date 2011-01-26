@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2009, 2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -154,7 +154,6 @@ readResponseBody(void * buf, int buflen)
 // Returns 1 if OK, 0 if error.
 int
 handleHTTPRequestHandler(ReaderState * rs,
-  ReadPtrs * rp,
   int methodIndex,
   int headersLength,
   unsigned long long contentLength,
@@ -247,30 +246,27 @@ handleHTTPRequestHandler(ReaderState * rs,
   DEBUG(resource)
     DBGPRINT(DBGTARGET, "HTTP: sending body %lld\n", contentLength);
   //TODO handle chunked transfers.
-  while ( contentLength > 0) {
-	int len;
-
-	if (!readExtend(rs, rp)) {
-	  /* Network I/O error */
-          DEBUG(errors)
-            DBGPRINT(DBGTARGET, "HTTP:%d: readExtend failed\n", __LINE__);
-	  goto errorExit; /* Kill the connection */
-	}
-	len = rp->last - rp->first;
-	if (contentLength < len) len = contentLength;
-	if (len > theSendLimit) len = theSendLimit;
-	rc = capros_HTTPRequestHandler_body(KR_FILE, len, 
-					    (unsigned char *)rp->first,
-					    &theSendLimit);
+  while (contentLength > 0) {
+    int len = readEnsure(rs);
+    if (len == 0) {	/* Network I/O error */
+      DEBUG(errors)
+        DBGPRINT(DBGTARGET, "HTTP:%d: readExtend failed\n", __LINE__);
+      goto errorExit; /* Kill the connection */
+    }
+    if (len > contentLength) len = contentLength;
+    if (len > theSendLimit) len = theSendLimit;
+    rc = capros_HTTPRequestHandler_body(KR_FILE, len, 
+				    (unsigned char *)(rs->buf + rs->current),
+				    &theSendLimit);
     DEBUG(http) DBGPRINT(DBGTARGET,
                          "HTTP: Sent body to Resource rc=%#x\n", rc);
-	if (RC_OK != rc) {  /* handler error */
-	  writeStatusLine(rs, 500);
-	  writeMessage(rs, "HTTPRequestHandler error on body.", 0);
-	  goto errorExit;     /* Need to get back in sync with client */
-	}
-	contentLength -= len;
-	readConsume(rs, rp->first+len);
+    if (RC_OK != rc) {  /* handler error */
+      writeStatusLine(rs, 500);
+      writeMessage(rs, "HTTPRequestHandler error on body.", 0);
+      goto errorExit;     /* Need to get back in sync with client */
+    }
+    contentLength -= len;
+    rs->current += len;    // consume the data
   }
 
   /* Get the response status */
