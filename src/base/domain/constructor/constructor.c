@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2005-2009, 2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -111,7 +111,7 @@ CheckDiscretion(uint32_t kr, ConstructorInfo *ci)
   capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_SCRATCH);
 
   result = capros_ProcCre_amplifyGateKey(KR_SCRATCH, kr,
-               KR_SCRATCH, 0, &keyInfo);
+               KR_VOID, 0, &keyInfo);
 
   if (result == RC_OK && keyInfo == 0) {
     uint32_t isDiscreet;
@@ -319,7 +319,7 @@ is_not_discreet(uint32_t kr, ConstructorInfo *ci)
 
   DEBUG(misc) kdprintf(KR_OSTREAM, "constructor: is_not_discreet(): proccre_amplify\n");
   result = capros_ProcCre_amplifyGateKey(KR_YIELDCRE, kr,
-                                 KR_SCRATCH, 0, &keyInfo);
+                                 KR_VOID, 0, &keyInfo);
   if (result == RC_OK && keyInfo == 0) {
     uint32_t isDiscreet;
     /* This key is a requestor's key to a constructor. Ask the
