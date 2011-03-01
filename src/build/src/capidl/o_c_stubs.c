@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, 2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -96,6 +96,7 @@ can_registerize(Symbol *s, unsigned nReg)
       case lt_unsigned:
       case lt_char:
       case lt_bool:
+      case lt_float:
 	{
 	  /* Integral types are aligned to their size. Floating types
 	     are aligned to their size, not to exceed 64 bits. If we
@@ -174,8 +175,17 @@ emit_deregisterize(FILE *out, Symbol *child, int indent, unsigned regCount)
 
   {
     do_indent(out, indent);
-    fprintf(out, "if (%s) *%s = msg.rcv_w%d;\n", 
-	    child->name, child->name, regCount);
+    fprintf(out, "if (%s) *%s = ",
+	    child->name, child->name);
+    if (child->type->v.lty == lt_float) {
+      fprintf(out, "*(");
+      output_c_type(child->type, out, 0);
+      fprintf(out, " *)&msg.rcv_w%d;\n", 
+    	      regCount);
+    } else {
+      fprintf(out, "msg.rcv_w%d;\n", 
+    	      regCount);
+    }
 
     bitsInput += REGISTER_BITS;
     regCount++;
