@@ -1,0 +1,23 @@
+package capros;
+
+/* To construct an HTTPResource that handles only POST:
+   Call HTTPResourcePostConstructor.construct,
+   then using the returned HTTPResourcePostConstructorExtended, call init.
+
+   When a POST request comes for that resource,
+   the Constructor constr
+   specified to HTTPResourcePostConstructorExtended.init
+   is invoked to create an HTTPRequestHandler for the request. 
+   sendLimit is the number of bytes the HTTPRequestHandler can receive
+   in the first headers() call. 
+ */
+
+interface HTTPResourcePostConstructorExtended extends key {
+  HTTPResource init(Constructor constr, unsigned long sendLimit);
+};
+
+interface HTTPResourcePostConstructor extends ConstructorRequestor {
+  void construct(SpaceBank bank, key sched,
+                 out key unused1, out key unused2, out key unused3,
+                 out HTTPResourcePostConstructorExtended ret);
+};

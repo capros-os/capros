@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009, Strawberry Development Group
+# Copyright (C) 2009, 2011, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -35,6 +35,7 @@ OBJECTS+=$(BUILDDIR)/hfile.o
 OBJECTS+=$(BUILDDIR)/stubs.o
 
 TARGETS+=$(BUILDDIR)/httprget
+TARGETS+=$(BUILDDIR)/httprpost
 
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I../openssl/include
 IMGMAP=$(COMPONENT).map
@@ -58,10 +59,16 @@ $(BUILDDIR)/$(COMPONENT): $(OBJECTS) $(LIBDEP) $(DYNCMMEDEPS)
 
 $(BUILDDIR)/httprget: $(BUILDDIR)/httprget.o $(LIBDEP)
 	$(CROSSLINK) $(BUILDDIR)/httprget.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symshttpr
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledhttpr
+
+$(BUILDDIR)/httprpost: $(BUILDDIR)/httprpost.o $(LIBDEP)
+	$(CROSSLINK) $(BUILDDIR)/httprpost.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
-	$(INSTALL) -m 644 $(IMGMAP) httprget.map $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 $(IMGMAP) httprget.map httprpost.map $(CAPROS_DOMAIN)
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m
