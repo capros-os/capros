@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004 Evgeniy Polyakov <johnpol@2ka.mipt.ru>
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -47,7 +47,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_errors 0x8
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_errors )
+#define dbg_flags   ( 0u )	// DS2490 is unreliable, we don't report errors
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
