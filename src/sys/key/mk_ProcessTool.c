@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006-2008, 2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -161,15 +161,18 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 
       if (! keyBits_IsGateKey(inv->entry.key[0])) {
 	COMMIT_POINT();
+        inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
 
       isResume = keyBits_IsType(inv->entry.key[0], KKT_Resume);
+
+      if (! CompareBrand(inv, inv->entry.key[0], inv->entry.key[1])) {
+        inv->exit.code = RC_capros_key_NoAccess;
+	break;
+      }
       
       inv->exit.code = RC_OK;
-
-      if (! CompareBrand(inv, inv->entry.key[0], inv->entry.key[1]))
-	break;
 
       if (isResume) {
         inv->exit.w1 = 2;
@@ -220,6 +223,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       if (! keyBits_IsType(inv->entry.key[0], KKT_GPT)
           || keyBits_IsNoCall(inv->entry.key[0]) ) {
 	COMMIT_POINT();
+        inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
 
@@ -228,6 +232,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       /* If no keeper key: */
       if (! (gpt_GetL2vField(theGPT) & GPT_KEEPER)) {
 	COMMIT_POINT();
+        inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
 
@@ -237,12 +242,14 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       
       if (! keyBits_IsGateKey(domKey)) {
 	COMMIT_POINT();
+        inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
 
       bool isResume = keyBits_IsType(domKey, KKT_Resume);
       
-      if ( CompareBrand(inv, domKey, inv->entry.key[1]) == false ) {
+      if (! CompareBrand(inv, domKey, inv->entry.key[1])) {
+        inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
       
@@ -273,6 +280,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 #endif
          ) {
 	COMMIT_POINT();
+        inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
 
@@ -283,10 +291,12 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       
       if (! keyBits_IsGateKey(domKey)) {
         COMMIT_POINT();
+        inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
       
       if (! CompareBrand(inv, domKey, inv->entry.key[1])) {
+        inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
 
@@ -294,6 +304,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 
       if (keyBits_IsType(domKey, KKT_Resume)) {
         inv->exit.w1 = 2;
+        inv->exit.w2 = 0;
       } else {
 	inv->exit.w2 = domKey->keyData;
         inv->exit.w1 = 1;

@@ -14,31 +14,45 @@ interface ProcTool extends key {
 
   /** Identify a gate key with brand.
 
-  If gateKey is a start or resume key whose brand is the specified brand,
-  then this operation returns:
-    in nodeKey, a node key to the root node of the process
+  If gateKey is a start or resume key to a process whose brand
+  is the specified brand, then this operation returns:
+    in nodeKey: a node key to the root node of the process
       designated by gateKey;
-    in keyType, 1 if gateKey is a start key and 2 if it is a resume key;
-    in keyInfo, 0 if gateKey is a resume key
-                and the keyData if it is a start key.
-  */
+    in keyType: 1 if gateKey is a start key and 2 if it is a resume key;
+    in payload: if gateKey is a start key, its StartKeyPayload,
+                otherwise 0.
+  Otherwise it raises key.NoAccess. */
   void canOpener(capros.key gateKey, capros.key brand, out capros.Node nodeKey,
-		 out unsigned long keyType, out unsigned long keyInfo);
+		 out unsigned long keyType, out unsigned long payload);
 
-  /* If GPTKey is a key to a GPT without the noCall restriction,
+  /** Identify a GPT keeper with brand.
+
+  If GPTKey is a key to a GPT without the noCall restriction,
   that has a keeper that is a start or resume key to a process
-  whose brand matches the specified brand, then the operation returns:
-  in GPTOut, a non-opaque key to the GPT;
-  in keyType, 0 if the keeper is a start key or 1 if a resume key; and
-  in keyInfo, the keyInfo if the keeper is a start key or 0 if a resume key.
-  Otherwise it raises RequestError. */ 
+  whose brand is the specified brand, then this operation returns:
+    in GPTOut: a non-opaque key to the GPT;
+    in keyType: 0 if the keeper key is a start key and 1 if it is a resume key;
+    in payload: if the keeper key is a start key, its StartKeyPayload,
+                otherwise 0.
+  Otherwise it raises key.NoAccess. */
   void identGPTKeeper(capros.GPT GPTKey, capros.key brand, 
 			  out capros.GPT GPTOut, 
 			  out unsigned long keyType,
-			  out unsigned long keyInfo);
+			  out unsigned long payload);
 
+  /** Identify a Forwarder target with brand.
+
+  If forwarder is a key to a Forwarder
+  whose target is a start or resume key to a process
+  whose brand is the specified brand, then this operation returns:
+    in nonOpaqueForwarder: a non-opaque key to the Forwarder;
+    in keyType: 1 if gateKey is a start key and 2 if it is a resume key;
+    in payload: if the keeper key is a start key, its StartKeyPayload,
+                otherwise 0.
+  (It is planned to require that the Forwarder must not have the SendCap flag.)
+  Otherwise it raises key.NoAccess. */
   void identForwarderTarget(capros.Forwarder forwarder, capros.key brand, 
 			  out capros.Forwarder nonOpaqueForwarder, 
 			  out unsigned long keyType, // 1 start, 2 resume
-			  out unsigned long keyInfo);
+			  out unsigned long payload);
 };
