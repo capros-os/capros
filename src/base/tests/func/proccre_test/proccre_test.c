@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2009, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, 2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -74,7 +74,7 @@ main()
   capros_Number_value nkv;
   capros_Number_getValue(KR_HELLO_PC, &nkv);
   
-  kdprintf(KR_OSTREAM, "About to invoke pcc\n");
+  kprintf(KR_OSTREAM, "About to invoke pcc\n");
 
   result = capros_PCC_createProcessCreator(KR_DCC, KR_BANK, KR_SCHED,
                KR_PROCCRE);
@@ -83,7 +83,7 @@ main()
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
 #endif
 
-  kdprintf(KR_OSTREAM, "About to invoke new proccre\n");
+  kprintf(KR_OSTREAM, "About to invoke new proccre\n");
   
   result = capros_ProcCre_createProcess(KR_PROCCRE, KR_BANK, KR_NEWDOM);
   ckOK
@@ -92,7 +92,7 @@ main()
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWDOM);
 #endif
 
-  kdprintf(KR_OSTREAM, "Populate new process\n");
+  kprintf(KR_OSTREAM, "Populate new process\n");
 
   /* Install the schedule key into the domain: */
   (void) capros_Process_swapSchedule(KR_NEWDOM, KR_SCHED, KR_VOID);
@@ -106,7 +106,7 @@ main()
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_BANK, KR_BANK, KR_VOID);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, 5, KR_OSTREAM, KR_VOID);
 
-  kdprintf(KR_OSTREAM, "About to call get fault key\n");
+  kprintf(KR_OSTREAM, "About to call get fault key\n");
 
   /* Make a resume key to start up the new domain creator: */
   result = capros_Process_makeResumeKey(KR_NEWDOM, KR_TEMP0);
@@ -125,7 +125,7 @@ main()
 
   SEND(&msg);
 
-  kdprintf(KR_OSTREAM, "About to mk start key\n");
+  kprintf(KR_OSTREAM, "About to mk start key\n");
 
   /* Now make a start key to call: */
   result = capros_Process_makeStartKey(KR_NEWDOM, 0, KR_NEWSTART);
@@ -134,7 +134,7 @@ main()
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWSTART);
 #endif
 
-  kdprintf(KR_OSTREAM, "Got start key. Invoke it:\n");
+  kprintf(KR_OSTREAM, "Got start key. Invoke it:\n");
 
   msg.snd_key0 = KR_VOID;
   msg.snd_key1 = KR_VOID;
@@ -153,12 +153,21 @@ main()
   msg.snd_invKey = KR_NEWSTART;
   result = CALL(&msg);
 
-  kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
+  kprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
 
   uint32_t keyType, keyInfo;
   result = capros_ProcCre_amplifyGateKey(KR_PROCCRE, KR_NEWSTART,
              KR_TEMP0, &keyType, &keyInfo);
   ckOK
+
+  // Negative test of amplifyGateKey:
+  result = capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP0);
+  ckOK
+  result = capros_ProcCre_amplifyGateKey(KR_PROCCRE, KR_TEMP0,
+             KR_TEMP0, &keyType, &keyInfo);
+  if (result != RC_capros_key_NoAccess) {
+    kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result);
+  }
 
   result = capros_ProcCre_destroyProcess(KR_PROCCRE, KR_BANK, KR_NEWDOM);
   ckOK
