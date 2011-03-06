@@ -63,6 +63,7 @@ interface SWCA extends key
   //   and must be a multiple of 0.2 volts.
   // All times in tm are in units of 10 minutes.
 
+  // Get battery actual volts.
   void getBatteryVolts(unsigned byte inverterNum, out short v10);
 
   short enum InvMode {
