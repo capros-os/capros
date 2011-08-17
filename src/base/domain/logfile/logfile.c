@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2010, Strawberry Development Group.
+ * Copyright (C) 2009-2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -212,7 +212,11 @@ EnsureRangeAllocatedRec(cap_t gpt, uint32_t start, uint32_t end,
                         start, end, l2v);
   assert(l2v >= EROS_PAGE_LGSIZE);
   assert((l2v - EROS_PAGE_LGSIZE) % l2nSlots == 0);
-  assert(start < end);
+  if (start >= end) {
+    kprintf(KR_OSTREAM, "EnsureRangeAllocatedRec start=%#x end=%#x\n",
+            start, end);	// bug catcher
+    assert(start < end);
+  }
   assert(end <= (1 << (l2v + l2nSlots)));
 
   int f = start >> l2v;
