@@ -777,13 +777,16 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 
   // TODO handle absolute URI format (no one sends it yet)
   /* Get the URI part of the request */
+  size_t authorityLen;
   if (!readToken(rs, &rp, " \n")) return 0; /* Read the authority */
   c = *rp.last;
   switch (c) {                       /* See what we found */
   case ' ':                          /* Found a space - save authority */
-    authority = malloc(rp.last - rp.first + 1);
-    memcpy(authority, rp.first, rp.last - rp.first);
-    authority[rp.last - rp.first] = 0;
+    authorityLen = rp.last - rp.first;
+    authority = malloc(authorityLen + 1);
+    memcpy(authority, rp.first, authorityLen);
+    authority[authorityLen] = 0;
+    assert(authorityLen == strlen(authority));
     break;
   default:                                    /* Newline etc bad request */
     DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (newline etc)\n");
@@ -796,7 +799,6 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
      the query (less question mark separator, the Swiss number portion, 
      and the Swiss number. */
   {
-    size_t authorityLen = strlen(authority);
     char * queryEnd = authority + authorityLen;
 
     char *delim = strchr(authority, '?');
@@ -834,7 +836,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       char * tail = queryEnd;
       char * p;
       char * where;
-      while (1) {
+      do {
         p = tail;
         where = tail - 1;	// skip '&'
         assert(*where == '&' || *where == ';');
@@ -856,7 +858,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
           break;
         }
         tail = where;
-      }
+      } while (where != delim);
       /* Copy the query, minus the "s=value&", to pathandquery. */
       char * query = pathandquery + pathLength; // end of path, beg of query
       // Copy the part before "s=value&".
@@ -1363,7 +1365,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
  * @return is:
  *   0 if there was an error. *rp may not be updated.
  *   1 if no error. If return is 1, rp->first
- *         will point to the token, and rp->next will point to the next
+ *         will point to the token, and rp->last will point to the next
  *         separator. The characters from rp->first to rp->last-1 inclusive
  *         are the token.
  */

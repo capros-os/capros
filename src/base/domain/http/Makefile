@@ -65,6 +65,9 @@ $(BUILDDIR)/httprget: $(BUILDDIR)/httprget.o $(LIBDEP)
 
 $(BUILDDIR)/httprpost: $(BUILDDIR)/httprpost.o $(LIBDEP)
 	$(CROSSLINK) $(BUILDDIR)/httprpost.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symshttprpost
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledhttprpost
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
