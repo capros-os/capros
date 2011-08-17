@@ -255,17 +255,18 @@ ds_recv_data(dma_addr_t buf_dma, int len)
 
   err = ds_usb_io(&urb, endpoint, USB_Timeout2, &count);
   if (err < 0) {
-	printk(KERN_INFO "err=%d, Clearing ep0x%x.\n", err,
+	DEBUG(errors) printk(KERN_INFO "err=%d, Clearing ep0x%x.\n", err,
 		theDSDev.ep[EP_DATA_IN]);
 	usb_clear_halt(NULL, endpoint);
 	count = ds_recv_status();
 	assert(count >= 16);	// FIXME
 
-	dump_status(count);
+	DEBUG(errors) dump_status(count);
 
 	struct ds_status * st = &cm->status;
 	if (st->status & ST_EPOF) {
-		printk(KERN_INFO "Resetting device after ST_EPOF.\n");
+		DEBUG(errors)
+                  printk(KERN_INFO "Resetting device after ST_EPOF.\n");
 		int err = ds_send_control_cmd(CTL_RESET_DEVICE, 0);
 		assert(!err);	// FIXME
 		count = ds_recv_status();
@@ -274,10 +275,11 @@ ds_recv_data(dma_addr_t buf_dma, int len)
 	// Let's attempt some error recovery: retry once
 	int err2 = ds_usb_io(&urb, endpoint, USB_Timeout2, &count);
 	if (err2) {
-		printk(KERN_INFO "%s second err=%d\n", __func__, err2);
+		DEBUG(errors) printk(KERN_INFO "%s second err=%d\n",
+                                     __func__, err2);
 		return err;
 	} else {
-		kdprintf(KR_OSTREAM, "%s retried OK.\n", __func__);
+		DEBUG(errors) kprintf(KR_OSTREAM, "%s retried OK.\n", __func__);
 	}
   }
 
@@ -1029,6 +1031,7 @@ execute:
       err = waitStatus();
       if (err != 16) {
       	// FIXME handle or report
+      	DEBUG(errors) {
       	kprintf(KR_OSTREAM, "ds2490.c: status = %d\n", err);
         if (err > 16) {	// got a result register value
           dump_status(err);
@@ -1039,6 +1042,7 @@ execute:
           }
         }
         kprintf(KR_OSTREAM, " Continuing\n");
+        }
       }
     }
     // Get any final data for this segment.
