@@ -12,9 +12,15 @@ interface ProcCre extends key
   void destroyCallerAndReturn(key Bank,
      key returnee, key.exceptionType returnCode);
 
+  /*
+     Raises key.NoAccess otherwise.
+   */
   void amplifyGateKey(key gate, out key proc,
                    out unsigned long keyType, out unsigned long keyInfo);
 
+  /*
+     Raises key.NoAccess otherwise.
+   */
   void amplifyGPTKey(key gate, out key proc,
                    out unsigned long keyType, out unsigned long keyInfo);
 
