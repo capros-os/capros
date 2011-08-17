@@ -41,6 +41,15 @@ interface SWCA extends key
   (The param field is unused.) inverterNum is zero-based. */
   Logfile getLoadAmpsLogfile(unsigned byte inverterNum);
 
+  /** Get a read-only capability to the Logfile containing records
+  in the format Logfile.LogRecord16
+  in which the value field is the battery actual voltage * 10
+  for the specified inverter.
+  (The param field is unused.) inverterNum is zero-based. */
+  /* Only inverter number 1 has such a Logfile. For other inverters,
+  a void capability is returned. */
+  Logfile getActualVoltageLogfile(unsigned byte inverterNum);
+
   /** Get a read-only capability to the Logfile containing LEDLogRecord records
   for the specified inverter.  inverterNum is zero-based. */
   Logfile getLEDsLogfile(unsigned byte inverterNum);
@@ -63,8 +72,8 @@ interface SWCA extends key
   //   and must be a multiple of 0.2 volts.
   // All times in tm are in units of 10 minutes.
 
-  // Get battery actual volts.
-  void getBatteryVolts(unsigned byte inverterNum, out short v10);
+  // Get the temperature-compensated voltage of the battery.
+  void getTempCompVolts(unsigned byte inverterNum, out short v10);
 
   short enum InvMode {
     Off,
@@ -91,15 +100,21 @@ interface SWCA extends key
   void getLBCOVolts(unsigned byte inverterNum, out short v10);
   void setLBCOVolts(unsigned byte inverterNum, short v10);
 
+  // Note: the bulk voltage is compared with the temperature-compensated
+  // voltage.
   void getBulkVolts(unsigned byte inverterNum, out short v10);
   void setBulkVolts(unsigned byte inverterNum, short v10);
 
   void getAbsorptionTime(unsigned byte inverterNum, out short tm);
   void setAbsorptionTime(unsigned byte inverterNum, short tm);
 
+  // Note: the float voltage is compared with the temperature-compensated
+  // voltage.
   void getFloatVolts(unsigned byte inverterNum, out short v10);
   void setFloatVolts(unsigned byte inverterNum, short v10);
 
+  // Note: the equalize voltage is compared with the temperature-compensated
+  // voltage.
   void getEqualizeVolts(unsigned byte inverterNum, out short v10);
   void setEqualizeVolts(unsigned byte inverterNum, short v10);
 

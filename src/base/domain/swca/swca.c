@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -85,7 +85,8 @@ Approved for public release, distribution unlimited. */
 #define LKSN_LEDLOGS (LKSN_WAITER+1)	// one for each adapter
 #define LKSN_InvChgLogs (LKSN_LEDLOGS + numAdapters)
 #define LKSN_LoadLogs (LKSN_InvChgLogs + numAdapters)
-#define LKSN_End (LKSN_LoadLogs + numAdapters)
+#define LKSN_ActVLogs (LKSN_LoadLogs + numAdapters)
+#define LKSN_End (LKSN_ActVLogs + numAdapters)
 
 #define keyInfo_nplinkee 0xffff	// nplink has this key
 #define keyInfo_swca   0	// client has this key
@@ -126,6 +127,7 @@ typedef struct AdapterState {
 
   int invChg;	// inverter/charger in amps AC
   int load;	// load in amps AC
+  int actualV;	// battery actual voltage in volts * 10
 } AdapterState;
 AdapterState adapterStates[numAdapters];
 int requestData;
@@ -256,6 +258,9 @@ struct Task {
 			we avoid selecting inverters every 1/3 second. */
   {twoSec,      1, 3, 1},
   {twoSec,      1, 3, 3},
+#define ActVInv 1	// the one inverter that has an ActV log
+			// (because it controls the generator)
+  {twoSec,      1, 3, 4},	// actual volts only on this inverter
   {twoSec,      2, -1},	// don't need to know if this inverter's LEDs are blinkg
   {twoSec,      2, 3, 1},
   {twoSec,      2, 3, 3},
@@ -434,12 +439,10 @@ procYN(AdapterState * as)
   return false;
 }
 
-bool
-procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
+void
+procLogValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs,
+  int value)
 {
-  int value;
-  if (ConvertInt(as, &value))
-    return true;
   if (value != *pv) {
     // The value changed. Log the new value.
     capros_Logfile_LogRecord16 rec16;
@@ -455,6 +458,15 @@ procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
   } else {
     // kprintf(KR_OSTREAM, "Same data, not logged\n");
   }
+}
+
+bool
+procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
+{
+  int value;
+  if (ConvertInt(as, &value))
+    return true;
+  procLogValue(as, pv, ks_logs, value);
   return false;
 }
 
@@ -491,8 +503,9 @@ procHMRequest(AdapterState * as)
   char c2 = *++p;
   char c3 = *++p;
   char c4 = *++p;
+  // The time display does sometimes read hh:60 or hh:70 !
   if (! isdigit(c0) || ! isdigit(c1) || c2 != ':'
-      || ! isdigit(c3) || c3 > '5' || c4 != '0' ) {
+      || ! isdigit(c3) || c3 > '9' || c4 != '0' ) {
     DEBUG(errors) kprintf(KR_OSTREAM, "ConvertHM of %c%c%c%c%c failed!\n",
                           c0, c1, c2, c3, c4);
     return true;
@@ -525,12 +538,18 @@ procLoad(AdapterState * as)
 }
 
 bool
-procBattTC(AdapterState * as)
+procActV(AdapterState * as)
 {
   int value;
   if (Convert2p1(as, &value))
     return true;
-  // Value not currently stored.
+  if (value >= 200) {	// passes sanity check
+    if (as->num == ActVInv) {	// only this one has a log
+      procLogValue(as, &as->actualV, LKSN_ActVLogs, value);
+    }
+  }
+  // else this value doesn't make sense. If the voltage were really that low,
+  // the inverter wouldn't be running.
   return false;
 }
 
@@ -642,8 +661,8 @@ struct MenuItem {
   [3][1] = {{"Inverter/charger","Amps AC         "}, procInvChg, 2},
   [3][2] = {{"Input           ","amps AC         "}, procInputAmps, 2},
   [3][3] = {{"Load            ","amps AC         "}, procLoad, 2},
-  [3][4] = {{"Battery actual  ","volts DC        "}, proc2p1Request},
-  [3][5] = {{"Battery TempComp","volts DC        "}, procBattTC},
+  [3][4] = {{"Battery actual  ","volts DC        "}, procActV},
+  [3][5] = {{"Battery TempComp","volts DC        "}, proc2p1Request},
   [3][6] = {{"Inverter        ","volts AC        "}, procInvVolts},
   [3][7] = {{"Grid (AC1)      ","volts AC        "}, procGridVolts},
   [3][8] = {{"Generator (AC2) ","volts AC        "}, procGenVolts},
@@ -1230,6 +1249,7 @@ InitSerialPort(void)
     as->LEDs = 0xff;	// ensure first log entry for these
     as->invChg = INT_MAX;
     as->load = INT_MAX;
+    as->actualV = INT_MAX;
   }
 }
 
@@ -1523,7 +1543,7 @@ DoRequest(void)
     default:
       assert(false);
 
-    case OC_capros_SWCA_getBatteryVolts:
+    case OC_capros_SWCA_getTempCompVolts:
     case OC_capros_SWCA_getLBCOVolts:
     case OC_capros_SWCA_getBulkVolts:
     case OC_capros_SWCA_getAbsorptionTime:
@@ -1697,6 +1717,7 @@ cmte_main(void)
     CreateLog(LKSN_InvChgLogs + i);
     CreateLog(LKSN_LoadLogs + i);
   }
+  CreateLog(LKSN_ActVLogs + ActVInv);	// only one of these
 
   // Create key for input process to call us:
   result = capros_Process_makeStartKey(KR_SELF, keyInfo_notify, KR_TEMP0);
@@ -1842,6 +1863,10 @@ cmte_main(void)
         GetLogfile(&Msg, LKSN_LoadLogs);
         break;
 
+      case OC_capros_SWCA_getActualVoltageLogfile:
+        GetLogfile(&Msg, LKSN_ActVLogs);
+        break;
+
       case OC_capros_SWCA_disableCommands:
         commDisabled = true;
         break;
@@ -1852,8 +1877,8 @@ cmte_main(void)
 
       // Requests:
 
-      case OC_capros_SWCA_getBatteryVolts:
-        WaiterRequest(&Msg, 3, 4);
+      case OC_capros_SWCA_getTempCompVolts:
+        WaiterRequest(&Msg, 3, 5);
         break;
 
       case OC_capros_SWCA_getInverterMode:
