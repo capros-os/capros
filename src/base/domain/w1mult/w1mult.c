@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -437,7 +437,7 @@ WriteOneByte(uint8_t b)
   NotReset();
 }
 
-static void
+void
 AllDevsNotFound(void)
 {
   int i;
@@ -450,13 +450,6 @@ AllDevsNotFound(void)
           dev->u.coupler.activeBranch = branchUnknown;
     }
   }
-}
-
-static void
-SetBusNeedsReinit(void)
-{
-  busNeedsReinit = true;
-  AllDevsNotFound();
 }
 
 // Return true if Restart exception or void key, false if OK.
@@ -529,6 +522,8 @@ RunProgram(void)
 
   case capros_W1Bus_StatusCode_BusShorted:
   case capros_W1Bus_StatusCode_BusError:
+    DEBUG(errors)
+      kprintf(KR_OSTREAM, "w1mult RunProgram got status %d\n", status);
     SetBusNeedsReinit();
   // The following are not too serious:
   case capros_W1Bus_StatusCode_CRCError:
@@ -633,6 +628,7 @@ EnableHeartbeat(uint32_t bit)
     if (haveNextBusKey) {
       // Start using the new bus key.
       COPY_KEYREG(KR_NEXTW1BUS, KR_W1BUS);
+      DEBUG(errors) kprintf(KR_OSTREAM, "w1mult: new bus key\n");
       haveNextBusKey = false;
       haveBusKey = true;
       SetBusNeedsReinit();
@@ -1167,7 +1163,7 @@ SearchPath(struct Branch * br)
       statusCode = RunProgram();
       switch (statusCode) {
       default:
-        kdprintf(KR_OSTREAM, "SearchROM got status $d!\n", statusCode);
+        kdprintf(KR_OSTREAM, "SearchROM got status %d!\n", statusCode);
       case capros_W1Bus_StatusCode_BusError:
       case -1:
         return statusCode;
@@ -1202,37 +1198,43 @@ SearchPath(struct Branch * br)
         if (dev->configured
             && dev->rom == rom
             && dev->parentBranch == br) {
-          assert(! dev->found);	// better not find it more than once
-          // Do device-independent initialization:
-          dev->found = true;
-          dev->sampling = false;
-          // Add to its branch:
-          if (w1dev_IsCoupler(dev)) {
-            dev->nextChild = br->childCouplers;
-            br->childCouplers = dev;
+          if (dev->found) {
+            // This should not happen, but data errors could cause it.
+            DEBUG(errors)
+              kprintf(KR_OSTREAM, "W1mult: \007ROM %#.16llx found twice.\n",
+                      rom);////
           } else {
-            dev->nextChild = br->childDevices;
-            br->childDevices = dev;
-          }
-          // Do device-specific initialization:
-          switch (w1dev_getFamilyCode(dev)) {
-          case famCode_DS2409:	// coupler
-            Branch_Init(&dev->u.coupler.mainBranch);
-            Branch_Init(&dev->u.coupler.auxBranch);
-            break;
-          case famCode_DS18B20:	// thermometer
-            DS18B20_InitDev(dev);
-            break;
-          case famCode_DS2408:	// battery monitor
-            DS2408_InitDev(dev);
-            break;
-          case famCode_DS2438:	// battery monitor
-            DS2438_InitDev(dev);
-            break;
-          case famCode_DS2450:	// A/D
-            DS2450_InitDev(dev);
-            break;
-          default: break;
+            // Do device-independent initialization:
+            dev->found = true;
+            dev->sampling = false;
+            // Add to its branch:
+            if (w1dev_IsCoupler(dev)) {
+              dev->nextChild = br->childCouplers;
+              br->childCouplers = dev;
+            } else {
+              dev->nextChild = br->childDevices;
+              br->childDevices = dev;
+            }
+            // Do device-specific initialization:
+            switch (w1dev_getFamilyCode(dev)) {
+            case famCode_DS2409:	// coupler
+              Branch_Init(&dev->u.coupler.mainBranch);
+              Branch_Init(&dev->u.coupler.auxBranch);
+              break;
+            case famCode_DS18B20:	// thermometer
+              DS18B20_InitDev(dev);
+              break;
+            case famCode_DS2408:	// battery monitor
+              DS2408_InitDev(dev);
+              break;
+            case famCode_DS2438:	// battery monitor
+              DS2438_InitDev(dev);
+              break;
+            case famCode_DS2450:	// A/D
+              DS2450_InitDev(dev);
+              break;
+            default: break;
+            }
           }
           break;
         }

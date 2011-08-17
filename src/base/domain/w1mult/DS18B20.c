@@ -267,25 +267,34 @@ ConvertT(struct Branch * br)
 static void
 readTemperature(struct W1Device * dev)
 {
-  // The device is on active branches, so we can just address it:
-  assert(ProgramIsClear());
-  ProgramReset();
-  ProgramMatchROM(dev);
-  if (! ReadSpad(dev)) {
-    int temperature = inBuf[0] + (inBuf[1] << 8);
-    if (temperature < dev->u.thermom.hysteresisLow
-        || temperature > dev->u.thermom.hysteresisLow
-                         + dev->u.thermom.hysteresis ) {
-      // Temperature changed sufficiently to log.
-      if (AddLogRecord16(dev->u.thermom.logSlot,
-                         DS18B20_sampledRTC,
-                         DS18B20_sampledTime, temperature, 0)) {
-        if (temperature < dev->u.thermom.hysteresisLow)
-          dev->u.thermom.hysteresisLow = temperature;
-        else
-          dev->u.thermom.hysteresisLow = temperature
-                                        - dev->u.thermom.hysteresis;
+  int tries = 0;
+  while (1) {
+    // The device is on active branches, so we can just address it:
+    assert(ProgramIsClear());
+    ProgramReset();
+    ProgramMatchROM(dev);
+    if (ReadSpad(dev)) {	// some error
+      if (++tries < 4)
+         continue;	// try again
+      SetBusNeedsReinit();	// try a bigger hammer
+      return;
+    } else {
+      int temperature = inBuf[0] + (inBuf[1] << 8);
+      if (temperature < dev->u.thermom.hysteresisLow
+          || temperature > dev->u.thermom.hysteresisLow
+                           + dev->u.thermom.hysteresis ) {
+        // Temperature changed sufficiently to log.
+        if (AddLogRecord16(dev->u.thermom.logSlot,
+                           DS18B20_sampledRTC,
+                           DS18B20_sampledTime, temperature, 0)) {
+          if (temperature < dev->u.thermom.hysteresisLow)
+            dev->u.thermom.hysteresisLow = temperature;
+          else
+            dev->u.thermom.hysteresisLow = temperature
+                                          - dev->u.thermom.hysteresis;
+        }
       }
+      return;	// OK
     }
   }
 }

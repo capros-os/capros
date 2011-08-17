@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -217,6 +217,14 @@ void AddressDevice(struct W1Device * dev);
 void ProgramMatchROM(struct W1Device * dev);
 void WriteOneByte(uint8_t b);
 int RunProgram(void);
+void AllDevsNotFound(void);
+
+static inline void
+SetBusNeedsReinit(void)
+{
+  busNeedsReinit = true;
+  AllDevsNotFound();
+}
 
 static inline bool
 ProgramIsClear(void)
