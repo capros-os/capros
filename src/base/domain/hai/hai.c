@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -535,7 +535,8 @@ GetSequencedHeader(void)
 /* 
  * Receive an OmniLink II application message.
  * Must hold sendLock.
- * If the session was terminated, this procedure returns -1.
+ * If the session was terminated or these is an error,
+ *   this procedure returns -1.
  * Otherwise it returns the length of the data plus 1 for the message type
  *   (the length excludes the start character, length byte, and CRC).
  */
@@ -575,7 +576,10 @@ OL2Receive(void)
   ////bool workaround = recvrMessage[2] == 0x37;
   bool workaround = false;
   if (! workaround) {
-    assert(recvrMessage[0] == startCharacter);
+    if (recvrMessage[0] != startCharacter) {
+      kprintf(KR_OSTREAM, "HAI: startCharacter is %#x!\n", recvrMessage[0]);
+      return -1;
+    }
   }
   unsigned int appLen = recvrMessage[1];  // length of data + 1 for msg type
   // Get the rest of this message:
