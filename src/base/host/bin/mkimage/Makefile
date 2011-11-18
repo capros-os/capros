@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2011, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -39,7 +39,7 @@ OBJECTS= $(BUILDDIR)/gram.o $(BUILDDIR)/lex.o $(BUILDDIR)/PtrMap.o
 DEF+=   -D_REVEAL_KERNEL_KEY_TYPES_
 INC=	-I$(BUILDDIR) -I. -I$(EROS_ROOT)/host/include $(XENV_INCLUDE)
 LIBS=	$(EROS_ROOT)/host/lib/liberos.a $(EROS_ROOT)/host/lib/libdisk.a
-OTHER_LIBS=	-lbfd -liberty
+OTHER_LIBS=	-lbfd -liberty -ldl
 DIRS=
 HEADERS=mkimage.preinclude
 
