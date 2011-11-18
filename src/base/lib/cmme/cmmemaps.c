@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -316,7 +316,7 @@ maps_reserveAndMapRange_locked(cap_t rangeCap,
     if (readOnly) {
       result = capros_Memory_reduce(KR_TEMP1,
                  capros_Memory_readOnly, KR_TEMP1);
-      assert(result != RC_OK);
+      assert(result == RC_OK);
     }
     result = maps_mapPage_locked(pgOffset++, KR_TEMP1);
     if (result != RC_OK) {
