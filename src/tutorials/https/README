@@ -21,6 +21,12 @@ You can generate new random Swiss numbers by typing:
    cd main
    ./genswiss
 
+Note, the way 'cvs diff' works is to send the local file(s) to the remote
+machine for comparison. To avoid disclosing the Swiss numbers in your
+local main/test.h, main/.cvsignore is set to exclude test.h from all comparisons
+and updates. On the rare occasions when you need to update or check in test.h,
+you must temporarily remove test.h from .cvsignore.
+
 Then from tutorials/https, type:
     make p
 This will build the tutorial and copy it to the target system.
