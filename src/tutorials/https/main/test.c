@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010, Strawberry Development Group.
+ * Copyright (C) 2009-2011, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -187,6 +187,8 @@ cmme_main(void)
   ckOK
 
   // Make a HTTPResource for the home page object.
+  result = capros_Node_getSlot(KR_CONSTIT, KC_HTTPRGetC, KR_TEMP0);
+  ckOK
   result = capros_HTTPResourceGetConstructor_construct(KR_TEMP0,
              KR_BANK, KR_SCHED,
              KR_VOID, KR_VOID, KR_VOID,
