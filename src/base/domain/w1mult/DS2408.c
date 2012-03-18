@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Strawberry Development Group.
+ * Copyright (C) 2010, 2012, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -101,8 +101,9 @@ AddressWriteOutput(struct W1Device * dev, uint8_t output)
 This is called on every reboot and whenever the bus is rescanned.
 This procedure can issue device I/O, but must not take a long time.
 The device is addressed, since we just completed a searchROM that found it.
+Returns true iff dev is OK.
 */
-void
+bool
 DS2408_InitDev(struct W1Device * dev)
 {
   int status;
@@ -124,11 +125,12 @@ DS2408_InitDev(struct W1Device * dev)
       }
     }
     kprintf(KR_OSTREAM, "DS2408 %#llx permanent error.\n", dev->rom);
-    return;
+    return false;
   }
 
   DEBUG(gpio8) kprintf(KR_OSTREAM, "DS2408 %#llx is found.\n",
                    dev->rom);
+  return true;
 }
 
 void

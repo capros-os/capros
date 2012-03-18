@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2010, 2012, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -313,17 +313,18 @@ CheckPOR(struct W1Device * dev)
 This is called at least on every reboot.
 This procedure can issue device I/O, but must not take a long time.
 The device is addressed, since we just completed a searchROM that found it.
+Returns true iff dev is OK.
 */
-void
+bool
 DS2450_InitDev(struct W1Device * dev)
 {
   // AddressDevice(dev);	not necessary
   if (CheckPOR(dev) == POR_Error) {
-    dev->found = false;
-    return;
+    return false;
   }
   DEBUG(ad) kprintf(KR_OSTREAM, "DS2450 %#llx is found.\n",
                    dev->rom);
+  return true;
 }
 
 /* At the end of heartbeat work, all DS2450's are idle, so we can

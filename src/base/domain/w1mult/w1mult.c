@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2011, Strawberry Development Group.
+ * Copyright (C) 2008-2012, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -525,6 +525,8 @@ RunProgram(void)
     DEBUG(errors)
       kprintf(KR_OSTREAM, "w1mult RunProgram got status %d\n", status);
     SetBusNeedsReinit();
+    goto errPP;
+
   // The following are not too serious:
   case capros_W1Bus_StatusCode_CRCError:
   case capros_W1Bus_StatusCode_Timeout:
@@ -1204,36 +1206,44 @@ SearchPath(struct Branch * br)
               kprintf(KR_OSTREAM, "W1mult: \007ROM %#.16llx found twice.\n",
                       rom);////
           } else {
-            // Do device-independent initialization:
-            dev->found = true;
-            dev->sampling = false;
-            // Add to its branch:
-            if (w1dev_IsCoupler(dev)) {
-              dev->nextChild = br->childCouplers;
-              br->childCouplers = dev;
-            } else {
-              dev->nextChild = br->childDevices;
-              br->childDevices = dev;
-            }
+            bool initOK;
             // Do device-specific initialization:
             switch (w1dev_getFamilyCode(dev)) {
             case famCode_DS2409:	// coupler
               Branch_Init(&dev->u.coupler.mainBranch);
               Branch_Init(&dev->u.coupler.auxBranch);
+              initOK = true;
               break;
             case famCode_DS18B20:	// thermometer
-              DS18B20_InitDev(dev);
+              initOK = DS18B20_InitDev(dev);
               break;
             case famCode_DS2408:	// battery monitor
-              DS2408_InitDev(dev);
+              initOK = DS2408_InitDev(dev);
               break;
             case famCode_DS2438:	// battery monitor
-              DS2438_InitDev(dev);
+              initOK = DS2438_InitDev(dev);
               break;
             case famCode_DS2450:	// A/D
-              DS2450_InitDev(dev);
+              initOK = DS2450_InitDev(dev);
               break;
-            default: break;
+            default:	// should not happen
+              initOK = false;
+              break;
+            }
+            if (initOK) {
+              // Do device-independent initialization:
+              dev->found = true;
+              dev->sampling = false;
+              // Add to its branch:
+              if (w1dev_IsCoupler(dev)) {
+                dev->nextChild = br->childCouplers;
+                br->childCouplers = dev;
+              } else {
+                dev->nextChild = br->childDevices;
+                br->childDevices = dev;
+              }
+            } else {
+              // FIXME should search again, maybe later
             }
           }
           break;
@@ -1334,6 +1344,7 @@ rescan:
 
   case capros_W1Bus_StatusCode_BusError:
     // Should there be a limit on this loop? Or a delay?
+    DEBUG(errors) kprintf(KR_OSTREAM, "w1mult: BusError, rescanning\n");
     goto rescan;
   
   default:

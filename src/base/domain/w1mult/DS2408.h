@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Strawberry Development Group.
+ * Copyright (C) 2010, 2012, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -23,6 +23,6 @@ struct W1Device;
 
 void DS2408_Init(void);
 void DS2408_InitStruct(struct W1Device * dev);
-void DS2408_InitDev(struct W1Device * dev);
+bool DS2408_InitDev(struct W1Device * dev);
 void DS2408_ProcessRequest(struct W1Device * dev, Message * msg);
 void DS2408_HeartbeatAction(uint32_t hbCount);

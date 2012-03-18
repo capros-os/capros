@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2010, 2012, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -275,8 +275,9 @@ EnsureConfiguration(struct W1Device * dev, unsigned int newConfig)
 This is called at least on every reboot.
 This procedure can issue device I/O, but must not take a long time.
 The device is addressed, since we just completed a searchROM that found it.
+Returns true iff dev is OK.
 */
-void
+bool
 DS2438_InitDev(struct W1Device * dev)
 {
   int status;
@@ -295,8 +296,7 @@ DS2438_InitDev(struct W1Device * dev)
           continue;	// try again
         }
       }
-      dev->found = false;
-      return;
+      return false;
     }
     break;
   }
@@ -306,13 +306,13 @@ DS2438_InitDev(struct W1Device * dev)
     if (status) {
       DEBUG(errors) kprintf(KR_OSTREAM,
              "DS2438 SetConfiguration status=%d\n", status);
-      dev->found = false;	// FIXME should search again, maybe later
-      return;
+      return false;
     }
   }
 
   DEBUG(bm) kprintf(KR_OSTREAM, "DS2438 %#llx is found.\n",
                    dev->rom);
+  return true;
 }
 
 /* heartbeatSeed keeps all the different types of devices

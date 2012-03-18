@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010, Strawberry Development Group.
+ * Copyright (C) 2008-2010, 2012, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -156,8 +156,9 @@ DS18B20_InitStruct(struct W1Device * dev)
 This is called at least on every reboot.
 This procedure can issue device I/O, but must not take a long time.
 The device is addressed, since we just completed a searchROM that found it.
+Returns true iff dev is OK.
 */
-void
+bool
 DS18B20_InitDev(struct W1Device * dev)
 {
   assert(ProgramIsClear());
@@ -167,15 +168,13 @@ DS18B20_InitDev(struct W1Device * dev)
   int status = RunProgram();
   if (status) {
     DEBUG(errors) kprintf(KR_OSTREAM, "DS18B20 read power status %d\n", status);
-    dev->found = false;
-    return;
+    return false;
   }
   assert(RunPgmMsg.rcv_sent == 1);
   if (inBuf[0] != 1) {
     kprintf(KR_OSTREAM, "DS18B20 %#llx is parasite powered, not supported\n",
             dev->rom);
-    dev->found = false;
-    return;
+    return false;
   }
   DEBUG(thermom) kprintf(KR_OSTREAM, "DS18B20 %#llx is bus powered %#x %d\n",
                    dev->rom, dev, dev->u.thermom.resolution);
@@ -184,14 +183,14 @@ DS18B20_InitDev(struct W1Device * dev)
   status = ReadSpad(dev);
   if (status) {
     DEBUG(errors) kprintf(KR_OSTREAM, "DS18B20 spad status %d\n", status);
-    dev->found = false;
-    return;
+    return false;
   }
 
   dev->u.thermom.spadConfig = inBuf[4] & 0x60;
   if (dev->u.thermom.resolution != 255) {	// if it's configured
     CheckConfigured(dev);
   }
+  return true;
 }
 
 static void
