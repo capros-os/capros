@@ -78,7 +78,7 @@ WriteOutput(struct W1Device * dev, uint8_t output)
   }
 } 
 
-static int
+static inline int
 AddressWriteOutput(struct W1Device * dev, uint8_t output)
 {
   int tries = 0;

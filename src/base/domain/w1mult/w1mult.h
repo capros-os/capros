@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2011, Strawberry Development Group.
+ * Copyright (C) 2008-2011, 2013, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -188,7 +188,7 @@ void HystLog16_log(struct HystLog * hl, int value,
 struct W1Device * BranchToCoupler(struct Branch * br);
 
 // Bits in heartbeatDisable (reasons not to initiate a heartbeat):
-#define hbBit_bus     0x01	// we have no bus key and no next busy key
+#define hbBit_bus     0x01	// we have no bus key and no next bus key
 #define hbBit_timer   0x02	// heartbeatTimer is running
 #define hbBit_DS18B20 0x04
 #define hbBit_DS2450  0x08
@@ -223,7 +223,7 @@ static inline void
 SetBusNeedsReinit(void)
 {
   busNeedsReinit = true;
-  AllDevsNotFound();
+  // AllDevsNotFound();
 }
 
 static inline bool

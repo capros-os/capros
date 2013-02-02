@@ -111,7 +111,7 @@ WriteDS2450MemoryFirst(struct W1Device * dev,
   }
 }
 
-int
+static inline int
 WriteDS2450Memory(struct W1Device * dev, uint8_t data)
 {
   crc = ++currentAddr;
@@ -134,7 +134,7 @@ WriteDS2450Memory(struct W1Device * dev, uint8_t data)
 }
 
 // Send the desired configuration to the device.
-static int
+static inline int
 SendConfig(struct W1Device * dev)
 {
   int i;

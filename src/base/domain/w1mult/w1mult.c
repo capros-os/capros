@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2012, Strawberry Development Group.
+ * Copyright (C) 2008-2013, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -437,6 +437,8 @@ WriteOneByte(uint8_t b)
   NotReset();
 }
 
+// bug catcher for circular loops:
+#define nextChildPoison ((struct W1Device *)0x222)
 void
 AllDevsNotFound(void)
 {
@@ -444,6 +446,7 @@ AllDevsNotFound(void)
   for (i = 0; i < numDevices; i++) {
     struct W1Device * dev = &devices[i];
     dev->found = false;
+    dev->nextChild = nextChildPoison;
     if (dev->configured) {
       // We may have lost the state of the devices:
       if (w1dev_IsCoupler(dev))
@@ -462,7 +465,7 @@ CheckRestart(result_t result)
     haveBusKey = false;
     if (! haveNextBusKey)
       DisableHeartbeat(hbBit_bus);
-    AllDevsNotFound();
+    // AllDevsNotFound();
     return true;
   }
   if (result != RC_OK)
@@ -536,7 +539,7 @@ RunProgram(void)
 
   case capros_W1Bus_StatusCode_SysRestart:
     returnValue = -1;
-    AllDevsNotFound();
+    // AllDevsNotFound();
 errPP:
   case capros_W1Bus_StatusCode_AlarmingPresencePulse:
   case capros_W1Bus_StatusCode_NoDevicePresent:
@@ -579,6 +582,7 @@ HeartbeatAction(void * arg)
 
   // Let each type of device do its thing:
   DS2408_HeartbeatAction(heartbeatCount);
+
 /* DS18B20 and DS2438 both respond to Convert T (0x44).
  * Thus when the DS18B20 heartbeat broadcasts a Convert T command
  * (that is, issues it after a Skip ROM), some DS2438's may also convert.
@@ -636,7 +640,6 @@ EnableHeartbeat(uint32_t bit)
       SetBusNeedsReinit();
     }
     if (busNeedsReinit) {
-      DEBUG(errors) kprintf(KR_OSTREAM, "w1mult: rescanning bus\n");
       ScanBus();
     }
     if (heartbeatDisable == 0) {	// ScanBus was successful
@@ -974,9 +977,11 @@ ActivateNeededBranches(struct Branch * br)
     }
     // Recurse on the active branch:
     struct Branch * activeBranch = GetActiveBranch(coup);
-    if (activeBranch)
-      if (ActivateNeededBranches(activeBranch))
-        break;		// no point in going on
+    if (activeBranch) {
+      err = ActivateNeededBranches(activeBranch);
+      if (err)
+        return err;	// no point in going on
+    }
   }
   return 0;
 }
@@ -1232,6 +1237,7 @@ SearchPath(struct Branch * br)
             }
             if (initOK) {
               // Do device-independent initialization:
+              assert(dev->nextChild == nextChildPoison);
               dev->found = true;
               dev->sampling = false;
               // Add to its branch:
@@ -1305,6 +1311,8 @@ ScanBus(void)
   int i;
 
 rescan:
+  DEBUG(errors) kprintf(KR_OSTREAM, "w1mult: scanning bus\n");
+
   // Need to clear all dev->found before calling SearchPath(&root):
   AllDevsNotFound();
 

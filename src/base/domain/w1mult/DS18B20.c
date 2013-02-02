@@ -92,6 +92,7 @@ CheckConfigInSpad(struct W1Device * dev)
       DEBUG(errors) kprintf(KR_OSTREAM, "DS18B20 status %d writing config\n",
                             status);
       dev->found = false;
+      // Perhaps should retry this.
     } else {
       if ((inBuf[4] & 0x60) != desiredConfig) {
         DEBUG(errors) kprintf(KR_OSTREAM,
@@ -275,7 +276,7 @@ readTemperature(struct W1Device * dev)
     if (ReadSpad(dev)) {	// some error
       if (++tries < 4)
          continue;	// try again
-      SetBusNeedsReinit();	// try a bigger hammer
+      // If it was a bus problem, SetBusNeedsReinit() has been called.
       return;
     } else {
       int temperature = inBuf[0] + (inBuf[1] << 8);
