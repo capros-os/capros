@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, 2011, 2012, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/NPLinkee.h>
 #include <idl/capros/Errno.h>
 #include <domain/assert.h>
+#include <idl/capros/HAI.h>
 
 uint32_t __rt_unkept = 1;
 unsigned long __rt_stack_pointer = 0x20000;
@@ -58,8 +59,9 @@ unsigned long __rt_stack_pointer = 0x20000;
 #define KR_OSTREAM KR_APP(0)
 #define KR_W1MULT  KR_APP(1)
 #define KR_SLEEP   KR_APP(2)
-#define KR_Serial  KR_APP(3)
-#define KR_Forwarder KR_APP(4) // non-opaque Forwarder for W1Bus cap
+#define KR_HAI     KR_APP(3)
+#define KR_Serial  KR_APP(4)
+#define KR_Forwarder KR_APP(5) // non-opaque Forwarder for W1Bus cap
 
 // DS2480B codes
 
@@ -807,11 +809,13 @@ execute: ;
     } else {
       if ((baudPreference -= sendlen) <= 0) {
         baudPreference = 0;	// prevent underflow
+#if 0	// disabled because high speed is more error-prone
         if (currentBaudRate != 19200) {
           if (! ChangeBaudRate(19200, configRBR + RBR19200)) {
             assert(!"implemented");
           }
         }
+#endif
       }
       // else not sending much, don't bother to change the rate now
     }
@@ -1213,66 +1217,98 @@ DS2480B_Init(void)
   baudPreference = baudPref9600;	// because likely to do a search soon
   gBusSpeed = BusSpeedFlexible;
 
-  // Initialize the DS2480B:
-  DEBUG(init) kprintf(KR_OSTREAM, "DS2480B opening serial port...");
-  uint32_t openErr;
-  result = capros_SerialPort_open(KR_Serial, &openErr);
-  if (CheckRestart(result))
-    goto restarted;
-  assert(result == RC_OK);
-  DEBUG(init) kprintf(KR_OSTREAM, " done.\n");
+  int outerTriesLeft = 3;
+  while (outerTriesLeft--) {
+    int serialTriesLeft = 3;
+    while (serialTriesLeft--) {	// try initializing the serial port
+      // Initialize the DS2480B:
+      DEBUG(init) kprintf(KR_OSTREAM, "DS2480B opening serial port...");
+      uint32_t openErr;
+      result = capros_SerialPort_open(KR_Serial, &openErr);
+      if (CheckRestart(result))
+        goto restarted;
+      assert(result == RC_OK);
+      DEBUG(init) kprintf(KR_OSTREAM, " done.\n");
 
-  int triesLeft = 3;
-  while (triesLeft--) {
-    if (! SerialOut_Init(4800))
-      goto restarted;
-    // A NUL at 4800 baud is seen as a break at 9600 baud or higher.
-    wp(0);
-    if (! serial_sendData())
-      goto restarted;
-    if (! SerialOut_Flush())
-      goto restarted;
-    msDelay(5);
-    if (! SerialOut_Init(9600))
-      goto restarted;
+      int triesLeft = 3;
+      while (triesLeft--) {	// Try initializing the device
+        if (! SerialOut_Init(4800))
+          goto restarted;
+        // A NUL at 4800 baud is seen as a break at 9600 baud or higher.
+        wp(0);
+        if (! serial_sendData())
+          goto restarted;
+        if (! SerialOut_Flush())
+          goto restarted;
+        msDelay(5);
+        if (! SerialOut_Init(9600))
+          goto restarted;
 
-    // Send initial Reset command after master reset for timing
-    wp(commandReset + gBusSpeed);
-    if (! serial_sendData())
-      goto restarted;
-    if (! SerialOut_Flush())
-      goto restarted;
-    if (! SerialIn_Flush())
-      goto restarted;
+        // Send initial Reset command after master reset for timing
+        wp(commandReset + gBusSpeed);
+        if (! serial_sendData())
+          goto restarted;
+        if (! SerialOut_Flush())
+          goto restarted;
+        if (! SerialIn_Flush())
+          goto restarted;
 
-    // Read the baud rate (to test the command block)
-    wp((configRBR >> 3) + 0x01);
-    // Do 1 bit operation (to test 1-Wire block)
-    wp(commandWrite1 + gBusSpeed);
+        // Read the baud rate (to test the command block)
+        wp((configRBR >> 3) + 0x01);
+        // Do 1 bit operation (to test 1-Wire block)
+        wp(commandWrite1 + gBusSpeed);
 
-    if (! serial_sendData())
-      goto restarted;
-    unsigned int err = RcvChars(2);
-    switch (err) {
-    default:	// capros_W1Bus_StatusCode_BusError
-      DEBUG(errors) kprintf(KR_OSTREAM, "RcvChars got %d! triesLeft=%d\n",
-                            err, triesLeft);
-      continue;		// try again
+        if (! serial_sendData())
+          goto restarted;
+        unsigned int err = RcvChars(2);
+        switch (err) {
+        default:	// capros_W1Bus_StatusCode_BusError
+          DEBUG(errors) kprintf(KR_OSTREAM, "RcvChars got %d! triesLeft=%d\n",
+                                err, triesLeft);
+          continue;		// try again
 
-    case capros_W1Bus_StatusCode_SysRestart:
-      goto restarted;
+        case capros_W1Bus_StatusCode_SysRestart:
+          goto restarted;
 
-    case 0: break;
-    }
-    if (inBuf[0].data != RBR9600) {
-      DEBUG(errors) kprintf(KR_OSTREAM, "DS2480B read baud rate got %#.2x! inbuf %#x\n",
-                            inBuf[0].data, inBuf);
-      continue;		// try again
-    }
-    if ((inBuf[1].data & 0xfc) != ((commandWrite1 + gBusSpeed) & 0xfc)) {
-      assert(!"implemented");
-    }
-    return RC_OK;	// success
+        case 0: break;
+        }
+        if (inBuf[0].data != RBR9600) {
+          DEBUG(errors)
+            kprintf(KR_OSTREAM, "DS2480B read baud rate got %#.2x! inbuf %#x\n",
+                    inBuf[0].data, inBuf);
+          continue;		// try again
+        }
+        if ((inBuf[1].data & 0xfc) != ((commandWrite1 + gBusSpeed) & 0xfc)) {
+          DEBUG(errors) kprintf(KR_OSTREAM, "DS2480B write 1 got %#.2x!\n",
+                                inBuf[1].data);
+          continue;		// try again
+        }
+        return RC_OK;	// success
+      }			// end of try initializing the device
+
+      // Hit it with a bigger hammer.
+      result = capros_SerialPort_close(KR_Serial);
+      if (CheckRestart(result))
+        goto restarted;
+      if (result != RC_OK)
+        kprintf(KR_OSTREAM, "Serial: close returned %#x.\n", result);
+      msDelay(1000);	// delay 1 second
+    }			// end of try initializing the serial port
+    /* The DS2480B spec says "Data rates of 115200bps or higher during
+       calibration may put the DS2480 in an undefined state,
+       requiring a power-down reset to restore normal operation."
+       We don't do that, but noise can cause it. */
+    /* HAI unit 299 is a relay that cuts power to the DS2480 in the
+       powerhouse.
+       <kludge> Wield an HAI key to do that. </kludge> */
+    kprintf(KR_OSTREAM, "DS2480B: doing power cycle.\n", result);
+    result = capros_HAI_setUnitStatus(KR_HAI, 299,
+		capros_HAI_Command_UnitOnForSeconds, 4);
+    if (result == RC_OK)
+      msDelay(6000);	// delay for the above 4 seconds plus some extra
+    else
+      kprintf(KR_OSTREAM, "DS2480B: HAI returned %#x.\n", result);
+      // We probably weren't given an HAI key; ignore the error.
   }
   DEBUG(errors) kdprintf(KR_OSTREAM, "DS2480B_Init failed!\n");
   return RC_capros_W1Bus_BusError;
@@ -1382,6 +1418,8 @@ main(void)
                   if (result != RC_OK)
                     kprintf(KR_OSTREAM,
                             "Serial: close returned %#x.\n", result);
+                  DEBUG(errors)
+                    kprintf(KR_OSTREAM, "ds2480b: resetting serial\n");
                   Msg.snd_code = DS2480B_Init();
                 }
               }

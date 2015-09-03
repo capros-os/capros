@@ -29,10 +29,7 @@ EROS_SRC=../../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/ds2480b
-ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
-else	# ARM-only drivers
 DRIVER_TARGETS=$(BUILDDIR)/ds2490
-endif
 
 DS2490_OBJECTS=$(BUILDDIR)/ds2490.o $(BUILDDIR)/ds2490_cap.o
 
