@@ -65,7 +65,7 @@ maps_mapPage(unsigned long pgOffset, cap_t pageCap)
   return result;
 }
 
-// See comments at maps_reserveAndMapRange_lockde.
+// See comments at maps_reserveAndMapRange_locked.
 // Uses KR_TEMP0 and KR_TEMP1.
 long
 maps_reserveAndMapRange(cap_t rangeCap,
