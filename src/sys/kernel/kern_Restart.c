@@ -238,6 +238,7 @@ FinishRestart(void)
   ReleasePageFrame(currentRootPageH);
 
   restartPhase = restartPhase_Done;
+  DEBUG(restart) printf("restartPhase is now %d Done.\n", restartPhase);
 
   // Restart is done and the migrator is initialized (it has allocated
   // all the space it needs).
@@ -336,6 +337,7 @@ DoRestartPhaseWaitingRoot1(void)
   assert(0 < genIndex && genIndex <= MaxUnmigratedGenerations);
 
   restartPhase = restartPhase_Phase4;
+  DEBUG(restart) printf("restartPhase is now %d\n", restartPhase);
   return;
 }
 
@@ -682,9 +684,11 @@ DoRestartStep(void)
       // CKPT_ROOT_0 and CKPT_ROOT_1 are mounted.
       pageA = StartCkptRootRead(CKPT_ROOT_0);
       restartPhase = restartPhase_QueuingRoot1;
+      DEBUG(restart) printf("restartPhase is now %d\n", restartPhase);
     case restartPhase_QueuingRoot1:
       pageB = StartCkptRootRead(CKPT_ROOT_1);
       restartPhase = restartPhase_WaitingRoot1;
+      DEBUG(restart) printf("restartPhase is now %d\n", restartPhase);
       act_SleepOn(&pageB->ioreq->sq);
       act_Yield();	// act_Yield does not return.
 
