@@ -56,6 +56,10 @@ GetCurrentTime(void)
 {
   CMTETime_t t;
   capros_Sleep_getPersistentMonotonicTime(KR_SLEEP, &t);
+#ifdef TIMERDEBUG
+  kprintf(KR_OSTREAM, "CMTETimer GetCurrentTime returns.\n");
+#endif
+
   return t;
 }
 
@@ -201,13 +205,13 @@ timerThreadProc(void * arg)
       CMTEMutex_unlock(&timerLock);
 
 #ifdef TIMERDEBUG
-      kprintf(KR_OSTREAM, "Before timer function 0x%x", fn);
+      kprintf(KR_OSTREAM, "Before timer function 0x%x\n", fn);
 #endif
 
       (*fn)(data);	// Call the timer function.
 
 #ifdef TIMERDEBUG
-      kprintf(KR_OSTREAM, "After timer function");
+      kprintf(KR_OSTREAM, "After timer function\n");
 #endif
 
       CMTEMutex_lock(&timerLock);
@@ -227,11 +231,11 @@ update_soonest_wait(Link * prev)
 
     CMTETime_t newWaitTime = GetSoonestExpiration();
 #ifdef TIMERDEBUG
-    kprintf(KR_OSTREAM, "twf=0x%llx new=0x%llx", timeWaitingFor, newWaitTime);
+    kprintf(KR_OSTREAM, "twf=0x%llx new=0x%llx ", timeWaitingFor, newWaitTime);
 #endif
     if (newWaitTime < timeWaitingFor) {
 #ifdef TIMERDEBUG
-      kprintf(KR_OSTREAM, "newer time, state %d, ", timerThreadState);
+      kprintf(KR_OSTREAM, "newer time, state %d\n", timerThreadState);
 #endif
 
       switch (timerThreadState) {
@@ -288,10 +292,6 @@ update_soonest_wait(Link * prev)
     CMTEMutex_unlock(&timerLock);
 }
 
-/* Call CMTETimer_setup once before using any timers.
- * Returns RC_capros_key_RequestError if called more than once.
- * Otherwise returns a result from CMTEThread_create. 
- * (No need to undo this when the program is finished.) */
 result_t
 CMTETimer_setup(void)
 {
@@ -337,10 +337,6 @@ CMTETimer_setExpiration(CMTETimer * timer, CMTETime_t expirationTime)
 {
   assert(timer->function);
 
-#ifdef TIMERDEBUG
-  kprintf(KR_OSTREAM, "CMTETimer_setExpiration 0x%x %d\n", timer, expirationTime);
-#endif
-
   CMTEMutex_lock(&timerLock);
 
   bool ret = false;
@@ -348,6 +344,11 @@ CMTETimer_setExpiration(CMTETimer * timer, CMTETime_t expirationTime)
     link_UnlinkUnsafe(&timer->link);
     ret = true;
   }
+
+#ifdef TIMERDEBUG
+  kprintf(KR_OSTREAM, "CMTETimer_setExpiration 0x%x 0x%llx, %sactive\n",
+          timer, expirationTime, (ret ? "" : "in") );
+#endif
 
   timer->expiration = expirationTime;
 
@@ -370,6 +371,11 @@ CMTETimer_setExpiration(CMTETimer * timer, CMTETime_t expirationTime)
 bool
 CMTETimer_setDuration(CMTETimer * timer, uint64_t durationNsec)
 {
+#ifdef TIMERDEBUG
+  kprintf(KR_OSTREAM, "CMTETimer_setDuration called, nsec=%llu.\n",
+          durationNsec);
+#endif
+
   return CMTETimer_setExpiration(timer, durationNsec + GetCurrentTime());
 }
 

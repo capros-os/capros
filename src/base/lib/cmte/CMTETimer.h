@@ -44,7 +44,12 @@ typedef struct CMTETimer {
     .data = (_data) \
   }
 
+/* Call CMTETimer_setup once before using any timers.
+ * Returns RC_capros_key_RequestError if called more than once.
+ * Otherwise returns a result from CMTEThread_create. 
+ * (No need to undo this when the program is finished.) */
 result_t CMTETimer_setup(void);
+
 void CMTETimer_init(CMTETimer * timer,
   void (*function)(unsigned long), unsigned long data);
 
