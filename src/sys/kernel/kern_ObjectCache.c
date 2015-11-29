@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005-2010, Strawberry Development Group.
+ * Copyright (C) 2005-2010, 2012, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -919,13 +919,10 @@ IOReq_EndPageClean(IORequest * ioreq)
   PageHeader * pageH = ioreq->pageH;
   ObjectHeader * pObj = pageH_ToObj(pageH);
 
-  // Mark the page as no longer having I/O.
-  pageH->ioreq = NULL;
+  if (objH_IsDirty(pObj)) {
+    // If it's KRO, it had better not be dirty:
+    assert(! objH_IsKRO(pObj));
 
-  // If it's KRO, it had better not be dirty:
-  assert(! objH_IsKRO(pObj) || ! objH_IsDirty(pObj) );
-
-  if (pageH_IsDirty(pageH)) {
     // The page was dirtied while it was being written.
     // Tough luck; writing the page was a waste of time.
     // This log location will not be used.
@@ -935,6 +932,9 @@ IOReq_EndPageClean(IORequest * ioreq)
       CreateLogDirEntryForNonzeroPage(pageH);
     // else KRO, dir ent was created earlier.
   }
+
+  // Mark the page as no longer having I/O.
+  pageH->ioreq = NULL;
 
   DoneCleaningPage(pageH);
 
