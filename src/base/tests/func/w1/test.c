@@ -496,7 +496,7 @@ main(void)
 {
   //result_t result;
 
-  kprintf(KR_OSTREAM, "Starting.\n");
+  kprintf(KR_OSTREAM, "Test starting.\n");
 
   // We will receive any new W1Bus cap.
   Message Msg = {
@@ -546,6 +546,8 @@ main(void)
 
     case OC_capros_W1Mult_registerBus:
       kprintf(KR_OSTREAM, "\nGot W1Bus cap.\n");
+      // Return to caller before using the W1Bus cap; it may be the same proc!
+      SEND(&Msg);
       TestW1Bus();
     }
   }
