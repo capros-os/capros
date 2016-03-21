@@ -50,14 +50,6 @@ void
 ExitTheKernel_MD(Process * thisPtr)
 {
   assert(proc_IsRunnable(act_CurContext()));
-#if 0
-  if (fixRegs.ReloadUnits) {
-    printf("Don't know how to reload fpu regs yet\n");
-    printf("ctxt = 0x%08x\n", this);
-    fixRegs.Dump();
-    halt();
-  }
-#endif
 
   /* Need to have a valid directory or the machine reboots.  It's
    * possible that we yielded while the mapping table entry was set to

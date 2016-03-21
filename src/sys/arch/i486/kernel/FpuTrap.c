@@ -95,6 +95,10 @@ extern void FsaveInstruction();
 
   // This fault belongs to proc_fpuOwner, not proc_Current().
   proc_SetFault(proc_fpuOwner, capros_Process_FC_FPFault, sa->EIP);
+#if 0
+  printf("Delayed FPU Exception\n");
+  proc_DumpFloatRegs(proc_fpuOwner);
+#endif
 
 #else
   Debugger();	// No FPU?

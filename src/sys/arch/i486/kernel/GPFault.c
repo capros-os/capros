@@ -47,34 +47,6 @@ GPFault(savearea_t *sa)
     printf("Kernel GP fault. curctxt=0x%08x error=0x%x eip=0x%08x\n",
 		   act_CurContext(),
 		   sa->Error, sa->EIP);
-#if 0
-    printf("domRoot=0x%08x, keyRegs=0x%08x\n",
-    		   Thread::CurContext()
-		   ? ((ArchContext*)act_CurContext())->procRoot
-		   : 0,
-    		   Thread::CurContext()
-		   ? ((ArchContext*)act_CurContext())->keyRegs
-		   : 0);
-    printf("0x%x Ctxt hzrd=0x%08x 0x%x hzrd rlu=0x%08x\n",
-		   sa->EDX,
-		   ((ArchContext*) sa->EDX)->hazards,
-		   sa->EDI,
-		   ((ArchContext*) sa->EDI)->hazards);
-    printf("0x%x Ctxt rlu=0x%08x 0x%x ctxt rlu=0x%08x\n",
-		   sa->EDX,
-		   ((ArchContext*) sa->EDX)->fixRegs.ReloadUnits,
-		   sa->EDI,
-		   ((ArchContext*) sa->EDI)->fixRegs.ReloadUnits);
-    printf("0x%x Ctxt keys=0x%08x 0x%x ctxt keys=0x%08x\n",
-		   sa->EDX,
-		   ((ArchContext*) sa->EDX)->keyRegs,
-		   sa->EDI,
-		   ((ArchContext*) sa->EDI)->keyRegs);
-    printf("0x%x Ctxt EDX=0x%08x (offset %u)\n",
-		   sa->EDX,
-		   ((ArchContext*) sa->EDX)->fixRegs.EDX,
-		   & ((ArchContext*) 0)->fixRegs.EDX );
-#endif
 #if 1
     DumpFixRegs(sa);
 #endif

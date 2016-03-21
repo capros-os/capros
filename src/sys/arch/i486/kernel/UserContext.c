@@ -87,14 +87,15 @@ proc_DumpPseudoRegs(Process* thisPtr)
 void 
 proc_DumpFloatRegs(Process* thisPtr)
 {
+  printf("fpuOwner=%#x ", proc_fpuOwner);
   proc_fpuRegsToProcess(thisPtr);
 
-  printf("fctrl: 0x%04x fstatus: 0x%04x ftag: 0x%04x fopcode 0x%04x\n",
+  printf("fctrl: %#x fstatus: %#x ftag: %#x\n",
 		 thisPtr->fpuRegs.f_ctrl, 
 		 thisPtr->fpuRegs.f_status, 
-		 thisPtr->fpuRegs.f_tag, 
-		 thisPtr->fpuRegs.f_opcode);
-  printf("fcs: 0x%04x fip: 0x%08x fds: 0x%04x fdp: 0x%08x\n",
+		 thisPtr->fpuRegs.f_tag);
+  printf("fopcode %#x fcs: %#x fip: %#x fds: %#x fdp: %#x\n",
+		 thisPtr->fpuRegs.f_opcode,
 		 thisPtr->fpuRegs.f_cs, 
 		 thisPtr->fpuRegs.f_ip,
 		 thisPtr->fpuRegs.f_ds,
@@ -335,7 +336,13 @@ proc_ValidateRegValues(Process* thisPtr)
      The bits in the control words are 'mask if set', while the bits
      in the status words are 'raise if set'.  The and-not logic is
      therefore what we want: */
-  if (thisPtr->fpuRegs.f_status & ~(thisPtr->fpuRegs.f_ctrl & MASK_FPSTATUS_EXCEPTIONS)) {
+  // Mask off the high 16 bits because FSAVE may put cruft there.
+  if (thisPtr->fpuRegs.f_status & 0xffff
+      & ~(thisPtr->fpuRegs.f_ctrl & MASK_FPSTATUS_EXCEPTIONS)) {
+#if 0
+    printf("FPU Exception\n");
+    proc_DumpFloatRegs(proc_fpuOwner);
+#endif
     code = capros_Process_FC_FPFault;
     info = thisPtr->fpuRegs.f_cs;
   }
