@@ -337,8 +337,8 @@ proc_ValidateRegValues(Process* thisPtr)
      in the status words are 'raise if set'.  The and-not logic is
      therefore what we want: */
   // Mask off the high 16 bits because FSAVE may put cruft there.
-  if (thisPtr->fpuRegs.f_status & 0xffff
-      & ~(thisPtr->fpuRegs.f_ctrl & MASK_FPSTATUS_EXCEPTIONS)) {
+  if (thisPtr->fpuRegs.f_status & MASK_FPSTATUS_EXCEPTIONS
+      & ~(thisPtr->fpuRegs.f_ctrl) ) {
 #if 0
     printf("FPU Exception\n");
     proc_DumpFloatRegs(proc_fpuOwner);
