@@ -56,15 +56,21 @@
                     it needs.</td>
 		</tr>
 		<tr valign=top>
-		  <td><strong>KR_SELF</strong></td>
-		  <td>A <strong>process key</strong> to the process
-		    itself.</td>
+		  <td><strong>KR_KEYSTORE</strong></td>
+		  <td>A register reserved for a key to a <strong>supernode</strong> shared by all the 
+		  processes ("threads") that share the same address space.
+		  </td>
 		</tr>
 		<tr valign=top>
 		  <td><strong>KR_CREATOR</strong></td>
 		  <td>A start key to the process's <strong>process
 		      creator</strong>, with the precludeDestroy restriction.
                       A process can use this to tear itself down.</td>
+		</tr>
+		<tr valign=top>
+		  <td><strong>KR_SELF</strong></td>
+		  <td>A <strong>process key</strong> to the process
+		    itself.</td>
 		</tr>
 		<tr valign=top>
 		  <td><strong>KR_BANK</strong></td>
