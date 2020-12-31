@@ -124,7 +124,8 @@ extern int mylexer_lex (YYSTYPE *lvalp, MyLexer *);
 extern void output_symdump(Symbol *);
 %}
 
-%pure_parser
+%pure-parser
+%param {MyLexer *lexer}
 
 /* Categorical terminals */
 %token <tok>        Identifier
