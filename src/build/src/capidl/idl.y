@@ -120,7 +120,7 @@ int num_errors = 0;  /* hold the number of syntax errors encountered. */
 void import_symbol(InternedString ident);
 extern const char *basename(const char *);
 extern int mylexer_lex (YYSTYPE *lvalp, MyLexer *);
-#define yylex mylexer_lex
+#define yylex(llvalp) mylexer_lex(llvalp, lexer)
 extern void output_symdump(Symbol *);
 %}
 
