@@ -113,14 +113,14 @@ int num_errors = 0;  /* hold the number of syntax errors encountered. */
 #define YYPARSE_PARAM lexer
 #define YYLEX_PARAM lexer
 
-#define yyerror(s) mylexer_ReportParseError(lexer, s)
+#define yyerror(lexer, s) mylexer_ReportParseError(lexer, s)
 
 #include "Lexer.h"
 
 void import_symbol(InternedString ident);
 extern const char *basename(const char *);
 extern int mylexer_lex (YYSTYPE *lvalp, MyLexer *);
-#define yylex(llvalp) mylexer_lex(llvalp, lexer)
+#define yylex mylexer_lex
 extern void output_symdump(Symbol *);
 %}
 
