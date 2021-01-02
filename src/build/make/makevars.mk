@@ -95,7 +95,12 @@ endif
 IDL_DIR=$(EROS_ROOT)/idl
 CAPROS_DOMAIN=$(EROS_ROOT)/lib/$(TARGETMACH)
 
+ifndef CAPROS_TOOL_LOCATION
 VMWARE=$(EROS_ROOT)/src/build/bin/vmdbg
+else
+VMWARE=$(CAPROS_TOOL_LOCATION)/bin/vmdbg
+endif
+
 export EROS_ROOT
 export EROS_TARGET
 export EROS_XENV
@@ -177,7 +182,11 @@ ifndef EROS_HD
 EROS_HD=/dev/null
 endif
 
+ifndef CAPROS_TOOL_LOCATION
 CAPIDL=$(EROS_SRC)/build/bin/capidl
+else
+CAPIDL=$(CAPROS_TOOL_LOCATION)/bin/capidl
+endif
 #HTMLCAPIDL = $(EROS_SRC)/build/bin/coyotos-capidl
 #HTMLCAPIDL = /home/clandau/coyotos/src/ccs/capidl/BUILD/capidl
 
