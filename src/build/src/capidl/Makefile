@@ -91,7 +91,7 @@ $(BUILDDIR)/lex.o: lex.c $(BUILDDIR)/idl.h
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
 
-$(BUILDDIR)/prescan.o: prescan.c
+$(BUILDDIR)/prescan.o: prescan.c $(BUILDDIR)/idl.h
 # Can't use $(C_BUILD) because it has -Werror and prescan.c generates warnings.
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
