@@ -112,7 +112,13 @@ $(BUILDDIR)/idl.c $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
 #$(BUILDDIR)/lex.c: lex.l
 #	flex -d -o$@ lex.l
 
+ifndef CAPROS_TOOL_LOCATION
 interfaces: $(TARGETS)
 	$(INSTALL) -m 755 $(TARGETS) ../../bin
+else
+interfaces: $(TARGETS)
+	$(INSTALL) -d $(CAPROS_TOOL_LOCATION)/bin
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_TOOL_LOCATION)/bin
+endif
 
 -include $(BUILDDIR)/.*.m

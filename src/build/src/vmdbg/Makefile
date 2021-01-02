@@ -31,8 +31,14 @@ CLEANLIST=vmdbg ../../bin/vmdbg
 
 include $(EROS_SRC)/build/make/makerules.mk
 
+ifndef CAPROS_TOOL_LOCATION
 install all: $(TARGETS)
 	$(INSTALL) -m 755 $(TARGETS) ../../bin
+else
+install all: $(TARGETS)
+	$(INSTALL) -d $(CAPROS_TOOL_LOCATION)/bin
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_TOOL_LOCATION)/bin
+endif
 
 GCCWARN=
 
