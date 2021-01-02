@@ -22,7 +22,9 @@
 EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
+ifneq "$(CAPROS_SKIP_NATIVE_TOOLS)" "yes"
 DIRS=capidl vmdbg
+endif
 
 include $(EROS_SRC)/build/make/makerules.mk
 
