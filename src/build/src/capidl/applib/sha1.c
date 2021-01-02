@@ -49,23 +49,6 @@ static const uint32_t k[80] = {
 
 typedef uint32_t (*shafn)(uint32_t b, uint32_t c, uint32_t d);
 
-static uint32_t
-fa(uint32_t b, uint32_t c, uint32_t d)
-{
-  return (b&c)|((~b)&d);
-}
-
-static uint32_t
-fb(uint32_t b, uint32_t c, uint32_t d)
-{
-  return (b ^ c ^ d);
-}
-
-static uint32_t
-fc(uint32_t b, uint32_t c, uint32_t d)
-{
-  return (b & c) | (b & d) | (c & d);
-}
 
 __inline__ static uint32_t
 dofn(uint32_t n, uint32_t b, uint32_t c, uint32_t d)
