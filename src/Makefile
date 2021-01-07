@@ -45,12 +45,15 @@ targdir-clean:
 
 IDL_STUB_DIR=$(EROS_SRC)/base/lib/idlstub/$(BUILDDIR)
 
+capidl:
+	$(MAKE) -C build/src $(MAKERULES) interfaces
+
 # Building proceeds in 4 steps:
 # 1. Recurse over the source tree gathering .idl and .h files. 
 # 2. Build IDL headers and stubs. 
 # 3. Recurse over the source tree building libraries.
 # 4. Recurse over the source tree building the rest of the files.
-packages: idl-list
+packages: capidl idl-list
 	$(INSTALL) -d $(IDL_STUB_DIR)
 	$(MAKE) $(IDL_STUB_DIR)/idlbuilt IDL_FILE_LIST="`cat $(IDL_DIR)/filelistflat`"
 	$(MAKE) libs

@@ -30,7 +30,8 @@ CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=src
+# don't build these here, hoist them to top level
+#DIRS=src
 
 include $(EROS_SRC)/build/make/pkgrules.mk
 
