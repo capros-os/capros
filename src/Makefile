@@ -80,6 +80,16 @@ $(IDL_STUB_DIR)/idlbuilt: $(IDL_FILE_LIST) $(IDL_DIR)/filelistflat
 	$(CAPIDL) -D $(IDL_STUB_DIR) -l c-stubs $(IDL_FILE_LIST)
 	echo > $@
 
+# just build + install the system headers.
+system-headers: idl-list
+	$(INSTALL) -d $(IDL_STUB_DIR)
+	$(MAKE) $(EROS_ROOT)/include/idl IDL_FILE_LIST="`cat $(IDL_DIR)/filelistflat`"
+
+$(EROS_ROOT)/include/idl: $(IDL_FILE_LIST) $(IDL_DIR)/filelistflat
+	# Create headers.
+	$(CAPIDL) -D $(EROS_ROOT)/include/idl -l c-header $(IDL_FILE_LIST)
+	$(INSTALL) -d $(EROS_ROOT)/include/idl
+
 tar:	clean
 	-rm -f eros.tar eros.tar.gz eros.tgz
 	tar cvf eros.tar Makefile $(TARDIRS)
