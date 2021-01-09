@@ -59,6 +59,9 @@ $(BUILDDIR)/lex.o: $(BUILDDIR)/lex.c $(BUILDDIR)/gram.c.h $(MAKE_BUILDDIR)
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@
 	$(C_DEP)
 
+.NOTPARALLEL:
+# the bison rule below is not re-entrant.
+
 $(BUILDDIR)/gram.c $(BUILDDIR)/gram.c.h: gram.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR); bison -v -d -y ../../gram.y)
 	(cd $(BUILDDIR); mv y.tab.c gram.c)
