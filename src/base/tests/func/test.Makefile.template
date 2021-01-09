@@ -1,4 +1,4 @@
-#
+# -*- makefile -*-
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
 #
 # This file is part of the EROS Operating System.
@@ -25,7 +25,7 @@ TARGETS=name
 OPTIM=-O
 OBJECTS=name.o
 CLEANLIST=test.sysimg test.sysvol
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 DOMLIB=$(EROS_ROOT)/lib/$(EROS_TARGET)/libdomain.a
 
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot

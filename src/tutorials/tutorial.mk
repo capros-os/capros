@@ -37,7 +37,7 @@ VOLMAPFD=../volmapfd
 endif
 
 OPTIM=-O
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 
 # Following is picked up from environment variable if present.
 KERNDIR=$(CAPROS_DOMAIN)/image
