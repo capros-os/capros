@@ -41,7 +41,11 @@ ifeq "$(EROS_TARGET)" "i486"
 EROS_GCC_KERNEL_ALIGN=-falign-functions=4
 endif
 
-EROS_CPP=/lib/cpp -undef -nostdinc -D$(EROS_TARGET)
+ifeq "$(CPP)" ""
+CPP=cpp
+endif
+
+EROS_CPP=$(CPP) -undef -nostdinc -D$(EROS_TARGET)
 
 GAWK=gawk
 

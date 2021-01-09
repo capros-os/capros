@@ -2015,7 +2015,7 @@ main(int argc, char *argv[])
   stdinc = strbuf_create();
   stddef = strbuf_create();
 
-  strbuf_append(cpp_cmd, "/lib/cpp ");
+  strbuf_append(cpp_cmd, "cpp ");
     
   /* Set up standard EROS include search path: */
   strbuf_append(stdinc, "-I");
