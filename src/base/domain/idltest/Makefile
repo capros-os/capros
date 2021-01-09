@@ -33,7 +33,7 @@ IDL=$(wildcard *.idl)
 TARGETS=$(BUILDDIR)/idltest
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/idltest.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

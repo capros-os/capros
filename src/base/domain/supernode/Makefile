@@ -33,7 +33,7 @@ GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/supernode
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/supernode.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 IMGMAP=supernode.map
 
 include $(EROS_SRC)/build/make/makerules.mk

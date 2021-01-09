@@ -35,7 +35,7 @@ TARGETS=$(BUILDDIR)/nfile
 OPTIM=-O -g -fno-builtin-bzero
 OBJECTS=$(BUILDDIR)/nfile.o
 CLEANLIST=
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 IMGMAP=nfile.map
 
 include $(EROS_SRC)/build/make/makerules.mk

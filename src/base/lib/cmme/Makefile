@@ -28,7 +28,7 @@ CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 OBJECTS=$(BUILDDIR)/cmme_stack_size.o \
   $(BUILDDIR)/cmmemaps.o
 

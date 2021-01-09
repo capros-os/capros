@@ -36,7 +36,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 KERNDIR=$(EROS_SRC)/sys/libkey
 CAPSTUBDIR=$(EROS_SRC)/sys/arch/$(EROS_TARGET)/capstubs
 VPATH=$(KERNDIR):$(CAPSTUBDIR):domdbg:key:crt/$(EROS_TARGET):crt:monitor:
-INC=-Iinclude -I$(EROS_ROOT)/include
+INC=-Iinclude -I$(CAPROS_HEADERS)/include
 OPTIM=-O
 DIRS=
 # DIRS=include/domain/drivers not used

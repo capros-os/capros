@@ -27,7 +27,7 @@ GENERATED=$(BUILDDIR)/constituents.h
 
 TARGETS=$(BUILDDIR)/uploaderResource
 TARGETS+=$(BUILDDIR)/uploaderHttp
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I.
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include -I.
 
 include $(EROS_SRC)/build/make/makerules.mk
 

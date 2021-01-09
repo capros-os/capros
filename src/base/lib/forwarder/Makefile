@@ -32,7 +32,7 @@ CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 OPTIM=-O
 DIRS=
 TARGETS=$(BUILDDIR)/libforwarder.a

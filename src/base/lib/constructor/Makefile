@@ -29,7 +29,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 VPATH=$(EROS_TARGET)
 TARGETS=$(BUILDDIR)/protospace
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 
 LIBTARGETS=$(BUILDDIR)/interpreter.o
 

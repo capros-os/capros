@@ -28,7 +28,7 @@ default: all
 CROSS_BUILD=yes
 
 EROS_SRC=../../../..
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 EROS_CONFIG=NOKBD
 
 include $(EROS_SRC)/build/make/makevars.mk

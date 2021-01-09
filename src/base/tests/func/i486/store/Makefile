@@ -31,7 +31,7 @@ TARGETS=store
 OPTIM=-O
 OBJECTS=store.o
 CLEANLIST=test.sysimg test.sysvol
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 BOOT=$(EROS_ROOT)/lib/i486/image/boot
 VOLMAP=../test.volmap

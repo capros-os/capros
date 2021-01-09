@@ -34,7 +34,7 @@ TARGETS=$(BUILDDIR)/iopl
 OPTIM=-O
 CLEANLIST=test.sysimg test.sysvol
 OBJECTS=$(BUILDDIR)/iopl.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 include ../../../test.mk

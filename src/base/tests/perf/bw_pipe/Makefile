@@ -30,7 +30,7 @@ TARGETS=source sink
 OPTIM=-O
 OBJECTS=source.o sink.o
 CLEANLIST=test.sysimg test.sysvol
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 VOLMAP=../bench.volmap
 

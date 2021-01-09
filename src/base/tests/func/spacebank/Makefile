@@ -29,7 +29,7 @@ EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/test
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 NPRANGESIZE=420
 

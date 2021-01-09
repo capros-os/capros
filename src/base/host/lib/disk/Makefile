@@ -30,7 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 KERNDIR=$(EROS_SRC)/sys
 VPATH=$(KERNDIR)/disk
-INC=	-I$(EROS_ROOT)/include -I$(KERNDIR) # -I$(EROS_ROOT)/host/include
+INC=	-I$(CAPROS_HEADERS)/include -I$(KERNDIR) # -I$(EROS_ROOT)/host/include
 OPTIM=-g
 DIRS=
 TARGETS=$(BUILDDIR)/libdisk.a

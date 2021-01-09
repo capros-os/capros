@@ -30,7 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 IMGMAP=nplink.map
 TARGETS=$(BUILDDIR)/nplink
 OBJECTS=$(BUILDDIR)/nplink.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

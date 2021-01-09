@@ -34,7 +34,7 @@ IMGMAP=pcc.map
 TARGETS=$(BUILDDIR)/proccre $(BUILDDIR)/pcc
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/proccre.o $(BUILDDIR)/pcc.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I$(EROS_ROOT)/host/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include -I$(EROS_ROOT)/host/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

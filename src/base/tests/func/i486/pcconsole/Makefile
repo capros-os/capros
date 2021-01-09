@@ -34,7 +34,7 @@ GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/pcconsole
 OBJECTS=$(BUILDDIR)/pcconsole.o
 CLEANLIST=test.sysimg test.sysvol
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 VOLMAP=../../test.volmap
 
 include $(EROS_SRC)/build/make/makerules.mk

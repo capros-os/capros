@@ -30,7 +30,7 @@ TARGETS=call middle echo
 OPTIM=-O
 OBJECTS=call.o echo.o
 CLEANLIST=test.sysimg test.sysvol
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 VOLMAP=../bench.volmap
 

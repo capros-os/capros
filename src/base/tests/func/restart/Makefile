@@ -30,7 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=
 OPTIM=-O
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 RESTART_CKPT=-p
 NPRANGESIZE=520

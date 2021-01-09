@@ -34,7 +34,7 @@ IMGMAP=rangeAl.map
 TARGETS=$(BUILDDIR)/rangeAl
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/rangeAl.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 CFLAGS=
 
 include $(EROS_SRC)/build/make/makerules.mk

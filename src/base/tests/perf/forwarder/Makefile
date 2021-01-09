@@ -31,7 +31,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/proc1 $(BUILDDIR)/proc2
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/proc1.o $(BUILDDIR)/proc2.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -24,7 +24,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 IMGMAP=ds2408mult.map
 TARGETS=$(BUILDDIR)/ds2408mult
 OBJECTS=$(BUILDDIR)/ds2408mult.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

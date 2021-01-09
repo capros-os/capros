@@ -30,7 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 IMGMAP=devclock.map
 TARGETS=$(BUILDDIR)/devclock
 OBJECTS=$(BUILDDIR)/devclock.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

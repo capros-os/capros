@@ -37,7 +37,7 @@ OBJECTS+=$(BUILDDIR)/stubs.o
 TARGETS+=$(BUILDDIR)/httprget
 TARGETS+=$(BUILDDIR)/httprpost
 
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I../openssl/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include -I../openssl/include
 IMGMAP=$(COMPONENT).map
 LIBS=-lssl -lcrypto
 LIBDEP+=$(CAPROS_DOMAIN)/libssl.a

@@ -33,7 +33,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/ckbench
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/ckbench.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 VOLMAP=bench.volmap
 
 include $(EROS_SRC)/build/make/makerules.mk

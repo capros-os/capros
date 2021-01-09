@@ -32,7 +32,7 @@ IMGMAP=hello.map
 TARGETS=$(BUILDDIR)/hello
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/hello.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 CFLAGS=
 
 include $(EROS_SRC)/build/make/makerules.mk

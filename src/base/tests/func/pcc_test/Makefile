@@ -34,7 +34,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/pcc_test
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/pcc_test.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 #VOLMAP=volmap
 

@@ -30,7 +30,7 @@ TARGETS=directed_yield
 OPTIM=-O
 OBJECTS=directed_yield.o
 CLEANLIST=test.sysimg test.sysvol
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 VOLMAP=../bench.volmap
 

@@ -31,7 +31,7 @@ GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/sigmux
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/sigmux.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 IMGMAP=sigmux.map
 
 include $(EROS_SRC)/build/make/makerules.mk

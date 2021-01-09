@@ -34,7 +34,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/directory
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/directory.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 IMGMAP=directory.map
 
 include $(EROS_SRC)/build/make/makerules.mk

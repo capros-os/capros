@@ -34,7 +34,7 @@ HEADERS=$(wildcard *.h)
 OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(wildcard *.c))
 TARGETS=$(BUILDDIR)/libprintf.a
 
-INC=-I.. -I$(EROS_ROOT)/include
+INC=-I.. -I$(CAPROS_HEADERS)/include
 OPTIM=-O
 
 include $(EROS_SRC)/build/make/makerules.mk

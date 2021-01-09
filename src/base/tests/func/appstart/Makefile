@@ -33,7 +33,7 @@ TARGETS=apptest child
 OPTIM=-O
 OBJECTS=apptest.o child.o
 CLEANLIST=test.sysimg test.sysvol
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 VOLMAP=test.volmap
 

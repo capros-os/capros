@@ -33,7 +33,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/call $(BUILDDIR)/echo
 OPTIM=-O
 CALLOBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/DoNothing.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

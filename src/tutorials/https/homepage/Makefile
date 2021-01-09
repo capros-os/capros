@@ -26,7 +26,7 @@ IMGMAP=homepage.map
 GENERATED=$(BUILDDIR)/constituents.h
 
 TARGETS=$(BUILDDIR)/homehttprh
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I.
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include -I.
 
 include $(EROS_SRC)/build/make/makerules.mk
 

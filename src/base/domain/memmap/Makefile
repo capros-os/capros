@@ -29,7 +29,7 @@ GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/memmap
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/memmap.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 IMGMAP=memmap.map
 
 include $(EROS_SRC)/build/make/makerules.mk

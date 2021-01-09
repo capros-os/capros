@@ -27,7 +27,7 @@ EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/lslog
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -33,7 +33,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/constructor_test $(BUILDDIR)/hello
 OBJECTS=$(BUILDDIR)/constructor_test.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 include ../../test.mk

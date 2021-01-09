@@ -31,7 +31,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/test
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/test.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 NPRANGESIZE=310
 PRANGESIZE=17000

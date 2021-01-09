@@ -34,7 +34,7 @@ CROSS_BUILD=yes
 include $(EROS_SRC)/build/make/makevars.mk
 
 VPATH=arch/$(LINUX_TARGET)
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 OPTIM=-O
 DIRS=
 OBJECTS=\

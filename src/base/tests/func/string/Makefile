@@ -29,7 +29,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/call $(BUILDDIR)/echo
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/echo.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 VOLMAP=../test.volmap
 

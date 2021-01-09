@@ -31,7 +31,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/proc1
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/proc1.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 VOLMAP=volmap
 

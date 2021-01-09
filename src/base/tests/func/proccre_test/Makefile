@@ -33,7 +33,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/proccre_test $(BUILDDIR)/hello
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/proccre_test.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -23,7 +23,7 @@ EROS_SRC=../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/confined
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I.
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include -I.
 
 include $(EROS_SRC)/build/make/makerules.mk
 

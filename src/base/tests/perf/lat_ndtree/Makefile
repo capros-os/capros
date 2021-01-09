@@ -30,7 +30,7 @@ TARGETS=lat_ndtree
 OPTIM=-O
 OBJECTS=lat_ndtree.o
 CLEANLIST=test.sysimg test.sysvol
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 VOLMAP=../bench.volmap
 

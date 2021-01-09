@@ -34,7 +34,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/lat_rngkey
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/lat_rngkey.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 INC += -I$(EROS_ROOT)/host/include # for DiskNode.h
 VOLMAP=bench.volmap
 

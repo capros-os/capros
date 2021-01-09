@@ -34,7 +34,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/lat_spcbank
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/lat_spcbank.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

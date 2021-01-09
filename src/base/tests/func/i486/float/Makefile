@@ -27,7 +27,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/test
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/test.o $(BUILDDIR)/getFloat.o $(BUILDDIR)/asm.o
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

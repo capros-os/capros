@@ -37,7 +37,7 @@ TARGETS=$(BUILDDIR)/libgraphics.a
 VPATH=fonts
 HEADERS=$(wildcard *.h)
 FONTS=$(wildcard fonts/*.h)
-INC=-I.. -I$(EROS_ROOT)/include
+INC=-I.. -I$(CAPROS_HEADERS)/include
 OPTIM=-O
 
 include $(EROS_SRC)/build/make/makerules.mk

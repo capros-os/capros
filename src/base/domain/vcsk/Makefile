@@ -33,7 +33,7 @@ GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/vcsk
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/vcsk.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 IMGMAP=vcs.map
 
 include $(EROS_SRC)/build/make/makerules.mk

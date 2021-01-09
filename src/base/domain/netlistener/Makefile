@@ -30,7 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/netlistener
 OBJECTS=$(BUILDDIR)/netlistener.o
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 IMGMAP=netlistener.map
 LIBS=-lethread
 LIBDEP+=$(CAPROS_DOMAIN)/libethread.a

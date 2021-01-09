@@ -30,7 +30,7 @@ TARGETS=$(BUILDDIR)/mutex
 OPTIM=-O
 OBJECTS = $(BUILDDIR)/mutex.o
 
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
 

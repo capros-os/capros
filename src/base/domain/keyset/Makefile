@@ -30,7 +30,7 @@ TARGETS=$(BUILDDIR)/keyset
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/keyset.o $(BUILDDIR)/findAndSort.o $(BUILDDIR)/compare.o
 
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
 DEFS=
 CFLAGS=$(DEFS)
 IMGMAP=keyset.map

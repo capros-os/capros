@@ -30,7 +30,7 @@ CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-INC=-I$(EROS_ROOT)/include
+INC=-I$(CAPROS_HEADERS)/include
 OPTIM=-O
 DIRS=
 TARGETS=$(BUILDDIR)/libkeycache.a
