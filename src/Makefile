@@ -48,6 +48,11 @@ IDL_STUB_DIR=$(EROS_SRC)/base/lib/idlstub/$(BUILDDIR)
 capidl:
 	$(MAKE) -C build/src $(MAKERULES) interfaces
 
+xonly:
+	$(MAKE) -C sys $(MAKERULES) install
+	$(MAKE) -C base/lib $(MAKERULES) install
+	$(MAKE) -C base/domain $(MAKERULES) install
+
 # Building proceeds in 4 steps:
 # 1. Recurse over the source tree gathering .idl and .h files. 
 # 2. Build IDL headers and stubs. 
