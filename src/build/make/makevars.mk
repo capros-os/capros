@@ -106,9 +106,19 @@ export EROS_TARGET
 export EROS_XENV
 export EROS_CONFIG
 
+# directories for the built headers and build tools can be externally
+# configured.
+ifndef CAPROS_HEADERS
+CAPROS_HEADERS=$(EROS_ROOT)
+endif
+
+ifndef CAPROS_BUILD
+CAPROS_BUILD=$(EROS_ROOT)
+endif
+
 INSTALL=$(EROS_SRC)/build/bin/erosinstall
 REPLACE=$(EROS_SRC)/build/bin/move-if-change
-MKIMAGE=$(EROS_ROOT)/host/bin/$(EROS_TARGET)-mkimage
+MKIMAGE=$(CAPROS_BUILD)/host/bin/$(EROS_TARGET)-mkimage
 MKIMAGEDEP=$(EROS_SRC)/build/bin/mkimagedep
 
 #
@@ -301,14 +311,14 @@ CROSSLIBS+=$(CAPROS_DOMAIN)/libworkaround.a
 LIBDEP+=$(CROSSLIBS)
 DOMLIB=$(LIBDEP)	# an older name
 
-LINUXINC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)
+LINUXINC=-I$(CAPROS_HEADERS)/include -I$(CAPROS_HEADERS)/include/linux-headers -I$(CAPROS_HEADERS)/include/linux-arch/$(LINUX2624_TARGET)
 ifdef LINUX_MACH
 # and for <mach/*.h>:
-LINUXINC+= -I$(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/$(LINUX_MACH)
+LINUXINC+= -I$(CAPROS_HEADERS)/include/linux-arch/$(LINUX2624_TARGET)/$(LINUX_MACH)
 endif
 
-DRIVERINC=$(LINUXINC) -I$(EROS_ROOT)/host/include # for disk/NPODescr.h
-DRIVERINC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
+DRIVERINC=$(LINUXINC) -I$(CAPROS_HEADERS)/host/include # for disk/NPODescr.h
+DRIVERINC+= -include $(CAPROS_HEADERS)/include/linuxk/linux-emul.h
 
 CMMEOBJS= # $(CAPROS_DOMAIN)/cmmestart.o # no such file yet
 # Put the read/write section at 0x00c00000:

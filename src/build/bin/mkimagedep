@@ -37,7 +37,17 @@ OUTFILE=""
 INFILE=""
 CPPARGS=""
 
-STDINC="-I${EROS_ROOT}/include"
+STDINC="-I${CAPROS_HEADERS}/include"
+
+if [ -z "${CAPRROS_HEADERS}" ]; then
+  echo "Hey! You don't have CAPROS_HEADERS in your environment!" >&2
+  exit 1;
+fi
+
+if [ -z "${CAPROS_BUILD}" ]; then
+  echo "Hey! You don't have CAPROS_BUILD in your environment!" >&2
+  exit 1;
+fi
 
 if [ -z "${EROS_ROOT}" ]; then
   echo "Hey! You don't have EROS_ROOT in your environment!" >&2
@@ -100,7 +110,7 @@ for i; do
    esac
 done
 
-CPPARGS="${CPPARGS} ${STDINC} -include ${EROS_ROOT}/host/include/mkimage.preinclude"
+CPPARGS="${CPPARGS} ${STDINC} -include ${CAPROS_BUILD}/host/include/mkimage.preinclude"
 
 if test $# -ne 2 -a $# -ne 1; then
    usage
