@@ -39,8 +39,15 @@ import glob
 # import regex
 
 config_name_table = { }
-def publish(x):
-    config_name_table[x] = globals()[x]
+
+
+def publishf(f):
+    config_name_table[f.__name__] = f
+    return f
+
+
+def publish(name):
+    config_name_table[name] = globals()[name]
 
 ################################################
 ##
@@ -66,7 +73,7 @@ device_classes = {
     3  : "BT_ISA",
     4  : "BT_SCSI",
     5  : "BT_USB"
-    }
+}
 		   
 publish('BT_BASE')
 publish('BT_PCI')
@@ -215,124 +222,105 @@ next_instance_index = {}
 #    add_conf(tmpl)
 #    print "Defined instance '%s'." % name
 
+@publishf
 def machine(name):
     global conf_machine
-    global machine_types
 
     valid_machines = machine_types[conf_arch]
 
-    if (conf_machine != None):
+    if conf_machine is not None:
 	error("Machine already defined!");
-    elif (name in valid_machines):
+    elif name in valid_machines:
 	print "Configuring for machine class '%s'." % name
 	conf_machine = name
     else:
 	error("Unknown machine type")
 
-publish('machine')
 
+@publishf
 def arch(name):
     global conf_arch
-    global cpu_types
-    if (conf_arch != None):
+    if conf_arch is not None:
 	error("Architecture already defined!");
-    elif cpu_types.has_key(name):
+    elif name in cpu_types:
 	print "Configuring for architecture '%s'." % name
 	conf_arch = name
     else:
 	error("Unknown arch type");
-publish('arch')
 
+
+@publishf
 def cpu(name):
-    global conf_machine
     global conf_cpus
-    global cpu_types
 
     if (conf_machine == None):
 	error("Unknown machine type!");
 
     valid_cpus = cpu_types[conf_arch]
 
-    if (name in valid_cpus):
+    if name in valid_cpus:
 #	print "Adding cpu type '%s'." % name
 	conf_cpus = conf_cpus + [name]
     else:
 	error("Unknown CPU type")
-publish('cpu')
 
+
+@publishf
 def defoption(name, prim=0):
-    global conf_options
-    global conf_primoptions
-    if (prim):
+    if prim:
         conf_primoptions[name] = 0
     else:
         conf_options[name] = 0
-publish('defoption')
 
 ##
 ## Following is for internal value extraction:
 ##
 def option_value(name):
-    if (conf_options.has_key(name)):
+    if name in conf_options:
         return conf_options[name]
-    elif (conf_primoptions.has_key(name)):
+    elif name in conf_primoptions:
         return conf_primoptions[name]
     else:
         error("Option_value(\"%s\") on undefined option." % name)
 
+@publishf
 def option(name):
-    global conf_options
-    global conf_primoptions
-
-    if (conf_options.has_key(name)):
+    if name in conf_options:
         conf_options[name] = 1
-    elif (conf_primoptions.has_key(name)):
+    elif name in conf_primoptions:
         conf_primoptions[name] = 1
     else:
 	error("Unknown option \"%s\"" % name)
 
-publish('option')
 
+@publishf
 def define(name):
-    global conf_defines
-
     conf_defines[name] = 1
-publish('define')
 
+
+@publishf
 def exclude(name):
-    global conf_options
-
-    if (conf_options.has_key(name)):
+    if name in conf_options:
         conf_options[name] = 0
-    elif (conf_primoptions.has_key(name)):
+    elif name in conf_primoptions:
         conf_primoptions[name] = 0
     else:
 	error("Unknown option \"%s\"" % name)
-publish('exclude')
 
+
+@publishf
 def depends(name1, name2):
-    global depends_on
-    global conf_options
-    global conf_primoptions
+    depends_on.setdefault(name1, []).append(name2)
 
-    if (not depends_on.has_key(name1)):
-        depends_on[name1] = []
 
-    depends_on[name1] = depends_on[name1] + [name2]
-
-publish('depends')
-            
-    
 #def defbus(name):
 #    global conf_busses
 #    conf_busses[name] = 0
 #publish('defoption')
 #
+@publishf
 def bus(name):
-    global conf_busses
-
-    conf_busses = conf_busses + [name]
-publish('bus')
+    conf_busses.append(name)
 
 #def target(name):
 #    global conf_targets
@@ -340,34 +328,27 @@ publish('bus')
 #    conf_targets = conf_targets + [conf_name + name]
 #publish('target')
 
+@publishf
 def isoption(name):
-    if (conf_options.has_key(name)):
+    if name in conf_options:
         return conf_options[name]
-    elif (conf_primoptions.has_key(name)):
+    elif name in conf_primoptions:
         return conf_primoptions[name]
     else:
 	error("Unknown option \"%s\"" % name)
 
-publish('isoption')
 
+@publishf
 def ifdevice(name):
-    if (config_by_name.has_key(name)): return 1
-    else: return 0
+    return 1 if name in config_by_name else 0
 
-publish('ifdevice')
 
+@publishf
 def pseudo_device(name, count=1):
-    global targdir
-
     filename = "%s/%s.h" % (targdir,name)
-    out = open(filename, 'w')
-    out.truncate()
-    cpp_define = "#define N%s %d" % (string.upper(name), count)
-    out.write("%s\n" % cpp_define)
-    out.close()
-
-#    print (filename, cpp_define)
-publish('pseudo_device')
+    with open(filename, 'w') as out:
+        cpp_define = "#define N%s %d" % (string.upper(name), count)
+        out.write("%s\n" % cpp_define)
 
 
 #root = ConfTemplate("root", DC_INSTANCE, parent = None, irq = None, port = None, mem = None, sz=0)
@@ -378,9 +359,11 @@ publish('pseudo_device')
 
 cleanup_targdir()
 
+
+@publishf
 def include(name):
     execfile(name, config_name_table)
-publish('include')
+
 
 ################################################
 ##
@@ -540,6 +523,7 @@ config_name_table = { }
 ## be co-located for IPC performance.
 ##
 ###############################################
+@publishf
 def file(name, condition = not None):
     global src_file_list
     global obj_file_list
@@ -557,7 +541,6 @@ def file(name, condition = not None):
         if (suffix == ".c"):
             cfg_file_list = cfg_file_list + [cfgfile]
 
-publish('file')
 publish('include')
 publish('ifdevice')
 publish('BT_BASE')
@@ -578,14 +561,10 @@ for i in conf_cpus:
 #for i in range(len(config_table)):
 #    config_name_table[config_table[i].name] = 1
 
-def publish(x):
-    config_name_table[x] = globals()[x]
-
 execfile(filenames, config_name_table)
 
-def check_dependencies():
-    global depends_on
 
+def check_dependencies():
     ###############################################
     ##
     ## Cross-check the dependencies:
@@ -601,8 +580,9 @@ def check_dependencies():
 		print("Error: \"%s\" depends on \"%s\"" % (nm , require))
 		buggered = buggered + 1
 
-	if (buggered):
+	if buggered:
 	    error("%d dependency errors" % buggered)
+
 
 check_dependencies()
 
@@ -620,49 +600,46 @@ optfilefilename = "%s/options.h" % targdir
 print "building makefile %s" % makefilename
 
 template = open(makefiletemplate, 'r')
-out = open(makefilename, 'w')
-out.truncate()
+with open(makefilename, 'w') as out:
+    for line in template.readlines():
+        if (line == "%config\n"):
+            out.write("CONFIG=%s\n" % conf_name)
+        #elif (line == "%targets\n"):
+            #dump_targets(out)
+        elif (line == "%optvar\n"):
+            dump_optvar(out)
+        elif (line == "%options\n"):
+            dump_options(out)
+            dump_defines(out)
+        elif (line == "%objects\n"):
+            for o in obj_file_list:
+                out.write("OBJECTS += %s\n" % o)
+            out.write("\n")
+            for o in cfg_file_list:
+                out.write("CFGFILES += %s\n" % o)
+        elif (line == "%depend\n"):
+            for f in src_file_list:
+                ofile = os.path.basename(f)
+                suffix =  os.path.splitext(ofile)[1]
+                ofile = os.path.splitext(ofile)[0]
+                out.write("$(BUILDDIR)/%s.o: $(TOP)/%s\n" % (ofile, f))
+                if (suffix == ".c"):
+                    out.write("\t$(C_BUILD)\n")
+                    out.write("\t$(C_DEP)\n\n")
+                elif (suffix == ".cxx"):
+                    out.write("\t$(CXX_BUILD)\n")
+                    out.write("\t$(CXX_DEP)\n\n")
+                elif (suffix == ".S"):
+                    out.write("\t$(ASM_BUILD)\n")
+                    out.write("\t$(ASM_DEP)\n\n")
 
-for line in template.readlines():
-    if (line == "%config\n"):
-	out.write("CONFIG=%s\n" % conf_name)
-    #elif (line == "%targets\n"):
-	#dump_targets(out)
-    elif (line == "%optvar\n"):
-	dump_optvar(out)
-    elif (line == "%options\n"):
-	dump_options(out)
-        dump_defines(out)
-    elif (line == "%objects\n"):
-	for o in obj_file_list:
-	    out.write("OBJECTS += %s\n" % o)
-        out.write("\n")
-	for o in cfg_file_list:
-	    out.write("CFGFILES += %s\n" % o)
-    elif (line == "%depend\n"):
-	for f in src_file_list:
-	    ofile = os.path.basename(f)
-	    suffix =  os.path.splitext(ofile)[1]
-	    ofile = os.path.splitext(ofile)[0]
-	    out.write("$(BUILDDIR)/%s.o: $(TOP)/%s\n" % (ofile, f))
-	    if (suffix == ".c"):
-		out.write("\t$(C_BUILD)\n")
-		out.write("\t$(C_DEP)\n\n")
-	    elif (suffix == ".cxx"):
-		out.write("\t$(CXX_BUILD)\n")
-		out.write("\t$(CXX_DEP)\n\n")
-	    elif (suffix == ".S"):
-		out.write("\t$(ASM_BUILD)\n")
-		out.write("\t$(ASM_DEP)\n\n")
+                if (suffix == ".c"):
+                    out.write("$(BUILDDIR)/%s.cfg: $(TOP)/%s\n" % (ofile, f))
+                    out.write("\t$(MOPS_BUILD)\n")
+                    out.write("\t$(MOPS_DEP)\n\n")
+        else:
+            out.write(line)
 
-            if (suffix == ".c"):
-                out.write("$(BUILDDIR)/%s.cfg: $(TOP)/%s\n" % (ofile, f))
-		out.write("\t$(MOPS_BUILD)\n")
-		out.write("\t$(MOPS_DEP)\n\n")
-    else:
-	out.write(line)
-
-out.close()
 
 ###############################################
 ##
@@ -672,9 +649,5 @@ out.close()
 
 
 optfilename = "%s/kernel-config.h" % targdir
-out = open(optfilename, 'w')
-out.truncate()
-
-dump_options_header(out)
-
-out.close
+with open(optfilename, 'w') as out:
+    dump_options_header(out)
