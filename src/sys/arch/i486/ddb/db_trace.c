@@ -274,7 +274,9 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     db_expr_t	offset;
     db_sym_t	sym;
 #define MAXNARG	16
+#if 0
     const char	*argnames[MAXNARG], **argnp = NULL;
+#endif
 
     sym = db_search_symbol(callpc, DB_STGY_ANY, &offset);
     db_symbol_values(sym, &name, NULL);
@@ -343,9 +345,11 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     normal:
       is_trap = NONE;
       narg = MAXNARG;
+#if 0
       if (db_sym_numargs(sym, &narg, argnames))
 	argnp = argnames;
       else
+#endif
 	narg = db_numargs(frame);
     }
 
