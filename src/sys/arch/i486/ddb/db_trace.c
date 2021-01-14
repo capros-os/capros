@@ -112,27 +112,7 @@ db_find_trace_symbols()
 int
 db_numargs(struct i386_frame * fpp/* fp */)
 {
-#if 0
-	int	*argp;
-	int	inst;
-	int	args;
-
-	argp = (int *)db_get_value((int)&fp->f_retaddr + userSpaceOffset, 4, false);
-	if (argp < (int *)VM_MIN_KERNEL_ADDRESS || argp > (int *)&etext) {
-		args = 5;
-	} else {
-		inst = db_get_value((int)argp + userSpaceOffset, 4, false);
-		if ((inst & 0xff) == 0x59)	/* popl %ecx */
-			args = 1;
-		else if ((inst & 0xffff) == 0xc483)	/* addl %n, %esp */
-			args = ((inst >> 16) & 0xff) / 4;
-		else
-			args = 5;
-	}
-	return (args);
-#else
 	return 0;
-#endif
 }
 
 static void *
@@ -197,11 +177,6 @@ db_nextframe(struct i386_frame **fp, /* in/out */
 		  db_printf("--- IPC (EIP=0x%08x OC=%d sa=0x%08x) ---\n",
 			    tf->EIP, tf->EAX, tf);
 		  break;
-#if 0
-		case INTERRUPT:
-			db_printf("--- interrupt ---\n");
-			break;
-#endif
 		}
 		break;
 	    }
@@ -213,16 +188,9 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
 		   db_expr_t count, char *modif)
 {
   struct i386_frame *frame, *lastframe;
-#if 0
-  int		*argp = 0;
-#endif
   db_addr_t	callpc;
   int		is_trap = 0;
 
-#if 0
-  if (!db_trace_symbols_found)
-    db_find_trace_symbols();
-#endif
 
   {	// scan modifiers
     register char *cp = modif;
@@ -269,14 +237,9 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
 
   lastframe = 0;
   while (count && frame != 0) {
-    int		narg;
     const char *	name;
     db_expr_t	offset;
     db_sym_t	sym;
-#define MAXNARG	16
-#if 0
-    const char	*argnames[MAXNARG], **argnp = NULL;
-#endif
 
     sym = db_search_symbol(callpc, DB_STGY_ANY, &offset);
     db_symbol_values(sym, &name, NULL);
@@ -295,9 +258,6 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     }
 
     if (name) {
-#if 0
-      db_printf("%s\n", name);
-#endif
       if (!strcmp(name,
 		  "idt_OnTrapOrInterrupt")) {
 	is_trap = TRAP;
@@ -311,71 +271,13 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
 	db_printf("--- Yield ---\n");
 	return;
       }
-#if 0
-      else if (!strcmp(name, "intr_clock")) {
-	is_trap = TRAP;
-      }
-      else if (!strcmp(name, "intr_InvokeKey")) {
-	is_trap = TRAP;
-      }
-      else if (!strcmp(name, "int_CapInstr")) {
-	is_trap = TRAP;
-      }
-      if (!strcmp(name, "_trap")) {
-	is_trap = TRAP;
-      } else if (!strcmp(name, "_syscall")) {
-	is_trap = SYSCALL;
-      } else if (name[0] == '_' && name[1] == 'X') {
-	if (!strncmp(name, "_Xintr", 6) ||
-	    !strncmp(name, "_Xresume", 8) ||
-	    !strncmp(name, "_Xstray", 7) ||
-	    !strncmp(name, "_Xhold", 6) ||
-	    !strncmp(name, "_Xrecurse", 9) ||
-	    !strcmp(name, "_Xdoreti") ||
-	    !strncmp(name, "_Xsoft", 6)) {
-	  is_trap = INTERRUPT;
-	} else
-	  goto normal;
-      }
-#endif
       else
 	goto normal;
-      narg = 0;
     } else {
     normal:
       is_trap = NONE;
-      narg = MAXNARG;
-#if 0
-      if (db_sym_numargs(sym, &narg, argnames))
-	argnp = argnames;
-      else
-#endif
-	narg = db_numargs(frame);
     }
 
-#if 0
-    db_printf("%s(", name);
-
-    if (lastframe == 0 && offset == 0 && !have_addr) {
-      /*
-       * We have a breakpoint before the frame is set up
-       * Use %esp instead
-       */
-      argp = &((struct i386_frame *)(ddb_regs.ESP-4))->f_arg0;
-    } else {
-      argp = &frame->f_arg0;
-    }
-
-    while (narg) {
-      if (argnp)
-	db_printf("%s=", *argnp++);
-      db_printf("%x", db_get_value((int)argp + userSpaceOffset, 4, false));
-      argp++;
-      if (--narg != 0)
-	db_printf(",");
-    }
-    db_printf(") at ");
-#endif
     db_printf("0x%08x: [FP=0x%08x] ", callpc, frame);
     db_printsym(callpc, DB_STGY_PROC);
     db_printf("\n");
@@ -385,21 +287,11 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
       lastframe = (struct i386_frame *)(ddb_regs.ESP-4);
       callpc = (db_addr_t)
 	db_get_value((int)&lastframe->f_retaddr + userSpaceOffset, 4, false);
-#if 0
-      db_printf("Next frame call pc: 0x%08x is_trap=%d\n",
-		callpc, is_trap);
-#endif
       continue;
     }
 
     lastframe = frame;
     db_nextframe(&frame, &callpc, &frame->f_arg0, is_trap);
-
-#if 0
-    db_printf("db_nextframe() => callpc 0x%08x frame 0x%08x"
-	      " is_trap %d\n",
-	      callpc, frame, is_trap);
-#endif
 
     if (frame == 0) {
       /* end of chain */
@@ -408,12 +300,6 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
 
     --count;
   }
-#if 0
-  if (count && is_trap != NONE) {
-    db_printsym(callpc, DB_STGY_XTRN);
-    db_printf(":\n");
-  }
-#endif
 
   // Restore current user space:
   mach_LoadAddrSpace(debuggerAddrSpace);
