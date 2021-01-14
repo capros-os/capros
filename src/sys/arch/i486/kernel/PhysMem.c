@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>
 #include <kerninc/multiboot.h>
 #include <kerninc/heap.h>
+#include <arch-kerninc/kinttypes.h>
 
 #define dbg_init	0x1u
 
@@ -35,10 +36,6 @@ Approved for public release, distribution unlimited. */
 #define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
-
-#ifndef PRIx64
-#define PRIx64 "lx"
-#endif
 
 kpa_t physMem_PhysicalPageBound = 0;	// highest physical address of RAM +1
 kpg_t physMem_TotalPhysicalPages = 0;	// approximate

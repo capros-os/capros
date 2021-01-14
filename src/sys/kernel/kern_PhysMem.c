@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/ffs.h>
 #include <eros/fls.h>
 #include <idl/capros/DevPrivs.h>
+#include <arch-kerninc/kinttypes.h>
 
 #define dbg_pgalloc	0x1
 #define dbg_avail	0x2

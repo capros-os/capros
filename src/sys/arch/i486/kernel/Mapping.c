@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/PhysMem.h>
 #include <arch-kerninc/PTE.h>
+#include <arch-kerninc/kinttypes.h>
 #include "CpuFeatures.h"
 #include "Process486.h"
 #include "Cpu.h"
@@ -45,10 +46,6 @@ Approved for public release, distribution unlimited. */
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
-
-#ifndef PRIx64
-#define PRIx64 "lx"
-#endif
 
 extern kva_t heap_start;
 extern kva_t heap_end;
