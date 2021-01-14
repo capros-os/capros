@@ -46,6 +46,10 @@ Approved for public release, distribution unlimited. */
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
 
+#ifndef PRIx64
+#define PRIx64 "lx"
+#endif
+
 extern kva_t heap_start;
 extern kva_t heap_end;
 extern kva_t heap_defined;
