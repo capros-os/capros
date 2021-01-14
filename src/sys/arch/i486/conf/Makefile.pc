@@ -143,15 +143,15 @@ $(BUILDDIR)/Debugger.o: ../../kernel/Debugger.c
 
 $(BUILDDIR)/process_asm_offsets.h: ../../LAYOUT $(TOP)/scripts/GenProcOffsets.awk
 	$(EROS_CPP) -I$(TOP) $(DEF) -include kernel-config.h ../../LAYOUT | \
-	$(GAWK) -f $(TOP)/scripts/GenProcOffsets.awk > $@
+	$(GAWK) -f $(TOP)/scripts/GenProcOffsets.awk < ../../LAYOUT > $@
 
 $(BUILDDIR)/gen.SaveArea.h: ../../LAYOUT $(TOP)/scripts/GenSaveArea.awk
 	$(EROS_CPP) -I$(TOP) $(DEF) -include kernel-config.h ../../LAYOUT | \
-	$(GAWK) -f $(TOP)/scripts/GenSaveArea.awk > $@
+	$(GAWK) -f $(TOP)/scripts/GenSaveArea.awk < ../../LAYOUT > $@
 
 $(BUILDDIR)/gen.REGMOVE.h: ../../LAYOUT $(TOP)/scripts/GenRegMove.awk
 	$(EROS_CPP) -I$(TOP) ../../LAYOUT | \
-	$(GAWK) -f $(TOP)/scripts/GenRegMove.awk > $@
+	$(GAWK) -f $(TOP)/scripts/GenRegMove.awk < ../../LAYOUT > $@
 
 # The following is a false dependency. It exists for the purpose of
 # getting the .h file generated so that the dependency's will get
