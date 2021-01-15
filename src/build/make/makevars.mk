@@ -285,6 +285,9 @@ ifndef EROS_CPP
 EROS_CPP=$(EROS_XENV)/bin/cpp -nostdinc -D$(EROS_TARGET)
 endif
 
+ifndef CAPROS_LIB
+CAPROS_LIB=$(EROS_XENV)/lib/
+endif
 
 # Libraries for make dependencies.
 LIBDEP=$(CAPROS_DOMAIN)/libc-capros.a

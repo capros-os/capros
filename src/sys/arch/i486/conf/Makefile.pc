@@ -168,12 +168,12 @@ install: all
 .FORCE:
 
 $(CONFIG).eros.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS)
-	$(LINK) -r -o $@ \
+	$(LINK) --library-path=$(CAPROS_LIB) -r -o $@ \
 		 lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS)
 	#$(SIZE) $(CONFIG).eros
 
 $(CONFIG).eros.debug.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS)
-	$(LINK) -r -o $@ \
+	$(LINK) --library-path=$(CAPROS_LIB) -r -o $@ \
 		lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS)
 	echo "Look in <test>/BUILDDIR/syms." > syms
 	$(OBJDUMP) --disassemble $@ > disassembled ## debug
