@@ -42,11 +42,11 @@
 
 /* These are for everybody (although not all archs will actually
    discard it in modules) */
-#define __init		__section(.init.text) __cold notrace
-#define __initdata	__section(.init.data)
-#define __initconst	__section(.init.rodata)
-#define __exitdata	__section(.exit.data)
-#define __exit_call	__used __section(.exitcall.exit)
+#define __init		__section("init.text") __cold notrace
+#define __initdata	__section("init.data")
+#define __initconst	__section("init.rodata")
+#define __exitdata	__section("exit.data")
+#define __exit_call	__used __section("exitcall.exit")
 
 /* modpost check for section mismatches during the kernel build.
  * A section mismatch happens when there are references from a
