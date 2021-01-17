@@ -47,7 +47,7 @@ extern cap_t ostream;
  #define max(a,b) ((a) >= (b) ? (a) : (b))
 #endif
 
-#define DRAW_LINE(gc, pt, widthx, widthy, color, raster_op) \
+#define DRAW_LINE(gc, pt, widthx, widthy) \
       if (width == 1) { \
         set_pixel(gc, pt); \
       } \
@@ -210,7 +210,6 @@ doLineDraw(GLContext *gc, line_t line)
 {
   uint32_t width;
   uint32_t color;
-  uint32_t rop;
   int dx, dy, delta, yincr, xincr;  
   rect_t clipRegion;
   rect_t new_clipRegion;
@@ -221,8 +220,12 @@ doLineDraw(GLContext *gc, line_t line)
 
   clipRegion = gc->clip_region;
   width = gc->line_width;
-  color = gc->color;
-  rop = gc->raster_op;
+  /* The following variables were originally fed to DRAW_LINE, which ignored them.
+   * if we get to fix this code, we'll need to consider this carefully.
+   *
+   * color = gc->color;
+   * rop = gc->raster_op;
+   */
 
 #ifdef DEBUG
   kprintf(ostream, "EROSGL: doLineDraw w/line (%d,%d) to (%d,%d)\n"
@@ -261,7 +264,7 @@ doLineDraw(GLContext *gc, line_t line)
     dy = abs(dy);
     delta = (dy << 1) - dx;
     for ( ; line.pt[0].x <= line.pt[1].x; ++line.pt[0].x) {
-      DRAW_LINE(gc, line.pt[0], 1, width, color, raster_op);
+      DRAW_LINE(gc, line.pt[0], 1, width);
       if (delta > 0) {
 	line.pt[0].y += yincr;
 	delta -= dx << 1;
@@ -279,7 +282,7 @@ doLineDraw(GLContext *gc, line_t line)
     delta = (dx << 1) - dy;
 
     for ( ; line.pt[0].y <= line.pt[1].y; ++line.pt[0].y){
-      DRAW_LINE(gc, line.pt[0], width, 1, color, raster_op );
+      DRAW_LINE(gc, line.pt[0], width, 1);
       if (delta > 0) {
 	line.pt[0].x += xincr;
 	delta -= dy << 1;
