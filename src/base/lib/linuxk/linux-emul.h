@@ -37,5 +37,7 @@ Approved for public release, distribution unlimited. */
 #define KBUILD_MODNAME KBUILD_STR(amba_pl010) // FIXME: ARM EP93xx specific!!
 
 #include <stdint.h>	// need this before linux/kernel.h due to LLONG_MAX
+/* strings.h declares the logarithm functions that libc provides */
+#include <strings.h>
 
 #endif /* __LINUXEMUL_H__ */
