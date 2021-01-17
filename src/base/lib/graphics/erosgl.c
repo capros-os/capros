@@ -209,7 +209,6 @@ static void
 doLineDraw(GLContext *gc, line_t line)
 {
   uint32_t width;
-  uint32_t color;
   int dx, dy, delta, yincr, xincr;  
   rect_t clipRegion;
   rect_t new_clipRegion;
