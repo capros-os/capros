@@ -74,10 +74,6 @@ extern void __bad_percpu_size(void);
 #define percpu_to_op(op, var, val)			\
 do {							\
 	typedef typeof(var) T__;			\
-	if (0) {					\
-		T__ tmp__;				\
-		tmp__ = (val);				\
-	}						\
 	switch (sizeof(var)) {				\
 	case 1:						\
 		asm(op "b %1,"__percpu_arg(0)		\

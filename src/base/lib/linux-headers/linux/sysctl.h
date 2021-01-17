@@ -44,7 +44,7 @@ struct __sysctl_args {
 	size_t __user *oldlenp;
 	void __user *newval;
 	size_t newlen;
-	unsigned long __unused[4];
+	unsigned long _padding[4];
 };
 
 /* Define sysctl names first */
