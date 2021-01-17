@@ -50,7 +50,6 @@
 #endif
 
 #define __deprecated			__attribute__((deprecated))
-#define __packed			__attribute__((packed))
 #define __weak				__attribute__((weak))
 
 /*
@@ -73,8 +72,6 @@
  * would be.
  * [...]
  */
-#define __pure				__attribute__((pure))
-#define __aligned(x)			__attribute__((aligned(x)))
 #define __printf(a,b)			__attribute__((format(printf,a,b)))
 #define  noinline			__attribute__((noinline))
 #define __attribute_const__		__attribute__((__const__))
