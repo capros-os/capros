@@ -423,6 +423,7 @@ int ffs(int x);
  * set bit if value is nonzero. The last (most significant) bit is
  * at position 32.
  */
+#if 0	// because the static inline function does not match string.h
 static inline int fls(int x)
 {
 	int r;
@@ -438,6 +439,8 @@ static inline int fls(int x)
 #endif
 	return r + 1;
 }
+#endif
+
 #endif /* __KERNEL__ */
 
 #undef ADDR
