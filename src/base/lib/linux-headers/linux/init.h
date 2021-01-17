@@ -93,12 +93,12 @@
 #define __cpuexitconst   __section(.cpuexit.rodata)
 
 /* Used for MEMORY_HOTPLUG */
-#define __meminit        __section(.meminit.text) __cold
-#define __meminitdata    __section(.meminit.data)
-#define __meminitconst   __section(.meminit.rodata)
-#define __memexit        __section(.memexit.text) __exitused __cold
-#define __memexitdata    __section(.memexit.data)
-#define __memexitconst   __section(.memexit.rodata)
+#define __meminit        __section(".meminit.text") __cold
+#define __meminitdata    __section(".meminit.data")
+#define __meminitconst   __section(".meminit.rodata")
+#define __memexit        __section(".memexit.text") __exitused __cold
+#define __memexitdata    __section(".memexit.data")
+#define __memexitconst   __section(".memexit.rodata")
 
 /* For assembly routines */
 #define __HEAD		.section	__stringify(HEAD_TEXT_SECTION),"ax"
