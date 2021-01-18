@@ -77,12 +77,12 @@
 #define __exit          __section(.exit.text) __exitused __cold
 
 /* Used for HOTPLUG */
-#define __devinit        __section(.devinit.text) __cold
-#define __devinitdata    __section(.devinit.data)
-#define __devinitconst   __section(.devinit.rodata)
-#define __devexit        __section(.devexit.text) __exitused __cold
-#define __devexitdata    __section(.devexit.data)
-#define __devexitconst   __section(.devexit.rodata)
+#define __devinit        __section(".devinit.text") __cold
+#define __devinitdata    __section(".devinit.data")
+#define __devinitconst   __section(".devinit.rodata")
+#define __devexit        __section(".devexit.text") __exitused __cold
+#define __devexitdata    __section(".devexit.data")
+#define __devexitconst   __section(".devexit.rodata")
 
 /* Used for HOTPLUG_CPU */
 #define __cpuinit        __section(.cpuinit.text) __cold
