@@ -47,7 +47,7 @@ SOURCES=spacebank.c	\
 OBJECTS=$(addprefix $(BUILDDIR)/,$(SOURCES:.c=.o))
 
 INC=-I$(BUILDDIR) -I$(CAPROS_HEADERS)/include
-INC += -I$(EROS_ROOT)/host/include # for DiskNode.h and ErosTypes.h
+INC += -I$(EROS_SRC)/sys/disk/include # for DiskNode.h and ErosTypes.h
 # DEFS possibilities include -DNDEBUG, -DPARANIOD
 ##DEFS= -DNDEBUG 
 
