@@ -38,7 +38,7 @@ BUILDSSL/$(TARGETMACH):
 	(cd $(OPENSSL_SOURCE); find . -type f ! -path "./BUILD*" ! -path "./CVS*" ! -name "*.swp") | while read F; do \
 		mkdir -p `dirname $$F`; \
 		rm -f $$F; \
-		if [[ "$$F" == *.num ]] || [[ "$$F" == obj_mac.h ]] ; \
+		if [[ "$$F" == *.num ]] || [[ "$$F" == *obj_mac.h ]] ; \
 		        then cp $(OPENSSL_SOURCE)/$$F $$F; chmod u+w $$F; \
 			else ln -s $(OPENSSL_SOURCE)/$$F $$F; \
 		fi; \
