@@ -39,7 +39,7 @@ BUILDSSL/$(TARGETMACH):
 		mkdir -p `dirname $$F`; \
 		rm -f $$F; \
 		if [[ "$$F" == *.num ]] ; \
-		        then cp $(OPENSSL_SOURCE)/$$F $$F; \
+		        then cp $(OPENSSL_SOURCE)/$$F $$F; chmod u+w $$F; \
 			else ln -s $(OPENSSL_SOURCE)/$$F $$F; \
 		fi; \
 	done; \
