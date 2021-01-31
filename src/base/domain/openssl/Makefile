@@ -37,7 +37,11 @@ BUILDSSL/$(TARGETMACH):
 	cd BUILDSSL/$(TARGETMACH); \
 	(cd $(OPENSSL_SOURCE); find . -type f ! -path "./BUILD*" ! -path "./CVS*" ! -name "*.swp") | while read F; do \
 		mkdir -p `dirname $$F`; \
-		rm -f $$F; ln -s $(OPENSSL_SOURCE)/$$F $$F; \
+		rm -f $$F; \
+		if [[ "$$F" == *.num ]] ; \
+		        then cp $(OPENSSL_SOURCE)/$$F $$F; \
+			else ln -s $(OPENSSL_SOURCE)/$$F $$F; \
+		fi; \
 	done; \
 	make -f Makefile.org clean; \
 	./Configure no-hw no-threads no-shared no-zlib no-asm no-krb5 CapROS-$(EROS_TARGET)
