@@ -38,7 +38,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all:
 
-install: all
+interfaces: all
 	$(INSTALL) -d $(EROS_ROOT)/include
 	$(INSTALL) -d $(EROS_ROOT)/include/rbtree
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/rbtree
