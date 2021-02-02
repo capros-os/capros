@@ -48,7 +48,7 @@ $(TARGETS): $(OBJECTS)
 	$(AR) -crv $@ $(OBJECTS)
 	$(RANLIB) $@
 
-install:
+install: $(TARGETS)
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)
 
