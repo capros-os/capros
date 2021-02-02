@@ -25,7 +25,7 @@
 
 default: package
 
-EROS_SRC=..
+EROS_SRC=../../..
 CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
