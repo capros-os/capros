@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006-2010, Strawberry Development Group.
+# Copyright (C) 2009, 2010, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -23,30 +23,33 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: install
+default: package
 
-EROS_SRC=../..
+EROS_SRC=..
+CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
+include $(EROS_SRC)/build/make/pkgrules.mk
 
-DIRS=linux-headers
-DIRS+=linux-arch
-DIRS+=crypto
-DIRS+=constructor
-DIRS+=idlstub
-DIRS+=domain
-DIRS+=rbtree util
-DIRS+=graphics forwarder addrspace xsprintf
-DIRS+= cmme cmte linuxk
-DIRS+=ethread
-DIRS+=workaround
-ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far
+OBJECTS=
+# Workaround for strstr bug in cross lib for FC10:
+OBJECTS+=$(BUILDDIR)/libcfix.o
+ifeq "$(EROS_TARGET)" "i486"
+# Workaround for longjmp bug (has cli/sti):
+OBJECTS+=$(BUILDDIR)/longjmpfix.o
+INC+=-I$(EROS_ROOT)/include
 endif
-ifeq "$(EROS_TARGET)" "i486"	# only for i486 so far
-DIRS+=pci
-endif
-# keycache was a failed experiment.
-
-LDIRS=pci
-
+TARGETS=$(BUILDDIR)/libworkaround.a
 include $(EROS_SRC)/build/make/makerules.mk
+
+libs: $(TARGETS)
+
+$(TARGETS): $(OBJECTS)
+	$(AR) -crv $@ $(OBJECTS)
+	$(RANLIB) $@
+
+install:
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)
+
+-include $(BUILDDIR)/.*.m
