@@ -29,6 +29,9 @@ EROS_SRC=../../..
 CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
+
+INC=-I$(CAPROS_HEADERS)/include
+
 include $(EROS_SRC)/build/make/pkgrules.mk
 
 OBJECTS=
