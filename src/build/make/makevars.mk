@@ -303,7 +303,7 @@ DOMBASE=0x1000
 
 LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(CAPROS_DOMAIN) -e _start #-Wl,--verbose -v
 
-CROSSLINK=$(EROS_GCC) $(LINKOPT) #-v
+CROSSLINK=$(EROS_GCC) $(LINKOPT) $(CROSS_LDFLAGS) #-v
 
 # Libraries given at the end of the link command:
 CROSSLIBS=
