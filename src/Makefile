@@ -51,6 +51,7 @@ capidl:
 xonly:
 	$(MAKE) -C sys $(MAKERULES) install
 	$(MAKE) -C base/lib $(MAKERULES) install
+	$(MAKE) $(IDL_STUB_DIR)/idlbuilt install IDL_FILE_LIST="`cat $(IDL_DIR)/filelistflat`"
 	$(MAKE) -C base/domain $(MAKERULES) install
 
 # Building proceeds in 4 steps:
