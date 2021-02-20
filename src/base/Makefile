@@ -30,7 +30,13 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 IDIRS=lib domain
 LDIRS=lib domain
+
+ifeq "$(XONLY)" "true"
+PDIRS=lib domain
+else
 PDIRS=host lib domain
+endif
+
 CLEANDIRS=$(PDIRS) tests
 
 TARDIRS=$(PDIRS)

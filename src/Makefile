@@ -52,7 +52,7 @@ xonly:
 	$(MAKE) -C sys $(MAKERULES) install
 	$(MAKE) -C base/lib $(MAKERULES) install
 	$(MAKE) $(IDL_STUB_DIR)/idlbuilt install IDL_FILE_LIST="`cat $(IDL_DIR)/filelistflat`"
-	$(MAKE) -C base/domain $(MAKERULES) install
+	$(MAKE) -C base/domain $(MAKERULES) install XONLY=true
 
 # Building proceeds in 4 steps:
 # 1. Recurse over the source tree gathering .idl and .h files. 
