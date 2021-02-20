@@ -532,7 +532,9 @@ emit_send_string(PtrVec *symVec, FILE *out, int indent)
     }
     else if (symbol_IsFixSequenceType(s0BaseType)) {
       do_indent(out, indent);
-      fprintf(out, "msg.snd_len = sizeof(%s);\n", s0->name);
+      fprintf(out, "msg.snd_len = sizeof(", s0->name);
+      output_c_type(s0->type, out, 0);
+      fprintf(out, ");\n");
     }
     else {
       do_indent(out, indent);
