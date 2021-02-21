@@ -356,7 +356,7 @@ DYNDRVOBJS=$(DYNCMTEOBJS) $(CAPROS_DOMAIN)/dyndriverstart.o
 DYNDRIVERLINK=$(EROS_GCC) $(CMMELINKOPT) $(DYNDRVOBJS)
 DYNDRIVERDEPS=$(DYNDRVOBJS) $(DRIVERLIBS) $(LIBDEP)
 
-SMALL_SPACE=-Wl,--small-space
+SMALL_SPACE=-Wl,-small-space
 
 
 # Really ugly GNU Makeism to extract the name of the current package by
