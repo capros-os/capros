@@ -34,6 +34,7 @@ ETAGDIRS+= arch/$(EROS_TARGET)/include
 ETAGDIRS+= arch/$(EROS_TARGET)/kernel
 ETAGDIRS+= arch/$(EROS_TARGET)/machine
 
+IDIRS=disk
 DIRS=eros arch/$(EROS_TARGET)
 # Directory libkey is located here, but is actually built in base/lib/domain.
 #CLEANDIRS=eros
