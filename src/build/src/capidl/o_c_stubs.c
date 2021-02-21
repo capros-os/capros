@@ -1000,8 +1000,6 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     fprintf(out, "unsigned char *sndData;\n");
     do_indent(out, indent + 2);
     fprintf(out, "unsigned sndLen = 0;\n");
-    do_indent(out, indent + 2);
-    fprintf(out, "unsigned sndIndir = 0;\n");
   }
   if (needRcvString == 1) {
     do_indent(out, indent + 2);
@@ -1022,8 +1020,6 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     /* Align up to an 8 byte boundary to begin the indirect bytes */
     align = emit_symbol_align("sndLen", out, indent+2, 8, align);
 
-    do_indent(out, indent + 2);
-    fprintf(out, "sndIndir = sndLen;\n");
     align = emit_indirect_byte_computation(sndString, out, indent+2,
 					   sc_formal, align);
     do_indent(out, indent + 2);
