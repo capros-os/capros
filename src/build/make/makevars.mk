@@ -1,6 +1,7 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
 # Copyright (C) 2005-2010, Strawberry Development Group.
+# Copyright (C) 2021, William ML Leslie.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -355,7 +356,7 @@ DYNDRVOBJS=$(DYNCMTEOBJS) $(CAPROS_DOMAIN)/dyndriverstart.o
 DYNDRIVERLINK=$(EROS_GCC) $(CMMELINKOPT) $(DYNDRVOBJS)
 DYNDRIVERDEPS=$(DYNDRVOBJS) $(DRIVERLIBS) $(LIBDEP)
 
-SMALL_SPACE=-small-space
+SMALL_SPACE=-Wl,--small-space
 
 
 # Really ugly GNU Makeism to extract the name of the current package by
