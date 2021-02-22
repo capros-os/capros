@@ -74,7 +74,7 @@
 #define __exitused  __used
 #endif
 
-#define __exit          __section(.exit.text) __exitused __cold
+#define __exit          __section(".exit.text") __exitused __cold
 
 /* Used for HOTPLUG */
 #define __devinit        __section(".devinit.text") __cold
