@@ -224,7 +224,10 @@ alloc_dirent(state_t *state)
           bit += w * UINT32_BITS;
 
           result = capros_SuperNode_allocateRange(KR_SNODE, bit, bit);
-          // FIXME: handle allocation error here
+          // FIXME: handle allocation error better
+          if (result != RC_OK) {
+            return 0;
+          }
 
 	  return bit;
 	}
