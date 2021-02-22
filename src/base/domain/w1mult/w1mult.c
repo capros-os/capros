@@ -966,9 +966,10 @@ ActivateNeededBranches(struct Branch * br)
           // There is no direct-on for the aux branch.
           ProgramSmartOn(coup, &coup->u.coupler.auxBranch);
           err = RunProgram();
-          if (err)
+          if (err) {
             CheckSetPathErrors(err);
             return err;
+          }
         }
       } else {
         // Neither branch needs work.
