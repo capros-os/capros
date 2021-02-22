@@ -1342,7 +1342,7 @@ cap_init(struct IPConfigv4 * ipconf)
   return RC_OK;
 }
 
-NORETURN void
+void
 cap_main(void)
 {
   result_t result;

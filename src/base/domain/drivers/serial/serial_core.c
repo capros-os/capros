@@ -2137,7 +2137,7 @@ read_wait_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
   return 1;
 }
 
-NORETURN void
+void
 driver_main(void)
 {
   result_t result;
