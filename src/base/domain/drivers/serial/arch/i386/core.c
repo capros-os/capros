@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 struct old_serial_port old_serial_port[1];
 
 extern int __init serial8250_init(void);
+extern void __exit serial8250_exit(void);
 
 int capros_serial_initialization(void)
 {
