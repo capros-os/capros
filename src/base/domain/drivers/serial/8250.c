@@ -2893,7 +2893,7 @@ EXPORT_SYMBOL(serial8250_unregister_port);
 	return ret;
 }
 
-static void __exit serial8250_exit(void)
+/* static */ void __exit serial8250_exit(void)
 {
 	struct platform_device *isa_dev = serial8250_isa_devs;
 
