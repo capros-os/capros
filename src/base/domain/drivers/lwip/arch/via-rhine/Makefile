@@ -27,7 +27,7 @@ include $(LWIP_ROOT)/common.mk
 
 INSTALL_DIR=$(CAPROS_DOMAIN)/drivers/lwip/via-rhine
 
-INC+=-I$(INSTALL_DIR)	# for cap.c to get lwipCap.h
+INC+=-I.	# for cap.c to get lwipCap.h
 
 HEADERS=lwipCap.h
 

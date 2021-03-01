@@ -326,7 +326,7 @@ DRIVERINC+= -include $(CAPROS_HEADERS)/include/linuxk/linux-emul.h
 
 CMMEOBJS= # $(CAPROS_DOMAIN)/cmmestart.o # no such file yet
 # Put the read/write section at 0x00c00000:
-CMMELINKOPT=$(LINKOPT) -Wl,--section-start,.eh_frame=0x00c00000
+CMMELINKOPT=$(LINKOPT) -Wl,--section-start,.eh_frame=0x00c00000  $(CROSS_LDFLAGS)
 CMMELINK=$(EROS_GCC) $(CMMELINKOPT) $(CMMEOBJS)
 # libs given at the end of the link command:
 CMMELIBS=$(CAPROS_DOMAIN)/libcmme.a $(CROSSLIBS)
@@ -339,7 +339,7 @@ CMTELIBS=$(CAPROS_DOMAIN)/libcmte.a $(CMMELIBS)
 CMTEDEPS=$(CMTEOBJS) $(CMTELIBS) $(LIBDEP)
 
 DRVOBJS=$(CMTEOBJS) $(CAPROS_DOMAIN)/dstart.o
-DRIVERLINK=$(EROS_GCC) $(CMMELINKOPT) $(CROSS_LDFLAGS) $(DRVOBJS)
+DRIVERLINK=$(EROS_GCC) $(CMMELINKOPT) $(DRVOBJS)
 LINUXLIB=$(CAPROS_DOMAIN)/liblinuxk.a
 DRIVERLIBS=$(LINUXLIB) $(CMTELIBS)
 DRIVERDEPS=$(DRVOBJS) $(DRIVERLIBS) $(LIBDEP)
