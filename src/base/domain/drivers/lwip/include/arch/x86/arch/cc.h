@@ -54,7 +54,7 @@ typedef u32_t mem_ptr_t;
 #include <domain/cmte.h>
 #include <domain/domdbg.h>
 #include <domain/assert.h>
-asmlinkage int printk(const char * fmt, ...);
+#include <linux/kernel.h>
 #define LWIP_PLATFORM_DIAG(x) do {printk x;} while(0)
 
 #define LWIP_PLATFORM_ASSERT(x) \
