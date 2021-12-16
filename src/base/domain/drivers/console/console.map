@@ -1,0 +1,69 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+#include <drivers/ps2/ps2.map>
+
+
+/*** A small program which handles text mode screen drawing ***/
+textconsole = new process with constituents;
+textconsole space = small program LIBDIR "drivers/console/textconsole";
+textconsole pc = symbol LIBDIR "drivers/console/textconsole" _start;
+textconsole iospace = misc DevicePrivs;
+textconsole schedule = sched(8);
+/**************************************************************/
+
+CONSTIT(textconsole, KC_OSTREAM, 3) = misc Console;
+CONSTIT(textconsole, KC_DEVPRIVS, 4) = misc DevicePrivs;
+CONSTIT(textconsole, KC_PHYSRANGE,5) = physmem range;
+
+textconsole key reg KR_SELF = textconsole;
+textconsole key reg KR_BANK = primebank;
+textconsole key reg KR_SCHED = sched(8);
+
+run textconsole;
+
+
+MAKE_VIRTUAL_COPIER(mouseclient_vcsk,LIBDIR "drivers/console/mouseclient");
+BOOT_CONSTRUCTOR(mouseclient_c,mouseclient);
+PROD_SPACE(mouseclient_c) = mouseclient_vcsk_c;
+PROD_PC(mouseclient_c) = symbol LIBDIR "drivers/console/mouseclient" _start;
+PROD_CONSTIT(mouseclient_c, KC_OSTREAM, 3) = misc Console;
+
+MAKE_VIRTUAL_COPIER(keycli_vcsk,LIBDIR "drivers/console/keyclient");
+BOOT_CONSTRUCTOR(keycli_c,keycli);
+PROD_SPACE(keycli_c) = keycli_vcsk_c;
+PROD_PC(keycli_c) = symbol LIBDIR "drivers/console/keyclient" _start;
+PROD_CONSTIT(keycli_c, KC_OSTREAM, 3) = misc Console;
+
+MAKE_VIRTUAL_COPIER(consolestream_vcsk,LIBDIR "drivers/console/consolestream");
+BOOT_CONSTRUCTOR(consolestream_c,consolestream);
+PROD_SPACE(consolestream_c) = consolestream_vcsk_c;
+PROD_PC(consolestream_c) = symbol LIBDIR "drivers/console/consolestream" _start;
+PROD_CONSTIT(consolestream_c,KC_OSTREAM,3) = misc Console;
+PROD_CONSTIT(consolestream_c, KC_TEXCON_S, 12) = start textconsole 0;
+PROD_CONSTIT(consolestream_c, KC_KEYCLI_C, 13) = keycli_c;
+PROD_CONSTIT(consolestream_c, KC_MCLI_C, 14) = mouseclient_c;
+PROD_CONSTIT(consolestream_c, KC_PS2READER_C, 15) = ps2reader_c;
+
+/* All my clients R belong to us */
+hide keycli_c;     
+hide mouseclient_c;

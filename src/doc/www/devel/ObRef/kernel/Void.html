@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0 Level 1//EN">
+<html>
+  <head>
+    <title>EOR: Void</title>
+  </head>
+
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+	vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign="top">
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class="nocss"><br class="nocss">&nbsp;<br class="nocss">&nbsp;</div>
+	  <div class="KeyName">
+	    [<em><a href="../Cover.html">Return to Top</a></em>]
+	    [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+	    <div align="right">
+	      <H2>EROS Object Reference</H2>
+	      <H2>Kernel Objects</H2>
+	    </div>
+	    <h2>Void</h2>
+	    <em>D R A F T</em>
+	    <hr>
+	  </div>
+	  <div class="KeyDescrip">
+	    <h3>Description</h3> 
+	    <p> 
+	      The <strong>Void</strong> object is the unique singleton
+	      object that returns <b>RC_Void</b> to all requests.
+	    </p>
+	    <p>
+	      The <strong>Void</strong> key occurs whenever a key
+	      register or node slot holds no other key. Void keys are
+	      created in a variety of ways:
+	    </p>
+	    <ul>
+	      <li>
+		When a Node is created, all slots contain void keys.
+	      </li>
+	      <li>
+		The Clear Node operation on a Node stores void keys in
+		all slots of the node.
+	      </li>
+	      <li>
+		When an object is destroyed, all outstanding keys to
+		that object are replaced with void keys. This
+		conversion may occur at any time, but it is guaranteed
+		to occur before such a key is invoked.
+	      </li>
+	      <li>
+		When a resume key is invoked, all outstanding resume
+		keys to the same process are replaced with void
+		keys. This conversion may occur at any time, but it is
+		guaranteed to occur before such a key is invoked.
+	      </li>
+	    </ul>
+	    <p>
+	      The void key returns <b>RC_Void</b> to all requests. By
+	      (strong) convention, the <b>RC_Void</b> return code is
+	      generally avoided by other objects in order to allow
+	      callers to discern when an object has been destroyed.
+	    </p>
+	  </div>
+	  <hr>
+	    <em>Copyright 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+	      redistribution, see the 
+	      <a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</html>

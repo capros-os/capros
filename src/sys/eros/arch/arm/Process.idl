@@ -1,0 +1,26 @@
+package capros.arch.arm;
+
+/* Interface to ARM process keys.
+ */
+interface Process extends capros.Process raises (capros.key.RequestError) {
+
+  struct Registers {
+    // CommonRegisters32 fields:
+    unsigned long len;
+    unsigned long arch;
+    unsigned long procFlags;
+    unsigned long faultCode;
+    unsigned long faultInfo;
+    unsigned long pc;	// program counter
+    unsigned long sp;	// stack pointer
+
+    // Architecture-specific fields:
+    /* sp and pc are repeated here for convenience when reading.
+       When writing, the values above will take effect. */
+    array <unsigned long, 16> registers;
+    unsigned long CPSR;
+  };
+
+  Registers getRegisters();
+  void setRegisters(Registers regs);
+};

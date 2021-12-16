@@ -1,0 +1,375 @@
+<HTML>
+  <HEAD>
+    <TITLE>Distribution Terms </TITLE>
+    <link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css">
+<style type="text/css">
+<!--
+  -->
+</style>
+  </HEAD>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+	vlink="#551a8b" alink="#ff0000">
+      <table>
+	<tr valign=top>
+	  <td width="10%">&nbsp;</td>
+	  <td>
+	    <div class=nocss>
+	      <br class=nocss>&nbsp;
+	      <br class=nocss>&nbsp;
+	    </div>
+	    <center>
+	      <H1 class="title">Distribution Terms</H1>
+	    </center>
+	    <p>
+<!--  	      <IMG src="../img/cupid3.gif" align=left>  -->
+	      EROS is currently
+	      distributed under two licenses: the <a
+	      href="license/GPL.html">GNU General Public License</a>
+	      (GPL) and the <a href="license/LGPL.html">GNU Lesser
+	      General Public License</a> (LGPL). The general rule for
+	      choosing a license within the EROS code is:
+	    </p>
+	    <center>
+	      <table width="90%">
+		<tr valign=top>
+		  <td><b>License</b></td>
+		  <td><b>Content</b></td>
+		</tr>
+		<tr valign=top>
+		  <td>LGPL</td>
+		  <td>
+		    <p>
+		      Run time libraries, include files,
+		      and automatically generated code that is expected to be
+		      used by ordinary applications.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>GPL</td>
+		  <td>
+		    All other code.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td><em>TBD</em></td>
+		  <td>
+		    An appropriate open license for documentation has
+		    not yet been identified. We are currently
+		    considering the <a
+		    href="http://opencontent.org/openpub/">Open
+		    Publication License</a> (disallowing both options)
+		    and the <a
+		    href="http://www.fsf.org/copyleft/fdl.html">GNU
+		    Free Documentation License</a>.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td><em>Other</em></td>
+		  <td>
+		    <p>
+		      When existing code is incorporated unchanged
+		      from other sources, we do not change the license
+		      of this code. Future examples might include
+		      ghostview or the X Window System or Apache.
+		    </p>
+		  </td>
+		</tr>
+	      </table>
+	    </center>
+	    <p>
+	      In order to ensure that Core EROS remains open, and to
+	      ensure that we are able to provide security assurance
+	      for EROS in the future, we require that modifications
+	      and enhancements to Core EROS be assigned to The EROS
+	      Group.
+	    </p>
+	    <p>
+	      As we include more and more application function, the
+	      distribution will come to include materials covered
+	      under other open source licenses such as the BSD
+	      license, the X Consortium License, and/or the Apache
+	      License.
+	    </p>
+	    <H1>Why GPL?</h1>
+	    <p>
+	      The obvious reason to use GPL is that it is widely used
+	      and there is wide agreement about what it means. Also,
+	      there is a large amount of code covered by GPL that we
+	      might wish to incorporate into the EROS system. In spite
+	      of some very bad problems, these are the reasons that we
+	      use GPL. So what are the problems?
+	    </p>
+	    <p>
+	      GPL is horribly ambiguous, and it is missing some very
+	      important protections for <em>everyone</em> about
+	      patents. GPL does not adequately define what a
+	      ``combined work'' is, and these are very difficult
+	      things to define in modern systems. For example, there
+	      has been a long debate about whether dynamically linking
+	      an extension into a GPL application requires the
+	      extension to be distributed under GPL. The Free Software
+	      Foundation says "yes." The Linux community (and many
+	      others) say "no."
+	    </p>
+	    <p>
+	      The ``combined work'' problem is especially bad for
+	      systems like EROS. In EROS, applications are typically
+	      built out of components. Each of these components is a
+	      completely separate program that invokes other
+	      components using capabilities. When two components are a
+	      ``combined work,'' and one is distributed under GPL,
+	      they must both be distributed under GPL. The question
+	      is: when are two components considered a ``combined
+	      work?''
+	    </p>
+	    <p>
+	      Because of this ambiguity, we are periodically asked to
+	      consider changing the license terms. The two most common
+	      reason for this request are:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  Somebody wishes to use some propretary piece of
+		  hardware, and does not wish to disclose the code for
+		  the driver.
+		</p>
+		<p>
+		  We don't think that there are compelling
+		  <em>economic</em> reasons to avoid proprietary
+		  drivers, and we think that in the end this approach
+		  to hardware is doomed, but we do not want to stall
+		  the progress of EROS while people figure this
+		  out. There is a great deal of value to all of us in
+		  having EROS widely deployed.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Somebody has some piece of valuable proprietary
+		  software that they wish to distribute with an EROS
+		  system, and they cannot determine if they are
+		  obligated to distribute this code under GPL.
+		</p>
+		<p>
+		  We encourage people to consider whether it might be
+		  better to open their software, but this is not an
+		  unreasonable question and it deserves a clear
+		  answer.
+		</p>
+	      </li>
+	    </ol>
+	    <p>
+	      So the question is: how does the license apply to
+	      EROS?
+	    </p>
+	    <H1>What MUST be Opened</h1>
+	    <p>
+	      If you modify an existing piece of code, creating a
+	      derived work, you must license the derived work
+	      under GPL.
+	    </p>
+	    <p>
+	      If you modify an existing EROS program in such a way
+	      that it depends on or makes use of some other program,
+	      then the two programs together <em>may</em> be a
+	      combined work. If they are a combined work, then both
+	      programs must be released under GPL.  Here are the
+	      guidelines that determine whether two components
+	      (programs) are a combined work:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  <b>Inseparable Components.</b>
+		  If neither component has a reasonable and useful
+		  function when taken in isolation, the two
+		  programs are a combined work.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  <b>Separable Components.</b>
+		  If one of the components has reasonable and
+		  useful function in isolation, but is not
+		  installed in such a way that it can be used by a
+		  third party developer, then the components are a
+		  combined work.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  <b>Security Dependency.</b>
+		  If component A is claimed to provide security
+		  guarantees, and depends on component B to
+		  satisfy its security guarantees, then the two
+		  components are a combined work <em>unless</em>:
+		</p>
+		<ol type="A">
+		  <li>
+		    <p>
+		      Component B is a separable component whose
+		      source code is available to the user under
+		      an open source license, or
+		    </p>
+		  </li>
+		  <li>
+		    <p>
+		      Component B is a separable component that has
+		      been certified under the ITSEC or Common
+		      Criteria process to meet all requirements that
+		      are necessary to support the security claims
+		      made about A, or
+		    </p>
+		  </li>
+		  <li>
+		    <p>
+		      The party installing the system may easily omit
+		      or replace component B without rendering
+		      component A or the system as a whole
+		      non-functional.
+		    </p>
+		  </li>
+		</ol>
+	      </li>
+	      <li>
+		<p>
+		  <b>Interfaces.</b> Interface stubs and header files
+		  that must be incorporated into a program in order to
+		  <em>use</em> some other program must be opened
+		  <em>under LGPL or a similarly permissive
+		  license</em> in order to be incorporated into the
+		  EROS repository. By ``similarly permissive,'' we
+		  mean that the mere linking of interface code into a
+		  program should <em>not</em> require that program to
+		  be published under any particular open source
+		  license.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  <b>Documentation.</b> Documentation for open
+		  components should be openly redistributable.
+		</p>
+	      </li>
+	    </ol>
+	    <p>
+	      <u>These guidelines are subject to change</u>, because
+	      we have probably missed something important and it is
+	      impossible to anticipate the questions that people will
+	      raise in the future. Revisions will be made for the
+	      purpose of clarification and to address unforseen
+	      situations. Revisions will <em>not</em> be made for the
+	      purpose of subverting the ability to create proprietary
+	      software that runs on EROS.
+	    </p>
+	    <H1>What SHOULD be Opened</h1>
+	    <p>
+	      Above and beyond what <em>must</em> be opened, there
+	      are some things that <em>should</em> be opened:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  If equivalent function is provided by an existing
+		  open source application, then the new program should
+		  be distributed as open source.
+		</p>
+		<p>
+		  These programs should be opened because we all want
+		  the EROS system to remain competative with other
+		  systems.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  If the security of the system critically depends on
+		  the new program or component, it should be
+		  distributed as open source.
+		</p>
+		<p>
+		  These programs should be opened because security is
+		  a major advantage of EROS, and it will be trusted
+		  only if people can see for themselves that the
+		  system is secure. You may say it's secure, and I may
+		  say it's secure, but when an independent party can
+		  examine the software to see if it's secure the users
+		  are much more confident that we are telling the truth.
+		</p>
+	      </li>
+	    </ol>
+	    <H1>What NEED NOT be Opened</h1>
+	    <p>
+	      Unless the resulting program is a derived or combined
+	      work as described above, there is no <em>obligation</em>
+	      to release it as open source at all, and there is
+	      certainly no obligation to release it under GPL.
+	    </p>
+	    <h2>Proprietary Drivers</h2>
+	    <p>
+	      Proprietary drivers are a commonly raised concern. We
+	      believe that they are misguided: a driver is too easily
+	      reverse engineered, and there is rarely any benefit to
+	      <em>preventing</em> people from using your
+	      hardware. There is <em>no</em> security achieved by
+	      keeping a driver proprietary.
+	    </p>
+	    <p>
+	      If you are really determined to do this, however, here
+	      is one way to go about it:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  Create a minimal, generic open source driver that
+		  knows <em>how</em> to speak to your hardware, but
+		  does not know what to say. This will expose the
+		  addresses of the hardware registers and memory, but
+		  will not expose how to use them. It will also expose
+		  a minimal amount of demultiplexing logic for
+		  interrupts.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Expose this driver via a capability interface.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Write the real driver as an application program that
+		  uses this interface.
+		</p>
+	      </li>
+	    </ol>
+	    <p>
+	      We are planning to include in the kernel a "generic"
+	      driver intended for testing and debugging purposes, but
+	      this generic driver could probably be used as a basis
+	      for proprietary drivers.
+	    </p>
+	    <h2>Proprietary Input Methods</h2>
+	    <p>
+	      Some companies have proprietary input devices or
+	      proprietary code that interprets these input
+	      devices. This code does not need to be made open
+	      if it can be left out of the system by the user and
+	      still have a functional system or if it can be replaced
+	      by the user.
+	    </p>
+	    <p>
+	      The main problem with this type of code from our
+	      perspective is the fact that the security of the system
+	      relies completely on the correctness of this code, and a
+	      trusted system should not be built on code that cannot
+	      be independently analyzed and verified by the user.
+	    </p>
+	    <hr>
+	    <p>
+		<em>Copyright 2000 by Jonathan Shapiro.  All rights reserved.
+		  For terms of redistribution, see the <a
+							  href="./legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

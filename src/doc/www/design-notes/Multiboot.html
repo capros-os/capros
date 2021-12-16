@@ -1,0 +1,86 @@
+<HTML>
+  <HEAD>
+    <TITLE>Multiboot design</TITLE>
+    <meta name="keywords" content="CapROS, Multiboot, GRUB">
+  </HEAD>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <center>
+      <H1>The design for Booting CapROS using Multiboot</H1>
+    </center>
+    <p>
+    <a href=""></a>
+    </p>
+    <p>
+    At the suggestion of 
+    <a href="http://sourceforge.net/mailarchive/message.php?msg_id=11700357">
+    this email thread</a>, CapROS now uses the
+    Multiboot specification supported by the GRUB boot loader. 
+    Here are some notes on how that is done.
+    </p>
+    <p>
+    First, a Multiboot header is included near the beginning of
+    the kernel image, in lostart.S. 
+    (Presumably GRUB locates the Multiboot header by
+    searching for the magic number.) 
+    </p>
+    <p>
+    GRUB likes to load from a filesystem, so as an interim measure, we put
+    the things to be loaded into files located wherever GRUB is loading from
+    (disk, floppy, net, etc.). 
+    For the following we assume we are loading from a hard disk.
+    The disk should have a partition with a VFAT file system
+    mounted at /boot. The system generation process puts the following
+    files into /boot:
+    <ul>
+      <li>CapROS-kernel-1: an image of the kernel. It does not have OIDs
+      or page pots.
+      (We could write to the kernel file the kernel a.out or ELF
+      file (which GRUB understands), but we don't, we use an image file.)
+      <li>CapROS-PL-n-1: A preloaded range, as it would exist on disk,
+      with page pots. 
+      n is a number to distinguish different preloaded ranges. 
+      <li>CapROS-config-1: This file is loaded with the GRUB "configfile"
+      command. It contains commands to load the kernel and the modules it
+      requires, including "command line" parameters.
+The command line for loading the kernel includes 
+the OID of the process to start (the IPL process),
+the identification of which drive is to be booted,
+and an optional keyword to enter the debugger when the kernel starts.
+The command line for loading modules includes their starting OID.
+      The CapROS tool <b>sysgen</b> constructs the configuration file.
+    </ul>
+    </p>
+    <p>
+    For reliability, there can be a primary config file
+    (referring to the primary kernel and preloaded files)
+    and a secondary config file 
+    referring to the secondary kernel and preloaded files.
+    You keep one set consistent and unchanged while (non-atomically)
+    updating the other set. 
+    Secodary files have the same names as the primary 
+    but with "2" at the end instead of "1". 
+    </p>
+    <p>
+    GRUB and Multiboot are specified and implemented only for
+    the IA-32 architecture. 
+    For ARM, the build process packs the three files into one file,
+    which you write to your system's flash memory.
+    When the kernel boots, just before main() is called,
+    CapROS code initializes the system the way GRUB would have. 
+    </p>
+    <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+    Authored by Charles Landau. <br>
+      <em>Copyright 2005, 2006 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="./legal/license/GPL.html">GNU General Public License</a></em>
+   </td>
+</tr>
+</table>
+  </BODY>
+</html>

@@ -1,0 +1,38 @@
+package capros;
+
+/** The USB HCD uses a USBDriver capability to communicate to a USB Driver. */
+interface USBDriver extends USB {
+
+  void disconnect();
+
+  // May raise ...
+  void suspend();
+
+  // May raise ...
+  void resume();
+
+  // pre-reset and post_reset?
+};
+
+interface USBDriverConstructorExtended extends key {
+  struct NewInterfaceData {
+    unsigned long deviceIdIndex;
+
+    /* Contents of usbDeviceId defined in usb_device_id
+       in linux/mod_devicetable.h */
+    array <unsigned long, 5> deviceId;
+
+    USBHCD.InterfaceData intfData;
+  };
+
+  void sendID(NewInterfaceData nid);
+};
+
+interface USBDriverConstructor extends ConstructorRequestor {
+
+  exception ProbeUnsuccessful;
+
+  void probe(SpaceBank bank, key sched, USBInterface intf,
+             out key unused1, out key unused2, out key unused3,
+             out USBDriverConstructorExtended ret);
+};

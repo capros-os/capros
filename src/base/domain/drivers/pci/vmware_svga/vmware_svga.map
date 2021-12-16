@@ -1,0 +1,46 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+#ifndef __PRIMORDIAL_STUFF__
+#define __PRIMORDIAL_STUFF__
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <vcs.map>
+#include <ipltool.map>
+#endif
+
+#include <memmap.map>
+
+MAKE_VIRTUAL_COPIER(vmware_svga_vcsk, LIBDIR "drivers/pci/vmware_svga");
+BOOT_CONSTRUCTOR(vmware_svga_c,vmware_svga);
+PROD_SPACE(vmware_svga_c) = vmware_svga_vcsk_c;
+PROD_PC(vmware_svga_c) = symbol LIBDIR "drivers/pci/vmware_svga" _start;
+PROD_CONSTIT(vmware_svga_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(vmware_svga_c, KC_DEVPRIVS, 4) = misc DevicePrivs;
+PROD_CONSTIT(vmware_svga_c, KC_PHYSRANGE, 5) = physmem range;
+PROD_CONSTIT(vmware_svga_c, KC_MEMMAP_C, 6) = memmap_c;
+PROD_CONSTIT(vmware_svga_c, KC_ZERO_SPACE, 7) = zs_c;

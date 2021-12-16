@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2008, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -21,7 +22,7 @@
 EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=capidl flatten-html vmdbg
+DIRS=capidl vmdbg
 
 include $(EROS_SRC)/build/make/makerules.mk
 

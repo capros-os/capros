@@ -1,0 +1,218 @@
+<HTML>
+<HEAD>
+<TITLE>Release Schedule </TITLE>
+</HEAD>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <H1>Research Release Plans</H1>
+</center>
+<!-- IMG src="../img/cupid1.gif" align=left -->
+<IMG src="../img/construction.gif" align=left>
+<p> For some months now, we've been telling people that we would have
+a research release of the EROS system sometime in 4Q98.  This is still
+on target.  What follows are details on compatibility for the first
+research release and some notes on what remains to be done for that
+release.  Our trusty software elves are working hard to get all this
+ready.
+<H1>1. First Research Release</H1>
+<p> The first research release is intended for people who enjoy
+living on the bleeding edge.  It provides a feature-minimal x86
+baseline system.  Less suicidal users may wish to delay until the
+<a href="#rel2">second</a> or <a href="#rel3">third</a> research release.
+<h2>1.1 To-Do List</h2>
+<p> The following is a partial list of the major to-do items that need
+to be completed before the first research release can go out.
+Completed items have their circles solidified, so check back now and
+then if you're interested in how things are progressing.
+<ul>
+  <li type=filled> Rewrite the space bank to hand back recently
+       deallocated space to avoid unnecessary disk accesses.  Augment
+       the current space bank to handle multiple ranges.
+       <p> 
+  <li type=circle> Enhance VCSK/FSK to batch space purchase and
+       remember last fault so as to improve performance of temporary
+       heap storage allocation.
+       <p> 
+  <li type=filled> Locate and fix the lurking checkpoint accounting
+       bug.
+       <p> 
+  <li type=circle> Apply the fix for the 100 Mbit network performance
+       problem.
+       <p> 
+  <li type=circle> Test the line-discipline code so we can use it for
+       the disk formatter.
+       <p> 
+  <li type=circle> Implement a formatting (and eventually,
+       partitioning) utility for use in installation.
+       <p> 
+  <li type=circle> See if we can get a minimal TCP/IP stack running in
+       addition to the router support.
+       <p> 
+  <li type=circle> Write and document some example programs.
+       <p> 
+  <li type=circle> Document the invocation stub libraries.
+       <p> 
+  <li type=circle> Finalize the copyright and licensing terms for the
+       research releases.
+       <p> 
+</ul>
+<h2>1.2 Disk Space</h2>
+<p> The research release <em>can</em> run in as little as 20 Mbytes.
+Doing anything interesting with it will certainly require more.  At
+the moment we are suggesting a 100 Mbyte partition if you just want to
+fiddle with it, or a 250 Mbyte partition if you have something more
+serious in mind.  We'll put together a note on space planning before
+the release.
+<p> If you feel like planning ahead, use your handy <code>fdisk</code>
+equivalent to create a partition, and give it type 0x95.  To boot from
+the hard disk, the EROS partition must fall within the bootable range
+of your machine.  It is also possible (even straightforward) to boot
+EROS from a floppy, which allows non-bootable partitions to be used.
+The kernel theoretically groks extended partitions, but we have never
+tested this.
+<h2>1.3 Hardware Requirements</h2>
+<p> The research release will support the following hardware (all
+trademarks belong to their respective owners):
+<p>
+<center>
+  <table width=85%>
+    <tr valign=top>
+      <td><strong>Processor</strong></td>
+      <td>486, Pentium, Pentium Pro.  There's nothing we're aware of
+	that would prevent clone processors from working, but we have
+	no way to test them and they are not a priority for us. If you
+	have them, we would be glad to hear what luck you have.  Up to
+	a point, we'll try to help get them working.
+	<p> EROS runs on all of the multiprocessor boards we have
+	tried, but the first research release will not provide SMP
+	support.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>BIOS</strong></td>
+      <td>We are not aware of any BIOS-specific dependencies. We have
+	not tested large drives on BIOS's that do not support extended
+	drive size information.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>Motherboard</strong></td>
+      <td>We are not aware of specific dependencies.  We use the TYAN
+	family of motherboards, but have also run successfully on a
+	number of clone boards.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>Memory</strong></td>
+      <td>We have run EROS successfully (albeit unintentionally) on a
+	machine with only 640K of memory.  This is not a recommended
+	configuration.  8M should be fine for now, but 16M is better.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>Disk</strong></td>
+      <td>The first research release will <em>not</em> support SCSI
+	disks.  There are a great many SCSI controllers, and we have
+	found that the <em>sustainable</em> throughput for IDE is as
+	good or better than we see from SCSI.  We are aware that many
+	people want to run SCSI devices.  
+	<p> When we do get to SCSI (which should be soon -- it's
+	necessary for the MIPS port we are doing), our first attention
+	will go to the Adaptec 2940 family, because that is what we
+	have.  Support for other adaptors will be guided by demand and
+	availability.  Your chances of getting us to support a card
+	are greatly improved if you have one to loan us.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>Video</strong></td>
+      <td> The kernel assumes a VGA or better adaptor, but the system
+	does not (yet) provide a bitmapped graphics interface.
+	<p> We hope to change this in the near future, but are still
+	debating the proper graphics model for this class of system.
+	The Mach32, Mach64, and Diamond cards are high on our priority
+	list.  Our group favors the Toshiba portables, so we'll
+	probably get the C&amp;T chipset family working early as well.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>Network</strong></td>
+      <td> The current implementation supports the 3COM 3c509 and
+	3c590XL network cards.  Support for the SMC Ultra
+	(tulip-based) card may or may not make it into the first
+	research release.
+      </td>
+    </tr>
+  </table>
+</center>
+<h2>1.4 Software Requirements</h2>
+<p> EROS does not yet have a self-hosted development environment.  We
+are actively working on bringing up a POSIX-compatible environment,
+but do not expect that this will make it into the first release.  The
+irony is that we may get Java development support in first (!).
+<p> The EROS group currently cross-develops from LINUX.  We run RedHat
+4.0 (cutting over to 4.1 shortly), but any ELF-based LINUX system
+should do.  Building the EROS system requires G++ 2.7.2 or later.
+<p> One area that we are currently weak in is example programs.  We
+will be making this a priority as the time for release draws nearer.
+<h2>1.5 Caveats</h2>
+<p> One of the late changes in the first research release was to the
+IPC interface, and we are still transitioning objects to take
+advantage of the new interface.  These interfaces WILL change in the
+second release, and the change will require a relink. The best way to
+cover yourself is to use the stub library wrappers.  We will
+undoubtedly add new IPC wrappers, but the interface to the existing
+wrapper functions should not change in the second research release.
+<p> EROS does not yet have a self-hosted development environment.  We
+are actively working on bringing up a POSIX-compatible environment,
+but do not expect that this will make it into the first release.  The
+irony is that we may get Java development support in first (!).
+<p> The EROS group currently cross-develops from LINUX.  We run RedHat
+4.0 (cutting over to 4.1 shortly), but any ELF-based LINUX system
+should do.  Building the EROS system requires G++ 2.7.2 or later.
+<p> One area that we are currently weak in is example programs.  We
+will be making this a priority as the time for release draws nearer.
+<H1><a name="rel2">2. Second Research Release</H1>
+<p> The second research release should provide both a more mature
+foundation release and support for an additional platform: the MIPS
+R4000.  This release is targeted for Q397, but we may slip it slightly
+if doing so will let us get bitmapped graphics into this release.
+<p> At a minimum, this release will include:
+<ul>
+  <li type=circle> Support for the MIPS R4000 processor
+       <p> 
+  <li type=circle> SCSI support for a limited number of adaptors.
+       <p>
+  <li type=circle> Java application support via a bytecode compiler,
+       if that didn't make the first release.
+       <p>
+  <li type=circle> Bitmapped video support.
+       <p>
+</ul>
+<H1><a name="rel3">3. Third Research Release</H1>
+<p> The third research release is intented to provide a native
+development environment and a real user interface.  No specific target
+date is yet available for this release.
+<p> The targeted enhancements for this release are:
+<ul>
+  <li type=circle> Login agent and session manager.
+       <p> 
+  <li type=circle> POSIX-based self-hosted development environment.
+       <p> 
+  <li type=circle> Bitmapped graphics support.
+       <p>
+  <li type=circle> Performance Enhancements.
+       <p> 
+</ul>
+<p> It is possible that the objectives for this release can be folded
+into the second release, in which case we may slip the second release
+date.
+</p>
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</HTML>

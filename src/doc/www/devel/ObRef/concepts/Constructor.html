@@ -1,0 +1,68 @@
+<html>
+<head>
+<title>EOR: Constructor</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Concepts.html">Concepts</a></em>]
+<div align=right>
+<H2>EROS Object Reference</H2>
+     <H2>Concepts</H2>
+</div>
+<h2>Constructor</h2>
+<em>D R A F T</em>
+<hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> EROS is designed as a client/serv<em>ice</em>} system.  Except
+  where shared state or multiplexing are required, each client
+  receives it's own instance of any service that it uses.
+  <strong>Constructors</strong> are trusted agents (programs) that
+  build service instances.
+  <p> More generally, constructors provide the means by which mutually
+  suspicious parties can collaborate.  A <em>service provider</em>
+  acquires a new constructor (which is fabricated by the
+  <strong>MetaConstructor</strong>), and installs into this new
+  constructor the capabilities that the service instances should
+  initially hold.  The provider then <em>seals</em> the constructor,
+  whereupon a distinguished start capability known as a
+  <strong>requestor capability</strong> is returned.
+  <p> Programs built by constructors can be characterized as
+  <em>discreet</em> or <em>indiscreet</em>.  A discreet program is one
+  that provably cannot leak information to a third party.  Such a
+  program's faults cannot propagate to other programs.  Discretion is
+  ascertained by construction. As each capability is installed in the
+  constructor, the constructor examines the discretion of that
+  capability.  The installed capability is either:
+  <p> 
+  <ul>
+    <li> A <em>discreet</em> capability, such as a read-only address space
+	 capability,
+    <li> An <em>indiscreet</em> capability, such as a read-write address
+	 space capability, or
+    <li> The product of another constructor, whose discretion can be
+	 ascertained by asking that constructor.
+  </ul>
+  <p> Constructors are able to certify the authenticity of other
+  constructors, and that any space used to construct program instances
+  comes from a trusted source of storage.  Because the constructor is
+  a trusted agent, a client can be sure that their data will not be
+  leaked, and that the constructed service cannot consume all
+  available client resources.
+  <p> For purposes of active networking, the role played by
+  constructors is the confinement of suspicious programs.  While
+  cryptographic signatures can be used to certify programs by previous
+  arrangement, the provenance of a netlet in general is unknown, and
+  the active node must presume that such netlets are potentially
+  hostile.  The solution is to place the incoming netlet inside a
+  confinement boundary, minimizing mischievious missionism.
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

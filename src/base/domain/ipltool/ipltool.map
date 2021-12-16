@@ -1,0 +1,51 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*********************************************************
+ * PRIMORDIAL IPL program.
+ *********************************************************/
+
+ipltool.space = small program LIBDIR "ipltool";
+ipltool.space = ipltool.space with page at 0x1f000;
+
+ipltool = new process;
+ipltool pc = symbol LIBDIR "ipltool" _start;
+ipltool space = ipltool.space;
+ipltool schedule = sched(15);	/* high */
+ipltool symtab = number("ipltool");
+ipltool key reg KR_SELF = ipltool;	/* used by _exit */
+ipltool key reg KR_APP(0) = misc Console;
+ipltool key reg KR_APP(1) = volsize;
+ipltool key reg KR_APP(2) = primebank;
+ipltool key reg KR_APP(3) = sched(8);
+ipltool key reg KR_APP(4) = threadlist;
+
+/* This is the IPL process (which is the whole point!) */
+ipl ipltool;
+
+hide ipltool.space;

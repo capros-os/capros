@@ -1,0 +1,416 @@
+<html>
+  <head>
+    <title>EOR: Etherlink III Driver</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <div class=KeyName>
+      [<em><a href="../Cover.html">Return to Top</a></em>]
+      [<em><a href="00Device.html">Device Objects</a></em>]
+      <div align=right>
+	<H2>EROS Object Reference</H2>
+	<h2>Device Objects</h2>
+      </div>
+      <h2>Etherlink III Driver</h2>
+      <em>D R A F T</em>
+      <hr>
+    </div>
+    <div class=KeyDescrip>
+      <h3>Description</h3>
+      <p>
+	The EtherLink III driver provides low-level communication
+	between EROS and the EtherLink adapter. It provides several
+	functions, most important ones being read and write. The
+	driver accepts transmit data in Ethernet or IEEE 802.3
+	format. The invoker will supply a complete frame, with
+	exception of the CRC field. The driver returns receive data
+	without interpreting it.
+      <hr>
+      <h3>Operations</h3>
+      <dl>
+	<dt> <strong>Read</strong> (OC = 1) 
+	<dd>
+	  <p>
+	    Receives data from network adapter.
+	    Returns the alleged type of the key.
+	  </p>
+	  <p>
+	    Data will not be interpreted by the driver and will simply
+	    be returned to invoker.
+	  </p>
+	  <table>
+	    <tr>
+	      <td valign=top>
+		<strong>Reply</strong>
+	      </td>
+	      <td align=right valign=top>
+		<strong>B*</strong>
+	      </td>
+	      <td valign=top>
+		Data bytes of one received Ethernet packet.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td valign=top><strong>Result</strong></td>
+	      <td align=right valign=top>OK</td>
+	      <td valign=top>Operation completed successfully.</td>
+	    </tr>
+	  </table>
+	  <p>
+	<dt> <strong>Write Ethernet Frame</strong> (OC = 2) 
+	<dd>
+	  <p>
+	    Transmits data in Ethernet format with network adapter.
+	  </p>
+	  <p>
+	    Data must be in valid Ethernet frame format, i.e. no less
+	    than 60 bytes and no longer than 1514 bytes. Driver
+	    provides CRC field. If the source address field does not
+	    match adapter's node address, an error result will be
+	    returned, but the packet will be transmitted regardless.
+	  </p>
+	  <table>
+	    <tr>
+	      <td valign=top>
+		<strong>Request
+		</strong>
+	      </td>
+	      <td align=right valign=top>
+		<strong>B*
+		</strong>
+	      </td>
+	      <td valign=top>Data to be transmitted.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td valign=top rowspan=3>
+		<strong>Result
+		</strong>
+	      </td>
+	      <td align=right valign=top>OK
+	      </td>
+	      <td valign=top>Operation completed successfully.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>TX_INCORRECT_SRC_ADDR
+	      </td>
+	      <td valign=top>Operation completed successfully.
+		<p>
+		  Error result returned to inform invoker that source
+		  address field in packet does not match adapter's
+		  node address.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>TX_INCORRECT_PKT_LEN
+	      </td>
+	      <td valign=top>Operation incomplete.
+		<p>
+		  The packet length is invalid for Ethernet/IEEE 802.3
+		  encapsulation.
+	      </td>
+	    </tr>
+	  </table>
+	<dt>
+	  <strong>Write IEEE 802.3 Frame</strong> (OC = 4) 
+	<dd>Transmits data in IEEE 802.3 format with network adapter.
+	  <p>
+	    Data must be in valid IEEE 802.3 frame format, i.e. no
+	    less than 60 bytes and no longer than 1514 bytes. Driver
+	    provides CRC field. If the source address field does not
+	    match adapter's node address, an error result will be
+	    returned, but the packet will be transmitted regardless.
+	  <table>
+	    <tr>
+	      <td valign=top>
+		<strong>Request
+		</strong>
+	      </td>
+	      <td align=right valign=top>
+		<strong>B*
+		</strong>
+	      </td>
+	      <td valign=top>Data to be transmitted.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td valign=top rowspan=3>
+		<strong>Result
+		</strong>
+	      </td>
+	      <td align=right valign=top>OK
+	      </td>
+	      <td valign=top>Operation completed successfully.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>TX_INCORRECT_SRC_ADDR
+	      </td>
+	      <td valign=top>Operation completed successfully.
+		<p>
+		  Error result returned to inform invoker that source
+		  address field in packet does not match adapter's
+		  node address.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>TX_INCORRECT_PKT_LEN
+	      </td>
+	      <td valign=top>Operation incomplete.
+		<p>
+		  The packet length is invalid for Ethernet/IEEE 802.3
+		  encapsulation.
+	      </td>
+	    </tr>
+	  </table>
+	<dt>
+	  <strong>Reset</strong> (OC = 16)
+	<dd>
+	  <p>
+	    Places network adapter in known state. Does not
+	    reconfigure options set by 3Com configuration utility.
+	  </p>
+	  <table>
+	    <tr>
+	      <td valign=top>
+		<strong>Result</strong>
+	      </td>
+	      <td align=right valign=top>OK
+	      </td>
+	      <td valign=top>Operation completed successfully.
+	      </td>
+	    </tr>
+	  </table>
+	<dt>
+	  <strong>Statistics</strong> (OC = 17)
+	<dd>
+	  <p>
+	    Gathers statistical information about adapter. 
+	  <table>
+	    <tr>
+	      <td valign=top rowspan=11>
+		<strong>Reply
+		</strong>
+	      </td>
+	      <td align=right valign=top>
+		<strong>H
+		</strong>
+	      </td>
+	      <td valign=top>Total bytes transmitted successfully.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>H
+		</strong>
+	      </td>
+	      <td valign=top>Total bytes received successfully. This statistic excludes runts, overruns, and frames discarded before completion.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total transmit deferrals.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total frames received successfully. This statistic excludes runts, overruns, and frames discarded before completion.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total frames transmitted successfully with no errors.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total receive frames discarded due to RX FIFO overrun. This statistic includes only those packets seen by host as RX overruns. It does not include those discarded without a trace because the RX FIFO is completely full.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total late collisions on transmit.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total frames transmitted after one collision.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total frames transmitted after multiple collisions.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total frames transmitted with no CD heartbeat.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>B
+		</strong>
+	      </td>
+	      <td valign=top>Total carrier sense lost during transmission.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td valign=top>
+		<strong>Result
+		</strong>
+	      </td>
+	      <td align=right valign=top>OK
+	      </td>
+	      <td valign=top>Operation completed successfully.
+	      </td>
+	    </tr>
+	  </table>
+	<dt>
+	  <strong>Get Ethernet Address</strong> (OC = 18)
+	<dd>
+	  <p>
+	    Returns the 3Com node address of the adapter. 
+	  <table>
+	    <tr>
+	      <td valign=top rowspan=3>
+		<strong>Reply
+		</strong>
+	      </td>
+	      <td align=right valign=top>
+		<strong>H
+		</strong>
+	      </td>
+	      <td valign=top>First two bytes of the node address.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>H
+		</strong>
+	      </td>
+	      <td valign=top>Second two bytes.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<strong>H
+		</strong>
+	      </td>
+	      <td valign=top>Last two bytes.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td valign=top>
+		<strong>Result
+		</strong>
+	      </td>
+	      <td align=right valign=top>OK
+	      </td>
+	      <td valign=top>Operation completed successfully.
+	      </td>
+	    </tr>
+	  </table>
+	<dt> <strong>Partition RAM</strong> (OC = 19)
+	<dd>
+	  <p>
+	    Specifies how the external SRAM of a revision B adapter
+	    should be split up into TX FIFO/RX FIFO storage. The
+	    partition is defined as the ratio of transmit RAM to
+	    receive RAM (TX/RX).
+	  <p>
+	    Care should be taken in using this operation. The RAM
+	    partition parameter can only be changed with both FIFOs in
+	    reset state. That means no input or output since the
+	    transmitter and receiver were reset. This operation will
+	    reset both the transmitter and receiver, then update the
+	    parameter as desired by the invoker. The resets will empty
+	    the respective FIFOs, disable the Ethernet controller, and
+	    abort reception if a packet is currently being received or
+	    transmission if a packet is being transmitted.
+	  <table>
+	    <tr>
+	      <td valign=top rowspan=3>
+		<strong>Request
+		</strong>
+	      </td>
+	      <td align=right valign=top>
+		<i>ThreeToFive
+		</i>
+	      </td>
+	      <td valign=top>3:5 (default on power-up/reset)
+		<p>
+		  Legal only if RAM Size is 8 KB.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<i>OneToThree
+		</i>
+	      </td>
+	      <td valign=top>1:3
+		<p>
+		  Legal only if RAM Size is 8 KB.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>
+		<i>OneToOne
+		</i>
+	      </td>
+	      <td valign=top>1:1
+	      </td>
+	    </tr>
+	    <tr>
+	      <td valign=top rowspan=2>
+		<strong>Result
+		</strong>
+	      </td>
+	      <td align=right valign=top>OK
+	      </td>
+	      <td valign=top>Operation completed successfully.
+	      </td>
+	    </tr>
+	    <tr>
+	      <td align=right valign=top>INCORRECT_RAM_SIZE
+	      </td>
+	      <td valign=top>Operation incomplete.
+		<p>
+		  RAM size is invalid for desired partition. The
+		  receiver and transmitter are intact and are not
+		  reset.
+	      </td>
+	    </tr>
+	  </table>
+      </dl>
+    </div>
+    <hr>
+    <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

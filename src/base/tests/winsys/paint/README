@@ -1,0 +1,4 @@
+This domain is a port of the original EROS paint program to the new
+window system.  Use the left mouse to paint pixels, and the right
+mouse to clear pixels.  Note the behavior when the window is resized.
+Resize policy in this case is handled by the client.

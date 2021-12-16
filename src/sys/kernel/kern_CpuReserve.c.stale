@@ -1,0 +1,253 @@
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/* Data structures for reserve management.  The current kernel
+ * implementation uses a fixed-priority strategy for implementing
+ * cpu reserves.
+ */
+
+#include <kerninc/kernel.hxx>
+#include <kerninc/Thread.hxx>
+#include <kerninc/CpuReserve.hxx>
+#include <kerninc/Machine.hxx>
+#include <kerninc/PhysMem.hxx>
+#include <arch-kerninc/KernTune.hxx>
+#include <eros/Reserve.h>
+
+
+const int DEFAULT_SCHED_QUANTA = 10; /* in ms */
+
+CpuReserve *cpuR_Current = 0;
+
+/* Reserves associated with ordinary schedule keys -- the 'priority'
+ * is actually an index into the reserve table:
+ */
+
+CpuReserve *cpuR_CpuReserveTable = 0;
+
+/* Initialization of the following three has been moved to kern_main.cxx */
+/* Processes that lack a schedule capability need a reserve that they
+ * can be parked on so as to ensure that they are never scheduled. The
+ * priority of this reserve needs to be BELOW the idle priority.
+ */
+CpuReserve cpuR_InactiveReserve;
+
+/* Idle thread requires it's own scheduling reserve, as the user-level
+ * idle reserve is actually higher priority than this one.
+ */
+CpuReserve cpuR_KernIdleCpuReserve;
+
+/* Other kernel threads require their own copy of the normal priority
+ * reserve because the reserve table isn't allocated yet when we
+ * allocate some of the early kernel threads.
+ */
+CpuReserve cpuR_KernThreadCpuReserve;
+
+/* OnQuantaExpiration()  is called whenever the residual quanta of a
+ * reserve goes to zero (i.e. when whenever the quanta expires).  When
+ * a process hits the end of it's quanta, we recompute the reserve's
+ * effective priority and re-queue the process at that priority.
+ * 
+ * The basic idea is that the
+ * low level clock code will down-count the residual quanta.  When it
+ * hits zero, it will call Thread::ShouldYield() on the current
+ * thread.  The Yield() code will recompute priority for current
+ * thread if appropriate and drop it to the back of the run queue at
+ * that priority.
+ */
+
+void 
+cpuR_OnQuantaExpiration(CpuReserve* thisPtr)
+{
+  /* dprintf(false, "Quanta expired on cpu reserve 0x%08x\n", this); */
+
+  thr_Preempt(thr_Current());
+
+#if 0
+  if (!Thread::Current()->CAN_PREEMPT()) {
+    printf("CpuReserve::OnQuantaExpiration(): 0x%08x Quanta expires in NOPREEMPT, state %d.\n",
+		   Thread::Current(), Thread::Current()->state); 
+  }
+#endif
+  
+  if (thisPtr->residDuration) {	/* reserve still active. */
+    thisPtr->residQuanta = min(thisPtr->residDuration, thisPtr->quanta);
+    thisPtr->residDuration -= thisPtr->quanta;
+  }
+  else {			/* not running under reserve. */
+    if (thisPtr->active)
+      cpuR_Deplenish(thisPtr);
+    
+    thisPtr->residQuanta = thisPtr->quanta;
+  }
+
+  thisPtr->expired = false;
+}
+
+void 
+cpuR_AdjustCurPrio(CpuReserve* thisPtr, int prio)
+{
+  Link *nextLink = 0;
+  thisPtr->curPrio = prio;
+  nextLink = thisPtr->threadChain.prev;
+
+  while (nextLink && (nextLink != &thisPtr->threadChain)) {
+    Thread *t = thr_ThreadFromCpuReserveLinkage(nextLink);
+    nextLink = nextLink->next;
+
+    /* Reposition the thread in the run queue: */
+    link_Unlink((Link *)t);
+    thr_Wakeup(t);
+  }
+}
+
+/* Note that both Deplenish() and Replenish() preserve ordering of
+ * threads in the run queue!
+ */
+void 
+cpuR_Deplenish(CpuReserve* thisPtr)
+{
+  /*  dprintf(false, "Deplenishing CpuReserve 0x%08x\n", this); */
+
+  thisPtr->active = false;
+
+  cpuR_AdjustCurPrio(thisPtr, thisPtr->normPrio);
+}
+
+
+/* replaces constructor */
+void
+cpuR_AllocReserve(CpuReserve* thisPtr, int prio)
+{
+  thisPtr->start = 0ll;
+  thisPtr->quanta = mach_MillisecondsToTicks(DEFAULT_SCHED_QUANTA);
+  thisPtr->duration = 0ll;
+  thisPtr->period = 0ll;
+  thisPtr->expired = false;
+
+  thisPtr->residQuanta = thisPtr->quanta;
+  thisPtr->residDuration = 0ll;
+
+  thisPtr->rsrvPrio = pr_Never;
+  thisPtr->normPrio = prio;
+
+  thisPtr->active = false;
+  thisPtr->curPrio = thisPtr->normPrio;
+  
+  thisPtr->reserveTimer.u.client_ptr = thisPtr;
+  link_Init(&thisPtr->threadChain);
+
+}
+
+void 
+cpuR_AddKernelThread(CpuReserve* thisPtr, Thread* t)
+{
+  cpuR_AddUserThread(thisPtr, t);
+  assert(act_HasProcess(t));
+  act_GetProcess(t)->cpuReserve = thisPtr;
+}
+
+/* Reserve linkage not circular! */
+void 
+cpuR_AddUserThread(CpuReserve* thisPtr, Thread* t)
+{
+#ifdef NOTNEWSCHED
+  Link* reserveLinkage = &t->reserveLinkage;
+
+#if 0
+  if (t->IsUser())
+    dprintf(true, "Add user thrd 0x%08x to rsrv 0x%08x\n", t,
+		    this);
+  else {
+    assert (reserveLinkage.next == 0);
+    assert (reserveLinkage.prev == 0);
+  }
+#endif
+  
+  link_Unlink(reserveLinkage);
+
+  t->cpuReserve = thisPtr;
+    
+  reserveLinkage->next = thisPtr->threadChain.next;
+  if (thisPtr->threadChain.next)
+    thisPtr->threadChain.next->prev = reserveLinkage;
+  thisPtr->threadChain.next = reserveLinkage;
+
+  reserveLinkage->prev = &thisPtr->threadChain;
+#else
+  t->cpuReserve = thisPtr;
+#endif/*NOTNEWSCHED*/
+}
+
+void 
+cpuR_AllocUserCpuReserves()
+{
+  int i = 0;
+
+  cpuR_CpuReserveTable = cpuR_AllocReserveTable(MAX_CPU_RESERVE);
+
+  for (i = 0; i < STD_CPU_RESERVE; i++) {
+    cpuR_CpuReserveTable[i].normPrio = i;
+
+    cpuR_AdjustCurPrio(&cpuR_CpuReserveTable[i], i);
+  }
+  printf("Allocated CPU Reserves: 0x%x at 0x%08x\n",
+         sizeof(CpuReserve[MAX_CPU_RESERVE]), cpuR_CpuReserveTable);
+}
+
+/* used for initializing CpuReserveTable */
+CpuReserve *
+cpuR_AllocReserveTable(int num) 
+{
+  int j = 0;
+  CpuReserve *temp = (CpuReserve *)KPAtoP(void *, physMem_Alloc(num*sizeof(CpuReserve), &physMem_any));
+  for (j = 0; j < num; j++) {
+    CpuReserve *c = &temp[j];
+    c->start = 0ll;
+    c->quanta = mach_MillisecondsToTicks(DEFAULT_SCHED_QUANTA);
+    c->duration = 0ll;
+    c->period = 0ll;
+    c->expired = false;
+    
+    c->residQuanta = c->quanta;
+    c->residDuration = 0ll;
+    
+    c->rsrvPrio = pr_Never;
+    c->normPrio = pr_Never;
+    
+    c->active = false;
+    c->curPrio = c->normPrio;
+    
+    c->reserveTimer.u.client_ptr = c;
+    link_Init(&c->threadChain);
+  }
+
+  return temp;
+}
+
+CpuReserve*
+cpuR_GetReserve(CpuReserve* thisPtr, const Key* k /*@ not null @*/)
+{
+  if (keyBits_IsType(k, KT_Sched))
+    return &cpuR_CpuReserveTable[k->keyData];
+
+  return &cpuR_InactiveReserve;
+}
+

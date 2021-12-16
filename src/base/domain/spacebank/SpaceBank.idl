@@ -1,0 +1,79 @@
+package capros;
+
+interface SpaceBank extends key 
+  raises (LimitReached,
+          Range.RangeErr, Range.NotMounted, Range.IoErr)
+{
+  exception LimitReached;
+
+  struct limits {
+    unsigned <64> frameLimit;    /* Maximum number of frames allocatable from
+                              this bank (SETTABLE) */
+    unsigned <64> allocCount;    /* Number of frames allocated through this
+                              bank and its children */
+
+    unsigned <64> effFrameLimit; /* Min (the frameLimits of this bank and all
+                              of its parents) */
+
+    unsigned <64> effAllocLimit; /* Min (# of availible frames in this bank and
+                              all of its parents) -- The number of frames
+                              that can actually be allocated right now */
+    array <unsigned <64>, Range.otNUM_TYPES> allocs;
+    array <unsigned <64>, Range.otNUM_TYPES> reclaims;
+  };
+
+  /* unsigned byte bitset restrictions {
+    precludeDestroy = 1,
+    precludeSetLimit = 2
+  }; */
+  const unsigned byte precludeDestroy = 1;
+  const unsigned byte precludeSetLimit = 2;
+
+  /* Raises key.RequestError if obTypeN is not valid.
+  Raises LimitReached if the object cannot be allocated. */
+  void alloc1(Range.obType obType1,
+              out capros.key k0);
+
+  /* Low 8 bits of obTypes specify type for k0.
+     Next higher 8 bits specify type for k1.
+   */
+  void alloc2(unsigned short obTypes,
+              out capros.key k0, out capros.key k1);
+
+  /* Low 8 bits of obTypes specify type for k0.
+     Next higher 8 bits specify type for k1.
+     Next higher 8 bits specify type for k2.
+   */
+  void alloc3(unsigned long obTypes,
+              out capros.key k0, out capros.key k1, out capros.key k2);
+
+  void free1(capros.key k1);
+  void free2(capros.key k1, capros.key k2);
+  void free3(capros.key k1, capros.key k2, capros.key k3);
+
+  /* setLimit
+
+  frameLimit is the new value for the maximum number of frames
+    allocatable from this bank.
+
+  Raises key.UnknownRequest if this bank has the precludeSetLimits restriction.
+  */
+  void setLimit(unsigned <64> frameLimit);
+
+  limits getLimits();
+
+  /* Returns 1 if purportedBank is good, 0 otherwise. */
+  unsigned long verify(capros.key purportedBank);
+  capros.key createSubBank();
+
+  /* reduce
+  May raise:
+    LimitReached
+    Range.RangeErr if range is not mounted (not the client's problem?)
+  */
+  capros.key reduce(unsigned byte /*restrictions*/ r);
+
+  // void destroy();	// from capros.key
+
+  void destroyBankAndSpace();
+};

@@ -1,0 +1,122 @@
+#ifndef _VCS_MAP_
+#define _VCS_MAP_
+/* -*- Mode: c -*- */
+/*
+ * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*********************************************************
+ * PRIMORDIAL VIRTUAL COPY SEGMENT/FRESH SEGMENT
+ *
+ *  In which we built up a read-only segment of zeros
+ *  of maximal LSS, which is 11 (spans a 67 bit address)
+ *********************************************************/
+
+zero_pg = new ro page;
+/* first level GPTs... */
+zero_01 = new GPT with lss 1 as sense GPT key; 
+zero_02 = new GPT with lss 2 as sense GPT key;
+zero_03 = new GPT with lss 3 as sense GPT key;
+zero_04 = new GPT with lss 4 as sense GPT key;
+zero_05 = new GPT with lss 5 as sense GPT key;
+zero_06 = new GPT with lss 6 as sense GPT key;
+zero_07 = new GPT with lss 7 as sense GPT key;
+zero_08 = new GPT with lss 8 as sense GPT key;
+zero_09 = new GPT with lss 9 as sense GPT key;
+zero_10 = new GPT with lss 10 as sense GPT key;
+primary_zero_seg = new GPT with lss 11 as sense GPT key;
+
+zero_01 all slots = zero_pg;
+zero_02 all slots = zero_01;
+zero_03 all slots = zero_02;
+zero_04 all slots = zero_03;
+zero_05 all slots = zero_04;
+zero_06 all slots = zero_05;
+zero_07 all slots = zero_06;
+zero_08 all slots = zero_07;
+zero_09 all slots = zero_08;
+zero_10 all slots = zero_09;
+primary_zero_seg all slots = zero_10;
+
+/*********************************************************
+ * INDEX on primordial zero segment
+ *
+ * This index is used by some segment keepers to provide
+ * an efficient way to populate subtrees with zeros.
+ *********************************************************/
+
+zindex = new sense node;
+  zindex[0] = zero_pg;
+  zindex[1] = zero_01;
+  zindex[2] = zero_02;
+  zindex[3] = zero_03;
+  zindex[4] = zero_04;
+  zindex[5] = zero_05;
+  zindex[6] = zero_06;
+  zindex[7] = zero_07;
+  zindex[8] = zero_08;
+  zindex[9] = zero_09;
+  zindex[10] = zero_10;
+  zindex[11] = primary_zero_seg;
+
+/********************************************************
+ * All VCS's ultimately derive from ZSF, which is built
+ * on the primordial zero space.
+ *
+ *   1. The primordial VCS needs a (VCSK) keeper.
+ *   2. That keeper must come from VCSF
+ *   3. All instances of VCSF are built by some instance
+ *      of VCSK.
+ *
+ * This circularity is resolved by pre-constructing the
+ * factory and the domain creator, and making it appear
+ * that the initial VCS was built by the appropriate proccre.
+ ********************************************************/
+
+/* These must be symbols because they need to be referenced later. */
+vcsk.seg = small program LIBDIR "vcsk";
+vcsk.pc = symbol LIBDIR "vcsk" _start;
+
+BOOT_CONSTRUCTOR(zs_c, zs);
+
+PROD_CONSTIT(zs_c, KC_OSTREAM, 0) = misc Console;
+PROD_CONSTIT(zs_c, KC_ZINDEX, 1) = zindex;
+PROD_CONSTIT(zs_c, KC_FROZEN_SEG, 2) = zero_pg;
+PROD_CONSTIT(zs_c, KC_PROTOSPC, 3) = protospace;
+PROD_SPACE(zs_c) = vcsk.seg;
+PROD_PC(zs_c) = vcsk.pc;
+
+#define MAKE_VIRTUAL_COPIER_SEG(name, memkey) \
+   BOOT_CONSTRUCTOR(name##_c, name); \
+   PROD_CONSTIT(name##_c, KC_OSTREAM, 0) = misc Console; \
+   PROD_CONSTIT(name##_c, KC_ZINDEX, 1) = zindex; \
+   PROD_CONSTIT(name##_c, KC_FROZEN_SEG, 2) = sense memkey; \
+   PROD_CONSTIT(name##_c, KC_PROTOSPC, 3) = protospace; \
+   PROD_SPACE(name##_c) = vcsk.seg; \
+   PROD_PC(name##_c) = vcsk.pc;
+
+#define MAKE_VIRTUAL_COPIER(name, progfile) \
+   MAKE_VIRTUAL_COPIER_SEG(name, program segtree progfile)
+
+#endif // _VCS_MAP_

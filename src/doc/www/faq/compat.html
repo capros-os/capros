@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+  <head>
+    <title>EROS FAQ: Compatibility</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <center>
+      <h1>EROS FAQ: Compatibility</h1>
+    </center>
+    <p>
+      This document is part of the EROS Frequently Asked Questions
+      list.  To return to the main index, click <a
+      href="faq.html">here</a>.
+    </p>
+    <ol>
+      <li>
+	<p>
+	  <b><a name="hardware">What hardware does EROS run on?</a></b>
+	</p>
+	<p>
+	  The current system runs on x86-class PCs, 486 and higher.  The
+	  386 is not supported.  The few multiprocessor boards we have
+	  tested work, but in single processor mode.
+	</p>
+	<p>
+	  The binaries have been run successfully on Intel 486 (several
+	  variants), Pentium, and Pentium Pro systems.  We have not tested
+	  AMD or Cyrix chips.  Small modifications will be needed to the
+	  chip recognition code for those chips, but as far as we know the
+	  kernel should then support them without difficulty.
+	</p>
+	<p>
+	  Support for networking is limited.  At the moment, the only
+	  network interface cards supported are the 3COM 3c509/3c509b
+	  (10 Mbit, ISA) and the 3COM 3c905 (10/100 Mbit, PCI) cards.  It
+	  should be easy to add other cards, but our work hasn't required
+	  that.  We are particularly interested in adding a driver for the 
+	  Tulip-based cards such as the SMC cards.
+	</p>
+	<p>
+	  IDE and EIDE drives are fully supported.  SCSI will be handled
+	  in the future, but is not currently supported.
+	</p>
+	<p>
+	  There is currently no graphics support.
+	</p>
+	<p>
+	  We are not aware of any peculiar BIOS dependencies.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="no-386">Why not on the 386?</a></b>
+	</p>
+	<p>
+	  The 386 supervisor mode does not honor the write-protect bit in
+	  the page table entries.  One critical piece of EROS code relies
+	  on the write-protect bit being honored.  Alternative code would
+	  not be difficult to write, but at this point there are few
+	  enough 386 machines out there that I decided not to bother.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="inst-reqt">What do I need to install it?</a></b>
+	</p>
+	<p>
+	  Please see the cross-environment documentation.  The section
+	  describing host requirements can be found <a
+	  href="../devel/CrossGuide/cross-env.html#inst-reqt">here</a>.
+	</p>
+      </li>
+    </ol>
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+  <head>
+    <title>EROS FAQ: Availability</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <center>
+      <h1>EROS FAQ: Availability</h1>
+    </center>
+    <p>
+      This document is part of the EROS Frequently Asked Questions
+      list.  To return to the main index, click <a
+      href="faq.html">here</a>.
+    </p>
+    <ol>
+      <li>
+	<p>
+	  <b><a name="when-release">When will EROS be available?</a></b>
+	</p>
+	<p>
+	  Experience suggests that I should not answer this question
+	  with a date, as all of my previous dates have been wrong.
+	</p>
+	<p>
+	  EROS is the heart of my doctoral thesis.  The plan from the
+	  beginning has been to release the system when the
+	  measurements necessary for my dissertation were finished, or
+	  shortly thereafter.
+	</p>
+	<p>
+	  Pragmatically, there will be a delay of several weeks from
+	  that point. I want to do some code cleanup (removing
+	  vestigial code that is ifdef'd out and will never work
+	  again) and make sure that all of the test cases run prior to
+	  releasing the code base.  There will also need to be
+	  documentation enhancements.  Since the document web can be
+	  updated daily, these can probably wait until after the code
+	  base is made available.
+	</p>
+	<p>
+	  ``So,'' you ask, ``how far away is the measurement from
+	  happening?  I want to try this thing!''
+	</p>
+	<p>
+	  Here are the work items that need to be completed:
+	</p>
+	<ul type=disc>
+	  <li>
+	    <p>
+	      A TCP/IP stack needs to be ported to EROS.  This is well
+	      underway, but it is revealing bugs in some of the
+	      supporting code that take a while to locate and repair.
+	    </p>
+	    <p>
+	      The TCP/IP stack is by far the largest chunk of code
+	      that anyone has attempted to port so far.  The good news 
+	      is that the bugs I am finding will make subsequent
+	      efforts much easier to deal with.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      A web server needs to be ported.  This will take some
+	      effort, but hopefully not as much as the TCP/IP stack.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      That web server needs to be benchmarked, and the
+	      systematic behavior of EROS underneath it needs to be
+	      measured.
+	    </p>
+	  </li>
+	</ul>
+	<p>
+	  I have reasonable confidence that the dissertation will be written 
+	  over this summer (1998).
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="source-where">Where can I obtain the source code?</a></b>
+	</p>
+	<p>
+	  <b>Short answer</b>: wait for the release.
+	</p>
+	<p>
+	  <b>Longer answer</b>:
+	</p>
+	<p>
+	  Regrettably, there have already been a few examples of
+	  people hearing of a good idea in EROS and adapting it into
+	  other systems without crediting the source.  While I'm glad
+	  that this has happened, I'm not at all happy about the lack
+	  of credit.  In a few cases, it has made my job much harder
+	  because I am now competing against my own work.
+	</p>
+	<p>
+	  There are a small number of people who have read-only access
+	  to the source tree, and two or three who are actively
+	  working on some of the EROS components.  Jonathan Adams
+	  (Cal-Tech), in particular, has been extremely helpful over
+	  the past year.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="terms">Is EROS Free Software?  What are the
+	      terms of use?</a></b> 
+	</p>
+	<p>
+	<em>Heartfelt thanks to Robin Lee Powell for reminding me to
+	update this section!</em> 
+	</p>
+	<p>
+          EROS is available under the GNU General Public License (GPL)
+          and the GNU Lesser General Public License (LGPL). A detailed
+          description of the licensing terms may be found on the <a
+          href="../legal/terms.html">Distribution Terms</a> page.
+          Extensive discussion of (L)GPL license and what it means may
+          be found at the <a href="http://www.fsf.org">Free Software
+          Foundation</a> web site.
+        </p>
+        <p>
+          Because EROS is a component-based system, it does not rely as
+          heavily on linking as conventional systems. Given this,
+          applying the ``work based on the program rule of GPL is not
+          always easy to understand.  The terms page gives some
+          guidelines for when a newly introduced component must be
+          distributed under GPL. The rules are a work in progress. The
+          current set has two purposes:
+        </p>
+	<ul>
+          <li>
+            <p>
+              They try to preserve the ``freely available'' character
+              of the EROS system by preventing modifications that
+              would render critical portions of the system
+              proprietary.
+            </p>
+          </li>
+          <li>
+            <p>
+              They try to protect the security of the system by
+              requiring that security-critical components be made
+              public.
+            </p>
+          </li>
+        </ul>
+	<p>
+	  Earlier releases of EROS were made available under more
+	  restrictive licenses. Now that this is a thing of the past,
+	  I can admit the real reason for it: EROS wasn't ready for
+	  other people to play yet.
+	</p>
+	<p>
+	  Successful open source efforts seem to follow a couple of
+	  rules. One of these rules is that they begin with some
+	  critical mass of cohesive software that serves as a template
+	  that a community can react on. In the course of building
+	  the original EROS system, it became clear that another major
+	  round of work on the kernel would be required. Since getting
+	  my dissertation done was also a priority, I crafted a
+	  license that would allow people to start getting a sense of
+	  the system <em>without</em> creating a large user base that
+	  would require care and feeding.
+	</p>
+	<p>
+	  We also had concerns about security and provenance
+	  management, which is the next topic.
+	</p>
+	<p>
+	  <em>Concerns About Open Source</em>
+	</p>
+	<p>
+	  Open source raises a concern in the context of secure
+	  systems: how can a recipient have confidence that they have
+	  received a trustworthy system?
+        </p>
+        <p>
+          In the context of secure systems, the great strength of open
+	  source is also its greatest weakness: anyone can modify the
+	  code. In order for a non-technical user to safely use such a
+	  system, they need to have some <em>assurance</em> that what
+	  they receive is secure.
+        </p>
+        <p>
+          For engineers, ``assurance'' is an uncomfortable word. While
+	  assurance processes help produce better systems, assurance
+	  is not really about whether a system is correct; it is about
+	  whether a customer can have <em>confidence</em> that a
+	  system is correct. An oft-quoted open source mantra: ``read
+	  the source,'' is not helpful to typical users. Most users
+	  lack the necessary expertise to productively read source
+	  code. But even if they could, there is a more subtle
+	  problem: <em>which</em> source?
+        </p>
+        <p>
+          Because the customer cannot read the source, the problem of
+	  confidence must be broken down into two pieces:
+	</p>
+        <ul>
+	  <li>
+            <p>
+              Somebody needs to choose a set of sources, read them (or
+              more broadly, apply appropriate assurance processes),
+              and package them for redistribution. This assurance
+              activity is a <em>service</em> provided to the end
+              customer. It may or may not be backed by a guarantee,
+              and the guarantee may or may not have financial
+              ``compensation'' (a.k.a. insurance) associated with it.
+            </p>
+          </li>
+	  <li>
+            <p>
+              Both the customer and the provider need a way to agree
+              that the system the customer received is in fact the
+              system that the provider assured.
+            </p>
+          </li>
+        </ul>
+	<p>
+          It took a while to figure out how to ensure all of this in
+          an open source model.  In the end, the key proved to be
+          simple: branding. We will be fairly aggressive about
+          protecting whatever name the system is ultimately assured
+          under. Actually, we will need to use separate brands: one
+          for the system and the second for the assured version. The
+          official release will also be digitally signed or one-way
+          hashed so that users can verify its authenticity.
+	</p>
+	<p>
+          Others, of course, can independently assure versions of the
+          system under their own brands.
+        </p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="join-team">What if I want to join the EROS team?</a></b>
+	</p>
+	<p>
+	  At this point, we could probably make good use of two or
+	  three more people to work on various projects.  If you are
+	  interested in joining the EROS developer group, and you are
+	  in the Silicon Valley area, I'ld be very happy to talk with
+	  you.  What we need at this point are people who are
+	  knowledgeable in C and C++ and have experience doing
+	  low-level debugging.
+	</p>
+	<p>
+	  Why Silicon Valley only? Experience in teaching about this
+	  system at Penn shows that coming up to speed on the EROS
+	  code base can be accomplished in several weeks
+	  <em>provided</em> that face-to-face conversations (with a
+	  whiteboard) are possible.  At the moment, my primary
+	  attention has to go to finishing the dissertation, which
+	  means that I don't have time to work with a broader group
+	  for a few more months.
+	</p>
+      </li>
+    </ol> 
+    <hr>
+    <address><a href="mailto:shap@eros-os.org">Jonathan S. Shapiro</a></address>
+<!-- Created: Fri Apr 10 08:44:29 EDT 1998 -->
+<!-- hhmts start -->
+Last modified: Sat Apr 18 16:56:25 EDT 1998
+<!-- hhmts end -->
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

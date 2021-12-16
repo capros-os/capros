@@ -1,0 +1,180 @@
+<html>
+  <head>
+    <title>Kernel Output Design</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tbody>
+	<tr valign="top">
+	  <td width="10%">&nbsp;</td>
+	  <td>
+	    <center>
+	      <h1>Kernel Output Design</h1>
+	    </center>
+	    <p>
+	      This note describes the handling of kernel output in the
+	      user-mode driver based design.
+	    </p>
+	    <h2>1. Background</h2>
+	    <p>
+	      The move to user-mode drivers has had an unforseen
+	      casualty: the kernel debugger. This note describes what
+	      we plan to do about it.
+	    </p>
+	    <p>
+	      I had hoped that it would be possible to somehow "share"
+	      the console between the kernel debugger and the
+	      user-land world, perhaps by switching screens back and
+	      forth when the kernel debugger is in use.  This is
+	      proving to be impossible. The ultimate source of the
+	      problem is that the display is a shared memory device,
+	      and there doesn't appear to be a simple protocol by
+	      which the kernel and the user-mode software can agree
+	      about who owns it -- or even about its current
+	      resolution!
+	    </p>
+	    <p>
+	      On the x86, there is an additional challenge in the fact
+	      that "windowed" access to the frame buffer is
+	      hardware-specific. The net effect of this is that
+	      putting the kernel debugger on the console forces you to
+	      pull hardware-specific display drivers in as well.
+	    </p>
+	    <p>
+	      The proposed solution is this: if the kernel debugger is
+	      compiled in, it gets a dedicated device. This kernel
+	      will inform the user-mode device setup code that this
+	      device is unavailable.
+	    </p>
+	    <p>
+	      At present, we plan to provide three scenarios for the
+	      kernel debugger:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  Not configured
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The console, keyboard pair
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The serial (tty0/COM1) port
+		</p>
+	      </li>
+	    </ol>
+	    <p>
+	      If somebody needs tty0 at some point, we can easily add
+	      the option to use tty1/COM2. We could also
+	      straightforwardly introduce ethernet-based debugging at
+	      some point.
+	    </p>
+	    <h2>2. Revised Kernel Output Logic</h2>
+	    <p>
+	      With this change in place, there is now a corresponding
+	      change to the kernel's output logic. Here is the plan,
+	      and the rationale.
+	    </p>
+	    <p>
+	      The kernel uses three logically distinct output streams
+	      in parallel: the <tt>syscon_stream</tt>, the
+	      <tt>dbg_stream</tt>, and the <tt>log_stream</tt>.
+	    </p>
+	    <h3>2.1. The Log Stream</h3>
+	    <p>
+	      The <tt>log_stream</tt> is easiest to explain. The
+	      kernel maintains a circular log buffer for
+	      diagnostics. The purpose of this buffer is to have a
+	      place for messages to go that will later be displayed by
+	      a user-mode logging agent. Any kernel output that occurs
+	      while the kernel debugger is inactive goes here.
+	    </p>
+	    <p>
+	      Output generated while the kernel debugger is active
+	      (i.e. in response to a debugger command) does
+	      <em>not</em> go to the <tt>log_stream</tt>. The logic of
+	      this is that these messages are "out of band" with
+	      respect to the normal flow of the kernel.
+	    </p>
+	    <h3>2.2. Use of Console (<tt>syscon_stream</tt>)</h3>
+	    <p>
+	      The kernel assumes that the console display buffer (if
+	      present) can be used freely by the kernel prior to the
+	      point where the first user-mode thread is dispatched. If
+	      a console display buffer is present, the global variable
+	      <tt>syscon_stream</tt> is bound to a stream that
+	      displays on the console. In order to provide information
+	      about boot-up processing, the kernel issues diagnostics
+	      to <tt>syscon_stream</tt>. If no console device is
+	      present, <tt>syscon_stream</tt> is set to null.
+	    </p>
+	    <p>
+	      Just before the first user thread is dispatched,
+	      <tt>syscon_stream</tt> is nullified, and no further
+	      output will be sent to it. This ensures that kernel
+	      output will not interfere with user-mode use of the
+	      console display. Once the first user-mode process is
+	      started, it is the responsibility of the user-mode
+	      logging agent to recover kernel logging messages from
+	      the kernel message log buffer.
+	    </p>
+	    <h3>2.3. Use of Debugger Stream(<tt>dbg_stream</tt>)</h3>
+	    <p>
+	      If a debugger is present, it logically ``owns'' a stream
+	      of its own -- the <tt>dbg_stream</tt>. If no debugger is
+	      present, then <tt>dbg_stream</tt> is set to null. The
+	      general idea is that the kernel debugger needs a
+	      dedicated device to talk to the kernel with.
+	    </p>
+	    <p>
+	      To simplify the (human) debugger's view of what is going
+	      on, all traffic to the <tt>syscon_stream</tt> is also
+	      echoed to <tt>dbg_stream</tt> if one is present.
+	    </p>
+	    <p>
+	      The previous generation of debugging logic had a pager
+	      modeled after the UNIX <tt>more</tt> command. Because
+	      <em>all</em> kernel output is now directed through the
+	      same output logic, we have revised the output logic to
+	      invoke the <em>more</em> interface only when the
+	      debugger is active. This means that the <em>more</em>
+	      prompt will appear only when output is occurring in
+	      response to a debugger command.
+	    </p>
+	    <h3>2.4. Practical Complication</h3>
+	    <p>
+	      So long as <tt>dbg_stream</tt> and
+	      <tt>syscon_stream</tt> are distinct (or null), the above
+	      logic carries no contradictions. If the kernel debugger
+	      is set up on the console, however, things get a bit
+	      trickier. In this scenario, we know that the console
+	      device has been dedicated for use by the debugger. Our
+	      challenge is primarily to avoid the ``double vision''
+	      that would ensue if both <tt>syscon_stream</tt> and
+	      <tt>dbg_stream</tt> pointed to the same place.
+	    </p>
+	    <p>
+	      The solution in this case is to <em>leave
+	      <tt>syscon_stream</tt> set to null whenever
+	      <tt>dbg_stream</tt> names the console</em>.  Because all
+	      output sent to <tt>syscon_stream</tt> goes to
+	      <tt>dbg_stream</tt> in any case, this does not cause
+	      output to be lost.
+	    </p>
+
+	    <hr>
+	    <em>Copyright 2001 by Jonathan Shapiro.  All rights
+	      reserved.  For terms of redistribution, see the <a
+	      href="../legal/license/GPL.html">GNU General Public
+	      License</a></em>
+	  </td>
+	  <td width="10%">&nbsp;</td>
+	</tr>
+      </tbody>
+    </table>
+  </body>
+</html>

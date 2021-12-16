@@ -1,0 +1,36 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+#include <net/ipv4/netsys.map>
+
+MAKE_VIRTUAL_COPIER(tftp_vcs,LIBDIR "net/tftp/tftp");
+BOOT_CONSTRUCTOR(tftp_c,tftp);
+PROD_SPACE(tftp_c) = tftp_vcs_c;
+PROD_PC(tftp_c) = symbol LIBDIR "net/tftp/tftp" _start;
+PROD_CONSTIT(tftp_c,KC_OSTREAM,3) = misc Console;
+PROD_CONSTIT(tftp_c,KC_NETSYS_C,4) = netsys_c;
+PROD_CONSTIT(tftp_c,KC_SLEEP,5) = misc Sleep;
+PROD_CONSTIT(tftp_c,KC_DEVPRIVS,6) = misc DevicePrivs;

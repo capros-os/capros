@@ -1,0 +1,13 @@
+name halt
+arch i486
+page 0x8000
+sp = 0x8FFc
+page 0xa000
+istr = 0xA000
+#  Accept up to 1 page, no keys, 4 byte string
+iblock = 0x10000001
+
+dr[0] = sched(8)
+dr[1] = start(fredkeeper,5)
+
+0x8ffc = 2

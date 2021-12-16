@@ -1,0 +1,87 @@
+/*
+ * Copyright (C) 2010, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <ipltool.map>
+#include <supernode.map>
+#include <vcs.map>
+#include <nfile.map>
+#include <directory.map>
+
+//#include <ckptr.map>
+
+#include <ip.map>
+#define ip_notifyee ip_nplinkee
+
+#include "test.h"
+
+#include <httprget.map>
+#include <homepage.map>
+#define sb_notifyee sb_nplinkee
+
+#include <nplink.map>
+
+#include <netlistener.map>
+#include <http.map>
+
+rsakey = segtree LIBDIR "config/privkey.pem";
+certificate = segtree LIBDIR "config/cacert.pem";
+
+TCPPort(HTTPSPort, HTTPSPortNum);  
+
+// Constituents for HTTP:
+#include <idl/capros/HTTP.h>
+httpconstits = new node;
+httpconstits[capros_HTTP_KC_ProgramText] = http_text;
+httpconstits[capros_HTTP_KC_ProgramDataVCS] = http_vcsk_c;
+httpconstits[capros_HTTP_KC_ProtoSpace] = dynprotospace;
+httpconstits[capros_HTTP_KC_ProgramPC] = http_pc;
+httpconstits[capros_HTTP_KC_OStream] = misc Console;
+httpconstits[capros_HTTP_KC_RSAKey] = rsakey;
+httpconstits[capros_HTTP_KC_Certificate] = certificate;
+httpconstits[capros_HTTP_KC_RTC] = misc RTC;
+httpconstits[9] = http_sym;
+
+#include <uploader.map>
+
+/*
+ * Test process constructor
+ */ 
+#include <dyncmme.map>
+
+DYNCMME_CONSTRUCTOR(test, BUILDDIR "test", "test");
+
+PROD_CONSTIT(test_c, , KC_SLEEP) = misc Sleep;
+PROD_CONSTIT(test_c, , KC_SNODEC) = snode_c;
+PROD_CONSTIT(test_c, , KC_FileServerC) = FileSrvC;
+PROD_CONSTIT(test_c, , KC_IKSC) = iks_c;
+PROD_CONSTIT(test_c, , KC_MetaCon) = metacon;
+PROD_CONSTIT(test_c, , KC_HTTPConstit) = httpconstits as ro node key;
+PROD_CONSTIT(test_c, , KC_NetListenerC) = netlistener_c;
+PROD_CONSTIT(test_c, , KC_HTTPSPort) = HTTPSPort;
+PROD_CONSTIT(test_c, , KC_DemoResource) = start uploaderResource 0;
+PROD_CONSTIT(test_c, , KC_SysTrace) = misc SysTrace;
+PROD_CONSTIT(test_c, , KC_HTTPRGetC) = httprgetc;
+PROD_CONSTIT(test_c, , KC_HomePageC) = homehttprhc;
+PROD_CONSTIT(test_c, , KC_HomePageLimit) = homehttprhLimit;
+
+run test_c;

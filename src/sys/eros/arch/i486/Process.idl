@@ -1,0 +1,89 @@
+package capros.arch.i386;
+
+/* Interface to IA32 process keys.
+ */
+interface Process extends capros.Process raises (capros.key.RequestError) {
+
+  typedef array<unsigned <16>,5> FPUData_t;
+
+  struct Registers {
+    // CommonRegisters32 fields:
+    unsigned long len;
+    unsigned long arch;
+    unsigned long procFlags;
+    unsigned long faultCode;
+    unsigned long faultInfo;
+    unsigned long pc;	// program counter
+    unsigned long sp;	// stack pointer
+
+    // Architecture-specific fields:
+    unsigned long EDI;
+    unsigned long ESI;
+    unsigned long EBP;
+    unsigned long EBX;
+    unsigned long EDX;
+    unsigned long ECX;
+    unsigned long EAX;
+    unsigned long EFLAGS;
+    unsigned <16> CS;
+    unsigned <16> SS;
+    unsigned <16> ES;
+    unsigned <16> DS;
+    unsigned <16> FS;
+    unsigned <16> GS;
+    // x87 FPU state:
+    unsigned <16> FPU_ControlWord;
+    unsigned <16> FPU_StatusWord;
+    unsigned <16> FPU_TagWord;
+    unsigned long FPU_InstructionPointer;
+    unsigned <16> FPU_InstructionPointerSelector;
+    unsigned <16> FPU_Opcode;
+    unsigned long FPU_OperandPointer;
+    unsigned <16> FPU_OperandPointerSelector;
+    // The following does not work due to a bug in CapIDL:
+    // array<FPUData_t,8> Data;
+    // CapIDL generates incorrect output for the following:
+    // array<array<unsigned <16>,5>,8> Data;
+    // Third time's the charm:
+    array<unsigned <8>,80> FPU_Data;
+  };
+
+  // Segment register values:
+  // In (n*8 + 3), n is the index in the GDT, 
+  // and 3 is the Requested Privilege Level.
+  const unsigned <16> CodeSeg = (4*8 + 3);
+  const unsigned <16> DataSeg = (5*8 + 3);
+  const unsigned <16> PseudoSeg = (6*8 + 3);
+
+  unsigned long enum FC {
+
+    /* IA-32 specific trap codes: */
+
+    /// @brief General Protection fault.
+    GeneralProtection = 128,
+
+    /// @brief Stack Segment fault.
+    StackSeg = 129,
+
+    /// @brief Segment Not Present fault.
+    SegNotPresent = 130,
+
+    /// @brief SIMD floating point error.
+    SIMDfp = 131,
+
+    /// @brief Overflow trap.
+    Overflow = 132,
+
+    /// @brief Bounds Violation.
+    Bounds = 133,
+
+    /// @brief Process has invalid segment register.
+    InvalidSegReg = 134,
+
+    /// @brief Invalid TSS.
+    InvalidTSS = 135
+  };
+
+  Registers getRegisters();
+  void setRegisters(Registers regs);
+};

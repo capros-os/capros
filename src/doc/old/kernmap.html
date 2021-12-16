@@ -1,0 +1,117 @@
+<HTML>
+<HEAD>
+<TITLE>Kernel Mapping in EROS</TITLE>
+</HEAD>
+<BODY>
+<P>
+EROS processes are given what appears to be an unrestricted 32-bit
+address space.  Many architectures require that the interrupt handlers
+be mapped in the process address space.  This note describes the
+mechanism by which these two conflicting requirements are
+simultaneously met by the EROS kernel.
+<P>
+<H1>1. The Problem: Virtual Interrupt Vectors</H1>
+<P>
+Many architectures, including MIPS, SPARC, 88K, and x86, use virtual
+addresses for interrupt vectors.  When an external interrupt is taken,
+the processor is placed in supervisor mode and the virtual address is
+translated through the per-process address space.
+<P>
+The architectural assumption behind this choice is that there is a
+single operating system shared by all processes, and that it occupies
+some well-defined portion of the virtual address map that is common to
+all processes.  Typically, the operating system will reserve a part of
+the very top or very bottom of the address space.  Because
+applications are relocated in ways that are sensitive to these
+reserved spaces, the address space allocation becomes a compatibility
+problem.
+<P>
+Reserved ranges combine with virtual interrupt vectors to create
+conflicting requirements:
+<OL>
+<LI>
+EROS <EM>must not</EM> reserve any portion of the virtual
+address space. Any range that EROS might reserve will conflict
+with the relocation assumptions of some operating environment.
+<P>
+<LI>
+EROS <EM>must</EM> reserve some portion of the virtual address
+space.  If it does not, the system will not be able to take
+interrupts.
+<P>
+</OL>
+<P>
+In addition to these constraints, it is desirable to have a simple,
+invertable mapping from kernel virtual addresses to physical addresses
+and back.  This suggests that the kernel virtual mapping should be
+constructed by adding some constant to the physical addresses.  The
+constant should be chosen to place the kernel at a virtual address
+that will minimize conflicts with other operating environments.
+<P>
+Believe it or not, all of these constraints can be satisfied
+simultaneously. The solution is tricky, but conceptually suitable to any
+of the architectures listed above.
+<P>
+While the following description is couched in terms of the i386
+architecture, the solution avoids architecture-specific features.
+<H1>2. Mapping on the 386 Family</H1>
+<P>
+The 386 family adds insult to injury by imposing hardware constraints
+that need to be considered.  A few of the 386 DMA channels can only
+address the lowest 1 Mbyte of physical RAM.  The remainder can address
+the first 16 Mbytes.  Since a substantial portion of the first 1 Mbyte
+is taken up by cards, it's fairly important not to put the kernel at
+those addresses.
+<P>
+My compromise was to load the kernel at (physical) 1 Megabyte.  If the
+machine has less than 1 Mbyte of memory, this version of EROS will not
+run.  I know how to fix that, but given the way machines are being
+configured these days it hardly seems urgent.  This choice avoids the
+critical low memory area, but eats a small portion of the 16 Mbyte
+addressable area.
+As an incidental benefit, the BIOS area remains untouched, so it is
+possible for the kernel to call the BIOS if we want to in the future.
+<P>
+The next challenge is to choose the kernel's virtual address.  Most
+x86 applications, including EROS domains, use the low half of the
+address map.  Windows 95 gives applications the low 3 Gbytes. After
+some thought, I decided to build a virtual map that maps physical
+memory beginning at 3 Gbytes.  Under this plan, the kernel is linked
+to start at 0xC0101000.  The page at 0xC0000000 is reserved for use by
+interrupt <STRONG>trampoline</STRONG> code, which is described below.
+<P>
+In order to enter the kernel, the bootstrap code creates a temporary
+virtual map for the low 4 Mbytes of physical memory.  This area is
+mapped at both virtual address 0x0 <EM>and</EM> virtual address
+0xC0000000.  4 Mbytes gives the kernel enough room to construct a
+permanent kernel mapping.  The dual mapping allows arguments to be
+transferred from the bootstrap code to the kernel.
+<P>
+The end result is that virtual to physical translation is very simple,
+and kernel virtual addresses are unlikely to conflict with most x86
+applications.  The kernel lives in its own address space, but in most
+cases it is also mapped into the high area of every process.
+<H2>The Trampoline</H2>
+<P>
+When it comes to computing, there may be many Gods, but
+Murphy speaks for all of them.  No matter what virtual address is
+chosen for the EROS kernel, someone will build a process that uses
+that address.
+<P>
+In the interest of getting an initial version up and running quickly,
+EROS processes are only granted access to the first 3 Gbytes of their
+address space segment.  <EM>This is a bug.</EM>  It will be fixed in a
+future release, and I am outlining the solution here to make sure it
+doesn't get lost.
+<P>
+If an application maps an address occupied by the kernel, the kernel
+must be made to get out of the way.  To do this, the kernel supplies
+several sets of interrupt entry points that appear at different
+virtual addresses.  These secondary entry points are known as
+<STRONG>trampoline</STRONG> entry points.  They are just smart enough
+to save the critical interrupt information, load the official kernel
+address space, and branch to the normal entry point.  The trampoline
+code takes advantage of the fact that the kernel root page table
+resides at a well known physical address.
+</BODY>
+</HTML>

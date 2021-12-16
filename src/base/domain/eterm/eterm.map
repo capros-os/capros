@@ -1,0 +1,38 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#include <timer/timer.map>
+
+MAKE_VIRTUAL_COPIER(eout_vcsk, LIBDIR "eterm/eterm_out");
+BOOT_CONSTRUCTOR(eout_c,eout);
+PROD_SPACE(eout_c) = eout_vcsk_c;
+PROD_PC(eout_c) = symbol LIBDIR "eterm/eterm_out" _start;
+PROD_CONSTIT(eout_c, KC_OSTREAM, 3)  = misc Console;
+PROD_CONSTIT(eout_c, KC_TIMER, 4)    = timer_c;
+
+MAKE_VIRTUAL_COPIER(eterm_vcsk, LIBDIR "eterm/eterm_main");
+BOOT_CONSTRUCTOR(eterm_c,eterm);
+PROD_SPACE(eterm_c) = eterm_vcsk_c;
+PROD_PC(eterm_c) = symbol LIBDIR "eterm/eterm_main" _start;
+PROD_CONSTIT(eterm_c, KC_OSTREAM, 3)  = misc Console;
+PROD_CONSTIT(eterm_c, KC_EOUT, 4) = eout_c;

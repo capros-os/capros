@@ -1,0 +1,46 @@
+package capros;
+
+/** 
+@brief RTC - Real Time Clock
+*/
+interface RTC extends key raises (key.RequestError) {
+
+  /** The UTC time in seconds since 1/1/1970. */
+  typedef unsigned long time_t;
+
+  /** getTime always returns a value between (not including)
+      time_zero and time_infinite. */
+  const time_t time_zero = 0;
+  /* The following should be 4294967295, but the IDL compiler
+     doesn't declare it unsigned in C. Then the C compiler complains. */
+  const time_t time_infinite = 2147483647;
+
+  /** Get the current time. */
+  time_t getTime();
+
+  /** Sleep until a specified time or a restart occurs.
+  This may also wake up at any earlier time, so on return the caller
+  must check the time, or use sleepTillTime instead.
+  If a system restart occurs (and the caller is persistent),
+  the operation raises key.Restart at that time.
+  */
+  void sleepTillTimeOrRestart(time_t wakeupTime);
+
+  /** Sleep until a specified time. */
+  client void sleepTillTime(time_t wakeupTime);
+
+  /** Get the time of the checkpoint from which the system was restarted,
+  and the time of the restart. */
+  void getRestartTimes(out time_t checkpointTime, out time_t restartTime);
+};
+
+interface RTCSet extends RTC {
+  /** If the specified time can't be represented in the hardware,
+  we raise key.RequestError. */
+  void setTime(RTC.time_t newTime);
+
+  /** Add timeChange (which may be positive or negative) to the RTC.
+  If the specified time can't be represented in the hardware,
+  we raise key.RequestError. */
+  void addTime(long timeChange);
+};

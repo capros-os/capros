@@ -1,0 +1,79 @@
+NOTE: A status of "SPLIT" indicates that the item was split into
+finer-grain items, and is now obsolete.
+
+Item	Who	Status	Description
+
+1.	mike	Done	Review Colin's space bank code -- see if we
+			can use it 
+2.	mike	Done	Let me know if we need multiple sleepers on a
+			semaphore 
+3.	mike		Finish linux port of splash2
+4.	mike		Build simple versions of printf and friends
+5.	mike		rip out getopt, put args in input file instead.
+6.	mike	Done	revise call/echo to be test case for seg
+			keeper invocation. 
+7.	shap	Partial	Implement domain key
+8.	shap	Done	Implement domain tool key
+9.	shap	Done	Revise semaphore for multiple sleepers/wakeup
+10.	shap	SPLIT	Finish IDE driver read/write
+11.	shap		Verify that fault/resume keys work
+13.	shap		fresh segment keeper
+14.	shap		IPL startup domain
+14.	shap		keyboard input implementation
+15.	shap		mkimage -- add facilities to build segments
+			that do not include BSS space.
+16.	shap		mkimage -- add support for red segment
+			construction.
+17.	mike		define simple semaphore and shared memory
+			interfaces. Revise current benchmarks to use
+			them.
+18.	shap		ageing and pageout -- extend current stuff
+19.	shap		checkpoint
+20.	shap		restart from checkpoint
+21.	shap		disk partitioning domain
+22.	shap		EROS partition formatter
+23.	???		Supernode
+24.	???		Domain Builder
+25.	shap		Implement EROS library stubs for EROS
+			semaphore and shared memory support.
+26.	shap		Fresh segment keeper.
+27.	shap		Verify kernel support for red segments
+28.	shap		Define seg keeper invocation convention.
+29.	mike		Build trivial segment keeper that just reports
+			it's arguments via console key.  This will
+			require printf.
+30.	shap	Done	domain creator test for make domain key order
+31.	shap	Done	support for node and semaphore creation to
+			mkimage
+32.	???		semaphore test
+33.	mike	Done	Revise freelist implementation in SpaceBank
+			(add freeptr, convert to bitmap)
+34.	shap		Revise space bank to handle multiple ranges
+35.     shap	Done	Revise DomTool per Norm's email to eliminate
+			weird split between start/resume keys.
+36.	shap	DEFER	Figure out how to do sleep counts in the face
+			of wakeup -- perhaps a field in the Thread structure?
+37.	shap	DEFER	Convert thread status to flags word
+38.	shap	Done	Revise semaphore to allow sleeps and wakeups
+			to proceed in either order.
+39.	shap	Done	Fix all fault handlers for kernel-mode faults;
+			they still don't grok nested interrupts.
+40.	shap	Done	Define domain keeper invocation convention.
+			=> Inbound msg is DomCtlInfo structure
+41.	shap		Find and nail ramdisk startup timing bug.  I
+			suspect it's a race in Persist::DoObjectRead
+			with one of the cleaners.
+42.	shap	Done	Build trivial domain keeper that just reports
+			it's arguments via console key.
+43.	shap	Done	Finish domain keeper invocation debugging.
+44.	shap		Hard-disk bootstrap code
+45.	shap	Done	Finish IDE driver read
+46.	shap		Finish IDE driver write
+
+THINGS TO MEASURE
+
+Run times by domain, by thread
+Page faults by domain, by thread, overall
+Context switches
+Node faults by domain, by thread, overall
+Lock contention.

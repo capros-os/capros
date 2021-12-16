@@ -1,0 +1,87 @@
+#ifndef __SERIAL_MAP_
+#define __SERIAL_MAP_
+/*
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <linuxk/lsync.h>
+#include <eros/Reserve.h>
+#include <drivers/driver.map>
+
+/*********************************************
+ * Serial port driver.
+ *********************************************/
+
+serial_prog = program segtree LIBDIR "drivers/serial";
+serial_pc = symbol LIBDIR "drivers/serial" _start;
+
+BOOT_DOMCRE(serial);	// maybe each should have his own?
+
+serialConstit = new node;	// shared by all instances
+serialConstit[0] = volsize;
+
+/* Serial driver runs at higher priority (9) to avoid overrun errors. */
+#define SERIAL_DRIVER_GENERIC(name, num, devcfgbit) \
+DRIVER(name##ser, serial_prog, serial_pc, sched(9), serial_proccre, devcfgbit) \
+name##ser_proc key reg KR_APP2(0) /*KR_PortNum*/ = number(num); \
+name##ser_proc key reg KR_CONSTIT = serialConstit;
+
+/* Define target-specific resources. */
+
+#if defined(EROS_TARGET_arm)
+
+#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
+
+#define APB_PA 0x80800000
+#include <devclock.map>
+/* UARTCLK is set to the low frequency, which give a max baud rate
+   of only 230 Kbps, but saves power. */
+/* UARTCLK has no enable/disable. Each individual UART has an enable
+   in the device configuration register. */
+DEVCLOCK(uart, 7372800, 0, 0);
+
+serial_le_clocks = new node;
+serial_le_clocks[0] = number("UARTCLK");
+serial_le_clocks[1] = uart_devclock;
+
+// Usage: SERIAL_DRIVER_AMBA(uart3, UART3_BASE, SYSCONDeviceCfg_U3EN)
+
+#define SERIAL_DRIVER_AMBA(name, num, devcfgbit, devRegsPhysAddr) \
+SERIAL_DRIVER_GENERIC(name, num, devcfgbit) \
+name##serle_iomem = new node; \
+name##serle_iomem[0] = number(1 /* one page */, devRegsPhysAddr, 0); \
+name##serle_iomem[1] = physpage(devRegsPhysAddr); \
+name##serle[LE_CLOCKS] = serial_le_clocks as ro node key; \
+name##serle[LE_IOMEM] = name##serle_iomem;
+
+#elif defined(EROS_TARGET_i486)
+
+#define SERIAL_DRIVER_8250_PORT(name, num, baud_base, port, irq, flags) \
+SERIAL_DRIVER_GENERIC(name, num, 0) \
+name##ser_proc key reg KR_CONSTIT = serialConstit; \
+name##ser_proc key reg KR_APP2(1) /*KR_CONFIG*/ = number(baud_base, port + (irq * 65536), flags);
+
+#else
+#error "Unknown target"
+#endif
+
+#endif

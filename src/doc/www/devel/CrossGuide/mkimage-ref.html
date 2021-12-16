@@ -1,0 +1,846 @@
+<html>
+<head>
+  <!-- following is a placeholder until I get a real style sheet -->
+  <!-- together -->
+  <style>
+  <!--
+    H3 {
+      font-weight: bold;
+      font-style: italic;
+    }
+    H4 {
+      font-weight: bold;
+      text-decoration: underline;
+    }
+  -->
+  </style>
+  <title>CapROS mkimage Reference</title>
+</head>
+
+<BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../capros.html"><em>CapROS home</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Kernel Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>mkimage</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>mkimage</b> -- make new CapROS volume</p>
+      <h2>Synopsis</h2>
+      <table>
+	<tr>
+	  <td valign=top><b>mkimage</b></td>
+	  <td valign=top>-a <em>architecture</em> -o <em>image</em> [-d] [-v] 
+            [-nostdinc] [-nostddef]
+            [-I <em>directory</em>] [-D <em>name</em>[=<em>definition</em>]]
+	    [-A <em>predicate[{value}]</em>] description_file
+	  </td>
+	</tr>
+      </table>
+      <h2>Description</h2> <p> The <b>mkimage</b> utility creates a
+      new CapROS <b>image</b> file based on the description specified in
+      <b>description_file</b>.
+      It converts files into CapROS segments, and defines the initial contents
+      of a set of CapROS objects.
+      </p>
+      <p>
+      In a system with persistent objects, there will be two description files
+      and two image files. One describes the initial state of the
+      non-persistent objects, and the other describes the initial state of the
+      persistent objects.
+      </p>
+      <p>
+      Most of the input to <b>mkimage</b> comes from the
+      description_file file, which describes the image be
+      created.  The description_file is preprocessed using the
+      C Preprocessor (<b>cpp</b>); in consequence, C-style comments
+      are supported in the input description file.  Of the options
+      listed, <b>-I <em>directory</em></b>, <b>-D <em>name</em>[=<em>definition</em>]</b>,
+      and <b>-A <em>predicate[{value}]</em></b>
+      are simply passed to <b>cpp</b>.
+      The input to <b>cpp</b> is a preinclude file
+      followed by <b>description_file</b>.
+      The preinclude file is located at
+      <tt>EROS_ROOT/host/include/mkimage.preinclude</tt>
+      if the environment variable EROS_ROOT is defined,
+      otherwise <tt>HOME/eros/host/include/mkimage.preinclude</tt>.
+      The <b>mkimage</b> utility takes its
+      commands from the output of <b>cpp</b>.
+      </p>
+      <p>
+      The <b>-a <em>architecture</em></b> option defines the
+      architecture in the same way as the <b>arch</b> statement (see below).
+      </p>
+      <p>
+      The <b>-o <em>image</em></b> option specifies the output file.
+      </p>
+      <p>
+      The <b>-v</b> option ("verbose") prints the symbol table after
+      every statement is processed.
+      </p>
+      <p>
+      The <b>-d</b> option prints parse information for each statement.
+      </p>
+      <p>
+      The <b>-nostddef</b> option is passed to <b>cpp</b>.
+      It would also disable the automatic definition of symbols
+      by <b>mkimage</b>, if there were any.
+      </p>
+      <p>
+      The <b>-nostdinc</b> option disables the use of
+      standard includes by <b>cpp</b>.
+      </p>
+      <p>
+      Statements in the description file are semicolon-terminated, and
+      consist of directives, assignments, or diagnostics.
+      </p>
+      <p>
+      The balance of this page describes each statement in greater
+      detail.  <b>mkimage</b> grew in an ad-hoc fashion.  While its
+      facilities for capability manipulation are fairly well
+      regularized, its commands for register manipulation and
+      expression processing could be significantly enhanced.
+      </p>
+      <h3>Directives</h3>
+      <p>
+      A <b>mkimage</b> description file always begins with a
+      declaration of the processor architecture.  This tells mkimage
+      how processes are to be formed and what the register names are
+      for the active architecture.
+      </p>
+      <dl>
+	<dt>
+	     <b>arch</b> <i>keyword</i>
+	</dt>
+	<dd>
+	     <p>
+	     Declares the active processor architecture.  This tells
+	     mkimage how processes are to be formed and what the
+	     register names are for the active architecture.  The
+	     <b>arch</b> declaration should be the first declaration
+	     of the file, and should appear prior to the inclusion of
+	     process image map files.
+	     </p>
+	     <p>
+	     <i>Keyword</i> is one of:
+	     </p>
+	     <center>
+	       <table width=85%>
+		 <tr>
+		   <th valign=top align=left>Keyword</th>
+		   <th valign=top align=left>Architecture</th>
+		 </tr>
+		 <tr>
+		   <td valign=top><b>i486</b></td>
+		   <td valign=top>Intel 486 and later architectures</td>
+		 </tr>
+		 <tr>
+		   <td valign=top><b>arm</b></td>
+		   <td valign=top>ARMv4 and later architectures</td>
+		 </tr>
+	       </table>
+	     </center>
+	</dd>
+	<dt>
+	     <b>hide</b> <i>name</i>
+	</dt>
+	<dd>
+	     <p>
+	     Removes <i>name</i> from the symbol table.  Used to
+	     minimize the number of symbols that are exported from an
+	     image map file or result from a macro expansion that
+	     required temporary names.
+	     </p>
+	</dd>
+	<dt>
+	     <b>ipl</b> <i>process</i>
+	</dt>
+	<dd>
+	     <p>
+	     Defines the IPL process. 
+             This is the only process that will be started at boot time.
+             Only one IPL process can be defined.
+	     </p>
+	</dd>
+	<dt>
+	     <b>run</b> <i>name</i>
+	</dt>
+	<dd>
+	     <p>
+           If <i>name</i> is a process key, it indicates that the
+           process should be started by the IPL process.
+           If <i>name</i> is a start key, it must be a constructor
+           and will be called by the IPL process. 
+	     </p>
+	</dd>
+      </dl>
+
+      <h3>Key Expressions</h3>
+      <p>
+      Key expressions include both basic key specification and
+      transformations on existing keys.
+      </p>
+      <dl>
+	<dt>
+	     <b>clone</b> <i>node</i>
+	</dt>
+	<dd>
+	     <p>
+	     Returns a copy (in a new node) of <i>node</i>, which can
+	     be either a name or a slot. The returned key to the new
+	     node has exactly the same type, subtype, l2v, and so
+	     forth as the original.
+	     </p>
+	</dd>
+	<dt>
+	     <b>empty GPT with</b> <i>number</i> <b>pages</b>
+	</dt>
+	<dd>
+	     <p>
+	     Creates a GPT containing slots for <i>number</i>
+	     pages (but no actual pages) at consecutive addresses.
+	     </p>
+	     <p>
+	     This fabrication is useful for processes that will
+	     automatically populate a memory tree but need to know
+	     that all required GPTs for the tree are preallocated --
+	     most notably, the space bank.
+	     </p>
+	</dd>
+	<dt>
+	     <b>new GPT with lss</b> <i>lss</i>
+	</dt>
+	<dd>
+	     <p>
+	     Creates a GPT with an l2v value of 
+             (lss-1)*EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>as</b> <b>opaque GPT key</b>
+	</dt>
+	<dd>
+	     <p>
+	     Returns an opaque copy of <i>key</i>.
+             <i>key</i> must be a GPT key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>with guard</b> <i>offset</i>
+	</dt>
+	<dd>
+	     <p>
+	     Returns a copy of <i>key</i> with the specified guard.
+             This sets both the l2g and guard fields of the key.
+             <i>key</i> must be a GPT or page key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>as</b> <i>qualifier</i> <b>opaque forwarder key</b>
+	</dt>
+	<dd>
+	     <p>
+	     Returns an opaque copy of <i>key</i> with the specified qualifiers,
+             which may include <b>sendCap</b> and/or <b>sendWord</b>
+             (or neither).
+             <i>key</i> must be a forwarder key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>as</b> <i>qualifier</i> <b>node key</b>
+	</dt>
+	<dd>
+	     <p>
+	     Returns a copy of the node <i>key</i> with the specified
+	     access restrictions,
+             which may include <b>ro</b> and/or <b>nc</b>
+             and/or <b>weak</b>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>with</b> <i>qualifier</i> <b>page at</b>
+	     <i>offset</i>
+	     <br><i>key</i> <b>with</b> <i>qualifier</i> <b>subseg</b>
+	     <i>segkey</i> <b>at</b>
+	     <i>offset</i>
+	</dt>
+	<dd>
+	     <p>
+	     Inserts a new page (subsegment) with the specified access
+	     restrictions at <i>offset</i> within the segment tree
+	     named by <i>key</i>.
+	     </p>
+	     <p>
+             The <i>qualifier</i> may include <b>ro</b> and/or <b>nc</b>
+             and/or <b>weak</b>, or may be <b>sense</b> which means
+             all three restrictions. 
+	     </p>
+	</dd>
+	<dt>
+	     <b>physpage</b> ( <i>physaddr</i> )
+	     <br><b>physpage ro</b> ( <i>physaddr</i> )
+	</dt>
+	<dd>
+	     <p>
+	     A page key to the page at physical address <i>physaddr</i>,
+             which is any arithmetic expression.
+             The <b>ro</b> form produces a read-only key.
+	     </p>
+	</dd>
+	<dt>
+	     <b>misc</b> <i>misckeyname</i>
+	     <br><b>misc</b> <i>misckeyname value</i>
+	</dt>
+	<dd>
+	     <p>
+	     A miscellaneous key.  The valid miscellaneous key names
+	     are listed in
+	     <tt>eros/src/sys/KEYDEFS</tt>. 
+             <i>value</i> can be supplied if the miscellaneous key
+             uses it.
+	     </p>
+	</dd>
+	<dt>
+	     <i>name</i>
+	</dt>
+	<dd>
+	     <p>
+	     Returns the key previously created by a name assignment
+	     to <i>name</i>
+	     </p>
+	</dd>
+	<dt>
+	     <b>new process</b>
+	<dd>
+	     <p>
+	     Fabricates a new process according to the rules for the
+	     current architecture and returns a process key to it.
+	     </p>
+	</dd>
+	<dt>
+	     <i>process</i> <b>with constituents</b>
+	<dd>
+	     <p>
+		  Adds a constituents node to a pre-existing
+		  process. The result of this expression is the
+		  process key.
+	     </p>
+	</dd>
+	<dt>
+	     <b>new forwarder</b>
+	<dd>
+	     <p>
+	     Fabricates a new forwarder and returns a key to it.
+	     </p>
+	     <p>
+             Setting the Blocked flag is not implemented.
+	     </p>
+	</dd>
+	<dt>
+	     <b>new node</b>
+	     <br><b>new</b> <i>qualifier</i> <b>node</b>
+	<dd>
+	     <p>
+	     Fabricates a new node and returns a key to it.  The
+	     qualifiers <b>nc</b> (no-call), <b>ro</b> (read-only),
+	     and <b>weak</b> (weak) may be used to restrict the
+	     authority of the returned key.  Any, all, or none of
+	     these qualifiers may be used in any order.
+	     </p>
+	     <p>
+             Note, there is currently no way to set the l2v field of the node.
+	     </p>
+	</dd>
+	<dt>
+	     <b>new page</b>
+	     <br><b>new</b> <i>qualifier</i> <b>page</b>
+	<dd>
+	     <p>
+	     Fabricates a new page and returns a key to it.  The
+	     qualifiers <b>nc</b> (no-call), <b>ro</b> (read-only),
+	     and <b>weak</b> (weak) may be used to restrict the
+	     authority of the returned key.  Any, all, or none of
+	     these qualifiers may be used in any order.
+	     </p>
+	</dd>
+	<dt>
+	     <b>null</b>
+	</dt>
+	<dd>
+	     <p>
+	     The zero number key. If you are using this
+	     to convey no authority, you should switch to the void key
+	     (below).
+	     </p>
+	</dd>
+	<dt>
+	     <b>number</b> ( <i>value</i> )
+	</dt>
+	<dd>
+	     <p>
+	     A number key with the designated value. 
+	     The value is a 32-bit unsigned integer.
+             <p> A number key actually holds three integers.
+                 The second and third integers are zero.
+	     </p>
+	</dd>
+	<dt>
+	     <b>number</b> ( <i>value1, value2, value3</i> )
+	</dt>
+	<dd>
+	     <p>
+	     A number key with the three designated values. 
+	     The values are 32-bit unsigned integers.
+	     </p>
+	</dd>
+	<dt>
+	     <b>number</b> ( "<i>string</i>" )
+	</dt>
+	<dd>
+	     <p>
+	     A number key with three integers containing the
+             string in little-endian form. 
+             In other words, the first character is in the low 8 bits
+             of the first word; the second character is in the next
+             higher 8 bits, the fifth character is in the low 8 bits
+             of the second word, etc. Any characters beyond 12 are ignored.
+             The string is padded with zero bytes if necessary. 
+	     </p>
+	</dd>
+	<dt>
+	     <b>program segment</b> "<i>filename</i>"
+	     <br><b>program segtree</b> "<i>filename</i>"
+	     <br><b>program ro segtree</b> "<i>filename</i>"
+	     <br><b>program rw segtree</b> "<i>filename</i>"
+	     <br><b>program data segtree</b> "<i>filename</i>"
+	</dt>
+	<dd>
+	     <p>
+	     Fabricates a new memory tree containing the <em>load image</em>
+	     of the executable <i>file</i>. If the load image fits in a
+             single page, a page key is returned and it makes no difference
+             whether <b>segment</b> or <b>segtree</b> is used.
+             Otherwise, if the <b>segment</b>
+	     form is used, an opaque GPT key is returned.  Otherwise a 
+             non-opaque GPT key is returned.
+	     </p>
+	     <p>
+             The first two forms load the entire program image.
+             If <b>ro</b> is specified, the memory tree will have
+             only the read-only sections (.text, .rodata, and
+             .eh_frame if present).
+             If <b>rw</b> is specified, the memory tree will have
+             only the read-write sections (.data and .bss).
+             If <b>data</b> is specified, the memory tree will have
+             only the initialized data section (.data).
+	     </p>
+	</dd>
+	<dt>
+	     <b>small program</b> "<i>filename</i>"
+	</dt>
+	<dd>
+	     <p>
+	     Fabricates a new memory tree containing the <em>load image</em>
+	     of the executable <i>file</i>.
+             The returned key is a GPT key suitable for use
+	     with the small program runtime.
+	     </p>
+	</dd>
+	<dt>
+	     <b>range</b> ( <i>lo_oid</i> : <i>hi_oid</i> )
+	</dt>
+	<dd>
+	     <p>
+	     A range key granting authority over the range
+	     [<i>lo_oid</i>,<i>hi_oid</i>).
+	     </p>
+	</dd>
+	<dt>
+	     <b>segtree</b> "<i>filename</i>"
+	</dt>
+	<dd>
+	     <p>
+	     Fabricates a new segment tree containing the content of
+	     the named <i>file</i>.  A non-opaque GPT key is returned.
+	     </p>
+	</dd>
+	<dt>
+	     <b>start</b> <i>process keydata</i>
+	<dd>
+	     <p>
+	     Fabricates a start key to the designated <i>process</i>
+	     with the designated <i>keydata</i> value.
+	     </p>
+	</dd>
+	<dt>
+	     <b>symbol</b> "<i>filename</i>" <i>name</i>
+	</dt>
+	<dd>
+	     <p>
+	     Extracts the load address of the symbol <i>name</i>
+	     from the binary <i>filename</i>, and returns it as a
+	     number key suitable for assignment to a process program
+	     counter.  While the most commonly used <i>name</i> is
+	     <tt>_start</tt>, other names can be used to provide
+	     multiple entry points into a single binary file.
+	     </p>
+	</dd>
+	<dt>
+	     <b>threadlist</b>
+	</dt>
+	<dd>
+	     <p>
+	     A node key designating the reserved <i>threadlist</i> node.
+             This is for the IPL process. 
+	     All but the last key in this node is a process key
+	     to a process to be started
+	     by the IPL process. [Or a constructor...] 
+	     The last key is a node key to the next node in the list,
+	     or void if none. 
+	     </p>
+	</dd>
+	<dt>
+	     <b>void</b>
+	</dt>
+	<dd>
+	     <p>
+	     The void key (a key conveying no authority).
+	     </p>
+	</dd>
+	<dt>
+	     <b>volsize</b>
+	</dt>
+	<dd>
+	     <p>
+	     A node key designating the reserved <i>volsize</i> node.
+	     The <b>mkimage</b> utility populates the volsize node
+	     with information concerning the total number of nodes and
+	     pages that are used in the image.  This information is
+	     used by the spacebank at initialization time to avoid
+	     reallocating these objects.
+	     </p>
+	</dd>
+	<dt>
+	     <b>zero segtree with</b> <i>number</i> <b>pages</b>
+	</dt>
+	<dd>
+	     <p>
+	     Creates a segment containing <i>number</i> pages at
+	     consecutive addresses.  Note that the newly created
+	     segment uses dedicated pages, which is not the same as
+	     using the primordial zero segment of the same size.
+	     A non-opaque GPT key is returned.
+	     </p>
+	</dd>
+      </dl>
+
+      <h3>Assignments</h3>
+      <p>
+      Assignments take the form:
+      </p>
+      <ul>
+	<em>name</em> = </b><em>qualified_key</em>;
+	<br><em>slot</em> = </b><em>qualified_key</em>;
+      </ul>
+      <p>
+      The first form creates a new directory (symbol table) entry, and
+      binds it to the value of <i>qualified_key</i>.  The second
+      traverses existing objects to find the designated slot, and
+      replaces the current key in the slot with <i>qualified_key</i>.
+      </p>
+      <h4>Simple Slot Designation</h4>
+      <p>
+      In its simplest form, a slot is designated by starting from any
+      key that designates a node and supplying slot indexes using
+      C-style array syntax:
+      </p>
+      <ul>
+	<b>nodekey[5]</b> = <i>qualified_key</i>
+      </ul>
+      <p>
+      Sets the fifth slot of the node named by <tt>nodekey</tt> to
+      <i>key</i>.
+      </p>
+      <p>
+      Array syntax can be applied recursively, as in:
+      </p>
+      <ul>
+	<b>nodekey[5][10]</b> = <i>qualified_key</i>
+      </ul>
+      <p>
+      Except for the last, all slots traversed in this fasion must
+      contain keys that designate a node.
+      </p>
+      <p>
+      <i>qualified_key</i> is any key expression, optionally prepended with
+      access restrictions, which may include <b>ro</b> and/or <b>nc</b>
+      and/or <b>weak</b>, or may be <b>sense</b> which means
+      all three restrictions. 
+      </p>
+      <h4>Process Slot Designation</h4>
+      <p>
+      Certain slots in the process root are commonly set in image
+      description files, and it is useful to be able to check that the
+      assigned key is of an appropriate type.  For this reason,
+      <b>mkimage</b> provides a special syntax for setting such slots.
+      </p>
+      <p>
+      In all of the examples below, <i>Node</i> may be either a symbol
+      name designating the process root node or a slot expression (as
+      described above) designating a process root node.
+      </p>
+	<dt>
+	     <i>node</i> <b>space</b> = <i>segkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the address space slot of the designated <i>node</i>
+	     to <i>segkey</i>, which must be a GPT or page key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>pc</b> = <i>number_key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the program counter
+	     field of the program counter/stack pointer slot
+             of the designated <i>node</i>
+	     to the 32-bit value of <em>number_key</em>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>pc</b> = <i>number</i>
+	     <br><i>node</i> <b>sp</b> = <i>number</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the program counter (respectively, stack pointer)
+	     field of the program counter/stack pointer slot
+             of the designated <i>node</i>
+	     to the value of <em>number</em>, which is a constant.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>schedule</b> = <i>schedkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the schedule slot of the designated <i>node</i> to
+	     <i>schedkey</i>, which must be a valid schedule key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>brand</b> = <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the brand slot of the designated <i>node</i> to
+	     <i>key</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>iospace</b> = <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the iospace slot of the designated <i>node</i> to
+	     <i>key</i>, which must be the misc DevicePrivs key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>process keeper</b> = <i>startkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the process keeper slot of the designated <i>node</i>
+	     to <i>startkey</i>, which must be a start or resume key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>key reg</b> <i>n</i> = <i>qualified_key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets key register <i>n</i> of the process designated by
+	     <i>node</i> to <i>key</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>all slots</b> = <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets all of the slots of the node named by <i>segmode</i>
+	     to <i>key</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>slot</i> |= <i>numberkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets <i>slot</i> to the bitwise OR of its current value
+	     and the value of <i>numberkey</i>.  <i>Slot</i> must
+	     already hold a number key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>process</i> <b>reg</b> register = <i>hex_number</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the value of the architecture-specific register
+	     <tt>register</tt> in the designated <i>process</i> to
+	     <i>number</i>.  Rarely used, as register initialization
+	     is usually better accomplished from the process source
+	     code.
+	     </p>
+	     <p>
+	     The restriction to hex values is to allow register length
+	     checking, and should be corrected.
+	     </p>
+	</dd>
+      </dl>
+
+      <h4>Forwarder Slot Designation</h4>
+	<dt>
+	     <i>forwarder</i> <b>target</b> = <i>startkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the target slot of the designated <i>forwarder</i>
+	     (the key to which invocations are forwarded)
+             to <i>startkey</i>, which must be a start or resume key.
+	     </p>
+	</dd>
+      </dl>
+
+      <h4>GPT Slot Designation</h4>
+	<dt>
+	     <i>gpt</i> <b>GPT keeper</b> = <i>startkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the keeper slot of the designated <i>gpt</i>
+	     (the key to which invocations and faults are sent)
+             to <i>startkey</i>, which must be a start or resume key.
+	     </p>
+	</dd>
+      </dl>
+
+      <h3>Diagnostics</h3>
+      <p>
+      To support debugging, <b>mkimage</b> supports a number of
+      diagnostic commands that can be used to print various
+      structures.
+      </p>
+      <dl>
+	<dt>
+	     <b>print</b> "<i>your string here</i>"
+	</dt>
+	<dd>
+	     <p>
+	     Prints the supplied string to <tt>stdout</tt>, followed
+	     by a newline.  Most commonly used to provide a reminder
+	     description of the subsequent print output.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print directory</b>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the list of all currently assigned names and their
+	     associated keys (i.e. the symbol table).  Note that the
+	     directory does not include names which have been hidden
+	     by a <b>hide</b> directive prior to the <b>print</b>
+	     statement.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print</b> <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the specified <i>key</i>.  See below for a
+	     description of key syntax.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print segment</b> <i>segkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Recursively prints the segment tree whose root is
+	     <i>segkey</i>.  <i>Segkey</i> must be a memory key (GPT
+	     or page).  For brevity, slots in the segment
+	     tree containing void keys are omitted.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print page</b> <i>pagekey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the content of the page named by <i>pagekey</i>,
+	     which  must be a page key.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print node</b> <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the content of the node named by <i>key</i>, which
+	     must designate a node or GPT.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print process</b> <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the process designated by <i>key</i>, which must
+             be a process or gate key.
+	     </p>
+	</dd>
+      </dl>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+      <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 1998, 2001 by Jonathan Shapiro, 
+      2005, 2006, 2007, 2009 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+</body>
+</html>

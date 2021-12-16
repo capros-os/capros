@@ -1,0 +1,144 @@
+package capros;
+
+/* Explain This object . */
+interface SWCA extends key 
+{
+  exception noInverter;	// the specified inverter does not exist
+  exception already;
+  exception disabled;	// commands are disabled
+
+  /* The following are sampled periodically,
+  and any changes are logged in Logfile objects. */
+
+  const unsigned byte LEDOverCurrent = 1;
+  const unsigned byte LEDFloat       = 2;
+  const unsigned byte LEDAC2In       = 4;
+  const unsigned byte LEDInverting   = 8;
+  const unsigned byte LEDError       = 16;
+  //const unsigned byte LEDAC1In       = ?;
+  //const unsigned byte LEDLineTie     = ?;
+  const unsigned byte LEDBulk        = 128;	// bulk or absorption stage
+
+  struct LEDLogRecord {
+    Logfile.recordHeader header;
+    unsigned byte LEDsSteady;
+    unsigned byte LEDsBlink;
+    short padding;
+    unsigned long trailer;
+  };
+
+  /** Get a read-only capability to the Logfile containing records
+  in the format Logfile.LogRecord16
+  in which the value field is the inverter/charger amps
+  for the specified inverter.
+  (The param field is unused.) inverterNum is zero-based. */
+  Logfile getInvChgAmpsLogfile(unsigned byte inverterNum);
+
+  /** Get a read-only capability to the Logfile containing records
+  in the format Logfile.LogRecord16
+  in which the value field is the load amps
+  for the specified inverter.
+  (The param field is unused.) inverterNum is zero-based. */
+  Logfile getLoadAmpsLogfile(unsigned byte inverterNum);
+
+  /** Get a read-only capability to the Logfile containing records
+  in the format Logfile.LogRecord16
+  in which the value field is the battery actual voltage * 10
+  for the specified inverter.
+  (The param field is unused.) inverterNum is zero-based. */
+  /* Only inverter number 1 has such a Logfile. For other inverters,
+  a void capability is returned. */
+  Logfile getActualVoltageLogfile(unsigned byte inverterNum);
+
+  /** Get a read-only capability to the Logfile containing LEDLogRecord records
+  for the specified inverter.  inverterNum is zero-based. */
+  Logfile getLEDsLogfile(unsigned byte inverterNum);
+
+  /* Disable issuing commands to all SWCAs.
+  This can be used to stop the software from managing the inverters'
+  menus via the SWCAs, allowing them to be managed at the physical console. */
+  void disableCommands();
+
+  /* Enable issuing commands to all SWCAs. 
+  This is the initial state. */
+  void enableCommands();
+
+  // The following are executed on request.
+  // All raise already if a request is already in progress.
+  // All raise disabled if commands are disabled.
+  // All "set" operations raise key.RequestError if the value is
+  //   not acceptable.
+  // All voltages in v10 are scaled as voltage * 10
+  //   and must be a multiple of 0.2 volts.
+  // All times in tm are in units of 10 minutes.
+
+  // Get the temperature-compensated voltage of the battery.
+  void getTempCompVolts(unsigned byte inverterNum, out short v10);
+
+  short enum InvMode {
+    Off,
+    Search,
+    On,
+    Charge
+  };
+  // FIXME: the following two mode parameters should have type InvMode.
+  // Due to an IDL compiler bug, they have been changed to short.
+  void getInverterMode(unsigned byte inverterNum, out short mode);
+  void setInverterMode(unsigned byte inverterNum, short mode);
+
+  short enum GenMode {
+    Off,
+    Auto,
+    On,
+    Eq	// equalize
+  };
+  // FIXME: the following two mode parameters should have type GenMode.
+  // Due to an IDL compiler bug, they have been changed to short.
+  void getGeneratorMode(unsigned byte inverterNum, out short mode);
+  void setGeneratorMode(unsigned byte inverterNum, short mode);
+
+  void getLBCOVolts(unsigned byte inverterNum, out short v10);
+  void setLBCOVolts(unsigned byte inverterNum, short v10);
+
+  // Note: the bulk voltage is compared with the temperature-compensated
+  // voltage.
+  void getBulkVolts(unsigned byte inverterNum, out short v10);
+  void setBulkVolts(unsigned byte inverterNum, short v10);
+
+  void getAbsorptionTime(unsigned byte inverterNum, out short tm);
+  void setAbsorptionTime(unsigned byte inverterNum, short tm);
+
+  // Note: the float voltage is compared with the temperature-compensated
+  // voltage.
+  void getFloatVolts(unsigned byte inverterNum, out short v10);
+  void setFloatVolts(unsigned byte inverterNum, short v10);
+
+  // Note: the equalize voltage is compared with the temperature-compensated
+  // voltage.
+  void getEqualizeVolts(unsigned byte inverterNum, out short v10);
+  void setEqualizeVolts(unsigned byte inverterNum, short v10);
+
+  void getEqualizeTime(unsigned byte inverterNum, out short tm);
+  void setEqualizeTime(unsigned byte inverterNum, short tm);
+
+  void getMaxChargeAmps(unsigned byte inverterNum, out short amps);
+  void setMaxChargeAmps(unsigned byte inverterNum, short amps);
+
+  void getGenAmps(unsigned byte inverterNum, out short amps);
+  void setGenAmps(unsigned byte inverterNum, short amps);
+
+  void get24HourStartVolts(unsigned byte inverterNum, out short v10);
+  void set24HourStartVolts(unsigned byte inverterNum, short v10);
+
+  void get2HourStartVolts(unsigned byte inverterNum, out short v10);
+  void set2HourStartVolts(unsigned byte inverterNum, short v10);
+
+  void get15MinStartVolts(unsigned byte inverterNum, out short v10);
+  void set15MinStartVolts(unsigned byte inverterNum, short v10);
+};
+
+// Interface for internal use only:
+interface SWCANotify extends key
+{
+  void notify();
+};

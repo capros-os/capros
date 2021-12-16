@@ -1,7 +1,9 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2009, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,11 +21,13 @@
 #
 
 EROS_SRC=../../..
+BUILDDIR=.
 
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/vmdbg
 OBJECTS=$(BUILDDIR)/vmdbg.o
+CLEANLIST=vmdbg ../../bin/vmdbg
 
 include $(EROS_SRC)/build/make/makerules.mk
 

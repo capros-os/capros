@@ -1,0 +1,5 @@
+This domain demonstrates a parent window with one child window.  Note
+that the child is clipped to its parent and is rendered relative to
+its parent.  Also note the (arbitrary) limits as to the movement of
+the child within the parent.  Specifically, some portion of the
+child's titlebar is always visible.

@@ -1,0 +1,18 @@
+package capros;
+
+/** Interface to the Checkpoint key.
+ *
+ */
+interface Checkpoint extends key raises(FutureTime) {
+  exception FutureTime;
+
+  /** Take a checkpoint.
+
+  This operation asks the kernel to ensure that a checkpoint has been
+  committed whose demarcation time is later than timeToSave,
+  which is a persistent monotonic time.
+  If timeToSave is in the future, this raises FutureTime. */
+  void ensureCheckpoint(unsigned long long
+  // Due to a bug in capidl, Sleep.nanoseconds_t does not work here
+    timeToSave);
+};

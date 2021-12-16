@@ -1,0 +1,1869 @@
+	.file	"interrupt.S"
+/*
+ * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005-2010, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/* To do
+
+	common interrupt path
+	invocation path
+	gp path
+	pf path
+   */
+	
+/* The fast IPC code has been removed so that I can work on various
+   things. The last EROS commit that contained working fast IPC code
+   was PUBLIC/EROS/DEV/eros/72 */
+	
+#include <eros/arch/i486/asm.h>
+#include <eros/arch/i486/target-asm.h>
+#include "PTE486.h"
+#include <eros/Invoke.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Process.h>
+
+#define SPURIOUS_CHECK
+/* #define V86_SUPPORT */
+#define DEBUG_NESTED_IRET
+#define TRAP_DEBUG
+	
+#include "process_asm_offsets.h"
+
+/* Offsets into a virgin trap frame */
+#define TR_OFF_SS       24
+#define TR_OFF_ESP      20
+#define TR_OFF_EFLAGS   16
+#define TR_OFF_CS       12
+#define TR_OFF_EIP       8
+#define TR_OFF_Error     4
+/* #define TR_OFF_ExceptNo  0 */
+	
+/* Offsets into stack-based IPC frame */
+#define IPC_invType	0
+#define IPC_invKey	4
+#define IPC_sndLen	8
+#define IPC_sndPtr	12
+#define IPC_sndKeys	16
+#define IPC_rcvLen	20
+#define IPC_rcvPtr	24
+#define IPC_rcvKeys	28
+
+#ifdef OPTION_OB_MOD_CHECK
+#define OBHDR_SZ        0x34
+#else
+#define OBHDR_SZ        0x30
+#endif
+
+#define OFF_THRD_CTXT   8
+
+	.data
+#ifdef OPTION_KERN_PROFILE
+GEXT(KernelProfileTable)
+	.long 0
+#endif
+
+GEXT(DomainTracingScratchpad)
+	.long 0
+	.long 0
+/*
+ * On interrupt or trap, we wish to build a stack image that captures
+ * the per-process state.  When we are done with all of this, the stack 
+ * will look as follows:
+ *
+ *  invType;
+ *  rcvPtr;
+ *  sndLen;
+ *  sndPtr;
+ *  gs     if from user mode, else unused
+ *  fs     if from user mode, else unused
+ *  ds     if from user mode, else unused
+ *  es     if from user mode, else unused
+ *  ss     if from user mode, else unused
+ *  esp    if from user mode, else unused
+ *  eflags
+ *  cs
+ *  eip
+ *  error code (zero if none)
+ *  trap number/interrupt number
+ *  eax
+ *  ecx
+ *  edx
+ *  ebx
+ *  cr2  if page fault, else unused
+ *  ebp
+ *  esi
+ *  edi
+ *  cr3  <- %esp
+ *
+ * An implication of the 'unused' entries is that not all of the
+ * SaveArea structure is necessarily valid. This is exactly true; the
+ * kernel save area simply doesn't need to include all of the state
+ * that the user save area does.
+ *
+ * ARCHITECTURAL BRAIN DEATH ALERT
+ *
+ * One of the more special "features" of the x86 is that it can take
+ * exceptions on the IRET instruction.  This shouldn't happen when
+ * returning to a kernel-mode thread, where we fully control what goes
+ * on to the stack, but there really isn't much we can do to stop user
+ * code from, say, attempting to load invalid segment register values.
+ *
+ * This isn't all that big a problem, given that we can arrange things
+ * so as to recover properly, but one needs to be aware of it in order to
+ * understand how the hell reload works.
+ *
+ * There are 5 instructions in the user process reload sequence that can 
+ * cause a cascaded exception:
+ *
+ *	popl    %es
+ *	popl    %ds
+ *	popl    %fs
+ *	popl    %gs
+ * and
+ *      iret
+ *
+ * The cascaded exception happens if any of the segment selectors are
+ * inappropriate, or if fetching the instruction at CS:EIP causes a
+ * page fault.  In that event, we will end up taking an exception back
+ * onto the user save area before the old exception has been
+ * completely dealt with. The exceptions that might be taken in such a
+ * case are:
+ *
+ *       #GP    -- if code seg was bogus
+ *       #SS    -- if stack seg was bogus
+ *       #NP    -- if stack segment was not present
+ *       #TS    -- if returning to invalid task segment
+ *       #AC    -- if alignment checking enabled
+ *       #PF    -- if instruction page not present
+ *
+ * If one of these occurs, it will push a minimum of 5 words before we
+ * get a chance to set things right:
+ *
+ *      exception number
+ *      error code
+ *      eip
+ *      cs
+ *      eflags
+ *
+ * The trick in such a case is to patch up the stack so that it looks
+ * like this exception was generated by the user instruction rather
+ * than by the return path.  In the iret case, the 5 words that get
+ * clobbered can be reconstructed from the state on the processor.
+ * Unfortunately, the same is NOT true when a fault occurs during one
+ * of the segment reloads.
+ *
+ * If a cascaded interrupt is taken, we examine the return PC to see
+ * if it was the PC of the IRET instruction.  If so, the portion of
+ * the save area that was smashed is:
+ *
+ *      SMASHED                           WITH
+ *      error code (zero if none)         eflags
+ *      trap number/interrupt number      kern code cs
+ *      eax                               eip  of IRET instr
+ *      ecx                               err code
+ * sp-> edx                               trap no
+ *
+ * What we do in this case is move the err code and trap number up 3
+ * words (i.e. copy them into their proper positions), rewrite the
+ * %eax, %ecx, and %edx values from the processor registers, adjust
+ * the stack pointer to point to the bottom of the save area, and
+ * dispatch back into OnTrapOrInterrupt
+ */
+	
+.text
+	/*
+	 * Interrupt entry point definitions:
+	 */
+	
+#define DEFENTRY(vecno) \
+GEXT(istub##vecno) \
+	pushl	$0; \
+	pushl	$vecno; \
+	jmp	EXT(intr_entry)
+	
+#define DEFENTRY_EC(vecno, label) \
+GEXT(istub##vecno) \
+	pushl	$vecno; \
+	jmp	EXT(label)
+	
+	/* Steps in the stuff below:
+	 *  1. Save enough to check for spurious interrupt.  Using pusha
+	 *     wastes about 2 cycles, but is worth it if we decide to
+	 *     actually TAKE the interrupt.
+	 *
+	 *  2. See if the interrupt was spurious.  If so, forget it and bail
+	 *
+	 *  3. Mark the interrupt as pending
+	 *
+	 *  4. ACK the PIC
+	 *
+	 *  5. Check if nested, and bail if appropriate
+	 */
+	
+	/* Note that this definition only works because the kernel is
+	 * mapped into the user address space!!!
+	 */
+#define DEFIRQ1(pendingbit, vecno, PICbit) \
+GEXT(istub##vecno) \
+	/* Save minimal state: */; \
+	pushl	$0; \
+	pushl	$vecno; \
+	pusha; \
+	;; \
+	/* Disable the interrupt on the PIC: */; \
+	ss ; \
+	movb	EXT(pic1_mask),%al; \
+	orb	$PICbit,%al; \
+	outb	%al,$0x21; \
+	ss ; \
+	movb	%al,EXT(pic1_mask); \
+	/* ACK the PIC: */; \
+	movb	$0x20,%al; \
+	outb	%al,$0x20; \
+	jmp	EXT(intr_common)
+	
+#define DEFIRQ2(pendingbit, vecno, PICbit) \
+GEXT(istub##vecno) \
+	/* Save minimal state: */; \
+	pushl	$0; \
+	pushl	$vecno; \
+	pusha; \
+	;; \
+	/* Disable the interrupt on the PIC: */; \
+	ss ; \
+	movb	EXT(pic2_mask),%al; \
+	orb	$PICbit,%al; \
+	outb	%al,$0xa1; \
+	ss ; \
+	movb	%al,EXT(pic2_mask); \
+	movb	$0x20,%al; \
+	/* ACK the secondary PIC: */; \
+	outb	%al,$0xa0; \
+	/* ACK the primary PIC: */; \
+	outb	%al,$0x20; \
+	jmp	EXT(intr_common)
+	
+DEFENTRY(0x00)
+DEFENTRY(0x01)
+DEFENTRY(0x02)
+DEFENTRY(0x03)
+DEFENTRY(0x04)
+DEFENTRY(0x05)
+DEFENTRY(0x06)
+	
+DEFENTRY(0x07)
+DEFENTRY(0x08)
+DEFENTRY(0x09)
+	/*
+	 * if invaltss happens in the kernel return path we'll never ses 
+	 * it, so don't even bother:
+	 */
+DEFENTRY_EC(0x0a, intr_entry)
+DEFENTRY_EC(0x0b, intr_ec)
+DEFENTRY_EC(0x0c, intr_ec)
+DEFENTRY_EC(0x0d, intr_ec)
+DEFENTRY_EC(0x0e, intr_pagefault)
+DEFENTRY(0x0f)
+	
+DEFENTRY(0x10)
+DEFENTRY_EC(0x11, intr_entry)	/* alignment check */
+DEFENTRY(0x12)		/* machine check -- not sure whether this 
+			   generates an EC or not */
+DEFENTRY(0x13)
+DEFENTRY(0x14)
+DEFENTRY(0x15)
+DEFENTRY(0x16)
+DEFENTRY(0x17)
+DEFENTRY(0x18)
+DEFENTRY(0x19)
+DEFENTRY(0x1a)
+DEFENTRY(0x1b)
+DEFENTRY(0x1c)
+DEFENTRY(0x1d)
+DEFENTRY(0x1e)
+DEFENTRY(0x1f)
+
+	/* 0x20 is clock fast path interrupt - see below */
+DEFIRQ1(0x2, 0x21, 0x2)
+DEFIRQ1(0x4, 0x22, 0x4)
+DEFIRQ1(0x8, 0x23, 0x8)
+DEFIRQ1(0x10, 0x24, 0x10)
+DEFIRQ1(0x20, 0x25, 0x20)
+DEFIRQ1(0x40, 0x26, 0x40)
+#ifndef SPURIOUS_CHECK
+DEFIRQ1(0x80, 0x27, 0x80)
+#endif
+	
+DEFIRQ2(0x100, 0x28, 0x1)
+DEFIRQ2(0x200, 0x29, 0x2)
+DEFIRQ2(0x400, 0x2a, 0x4)
+DEFIRQ2(0x800, 0x2b, 0x8)
+DEFIRQ2(0x1000, 0x2c, 0x10)
+DEFIRQ2(0x2000, 0x2d, 0x20)
+DEFIRQ2(0x4000, 0x2e, 0x40)
+#ifndef SPURIOUS_CHECK
+DEFIRQ2(0x8000, 0x2f, 0x80)
+#endif
+	
+#ifdef SPURIOUS_CHECK
+	/* Entry point for IRQ's 7 and 15 are a special case, because 
+	 * the hardware may generate spurious interrupts that we wish
+	 * to suppress.
+	 */
+GEXT(istub0x27)
+	/* Save minimal state: */;
+	pushl	$0
+	pushl	$0x27
+	pusha
+
+	/* Check for spurious interrupt: */
+	movb	$0xb,%al
+	outb	%al,$0x20
+	inb	$0x20,%al
+	cmpb    $0,%al		/* test sign bit -- if clear, spurious */
+	jge     1f
+	
+	/* Disable the interrupt on the PIC: */
+	ss
+	movb	EXT(pic1_mask),%al
+	orb	$0x80,%al
+	outb	%al,$0x21
+	ss
+	movb	%al,EXT(pic1_mask)
+	/* ACK the PIC: */
+	movb	$0x20,%al
+	outb	%al,$0x20
+	jmp	EXT(intr_common)
+
+1:	/* spurious interrupt -- ack and bail */
+	/* ACK the PIC: */
+	movb	$0x20,%al
+	outb	%al,$0x20
+	jmp     EXT(.L_fast_int_exit)
+
+GEXT(istub0x2f)
+	/* Save minimal state: */;
+	pushl	$0
+	pushl	$0x2f
+	pusha
+
+	/* Check for spurious interrupt: */
+	movb	$0xb,%al
+	outb	%al,$0xa0
+	inb	$0xa0,%al
+	cmpb    $0,%al		/* test sign bit -- if clear, spurious */
+	jge     1f
+	
+	/* Disable the interrupt on the PIC: */
+	ss
+	movb	EXT(pic2_mask),%al
+	orb	$0x80,%al
+	outb	%al,$0x21
+	ss
+	movb	%al,EXT(pic2_mask)
+	/* ACK both primary and secondary PIC: */
+	movb	$0x20,%al
+	outb	%al,$0x20
+	outb	%al,$0xa0
+	jmp	EXT(intr_common)
+
+1:	/* spurious interrupt -- ack and bail */
+	/* ACK the PIC: */
+	movb	$0x20,%al
+	outb	%al,$0x20
+	outb	%al,$0xa0
+	jmp     EXT(.L_fast_int_exit)
+#endif
+	
+DEFENTRY(0x30)
+	
+	/* INVOCATION interrupt (0x31) is HIGH FREQUENCY, and so has been 
+	   moved to just above handler for benefit of cache adjacency. */
+	
+.data
+.LC1:	.string "Fault stack is 0x%08x\n\0"
+	
+.text
+	/*
+	 * All the interrupts that push an error code can interrupt the 
+ 	 * IRET, and we therefore may need to reshuffle the stack:
+	 */
+GEXT(intr_ec)
+	/* If the trap came from v86 code, or from user code, handle
+	   it as a user level trap. */
+#ifdef V86_SUPPORT
+	/*
+	 * If we interrupted a V86 task, segment registers have
+	 * already been saved, so no need to save them redundantly.
+	 */
+
+	testl	$0x20000,TR_OFF_EFLAGS(%esp)	/* is VM bit set? */
+	jnz	intr_entry		/* normal fault */
+#endif
+	testl	$3,TR_OFF_CS(%esp)		/* supervisor mode? */
+	jnz	intr_entry		/* normal fault */
+	
+	cmpl    $L_ipc_block_hi, TR_OFF_EIP(%esp)
+	je	intr_gp_ipc
+	cmpl    $L_ipc_block_lo, TR_OFF_EIP(%esp)
+	je	intr_gp_ipc
+	
+	cmpl    $L_iret_pc, TR_OFF_EIP(%esp)
+	je	1f
+	cmpl    $L_fast_int_iret_pc, TR_OFF_EIP(%esp)
+	je	L_fault_nested_iret
+	cmpl	$L_reload_ds, TR_OFF_EIP(%esp)
+	je	1f
+	cmpl	$L_reload_es, TR_OFF_EIP(%esp)
+	je	1f
+	cmpl	$L_reload_fs, TR_OFF_EIP(%esp)
+	je	1f
+	cmpl	$L_reload_gs, TR_OFF_EIP(%esp)
+	je	1f
+	cmpl    $L_v86_iret_pc, TR_OFF_EIP(%esp)
+	je	1f
+	
+	/* It's a normal (fatal) kernel-mode fault */
+	jmp	intr_entry
+
+	/*
+	 * Recovering from an exception on the IRET instruction. Here
+	 * is what we want v/s what the stack now holds:
+	 *
+	 *          WANT        HAVE
+	 *          eflags      eflags
+	 *          cs          cs
+	 *          eip         eip
+	 *          err code    eflags
+	 *          int number  cs	
+	 *          eax         eip
+	 *          ecx         error code
+	 * %esp->   edx         int number    <- %esp
+	 *          ebx
+	 *          cr2  if page fault, else unused
+	 *          ebp
+	 *          esi
+	 *          edi
+	 *          cr3
+	 *
+	 * In addition, only %cs and %ss hold proper kernel segment
+	 * selectors.  Save %eax to it's proper place using a segment
+	 * override, and then reload the data segments:
+	 */
+
+1:	movl	%esp,%ebp
+	subl	$FX_OFF_EDX,%ebp
+	
+	movl    %eax,FX_OFF_EAX(%ebp)   /* re-save %eax by hand */
+
+	mov	$0x10,%ax
+	mov	%ax,%ds
+	mov	%ax,%es
+
+	/*
+	 * Reshuffle the stack, moving the error code and interrupt number
+	 * up two words, and constructing a stack that looks like
+	 * what pushal would create:
+	 */
+
+	movl	TR_OFF_Error(%esp),%eax	/* err code */
+	movl	%eax,FX_OFF_Error(%ebp)   /* reshuffled err code */
+	movl	(%esp),%eax	/* int no */
+	movl	%eax,FX_OFF_ExceptNo(%ebp)   /* reshuffled int no */
+	movl    %ecx,FX_OFF_ECX(%ebp)    /* save %ecx by hand */
+	movl    %edx,FX_OFF_EDX(%ebp)    /* save %edx by hand */
+	
+	jmp	L_dispatch_interrupt
+
+L_fault_nested_iret:
+	hlt
+	jmp L_fault_nested_iret
+	
+	/* General protection fault can occur in the inbound IPC path if
+	   the user handed us an IPC descriptor block pointer that resulted
+	   in an out-of-bounds reference.  If that occurred:	
+	
+	       %ds, %es, %fs, %gs still hold whatever they held at the
+	           time of the fault.
+               %eax points to current context.
+
+	   Backpatch the original save area to look like this was a page 
+	   fault taken on the INT instruction, unwind the kernel stack,
+	   and take the standard user-level fault entry path.
+
+	   Otherwise just branch to the intr_ec path.
+	 */
+	
+	.align 16
+LEXT(intr_gp_ipc)
+	movl	(%esp),%edx	/* pick up vector number */
+	movl    %edx,FX_OFF_ExceptNo(%ebp)	/* copy it in user save area */
+	
+	/* This fault was actually a trap instruction, which we are
+	   fixing up to look like a page fault.  Roll the PC back
+	   so that the correct instruction will get restarted... */
+	subl	$2,FX_OFF_EIP(%ebp)
+	
+	jmp	L_application_fault
+	
+	/*
+	 * Page fault interrupt generates an error code diagnosing the 
+	 * fault.  It can occur on the iret/movseg path but if so it's an 
+	 * instruction fetch fault, and should be considered a fatal error,
+	 * so we don't do anything special about that case (shouldn't 
+	 * happen anyway).  We must take care, however, only to check the
+	 * page fault EIP if the fault occurred from supervisor mode!
+	 */
+	.align 16
+LEXT(intr_pagefault)
+	testl	$0x4,TR_OFF_Error(%esp)		/* were we in supervisor mode? */
+	jnz	pf_user_mode
+	
+	cmpl    $L_iret_pc, TR_OFF_EIP(%esp)
+	je	pf_iret
+	
+	cmpl    $L_ipc_block_hi, TR_OFF_EIP(%esp)
+	je	pf_ipc_block
+	cmpl    $L_ipc_block_lo, TR_OFF_EIP(%esp)
+	je	pf_ipc_block
+	
+pf_user_mode:	
+	pusha
+#if FX_OFF_PUSHA != 0
+	subl	$FX_OFF_PUSHA,%esp
+#endif
+	movl	%cr2,%eax
+	movl	%eax,FX_OFF_ExceptAddr(%esp)
+	jmp	EXT(intr_common_fx)
+
+	/* We have taken a page fault on the IRET instruction.  This is 
+	 * not a recoverable fault.  Display the fault address and halt.
+	 */
+pf_iret:
+#if 0
+        ss
+	movl	$0x0f520f49,0x000b8000	/* "IR" */
+        ss
+	movl	$0x0f540f45,0x000b8004	/* "ET" */
+        ss
+	movl	$0x0f500f20,0x000b8008	/* " P" */
+        ss
+	movl	$0x0f200f46,0x000b800C	/* "F " */
+#if 1
+        ss
+	movl	$0x0f780f30,0x000b8010	/* "0x" */
+        ss
+	movl	$0x000b8022,%esi
+	
+pf_show_addr:
+	/* Print out the fault address */
+	movb	$0x0f,%ah
+	movl    %cr2,%ebx
+	movl	$0x8,%ecx
+	
+px:	movb    %bl,%al
+	andb	$0xf,%al
+	cmpb	$0x9,%al
+	ja	hex_digit
+	addb	$0x30,%al	/* add ascii of '0' */
+	jmp	got_digit
+hex_digit:	
+	addb	$0x41,%al	/* add ascii of 'A' */
+	subb	$10,%al		/* subtract 10 */
+got_digit:	
+	shr	$4,%ebx
+	ss
+	movw	%ax,(%esi)
+	subl	$2,%esi
+	loop	px
+#endif
+#endif	
+2:	hlt
+	jmp 2b
+	
+	/* We page faulted somewhere in the IPC block probe, or 
+	   while probing the send string
+	
+	   %cr2 holds the linear fault address.
+	   %ds, %es, %fs, %gs still hold whatever they held at the
+	       time of the fault.
+	   %eax points to current context.
+
+	   backpatch the save area to look like this was a page fault
+	   taken on the INT instruction, unwind the kernel stack,
+	   and take the standard user-level fault entry path.
+	
+	   Note that the fault address is LINEAR, which is what the
+	   page fault handler wants.
+	   */
+	
+pf_ipc_block:
+	movl	%cr2,%ebx
+	movl	%ebx,FX_OFF_ExceptAddr(%ebp)	/* exception address */
+	movl    $0x0e,FX_OFF_ExceptNo(%ebp)	/* page fault exception */
+	movl    $0x4,FX_OFF_Error(%ebp)	/* user-mode read access fault */
+	
+	/* This fault was actually a trap instruction, which we are
+	   fixing up to look like a page fault.  Roll the PC back
+	   so that the correct instruction will get restarted... */
+	subl	$2,FX_OFF_EIP(%ebp)
+	
+	jmp	L_application_fault
+	
+	
+	
+	.align 16
+	/* Special fast-path clock entry point, which is interrupt 0x20. */
+ENTRY(intr_clock)
+	pushl	$0		/* error code, in case not fast path */
+	pushl	$0x20		/* interrupt #, in case not fast path */
+
+	pusha			/* cheapest way to get some scratch
+				   space that is compatible with the
+				   long path. */
+	
+#if FX_OFF_PUSHA != 0
+	subl    $FX_OFF_PUSHA,%esp
+#endif
+	
+	/* ACK the PIC: */
+	movb	$0x20,%al
+	outb	%al,$0x20
+	
+	/*
+	 * Spurious interrupts don't show up on this line, so don't bother 
+	 * to check.
+	 */
+	
+	/*
+	 * First, bump the counter. Do this on the in-memory copy, so
+	 * that it is properly updated.
+	 */
+	ss
+	addl $1,sysT_now
+	ss
+	adcl $0,sysT_now+4
+
+#ifdef OPTION_KERN_PROFILE
+	ss
+	cmpl $0,EXT(KernelProfileTable)
+	je no_profiling
+	/* Bottom of stack at this juncture is EDI from the PUSHA, thus
+	   the funny offset computations */
+	ss
+	testl	$3,FX_OFF_CS(%esp)	/* test interrupted kernel? */
+	jnz no_profiling
+	ss	/* might not be necessary for ESP-relative load */
+	movl FX_OFF_EIP(%esp),%ecx
+	ss
+	movl FX_OFF_EIP(%esp),%edx
+	andl $0x3ffffffc,%edx	/* convert to linear address */
+	shrl $2,%edx		/* reduce to table slot offset */
+	ss
+	addl EXT(KernelProfileTable),%edx /* add table base */
+	cmpl $EXT(etext),%ecx
+	ss
+	incl (%edx)
+no_profiling:
+#endif
+	/*
+	 * Check to see if there is anything worth waking up:
+	 */
+	ss
+	movl sysT_wakeup+4,%ecx
+	ss
+	movl sysT_now+4,%edx
+	cmpl %edx,%ecx
+	ja .L_fast_int_exit
+	jne 1f	/* wake someone up */
+	ss
+	movl sysT_now,%edx
+	ss
+	cmpl %edx,sysT_wakeup
+	ja  EXT(.L_fast_int_exit)		/* nothing to do */
+	
+	/* We definitely need to wake someone up */
+1:	jmp     EXT(intr_common_fx)
+
+	/* FALL THROUGH */
+
+	/* This is placed here for cache locality, because the timer 
+	 * interrupt is by far the highest stress on the interrupt 
+	 * system. */
+LEXT(.L_fast_int_exit)
+#if FX_OFF_PUSHA != 0
+	addl	$FX_OFF_PUSHA,%esp
+#endif
+	/* restore the registers: */
+	popa
+	/* scrub the int # and error code and return from interrupt: */
+	addl	$8,%esp
+L_fast_int_iret_pc:
+	iret
+
+.text
+	.align 16
+ENTRY(intr_entry)
+        /* If we interrupted the call gate path, test for it and
+	   recover here! */
+	pusha
+
+/* 
+ * intr_common MUST NOT BE AN ENTRY because alignment
+ * might mess up the code generation.
+ */
+LEXT(intr_common)
+#if FX_OFF_PUSHA != 0
+	subl    $FX_OFF_PUSHA,%esp
+#endif
+
+LEXT(intr_common_fx)
+	mov	%esp,%ebp	/* pointer to save area */
+
+#ifdef V86_SUPPORT
+	/*
+	 * If we interrupted a V86 task, segment registers have
+	 * already been saved, so no need to save them redundantly.
+	 */
+
+	testl	$0x20000,FX_OFF_EFLAGS(%ebp)	/* is VM bit set? */
+	jnz	L_load_kernel_segments
+#endif
+	
+	/*
+	 * If we interrupted the kernel, there is no need to
+	 * redundantly save/restore the segment registers.  Once we
+	 * know that we did not take a V86 interrupt, we can test the
+	 * low 2 bits of the saved CS to determine the privilege level
+	 * that we interrupted:
+	 */
+	testl	$3,FX_OFF_CS(%ebp)
+	jz	L_dispatch_interrupt
+
+L_application_fault:	
+#if defined(DOMAIN_TRACING)
+	/* ESP POINTS TO BOTTOM OF SAVE AREA */
+	ss
+	cmpl	$5,EXT(CpuType)
+	jb	1f		/* don't call it if not supported */
+	
+	.byte 0x0f
+	.byte 0x31		/* RDTSC instr - results to %edx:%eax */
+	
+	ss
+	subl EXT(DomainTracingScratchpad),%eax
+	ss
+	sbbl EXT(DomainTracingScratchpad)+4,%edx
+	
+	ss
+	addl %eax,90(%esp)
+	ss
+	adcl %edx,94(%esp)
+	
+	mov	%esp,%eax	/* pointer to save area */
+	/* I don't think the above line is needed. 
+           The save area pointer is in %ebp. */
+1:	
+#endif
+	
+	/* Populate the pseudo-registers with zero values... */
+	movl	$0,FX_OFF_invType(%ebp)
+	movl	$0,FX_OFF_invKey(%ebp)
+	movl	$0,FX_OFF_sndLen(%ebp)
+	movl	$0,FX_OFF_sndPtr(%ebp)
+	movl	$0,FX_OFF_sndKeys(%ebp)
+	movl	$0,FX_OFF_rcvKeys(%ebp)
+
+	/* We could push these, but doing things this way eliminates AGEN 
+	 * interlocks on the Pentium and later
+	 */
+	movw	%gs,FX_OFF_GS(%ebp)
+	movw	%fs,FX_OFF_FS(%ebp)
+	movw	%ds,FX_OFF_DS(%ebp)
+	movw	%es,FX_OFF_ES(%ebp)
+
+L_load_kernel_segments:
+	/*
+	 * Prior to loading the address space pointer, need to make sure
+	 * we are running from a copy of the interrupt stub that exists
+	 * in the domain's address space:
+	 */
+
+	/*
+	 * Now load the kernel segments.  We will continue to run code
+	 * out of the Window.
+	 */
+	mov	$0x10,%bx
+	mov	%bx,%ds
+	mov	%bx,%es			/* for string copies */
+
+	/* the kernel doesn't use any other segments. */
+
+L_dispatch_interrupt:
+	/*
+	 * %ebp now holds the save area pointer, which is valid in both
+	 * the kernel and user address spaces.
+	 *
+	 * If we aren't already running on the kernel stack, switch to
+	 * it now.  Nothing special will be required on return to the
+	 * thread, since we will reload explicitly from the save area.
+	 * We can determine whether we came from the kernel by testing the
+	 * least significant bits of the %CS register, but this only works
+	 * if we are NOT in V8086 mode.
+	 */
+	
+	testl	$0x20000,FX_OFF_EFLAGS(%ebp)	/* is VM bit set? */
+	jnz	1f
+	
+	testl	$3,FX_OFF_CS(%ebp)
+	jz	L_on_kernel_stack
+	
+1:	movl	PR_OFF_cpuStack-PR_OFF_FIXREGS(%ebp),%esp
+	/* We interrupted a process. */
+
+L_on_kernel_stack:
+	/*
+	 * Now running out of kernel data and stack.  
+	 */
+	
+	/*
+	 * Call the interrupt dispatch routine, passing it a pointer
+	 * to the register save area.  It is entirely up to the interrupt
+	 * routines to decide whether or not to re-enable interrupts.
+	 */
+	pushl	%ebp
+
+        /* CONVERSION */
+	call	EXT(idt_OnTrapOrInterrupt)
+        /* END CONVERSION */
+
+	/* This should NEVER return */
+	jmp	EXT(halt)
+
+
+	/*
+	 * Entry point for IPC invocations - a special-cased version of
+	 * the path above.
+	 */
+	  
+	.align 16
+ENTRY(intr_InvokeKey)
+	pushl	$0x0		/* zero error code */
+	pushl	$0x31		/* IPC trap number */
+	
+	pusha
+#if FX_OFF_PUSHA != 0
+	subl    $FX_OFF_PUSHA,%esp
+#endif
+
+	movl	%ESP,%EBP
+
+	/* We could push these, but doing things this way eliminates AGEN 
+	 * interlocks on the Pentium and later
+	 */
+	movw	%gs,FX_OFF_GS(%ebp)
+	movw	%fs,FX_OFF_FS(%ebp)
+	movw	%ds,FX_OFF_DS(%ebp)
+	movw	%es,FX_OFF_ES(%ebp)
+
+	movl	PR_OFF_cpuStack-PR_OFF_FIXREGS(%ebp),%esp
+	
+	/* VALIDATE THE IPC BLOCK
+	 *
+	 * There are two possible problems with the IPC block:	
+	 *
+	 *   1. page not present, leading to invalid kernel 
+	 *      reference.
+	 *   2. alleged block not in user space (security attack)
+	 *
+	 * We need to check the first by probing, and the second
+	 * by arithmetic or by some form of segment logic.
+	 *
+	 * Not all EROS address spaces are the same size.  If the check
+	 * can be pulled off by using the segmentation logic to advantage,
+	 * we can avoid a bit of arithmetic and also avoid needing to load
+	 * the bound from somewhere.
+	 *
+	 * EROS defines a flat, 32-bit address space, so we can safely 
+	 * reference the IPC block via %DS, provided %DS holds a kosher 
+	 * value.  At this point in the code, either %DS is valid or the
+	 * user is dicking with us.  For the present, we are marking 
+	 * DOMAINCODESEG readable, so having DOMAINCODESEG loaded in %DS
+	 * at this point doesn't change anything (base and bounds on 
+	 * DOMAINCODESEG and DOMAINDATASEG are identical).  If we change
+	 * DOMAINCODESEG to Exec only, a reference through DOMAINCODESEG
+	 * will generate a GP fault, which we can recover from in the GP
+	 * fault handler.
+	 *
+	 * We know that %DS does not hold NULLSEG because the null segment
+	 * is not marked "present" in the GDT.  Attempts to load NULLSEG
+	 * therefore cause a GP fault, in which case the program never got
+	 * as far as running this instruction.  If a debugger contrived to
+	 * put '0' in a segment register field in the domain root, we would
+	 * have invoked the keeper while preparing the domain.
+	 *
+	 * In all other cases %DS holds the DOMAINDATASEG,
+	 *
+	 * If the alleged IPC block is out of legal user space, then 
+	 * loading the first and last byte of it should generate a GP fault
+	 * due to a segment bounds violation.  Further, loading these two 
+	 * bytes will cause a page fault if the page is not present.
+	 *
+	 * We therefore probe the IPC block before loading the kernel data 
+	 * segment registers.
+	 * 
+	 */
+	
+	movl	FX_OFF_EBP(%ebp),%ebx	  /* user EBP to %ebx */
+	
+	/* Do the high address first to give the store unit maximal
+	   opportunities to merge the writes. 
+	
+	   This is the reference that will GP fault if %DS is invalid.
+	
+	   This reference will generate a bounds error if the top of
+	   the alleged IPC block is in kernel space.
+	
+	   This reference may generate a page fault if the uppermost
+	   byte of the IPC descriptor block falls in an invalid page.
+	*/
+L_ipc_block_hi:
+	/* RCV KEYS */
+	movl	IPC_rcvKeys(%ebx),%edx	/* NOTE via CALLER %DS */
+	movl	%edx,FX_OFF_rcvKeys(%ebp)	/* NOTE via KERNEL %SS */
+	/* Now do the low address.
+	
+	   This reference will generate a bounds error if the bottom of
+	   the alleged IPC block is in kernel space.  The fault could
+	   occur here rather than at L_ipc_block_hi if the passed IPC
+	   block pointer was, say, 0xFFFFFFF8, because the offset 
+	   addition causes rollover in the AGEN unit before the limit is 
+	   checked.
+	
+	   This reference may generate a page fault if the lowermost
+	   byte of the IPC descriptor block falls in an invalid page.
+	*/
+L_ipc_block_lo:
+	/* INVTYPE */
+	movl	IPC_invType(%ebx),%esi	/* NOTE via CALLER %DS */
+	/* INVKEY */
+	movl	IPC_invKey(%ebx),%ecx	/* NOTE via CALLER %DS */
+	
+	/* INVTYPE */
+	movl	%esi,FX_OFF_invType(%ebp)	/* NOTE via KERNEL %SS */
+	/* INVKEY */
+	movl	%ecx,FX_OFF_invKey(%ebp)	/* NOTE via KERNEL %SS */
+	
+	/* SND LEN */
+	movl	IPC_sndLen(%ebx),%ecx	/* NOTE via CALLER %DS */
+	/* SND PTR */
+	movl	IPC_sndPtr(%ebx),%esi	/* NOTE via CALLER %DS */
+	
+	/* SND LEN */
+	movl	%ecx,FX_OFF_sndLen(%ebp)	/* NOTE via KERNEL %SS */
+	/* SND PTR */
+	movl	%esi,FX_OFF_sndPtr(%ebp)	/* NOTE via KERNEL %SS */
+	
+	/* SND KEYS */
+	movl	IPC_sndKeys(%ebx),%edx	/* NOTE via CALLER %DS */
+	movl	%edx,FX_OFF_sndKeys(%ebp)   /* NOTE via KERNEL %SS */
+	
+	/* First need to make sure that we have a well-formed IPC 
+	 * invocation.
+	 *
+	 * ebp points to active process's trapFrame
+	 * ecx holds xmit length
+	 * edx holds sndKeys
+	 */
+
+	cmpl	$EROS_NODE_SIZE,FX_OFF_invKey(%ebp)
+	jae	bogus_ipc_arg_block
+
+	cmpl	$capros_key_messageLimit,%ecx
+	ja	bogus_ipc_arg_block
+	
+	testl	$0xe0e0e0e0,%edx
+	jnz	bogus_ipc_arg_block
+
+	cmpb	$IT_NUM_INVTYPES,FX_OFF_invType(%ebp)
+	jae	bogus_ipc_arg_block
+	
+kern_seg_load:
+	/*
+	 * Now load the kernel segments.  We will continue to run code
+	 * out of the Window.
+	 */
+	mov	$0x10,%dx
+	mov	%dx,%ds
+	mov	%dx,%es			/* for string copies */
+
+#ifdef OPTION_FAST_PATH
+	/* Do not handle string copies in the current fast path */
+	testl	%ecx,%ecx
+	jnz	Standard_Gate_Path
+
+	/* Only handle call, return in the current fast path */
+	cmpb	$IT_Call,FX_OFF_invType(%ebp)
+	ja	Standard_Gate_Path
+	
+	/* Don't do the asm path if there is anybody blocked on
+	   our stall queue. It is too big of a pain in the ass to 
+	   wake them up from assembly level. */
+	leal	PR_OFF_stallQ-PR_OFF_FIXREGS(%ebp),%edx
+	cmpl	%edx,(%edx)
+	jne	Standard_Gate_Path
+	
+	/***********************************************
+	 * REMAINING EXCUSES: 
+	 *  1. key not appropriate type for fast path
+	 *  2. invokee in wrong state
+	 *
+	 * AVAILABLE REGISTERS:
+	 *  %eax,%ebx,%ecx,%edx,%esi,%edi
+	 ***********************************************/
+	
+	/* Set up %edi to point to the invoked key. */
+	movl    FX_OFF_invKey(%ebp),%edi
+	shll	$4,%edi
+	addl	$FX_OFF_keyregs,%edi
+	addl	%ebp,%edi
+		
+	/* If invoked key not prepared start or resume key, give up */
+	testl	$4,13(%edi)	/* test prepared bit */
+	jz	Standard_Gate_Path
+	
+	/* Load target process pointer on the assumption that this is
+	 * a start or a resume key. */
+	movl	8(%edi),%eax
+	
+	/*******************************************
+	 * NOTE %eax now holds pointer to invokee 
+	 *******************************************/
+	
+	/* Three possible interesting values for the key type:
+	 *  0: start key
+	 *  1: resume key
+	 *  >1: other key
+	 */
+	cmpb	$KKT_Resume,12(%edi)	/* test key type */
+	je	L_resume_key
+	ja	Standard_Gate_Path	/* neither start nor resume */
+
+	/* Invoked key is a prepared start key. 
+	 * Need to check that invokee is in the available state. */
+	/* Note, runState isn't valid if process has hazards;
+	 * we check for hazards below. */
+
+	cmpb	$RS_Available,PR_OFF_runState(%eax)
+	jne	Standard_Gate_Path
+	
+L_resume_key:
+#if 0
+	jmp	Standard_Gate_Path /* PROBE */
+#endif
+	
+#ifdef OPTION_SMALL_SPACES
+	cmpl	$0,PR_OFF_smallPTE(%eax)
+	jnz	Standard_Gate_Path /* PROBE */
+	cmpl	$0,FX_OFF_smallPTE(%ebp)
+	jnz	Standard_Gate_Path /* PROBE */
+#endif
+	cmpl	$0,PR_OFF_MappingTable(%eax)
+	je	Standard_Gate_Path
+	
+	cmpb	$0,PR_OFF_hazards(%eax)
+	jne	Standard_Gate_Path
+	
+	testl	$capros_Process_PF_FaultToProcessKeeper,PR_OFF_processFlags(%eax)
+	jnz	Standard_Gate_Path
+	
+	/*************************************************************
+	 * NO REMAINING EXCUSES
+	 *
+	 * Either the invoked key was a start key and we have checked
+	 * that the invokee was available (above), or the invoked key
+	 * was a resume key and we do not NEED to check the invokee
+	 * state because the invariants tell us that the invokee MUST
+	 * be in the waiting state if a valid resume key exists.
+	 *************************************************************/
+	
+	/* Deal with invoker run state. Three possible types of interest:
+	 *
+	 * 0:	non-prompt return
+	 * 1:	prompt return
+	 * 2:	call
+	 */
+	movl	$RS_Available,%ecx
+	movl	$RS_Waiting,%ebx
+	cmpb	$IT_PReturn,FX_OFF_invType(%ebp)
+	cmova	%ebx,%ecx	/* CMOVA won't take immediates. Bother */
+	
+#if 0
+	movb	%cl,FX_OFF_runState(%ebp)
+#endif
+	
+	/* Copy key info field from invoked key */
+	movzwl	14(%edi),%ebx
+	movl	%ebx,PR_OFF_EDI(%eax)
+	
+	/*******************************************************
+	 * Note that %ecx now holds the invoker final state,
+	 * which will be used to decide below whether this was
+	 * a CALL or a RETURN operation in order to copy the
+	 * right first key
+	 *******************************************************/
+	
+#if 0
+	jmp	Standard_Gate_Path /* PROBE */
+#endif
+	
+	/* See if recipient is rejecting all keys: */
+	cmpl	$0,PR_OFF_rcvKeys(%eax)
+	je	L_done_keys
+	
+#if 1
+	jmp	Standard_Gate_Path /* PROBE */
+#endif
+	
+	/* Load address of first dest key reg into %edx: */
+	movzbl	PR_OFF_rcvKeys(%eax),%edi
+	shll	$4,%edi
+	jz	L_copy_key_1
+	addl	$PR_OFF_keyregs,%edi
+	addl	%eax,%edi
+	
+	/* keyBits_Unchain(%edi) */
+	testl	$4,13(%edi)	/* test receive key prepared */
+	jz	L_skip_unlink_0
+	cmpb	$KKT_Page,12(%edi)
+	ja	L_skip_unlink_0
+	
+	/* Unlink target key 0 */
+	movl	(%edi),%ebx	/* prev pointer */
+	movl	4(%edi),%edx	/* next pointer */
+	movl	%ebx,(%edx)	/* next->prev = prev */
+	movl	%edx,4(%ebx)	/* prev->next = next */	
+	
+L_skip_unlink_0:
+	/* If this was a return, we are now available, in which case there
+	 * is a zero value in %ecx that flowed down from above. Use
+	 * that here to decide which way to handle key 0 */
+	jecxz	L_copy_key_0
+
+	/* Now done with %ecx. */
+
+	/* Fabricating prepared resume key to sender */
+	movl	$0x01040000,12(%edi)	/* resume, prepared, no key data */
+	leal	0-PR_OFF_FIXREGS(%ebp),%ebx
+	movl	(%ebx),%ecx		/* %ecx = us.keyring.prev */
+	
+	movl	%ebx,8(%edi)		/* resume.u.gk.context = us */
+	movl	%ebx,4(%edi)		/* resume->next = us */
+	movl	%ebx,(%edi)		/* resume->prev = prev
+	
+	movl	%edi,(%ebx)		/* us.keyRing.prev = resume */
+	movl	%edi,4(%ecx)		/* oldprev->next = resume */
+	
+	jmp	L_copy_key_1
+	
+L_copy_key_0:
+	/* Load address of first source key reg into %esi: */
+	movzbl	FX_OFF_sndKeys(%ebp),%esi
+	shll	$4,%esi
+	addl	$FX_OFF_keyregs,%esi
+	addl	%ebp,%esi
+
+	movl	(%esi),%ebx
+	movl	8(%esi),%ecx
+	movl	%ebx,(%edi)
+	movl	%ecx,8(%edi)
+	
+	movl	4(%esi),%ebx
+	movl	12(%esi),%ecx
+	movl	%ebx,4(%edi)
+	movl	%ecx,12(%edi)
+
+	testl	$0x400,%ecx
+	jz	L_copy_key_1	/* not prepared */
+	cmpb	$KKT_Page,12(%edi)
+	ja	L_copy_key_1
+
+	/* Copied key was prepared. Need to patch the key chain */
+	movl	%edi,4(%esi)	/* src->next = dest */
+	movl	%esi,(%edi)	/* dest->prev = src */
+	movl	%edi,(%ebx)	/* src->next->prev = dext */
+	
+L_copy_key_1:
+	movzbl	1+PR_OFF_rcvKeys(%eax),%edi
+	shll	$4,%edi
+	jz	L_copy_key_2
+	addl	$PR_OFF_keyregs,%edi
+	addl	%eax,%edi
+	
+	movzbl	1+FX_OFF_sndKeys(%ebp),%esi
+	shll	$4,%esi
+	addl	$FX_OFF_keyregs,%esi
+	addl	%ebp,%esi
+	
+	testl	$4,13(%edi)	/* test receive key prepared */
+	jz	L_skip_unlink_1
+	cmpb	$KKT_Page,12(%edi)
+	ja	L_skip_unlink_1
+	
+	/* Unlink target key 1 */
+	movl	(%edi),%ebx	/* prev pointer */
+	movl	4(%edi),%edx	/* next pointer */
+	movl	%ebx,(%edx)	/* next->prev = prev */
+	movl	%edx,4(%ebx)	/* prev->next = next */	
+	
+L_skip_unlink_1:
+	movl	(%esi),%ebx
+	movl	8(%esi),%ecx
+	movl	%ebx,(%edi)
+	movl	%ecx,8(%edi)
+	
+	movl	4(%esi),%ebx
+	movl	12(%esi),%ecx
+	movl	%ebx,4(%edi)
+	movl	%ecx,12(%edi)
+
+	testl	$0x400,%ecx
+	jz	L_copy_key_2	/* not prepared */
+	cmpb	$KKT_Page,12(%edi)
+	ja	L_copy_key_2
+
+	/* Copied key was prepared. Need to patch the key chain */
+	movl	%edi,4(%esi)	/* src->next = dest */
+	movl	%esi,(%edi)	/* dest->prev = src */
+	movl	%edi,(%ebx)	/* src->next->prev = dext */
+
+L_copy_key_2:
+	movzbl	2+PR_OFF_rcvKeys(%eax),%edi
+	shll	$4,%edi
+	jz	L_copy_key_3
+	addl	$PR_OFF_keyregs,%edi
+	addl	%eax,%edi
+	
+	movzbl	2+FX_OFF_sndKeys(%ebp),%esi
+	shll	$4,%esi
+	addl	$FX_OFF_keyregs,%esi
+	addl	%ebp,%esi
+	
+	testl	$4,13(%edi)	/* test receive key prepared */
+	jz	L_skip_unlink_2
+	cmpb	$KKT_Page,12(%edi)
+	ja	L_skip_unlink_2
+	
+	/* Unlink target key 2 */
+	movl	(%edi),%ebx	/* prev pointer */
+	movl	4(%edi),%edx	/* next pointer */
+	movl	%ebx,(%edx)	/* next->prev = prev */
+	movl	%edx,4(%ebx)	/* prev->next = next */	
+	
+L_skip_unlink_2:
+	movl	(%esi),%ebx
+	movl	8(%esi),%ecx
+	movl	%ebx,(%edi)
+	movl	%ecx,8(%edi)
+	
+	movl	4(%esi),%ebx
+	movl	12(%esi),%ecx
+	movl	%ebx,4(%edi)
+	movl	%ecx,12(%edi)
+
+	testl	$0x400,%ecx
+	jz	L_copy_key_3	/* not prepared */
+	cmpb	$KKT_Page,12(%edi)
+	ja	L_copy_key_3
+
+	/* Copied key was prepared. Need to patch the key chain */
+	movl	%edi,4(%esi)	/* src->next = dest */
+	movl	%esi,(%edi)	/* dest->prev = src */
+	movl	%edi,(%ebx)	/* src->next->prev = dext */
+	
+L_copy_key_3:
+	movzbl	3+PR_OFF_rcvKeys(%eax),%edi
+	shll	$4,%edi
+	jz	L_done_keys
+	addl	$PR_OFF_keyregs,%edi
+	addl	%eax,%edi
+	
+	movzbl	3+FX_OFF_sndKeys(%ebp),%esi
+	shll	$4,%esi
+	addl	$FX_OFF_keyregs,%esi
+	addl	%ebp,%esi
+	
+	testl	$4,13(%edi)	/* test receive key prepared */
+	jz	L_skip_unlink_3
+	cmpb	$KKT_Page,12(%edi)
+	ja	L_skip_unlink_3
+	
+	/* Unlink target key 3 */
+	movl	(%edi),%ebx	/* prev pointer */
+	movl	4(%edi),%edx	/* next pointer */
+	movl	%ebx,(%edx)	/* next->prev = prev */
+	movl	%edx,4(%ebx)	/* prev->next = next */	
+	
+L_skip_unlink_3:
+	movl	(%esi),%ebx
+	movl	8(%esi),%ecx
+	movl	%ebx,(%edi)
+	movl	%ecx,8(%edi)
+	
+	movl	4(%esi),%ebx
+	movl	12(%esi),%ecx
+	movl	%ebx,4(%edi)
+	movl	%ecx,12(%edi)
+
+	testl	$0x400,%ecx
+	jz	L_done_keys	/* not prepared */
+	cmpb	$KKT_Page,12(%edi)
+	ja	L_done_keys
+
+	/* Copied key was prepared. Need to patch the key chain */
+	movl	%edi,4(%esi)	/* src->next = dest */
+	movl	%esi,(%edi)	/* dest->prev = src */
+	movl	%edi,(%ebx)	/* src->next->prev = dext */
+	
+L_done_keys:
+#if 0
+	jmp	Standard_Gate_Path /* PROBE */
+#endif
+	/* Move data registers */
+	movl	FX_OFF_EAX(%ebp),%ebx
+	movl	FX_OFF_EBX(%ebp),%ecx
+	movl	%ebx,PR_OFF_EAX(%eax)
+	movl	%ecx,PR_OFF_EBX(%eax)
+	movl	FX_OFF_ECX(%ebp),%ebx
+	movl	FX_OFF_EDX(%ebp),%ecx
+	movl	%ebx,PR_OFF_ECX(%eax)
+	movl	%ecx,PR_OFF_EDX(%eax)
+	
+#if 0
+	jmp	Standard_Gate_Path /* PROBE */
+#endif
+	/* Set output (returned) length to zero */
+	movl	$0,PR_OFF_ESI(%eax)
+	
+#if 0
+	movl	$0x0f780f30,0x000b85a0
+1:	hlt
+	jmp 1b
+	jmp	Standard_Gate_Path /* PROBE */
+#endif
+	/* Migrate the thread */
+	movl	PR_OFF_curActivity-PR_OFF_FIXREGS(%ebp),%edx
+	movl	$0,PR_OFF_curActivity-PR_OFF_FIXREGS(%ebp)
+	movl	%edx,PR_OFF_curActivity(%eax)
+	movl	%eax,8(%edx)	/* 8 is offsetof(Activity, context) */
+#error Update Activity offsets!
+
+	movl	PR_OFF_readyQ(%eax),%ebx
+	movl	%ebx,36(%edx)	/* 36 is offsetof(Activity, readyQ) */
+#error Update Activity offsets!
+
+	/* Advance the recipient PC */
+	addl	$2,PR_OFF_EIP(%eax)	// proc_AdvancePostInvocationPC
+
+	/* Back up the sender PC */
+	subl	$2,FX_OFF_EIP(%ebp)
+	
+	/* Deal with invoker run state. Three possible types of interest:
+	 *
+	 * 0:	non-prompt return
+	 * 1:	prompt return
+	 * 2:	call
+	 */
+	movl	$RS_Available,%ecx
+	movl	$RS_Waiting,%ebx
+	cmpb	$IT_PReturn,FX_OFF_invType(%ebp)
+	cmova	%ebx,%ecx	/* CMOVA won't take immediates. Bother */
+	movb	%cl,FX_OFF_runState(%ebp)
+
+	// Gotta zap invokee resume keys:
+	pushl	%eax
+	call	proc_ZapResumeKeys
+	
+	/* FIX:	 Gotta wake everybody on my own stall queue here! */
+	
+	/* Invokee run state now RS_running */
+	movb	$RS_Running,PR_OFF_runState(%eax)
+	
+#if 0
+	/* Set up target for large/small space as appropriate */
+	movl	$LARGE_SPACE_PAGES,%ecx
+	movl	$SMALL_SPACE_PAGES,%edx
+	cmpl	$0,PR_OFF_smallPTE
+#endif
+	
+#ifdef EROS_HAVE_FPU
+	smsw	%bx
+	movw	%bx,%cx
+	orw	$0xa,%bx	/* disable FPU */
+        andw	$0xfff1,%cx	/* enable FPU */
+	cmpl	%eax,proc_fpuOwner
+	cmove	%cx,%bx
+	lmsw	%bx
+#endif
+	movl	%esp,PR_OFF_cpuStack(%eax)
+	
+	/* Head back to userland in the new process */
+	movl	%eax,%esp
+	jmp	L_return_from_fast_path
+#endif /* OPTION_FAST_PATH */
+	
+Standard_Gate_Path:
+	/*
+	 * Call the interrupt dispatch routine, passing it a pointer
+	 * to the register save area.  It is entirely up to the interrupt
+	 * routines to decide whether or not to re-enable interrupts.
+	 */
+	
+	pushl	%ebp
+
+        /* CONVERSION */
+	call	EXT(idt_OnKeyInvocationTrap)
+        /* END CONVERSION */
+
+	/* This should NEVER return */
+	jmp	EXT(halt)
+
+	/* THINGS THAT CAN GO WRONG IN THE MAIN IPC PATH GO HERE
+	 *
+	 * These are taken out of line in the interest of locality.
+	 */
+bogus_ipc_arg_block:
+	movl	FX_OFF_EIP(%ebp),%ebx
+	movl	$capros_Process_FC_MalformedSyscall,PR_OFF_faultCode-PR_OFF_FIXREGS(%ebp)
+	movl	%ebx,PR_OFF_faultInfo-PR_OFF_FIXREGS(%ebp)
+	
+	jmp	kern_seg_load
+	
+	/* 
+	 * Following code implements the string move probe portion of
+	 * the invocation.  It is out of line because slightly less than 
+	 * 50% of all invocations move a string
+	 */
+
+	
+	/* INTERRUPTS MUST BE DISABLED ON ENTRY TO THIS FUNCTION */
+	.align 16
+ENTRY(resume_process)
+#ifdef V86_SUPPORT
+#error need to implement:
+  if ((thisPtr->fixRegs.EFLAGS & EFLAGS::Virt8086))
+    goto resume_v86_process
+#endif
+	pushl	%ebp
+	movl	%esp,%ebp
+
+	movl	0x8(%ebp),%esp
+	/*
+	 * We are now on our way back to whatever we interrupted.  If the
+	 * interrupt routine enabled interrupts, it was responsible for
+	 * disabling them before returning, so interrupts are now
+	 * disabled.
+	 *
+	 * %esp holds a pointer to the bottom of the context we are
+	 * restoring from.
+	 */
+
+	/* ANY CHANGE TO THIS PATH FROM HERE DOWN SHOULD BE
+	   IMPLEMENTED IN THE FAST_GATE_PATH AS WELL */
+	
+L_return_from_fast_path:	
+	/* PROCESS_SIZE */
+	leal	PR_OFF_INTR_SP(%ESP),%EDX
+	movl	%EDX,4+EXT(tss_TaskTable)
+
+#if defined(DOMAIN_TRACING)
+	/* ESP POINTS TO BOTTOM OF SAVE AREA */
+	cmpl	$5,EXT(CpuType)
+	jb	1f		/* don't call it if not supported */
+	
+	.byte 0x0f
+	.byte 0x31		/* RDTSC instr - results to %edx:%eax */
+	
+	movl %eax,EXT(DomainTracingScratchpad)
+	movl %edx,EXT(DomainTracingScratchpad)+4
+1:	
+#endif
+	
+	/* Reload target address space:	 */
+	
+#ifdef OPTION_SMALL_SPACES
+	cmpl	$0,PR_OFF_bias(%esp)
+	jne	2f	// small space: any mapping table will do
+#endif
+	
+	movl	%cr3,%ebx
+	cmpl	%ebx,PR_OFF_MappingTable(%esp)
+	je      1f	// already loaded
+	
+	movl	PR_OFF_MappingTable(%esp),%ebx
+	movl	%ebx,%cr3  /* restore user address space */
+	
+1:	movl	%ebx,28+EXT(tss_TaskTable)
+	
+2:	addl	$PR_OFF_PUSHA,%esp
+	
+	popa
+
+	/*
+	 * Skip over the pushed error number and exception number:
+	 */
+      
+	addl	$8,%esp
+
+	/*
+	 * Reload the segment registers by reaching up past the critical 
+	 * stuff with movl  so that if we fault we always defecate at the
+	 * same point on the stack:
+	 */
+
+L_reload_es:	
+	movw	FX_OFF_ES-FX_OFF_EIP(%esp),%es
+L_reload_ds:	
+	movw	FX_OFF_DS-FX_OFF_EIP(%esp),%ds
+L_reload_fs:	
+	movw	FX_OFF_FS-FX_OFF_EIP(%esp),%fs
+L_reload_gs:	
+	movw	FX_OFF_GS-FX_OFF_EIP(%esp),%gs
+	
+	/*
+	 * ONCE BELOW THIS POINT, ALL REFERENCES MUST BE TO THE CODE
+	 * OR STACK SEGMENTS.  BECAUSE DS NOW HOLDS THE USER DATA
+	 * SEGMENT, WE CANNOT TRUST THAT THE DATA SEGMENT IS VALID.
+	 */
+	
+	/*
+	 * Sayonara, interrupt context.  The iret will restore interrupts
+	 * automagically.
+	 */
+L_iret_pc:
+	iret
+	jmp EXT(halt)
+	
+	/* 
+	 * This entry point exists so that the first thread can be
+	 * dispatched and so that the call gate entry point can exit
+	 * through common code.
+	 */
+	/* INTERRUPTS MUST BE DISABLED ON ENTRY TO THIS FUNCTION */
+	.align 16
+ENTRY(resume_from_kernel_interrupt)
+	pushl	%ebp
+	movl	%esp,%ebp
+
+	/*
+	 * Interrupts are now disabled.  We were passed a pointer to
+	 * the bottom of the save area we are supposed to restore.
+	 */
+	movl	0x8(%ebp),%esp
+
+#if FX_OFF_PUSHA != 0
+	addl	$FX_OFF_PUSHA,%esp
+#endif
+
+        popa    
+
+	/*
+	 * Skip over the pushed error number and exception number:
+	 */
+      
+	addl	$8,%esp
+	iret
+	
+	/* INTERRUPTS MUST BE DISABLED ON ENTRY TO THIS FUNCTION */
+	.align 16
+ENTRY(resume_v86_task)
+	pushl	%ebp
+	movl	%esp,%ebp
+
+	movl	0x8(%ebp),%esp
+	/*
+	 * We are now on our way back to whatever we interrupted.  If the
+	 * interrupt routine enabled interrupts, it was responsible for
+	 * disabling them before returning, so interrupts are now
+	 * disabled.
+	 *
+	 * %esp holds a pointer to the bottom of the context we are
+	 * restoring from.
+	 */
+
+	/* PROCESS_SIZE */
+	leal	PR_OFF_V86_INTR_SP(%ESP),%EDX
+	movl	%EDX,4+EXT(tss_TaskTable)
+
+	/* Reload target address space:	 */
+	
+#ifdef OPTION_SMALL_SPACES
+	cmpl	$0,PR_OFF_bias(%esp)
+	jne	2f	// small space: any mapping table will do
+#endif
+	
+	movl	%cr3,%ebx
+	cmpl	%ebx,PR_OFF_MappingTable(%esp)
+	je      1f	// already loaded
+	
+	movl	PR_OFF_MappingTable(%esp),%ebx
+	movl	%ebx,%cr3  /* restore user address space */
+	
+1:	movl	%ebx,28+EXT(tss_TaskTable)
+	
+2:	addl	$PR_OFF_PUSHA,%esp
+
+	popa
+	
+	/*
+	 * Skip over the pushed error number and exception number:
+	 */
+      
+	addl	$8,%esp
+	
+	/*
+	 * Sayonara, interrupt context.  The iret will restore interrupts
+	 * automagically.
+	 */
+L_v86_iret_pc:
+	iret
+
+.text
+	.align 16
+ENTRY(mach_Yield)
+	/* FIX -- this stack pointer needs to be rewound to 
+	   top arithmetically. */
+	movl	$(EXT(kernelStack)+EROS_KSTACK_SIZE),%esp
+	
+        call	EXT(act_HandleYieldEntry)
+        
+	/*
+	 * Just in case anybody ever returns here:
+	 */
+
+	call	EXT(halt)
+	
+	
+	/* Implementation of capability-related kernel-emulated 
+	 * pseudo instructions. */
+.text
+	.align 16
+ENTRY(intr_CapInstr)
+	pushl	$0x0		/* zero error code */
+	pushl	$0x32		/* IPC trap number */
+	pusha
+	
+#if FX_OFF_PUSHA != 0
+	subl    $FX_OFF_PUSHA,%esp
+#endif
+	
+	cmpl	$2,%eax		/* check emulation opcode */
+	jae	doGeneralPseudoInstr	// not one we handle
+	// copycap or xchgcap
+
+	/* All of the valid, emulated instructions encode a cap reg in
+	   %ebx.  Do a bounds check on cr0: */
+	cmpl	$EROS_NODE_SIZE,%ebx
+	jae	doGeneralPseudoInstr	// let C code give the fault
+	
+	// Check for invalid r2:
+	
+	/* bounds check on cr1:	*/
+	cmpl	$EROS_NODE_SIZE,%ecx
+	jae	doGeneralPseudoInstr	// let C code give the fault
+	
+	/* Save user %ds and load kernel %ds so that we can call 
+	   kernel code. */
+
+	movw	%ds,FX_OFF_DS(%esp)
+	/*
+	 * Now load the kernel segments.
+	 */
+	movw	$0x10,%dx
+	mov	%dx,%ds
+	
+	/* called code uses no string copies, so don't bother with %es. */
+	/* movl	%dx,%es			/* for string copies */
+	
+	movl	%esp,%ebp
+	movl	PR_OFF_cpuStack-PR_OFF_FIXREGS(%esp),%esp
+	/* movl	$EXT(InterruptStackTop),%esp */
+	
+	pushl	%ecx
+	pushl	%ebx
+	
+	movl	$EXT(copy_key),%edx
+	cmpl	$1,%eax
+	jne	2f		/* call xchgcap */
+	
+	movl	$EXT(xchg_key),%edx
+
+2:
+	call	*%edx
+
+	movl	%ebp,%esp
+	movw	FX_OFF_DS(%esp),%ds
+#if FX_OFF_PUSHA != 0
+	addl	$FX_OFF_PUSHA,%esp
+#endif
+	popa
+	
+	addl	$8,%esp		/* skip exno, intvec */
+	iret
+
+// Let the C procedure PseudoInstrException() handle this.
+doGeneralPseudoInstr:
+	jmp	EXT(intr_common_fx)
+	
+#ifdef TRAP_DEBUG
+dump_state:	
+	/* craft something that looks like a standard save area */
+	pusha
+
+	/* I cannot remember if these push as 16 bit or 32 bit
+	    quantities, so... */
+	subl	$24,%esp
+	movw	%cs,(%esp)
+	mov	%ds,4(%esp)
+	mov	%es,8(%esp)
+	mov	%fs,12(%esp)
+	mov	%gs,16(%esp)
+	mov	%ss,20(%esp)
+	
+	movl	$0x000b85A0,%esi
+	
+	movw	(%esp),%ax
+	call    show16		/* display %cs */
+	movw	4(%esp),%ax
+	call    show16		/* display %ds */
+	movw	8(%esp),%ax
+	call    show16		/* display %es */
+	movw	12(%esp),%ax
+	call    show16		/* display %fs */
+	movw	16(%esp),%ax
+	call    show16		/* display %gs */
+	movw	20(%esp),%ax
+	call    show16		/* display %ss */
+	
+	addl	$24,%esp
+	
+	movl	$0x000b8640,%esi
+	movl	28(%esp),%eax
+	call    show32		/* display %eax */
+	movl	16(%esp),%eax
+	call    show32		/* display %ebx */
+	movl	24(%esp),%eax
+	call    show32		/* display %ecx */
+	movl	20(%esp),%eax
+	call    show32		/* display %edx */
+	
+	movl	$0x000b86e0,%esi
+	movl	8(%esp),%eax
+	call    show32		/* display %ebp */
+	movl	4(%esp),%eax
+	call    show32		/* display %esi */
+	movl	(%esp),%eax
+	call    show32		/* display %edi */
+	
+	movl	$0x000b8780,%esi
+	
+	addl	$32,%esp
+	movw	4(%esp),%ax
+	call    show16		/* display error code */
+	movl	8(%esp),%eax
+	call    show32		/* return EIP */
+	movw	12(%esp),%ax
+	call    show16		/* return CS */
+	movl	16(%esp),%eax
+	call    show32		/* return EFLAGS */
+	movl	20(%esp),%eax
+	call    show32		/* return ESP (?) */
+	movw	20(%esp),%ax
+	call    show32		/* return SS (?) */
+	
+4:	hlt
+	jmp 4b
+	
+	/* On entry, value is in %eax */
+show16:
+	push	%ebx
+	push	%ecx
+	
+	ss
+	movl	$0x0f780f30,(%esi)	/* "0x" */
+	addl	$4,%esi	
+	
+	addl	$8,%esi		/* width of number on video memory */	
+	pushl	%esi
+	
+	movl	$0x4,%ecx	/* number of digits */
+	jmp	show_print_loop
+	
+	/* On entry, value is in %eax */
+show32:
+	push	%ebx
+	push	%ecx
+	
+	ss
+	movl	$0x0f780f30,(%esi)	/* "0x" */
+	addl	$4,%esi	
+	
+	addl	$16,%esi	/* width of number on video memory */	
+	pushl	%esi
+	
+	movl	$0x8,%ecx	/* number of digits */
+	
+show_print_loop:	
+	/* Print out the fault address */
+	movb	$0x0f,%bh	/* video mode */
+	
+	/* display loop */
+1:	subl	$2,%esi
+	movb    %al,%bl
+	andb	$0xf,%bl
+	cmpb	$0x9,%bl
+	ja	2f
+	addb	$0x30,%bl	/* add ascii of '0' */
+	jmp	3f
+2:	/* compute hex digit */
+	addb	$0x41,%bl	/* add ascii of 'A' */
+	subb	$10,%bl		/* subtract 10 */
+3:	/* output digit */
+	shr	$4,%eax
+	
+	ss
+	movw	%bx,(%esi)
+	
+	loop	1b
+	
+	popl	%esi
+	ss
+	movw	$0x0f20,(%esi)
+
+	addl	$2,%esi
+	
+	pop	%ebx
+	pop	%ecx
+	ret
+#endif

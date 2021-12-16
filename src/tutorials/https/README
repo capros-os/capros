@@ -1,0 +1,49 @@
+This tutorial does several things:
+
+1. It serves a web page with dynamic content.
+2. It serves a URL where you may download the target system's security
+   certificate.
+3. It serves a URL where you may upload a program that will be executed
+   in a confined environment. 
+All URLs take the form of web-keys; see http://waterken.sourceforge.net/web-key.
+
+To run this tutorial:
+
+You must have first copied the network configuration files (tutorials/config),
+customized them, and installed them using "make install".
+
+You must have set up a test system with a disk, and you must
+define an environment variable CAPROS_BOOT_PARTITION as described elsewhere.
+
+If desired, customize the TCP ports and Swiss numbers used
+by editing main/test.h.
+You can generate new random Swiss numbers by typing:
+   cd main
+   ./genswiss
+
+Note, the way 'cvs diff' works is to send the local file(s) to the remote
+machine for comparison. To avoid disclosing the Swiss numbers in your
+local main/test.h, main/.cvsignore is set to exclude test.h from all comparisons
+and updates. On the rare occasions when you need to update or check in test.h,
+you must temporarily remove test.h from .cvsignore.
+
+Then from tutorials/https, type:
+    make p
+This will build the tutorial and copy it to the target system.
+Then boot CapROS.
+
+You can connect to the web page from a browser using the URL
+documented in test.h.
+You will need to accept the self-signed certificate the first time.
+
+You can upload a confined program using the instructions on the web page. 
+
+A sample program that you can upload is built in 
+tutorials/https/confined/BUILD/*/confined.
+The source code in tutorials/https/confined/confined.c
+defines symbols for all the constituents that the program receives.
+One of these is a TCPPortNum capability for the port that you specified
+in main/test.h.
+This sample program listens on that port and echoes lines it reads.
+You can demonstrate this by connecting to that port of the CapROS System
+using telnet.

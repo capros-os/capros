@@ -1,0 +1,6 @@
+AddDescription "LIB TREE MAKEFILE" lib/Makefile
+AddDescription "domain runtime" lib/domain
+AddDescription "libc routines" lib/libc
+AddDescription "makefile support" lib/make
+AddDescription "red-black tree lib" lib/rbtree
+AddDescription "unix pseudo-env" lib/unix

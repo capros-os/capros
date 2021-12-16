@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2009, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 /*
@@ -31,14 +36,14 @@
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
+#include <idl/capros/Node.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 /* #include <eros/DomCtlInfo.h> */
 #ifdef __REGISTERS_I486_H__
 #error "registers anti-macro defined"
 #endif
-#include <eros/machine/Registers.h>
+#include <idl/capros/Process.h>
 #include "constituents.h"
 
 #define KR_OSTREAM     KR_APP(0)
@@ -59,7 +64,8 @@ ProcessRequest(Message *msg)
    * Also, this keeper never exits!
    */
 
-  struct Registers * regs = (struct Registers *) msg->rcv_data;
+  struct capros_Process_CommonRegisters32 * regs
+           = (struct capros_Process_CommonRegisters32 *) msg->rcv_data;
 
   kprintf(KR_OSTREAM, "faultCode: 0x%08x\n", regs->faultCode);
   kprintf(KR_OSTREAM, "faultInfo: 0x%08x\n", regs->faultInfo);
@@ -80,7 +86,7 @@ ProcessRequest(Message *msg)
   return 1;
 }
 
-struct Registers rcvData;
+struct capros_Process_CommonRegisters32 rcvData;
 
 
 int
@@ -88,7 +94,7 @@ main ()
 {
   Message msg;
 
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   msg.snd_invKey = KR_VOID;
   msg.snd_key0 = KR_VOID;
@@ -115,7 +121,7 @@ main ()
   kprintf(KR_OSTREAM, "Keeper is initialized\n");
 
   do {
-    msg.rcv_limit = sizeof (struct Registers);
+    msg.rcv_limit = sizeof(rcvData);
     RETURN(&msg);
 
     /* If the ProcessRequest routine is actually able to correct the

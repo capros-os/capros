@@ -1,0 +1,251 @@
+<html>
+<head>
+<title>EOR: Buffered Stream</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>Buffered Stream</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3> 
+  <p> The <strong>Buffered Stream</strong> object provides a mechanism for
+  transmitting a buffered, unidirectional stream of data.  Reader(s)
+  and writer(s) may operate on the stream concurrently, and neither
+  will block unless the buffer underflows (reader) or overflows
+  (writer).
+  <p> A buffered stream object contains a buffer of bounded size,
+  initially one page.  The size of the buffer may be altered at run
+  time.
+  <p> To external appearances, the buffered stream object implements two
+  keys: a writer key and a reader key.  The writer key is used to
+  append data to the buffered stream.  The reader key is used to consume
+  data from the buffered stream.  The writer key also conveys the
+  authority to adjust the size of the buffer.
+  <p> Internally, the buffered stream object is implemented as a trio of
+  cooperating processes, using a commonly-held address space as a ring buffer:
+  <center>
+    <p> <img src="BufStreamFigure.gif">
+  </center>
+  <p> Unnecessary use of the semaphore object is avoided by having a
+  shared page of state between reader and writer.  Reader and writer
+  then use the following algorithms to avoid use of the semaphore
+  where possible.  A circular buffer is used, ensuring that the
+  algorithm described can be correctly executed given only an atomic
+  word write operation.
+  <p> 
+  <center>
+    <table border>
+      <tr>
+	<th>
+	  Writer
+	</th>
+	<th>
+	  Reader
+	</th>
+      </tr>
+      <tr>
+	<td>
+	  <em>Goal: Write N bytes into buffer</em>
+	  <br><strong>DesiredWrite</strong> : = N
+	  <br>W : = min(N, BufFree);
+	  <br>Append W bytes to buffer.
+	  <br>DesiredWrite := DesiredWrite - W
+	  <br>IF (DesiredWrite > 0)
+	  <br>&#160;&#160;&#160;&#160;CALL semaphore
+	  <br>ELSE IF (DesiredRead > BufCount)
+	  <br>&#160;&#160;&#160;&#160;FORK semaphore
+	</td>
+	<td>
+	  <em>Goal: Read N bytes from buffer</em>
+	  <br><strong>DesiredRead</strong> : = N
+	  <br>R : = min(N, BufCount);
+	  <br>Remove R bytes from buffer.
+	  <br>DesiredRead := DesiredRead - R
+	  <br>IF (DesiredRead > 0)
+	  <br>&#160;&#160;&#160;&#160;CALL semaphore
+	  <br>ELSE IF (DesiredWrite < BufFree)
+	  <br>&#160;&#160;&#160;&#160;FORK semaphore
+	</td>
+      </tr>
+    </table>
+  </center>
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       0x010000:
+	       Key is a writer key to a buffered stream.
+	       <p>Key is a writer key to a buffered stream.
+	       0x010001:
+	       Key is a reader key to a buffered stream.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Non-Blocking Write</strong> (OC = 1)
+    <dt> <strong>Blocking Write</strong> (OC = 2)
+    <dt> <strong>Extended Non-Blocking Write</strong> (OC = 3)
+    <dt> <strong>Extended Blocking Write</strong> (OC = 4)
+    <dd> 
+	 <p> Write some number of bytes to the stream.  The number of
+	 bytes written is implicit in the sent string length. The
+	 stream will copy as many bytes as possible from the sent
+	 message, up to the limit imposed by the space available in
+	 the stream buffer.  It returns the number of bytes copied as
+	 a data value.  If the write is non-blocking, this may be less
+	 than the number of bytes that were transmitted.
+	 <p> The extended form of the write request differs from the
+	 base form in that the return is performed with a
+	 <strong>call</strong> invocation, leaving the original
+	 invoker with exclusive control over the write side of the
+	 data stream.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>B*</strong>
+	     </td>
+	     <td>
+	       Data to be written to the stream.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>W</strong>
+	     </td>
+	     <td>
+	       Number of bytes copied from the message into the byte stream.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <strong>RK3</strong>
+	     </td>
+	     <td>
+	       A resume key to the write side of the stream.  This key
+	       is returned by the extended forms only.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       Write proceeded successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       KT+3
+	     </td>
+	     <td> Access violation.  Key is a reader key.
+	     </td>
+	   </tr>
+	 </tr>
+  </table>
+  <p> 
+  <dt> <strong>Non-Blocking Read</strong> (OC = 16)
+  <dt> <strong>Blocking Read</strong> (OC = 17)
+  <dt> <strong>Extended Non-Blocking Read</strong> (OC = 18)
+  <dt> <strong>Extended Blocking Read</strong> (OC = 19)
+  <dd> 
+       <p> Read some number of bytes from the stream.  The stream
+       will copy as many bytes as requested from the buffer into a
+       reply message, but not exceeding the limit specified by the
+       requestor.  The number of bytes returned is implicit in the
+       returned string length.  If the read is non-blocking, the
+       number of bytes returned may be less than the number of bytes
+       that were requested.
+       <p> The extended form of the read request differs from the
+       base form in that the return is performed with a
+       <strong>call</strong> invocation, leaving the original
+       invoker with exclusive control over the read side of the
+       data stream.
+       <table>
+	 <tr valign=top>
+	   <td rowspan=1>
+	     <strong>Request</strong>
+	   </td>
+	   <td align=right>
+	     <strong>W</strong>
+	   </td>
+	   <td>
+	     Number of bytes to be read from the stream.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td rowspan=2>
+	     <strong>Reply</strong>
+	   </td>
+	   <td align=right>
+	     <strong>B*</strong>
+	   </td>
+	   <td>
+	     Bytes copied from the byte stream into the reply message.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td align=right>
+	     <strong>RK3</strong>
+	   </td>
+	   <td>
+	     A resume key to the read side of the stream.  This key
+	     is returned by the extended forms only.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td rowspan=2>
+	     <strong>Result</strong>
+	   </td>
+	   <td align=right>
+	     0
+	   </td>
+	   <td>
+	     Read proceeded successfully.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td align=right>
+	     KT+3
+	   </td>
+	   <td> Access violation.  Key is a writer key.
+	   </td>
+	 </tr>
+       </table>
+       <p> 
+</dl>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

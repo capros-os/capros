@@ -1,0 +1,148 @@
+package capros;
+
+/* The interface to a Dallas Semiconductor DS2438 or DS2438A
+   1-Wire smart battery monitor. */
+interface DS2438 extends key 
+{
+  exception BusError;
+  exception Offline;
+
+  /* Set the temperature sampling parameters.
+
+  The temperature will be sampled every 2**log2Seconds seconds.
+  If log2Seconds is 255, the temperature will not be sampled.
+
+  The sampled value will be truncated (not rounded)
+    to resolution binary bits of resolution.
+  resolution must be between 5 and -6 inclusive.
+  A resolution of 5 means there will be no truncation and values will
+  be reported to the full resolution of 1/32 degree Celsius.
+
+  Temperature changes will not be logged unless they exceed the specified
+  hysteresis, which is in units of 1/32 degree Celsius.
+
+  Returns a read-only capability to the Logfile containing records
+  of type Logfile.LogRecord16 
+  in which the value field is the temperature in units of 1/32 degree Celsius.
+
+  May raise RequestError.
+  If the Logfile has not been previously created, this may raise
+  SpaceBank.LimitReached.
+  */
+  Logfile configureTemperature(unsigned byte log2Seconds,
+            byte resolution,
+            unsigned short hysteresis);
+
+  /* Set the voltage sampling configuration.
+
+  configureVoltageVdd specifies that only the Vdd voltage will be sampled.
+  configureVoltageVad specifies that only the Vad voltage will be sampled.
+  Note that the DS2438 specs are that Vdd must be >= 2.4V, and
+  Vad is accurate for 1.5V < Vad < 2 * Vdd.
+
+  The selected voltage will be sampled every 2**log2Seconds seconds.
+  If log2Seconds is 255, the voltage will not be sampled.
+
+  The sampled value will be truncated to resolution binary bits of resolution.
+  resolution must be between 0 and -9 inclusive.
+  A resolution of 0 means there will be no truncation and values will
+  be reported to the full resolution of 10 mV.
+
+  Voltage changes will not be logged unless they exceed the specified
+  hysteresis, which is in units of 10 mV.
+
+  Returns a read-only capability to the Logfile containing records
+  of type Logfile.LogRecord16 
+  in which the value field is the voltage in units of 10 mV
+  and the param field is 0 for Vad, 1 for Vdd.
+
+  May raise BusError.
+
+  May raise RequestError.
+  If the Logfile has not been previously created, this may raise
+  SpaceBank.LimitReached.
+  */
+  Logfile configureVoltageVdd(unsigned byte log2Seconds,
+            byte resolution,
+            unsigned short hysteresis);
+
+  Logfile configureVoltageVad(unsigned byte log2Seconds,
+            byte resolution,
+            unsigned short hysteresis);
+
+  /* Configure current measurement off. */
+  void configureCurrentOff();
+
+  /* Set the current sampling configuration to measure current and ICA,
+     but no CCA or DCA.
+
+  The current will be sampled (that is, read by the system)
+  at least every 2**log2Seconds seconds.
+
+  The device measures a differential voltage in units of 0.2441 mV.
+  The sampled value will be truncated to resolution binary bits of resolution.
+  resolution must be between 0 and -10 inclusive.
+  A resolution of 0 means there will be no truncation and values will
+  be reported to the full resolution of 0.2441 mV.
+
+  Current changes will not be logged unless they exceed the specified
+  hysteresis, which is in units of 0.2441 mV.
+
+  Returns a read-only capability to the Logfile containing records
+  of type Logfile.LogRecord16 
+  in which the value field is the truncated current value
+  in units of 0.2441 mV.
+
+  May raise RequestError.
+  If the Logfile has not been previously created, this may raise
+  SpaceBank.LimitReached.
+  */
+  Logfile configureCurrent(unsigned byte log2Seconds,
+            byte resolution,
+            unsigned short hysteresis);
+
+  /* Set the current sampling configuration to measure current and ICA,
+     CCA, and DCA, no shadow to EEPROM.
+
+     Not implemented. */
+
+  /* Set the current sampling configuration to measure current and ICA,
+     CCA, and DCA, shadow to EEPROM.
+
+     Not implemented. */
+
+  /* Read the threshold register. */
+  unsigned byte readThreshold();
+
+  /* Write the threshold register.
+  As required by the datasheet, this object disables current measurement
+  while writing the register, and then restores the current measurement state.
+  May raise BusError.
+  */
+  void writeThreshold(unsigned byte threshold);
+
+  typedef array <unsigned byte, 8> Page;
+
+  /* Read memory page.
+
+  pageNum must not be zero and must not be more than 7.
+
+  The page is recalled from EEPROM/SRAM and then read from the scratchpad.
+  May raise BusError.
+  */
+  Page readPage(unsigned byte pageNum);
+
+  /* Write memory page.
+
+  pageNum must not be zero and must not be more than 7.
+  The page is written to the scratchpad, read back for verification,
+  and then copied to EEPROM/SRAM.
+
+  Note: when writing page 1, which contains the offset register,
+  the client is responsible for ensuring that current measurement is disabled.
+  Note: when writing page 7, which contains the CCA and DCA,
+  the client is responsible for ensuring that current accumulation is disabled.
+  May raise BusError.
+  */
+  void writePage(unsigned byte pageNum, Page data);
+};

@@ -1,0 +1,107 @@
+#ifndef __CPURESERVE_HXX__
+#define __CPURESERVE_HXX__
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/* Data structures for CPU reserve management.  The current kernel
+ * implementation uses a fixed-priority strategy for implementing
+ * cpu reserves.
+ */
+
+#include <kerninc/Link.hxx>
+#include <kerninc/SysTimer.hxx>
+
+
+struct CpuReserve {
+  /* Following two items MUST be first, because they are directly
+   * manipulated by the low-level interrupt logic.
+   */
+  
+  uint64_t residQuanta;		/* remaining duration this quanta */
+  bool    expired;		/* set TRUE when quanta has expired */
+  
+  uint64_t residDuration;	/* remaining duration this period */
+  
+  uint64_t quanta;		/* ticks till expiration */
+  uint64_t duration;		/* in ticks */
+  uint64_t period;		/* in ticks */
+  uint64_t start;		/* when to start this reserve */
+
+  bool active;			/* true if running under reserved cycles */
+  int curPrio;			/* priority at which we are currently running. */
+  
+  int normPrio;			/* priority when reserve NOT active */
+  int rsrvPrio;			/* priority when reserve is active */
+
+  Timer reserveTimer;		/* reserve period timer */
+
+  Link threadChain;		/* circularly linked list of threads
+		 */
+				/* under this reserve 
+				 */
+};
+
+/*typedef struct CpuReserve CpuReserve;*/
+
+extern CpuReserve *cpuR_CpuReserveTable;
+extern CpuReserve cpuR_KernIdleCpuReserve;
+extern CpuReserve cpuR_KernThreadCpuReserve;
+extern CpuReserve cpuR_InactiveReserve;
+
+extern CpuReserve *cpuR_Current;
+
+/* Former member functions of CpuReserve */
+
+BEGIN_CDECL
+CpuReserve * cpuR_AllocReserveTable(int num);
+
+void cpuR_AllocReserve(CpuReserve* thisPtr, int inactivePrio);
+
+void cpuR_OnQuantaExpiration(CpuReserve* thisPtr); /* called whenever residQuanta goes to zero */
+
+void cpuR_Deplenish(CpuReserve* thisPtr);    	/* called when duration of active reserve is exhausted */
+
+void cpuR_Replenish(CpuReserve* thisPtr); 	/* called at start of each period */
+
+void cpuR_DoReplenish(Timer *);
+
+void cpuR_AddUserThread(CpuReserve* thisPtr, Thread *t);
+
+void cpuR_AddKernelThread(CpuReserve* thisPtr, Thread *t);
+
+void cpuR_QuantaExpired(CpuReserve* thisPtr);
+
+void cpuR_AllocUserCpuReserves();
+
+void cpuR_Reset(CpuReserve* thisPtr);
+
+CpuReserve* cpuR_GetReserve(CpuReserve* thisPtr, const Key* k /*@ not null @*/);
+
+INLINE CpuReserve* 
+cpuR_GetHighestReserve()
+{
+  return &cpuR_CpuReserveTable[pr_High];
+}
+
+void cpuR_AdjustCurPrio(CpuReserve* thisPtr, int prio);
+END_CDECL
+
+#endif /* __CPURESERVE_HXX__ */
+

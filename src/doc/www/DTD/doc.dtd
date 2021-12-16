@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--  This is the strict version of the EROS documentation -->
+<!--  DTD. Because these tags are a nuisance, I have also implemented -->
+<!--  a "relaxed" version of this DTD and an XSLT script to convert -->
+<!--  from relaxed form to strict form. -->
+
+<!ELEMENT xi:include EMPTY>
+<!ATTLIST xi:include
+          xmlns:xi   CDATA       #FIXED      "http://www.w3.org/2001/XInclude"
+          href       CDATA       #REQUIRED
+          parse      (xml|text)  "xml"
+          encoding   CDATA       #IMPLIED
+          >
+
+<!-- character entities: -->
+<!ENTITY nbsp "&#160;">
+
+<!ENTITY lt "<">
+<!ENTITY gt ">">
+
+
+<!-- Things that can appear basically anywhere: -->
+<!ELEMENT a ANY>
+<!ATTLIST a href CDATA #IMPLIED>
+<!ATTLIST a name CDATA #IMPLIED>
+
+<!ELEMENT figure EMPTY>
+<!ATTLIST figure src CDATA #REQUIRED>
+<!ATTLIST figure align CDATA #IMPLIED>
+<!ATTLIST figure alt CDATA #IMPLIED>
+
+
+<!ELEMENT br EMPTY>
+<!ATTLIST br clear CDATA #IMPLIED>
+
+<!-- Because XML does not provide exclude exceptions, it is necessary -->
+<!-- to either duplicate much of the phrasal and block structure for -->
+<!-- footnotes or use a more relaxed DTD that won't check certain -->
+<!-- things. Here, we duplicate the subportion of the phrasal and -->
+<!-- block logic that is appropriate for footnotes. -->
+
+<!ENTITY % prim.fn.phrasal "#PCDATA|figure|br|a">
+
+<!--  <fn-em> tags are permitted to recurse, but others are not: -->
+<!ELEMENT fn-em (%prim.fn.phrasal;|fn-em)*>
+<!ELEMENT fn-b (%prim.fn.phrasal;)*>
+<!ELEMENT fn-code (%prim.fn.phrasal;)*>
+
+<!ENTITY % fn.phrasal "%prim.fn.phrasal;|fn-em|fn-b|fn-code">
+
+<!ELEMENT fn-p (%fn.phrasal;)*>
+<!ELEMENT fn-ul (fn-li+)>
+<!ELEMENT fn-ol (fn-li+)>
+<!ELEMENT fn-li (fn-p|fn-ul|fn-ol|br)*>
+
+<!ELEMENT footnote (marker?,(fn-p|fn-ul|fn-ol|br|cite)*)>
+
+<!ELEMENT cite EMPTY>
+<!ATTLIST cite name CDATA #REQUIRED>
+
+
+<!-- A "phrasal" is an unbroken "left to right" sequence of -->
+<!-- text. Logically, if you had an infinite-width window, such a -->
+<!-- sequence would not be wrapped. --> 
+
+<!ENTITY % prim.phrasal "#PCDATA|footnote|cite|figure|a">
+
+<!ELEMENT em (%prim.phrasal;|br|em)*>
+<!ELEMENT b (%prim.phrasal;|br|em)*>
+<!ELEMENT sup (%prim.phrasal;|br|em)*>
+<!ELEMENT sub (%prim.phrasal;|br|em)*>
+<!ELEMENT gripe (%prim.phrasal;|br|em)*>
+<!ELEMENT span (%prim.phrasal;|br|em)*>
+<!ATTLIST span class CDATA #REQUIRED>
+<!ELEMENT term (#PCDATA)>
+<!ELEMENT defn (#PCDATA)>
+<!ELEMENT tool (#PCDATA)>
+<!ELEMENT program (#PCDATA)>
+<!ELEMENT method (#PCDATA)>
+<!ELEMENT docname (#PCDATA)>
+<!ELEMENT code (%prim.phrasal;|br)*>
+
+<!ENTITY % phrasal "%prim.phrasal;|b|gripe|span|sup|sub|code|em|defn|program|method|tool|term|docname">
+
+
+<!-- At this point, we begin to get into block structured things. -->
+
+<!ENTITY % flow.simple  "p|br|ul|ol|dl|hr|table">
+<!ENTITY % flow.normal  "%flow.simple;|warn|note|caution">
+
+<!ELEMENT p (%phrasal;|br)*>
+<!ELEMENT ul (li+)>
+<!ELEMENT ol (li+)>
+<!ATTLIST ol type CDATA #IMPLIED>
+<!ELEMENT li (%flow.simple;)*>
+<!ELEMENT dl (dlnm, dldescrip)+>
+<!ELEMENT dlnm (#PCDATA)*>
+<!ELEMENT dldescrip (%flow.simple;)*>
+<!ELEMENT warn (%flow.simple;)>
+<!ELEMENT caution (%flow.simple;)>
+<!ELEMENT note (%flow.simple;)>
+<!ELEMENT hr EMPTY>
+<!ATTLIST hr align CDATA #IMPLIED>
+<!ATTLIST hr width CDATA #IMPLIED>
+
+
+<!-- Table handling -->
+<!ELEMENT table (tbody)>
+<!ELEMENT tbody (tr)*>
+<!ELEMENT tr (td)*>
+<!ATTLIST tr valign CDATA #IMPLIED>
+<!ELEMENT td (%phrasal;|%flow.normal;)*>
+
+<!-- This is quite tricky, because we want to ensure that the section -->
+<!-- levels nest properly at validation time. There does not appear to -->
+<!-- be a nice way to break this up. -->
+
+<!ELEMENT h-em   (#PCDATA|h-em)*>
+<!ELEMENT h-b    (#PCDATA|h-em)*>
+<!ELEMENT h-code (#PCDATA|h-em)*>
+<!ENTITY  % h.phrasal "#PCDATA|h-em|h-b|h-code|a">
+
+<!ELEMENT h1 (%h.phrasal;)*>
+<!ELEMENT h2 (%h.phrasal;)*>
+<!ELEMENT h3 (%h.phrasal;)*>
+<!ELEMENT h4 (%h.phrasal;)*>
+
+<!ENTITY % seq.h4 "h4,(%flow.normal;)*">
+<!ENTITY % seq.h3 "h3,(%flow.normal;)*,(%seq.h4;)*">
+<!ENTITY % seq.h2 "h2,(%flow.normal;)*,(%seq.h3;)*">
+<!ENTITY % seq.h1 "h1,(%flow.normal;)*,(%seq.h2;)*">
+<!ELEMENT body ((%flow.normal;)*,(%seq.h1;)*)>
+
+
+<!-- Stuff that lives at the front of the document -->
+
+<!ELEMENT front (title, subtitle?, author?, abstract?)>
+
+<!ELEMENT title (%h.phrasal;)*>
+
+<!ELEMENT subtitle (%h.phrasal;)*>
+<!ELEMENT name (#PCDATA)>
+<!ELEMENT organization (#PCDATA)>
+<!ELEMENT address (#PCDATA|br)*>
+<!ELEMENT email (#PCDATA)*>
+<!ELEMENT author (name, organization?, address?, email?)>
+<!ELEMENT abstract (%flow.simple;)*>
+<!ELEMENT year (#PCDATA)>
+
+<!-- Stuff that lives at the back of the document -->
+
+<!ELEMENT cite.pages (#PCDATA)>
+<!ELEMENT cite.note (#PCDATA)>
+<!ELEMENT cite.volume (#PCDATA)>
+<!ELEMENT cite.number (#PCDATA)>
+<!ELEMENT cite.year (#PCDATA)>
+<!ELEMENT cite.month (#PCDATA)>
+<!ELEMENT cite.journal (#PCDATA)>
+<!ELEMENT cite.proceedings (#PCDATA)>
+<!ELEMENT cite.publisher (#PCDATA)>
+<!ELEMENT cite.url (#PCDATA)>
+
+<!ELEMENT cite.title (#PCDATA)>
+<!ELEMENT cite.author (#PCDATA)>
+<!ELEMENT citation (cite.author*, cite.title, (cite.journal|cite.proceedings)?,
+  cite.publisher?, cite.year?, cite.month?, (cite.volume,
+cite.number)?, cite.pages?, cite.url, cite.note?)*>
+<!ATTLIST citation name CDATA #REQUIRED>
+<!ELEMENT bibliography (citation)*>
+<!ELEMENT back (bibliography?)>
+
+<!-- And finally, the document itself: -->
+
+<!ELEMENT copy-terms (%h.phrasal;)*>
+<!ELEMENT copyright (year, organization, copy-terms?)*>
+
+<!ELEMENT doc (copyright?, front, body, back?)>
+
+<!-- ====================================== -->
+<!-- Stuff for the object reference manual: -->
+<!-- ====================================== -->
+
+<!ELEMENT obgroup (#PCDATA)>
+<!-- Description has same content as body. Should we just use body? -->
+<!ELEMENT description ((%flow.normal;)*,(%seq.h1;)*)>
+
+<!ELEMENT operation (opname, opdescrip, arguments, returns, throws*)>
+<!ATTLIST operation value CDATA #REQUIRED>
+<!ATTLIST operation name CDATA #REQUIRED>
+<!ELEMENT opname (%h.phrasal;)*>
+<!ELEMENT opdescrip (%flow.normal;)*>
+<!ELEMENT arguments (u64|word|key|string)*>
+<!ELEMENT returns (u64|word|key|string)*>
+<!ELEMENT draft EMPTY>
+<!ELEMENT keytype (%h.phrasal;)*>
+<!ATTLIST keytype value CDATA #REQUIRED>
+<!ELEMENT key (%h.phrasal;)*>
+<!ATTLIST key name CDATA #REQUIRED>
+<!ATTLIST key type CDATA #REQUIRED>
+<!ELEMENT word (%h.phrasal;)*>
+<!ATTLIST word name CDATA #REQUIRED>
+<!ELEMENT u64 (%h.phrasal;)*>
+<!ATTLIST u64 name CDATA #REQUIRED>
+<!ELEMENT throws (%h.phrasal;)*>
+<!ATTLIST throws value CDATA #REQUIRED>
+
+<!ELEMENT obname (%h.phrasal;)*>
+<!ELEMENT obfuncprefix (#PCDATA)>
+
+<!ELEMENT exception EMPTY>
+
+<!ELEMENT obdoc (copyright?, obgroup, obname, obfuncprefix, draft?, description,
+  keytype*, operation*, exception*, back?)>
+
+<!-- A protection profile has a fairly rigid structure. -->
+<!ELEMENT pp.front    (title, author, pp.front.ccversion, pp.front.label, pp.front.keywords)>
+<!ELEMENT   pp.front.ccversion  (%phrasal;)*>
+<!ELEMENT   pp.front.label      (%phrasal;)*>
+<!ELEMENT   pp.front.keywords   (%phrasal;)*>
+
+<!ELEMENT pp.disclaimer (%flow.simple;)*>
+<!ELEMENT pp.introduction ((%flow.normal;)*,(%seq.h2;)*)>
+<!ELEMENT pp.toedescrip ((%flow.normal;)*,(%seq.h2;)*)>
+
+<!ELEMENT   pp.description        (%flow.normal;)*>
+<!ELEMENT   pp.notes              (%flow.normal;)*>
+<!ELEMENT   pp.correspondance     (pp.issue.ref)*>
+
+<!ELEMENT   pp.issues             (pp.issue)*>
+<!ELEMENT   pp.issue              (pp.description, pp.notes?)*>
+<!ATTLIST   pp.issue              name CDATA #REQUIRED>
+<!ELEMENT   pp.issue.ref          EMPTY>
+<!ATTLIST   pp.issue.ref          name CDATA #REQUIRED>
+
+<!ELEMENT pp.securityenvironment ((%flow.normal;)*,(%seq.h2;)*,pp.se.assumptions,pp.se.threats,pp.se.policies)>
+<!ELEMENT   pp.se.assumptions ((%flow.normal;)*,(%seq.h3;)*,pp.issues)>
+<!ELEMENT   pp.se.threats     ((%flow.normal;)*,(%seq.h3;)*,pp.issues)>
+<!ELEMENT   pp.se.policies    ((%flow.normal;)*,(%seq.h3;)*,pp.issues)>
+
+<!ELEMENT   pp.objectives         (pp.objective)*>
+<!ELEMENT   pp.objective          (pp.description,pp.notes?,pp.issue.ref*)>
+<!ATTLIST   pp.objective          name CDATA #REQUIRED>
+
+<!ELEMENT   pp.sfrs               (pp.sfr)*>
+<!ELEMENT   pp.sfr                (pp.description,pp.sfr.depends-on*,pp.notes?,pp.issue.ref*)>
+<!ATTLIST   pp.sfr                name CDATA #REQUIRED>
+<!ELEMENT   pp.sfr.depends-on     EMPTY>
+<!ATTLIST   pp.sfr.depends-on     name CDATA #REQUIRED>
+
+<!ELEMENT pp.securityobjectives ((%flow.normal;)*,(%seq.h2;)*,pp.so.toe,pp.so.environment,pp.so.rationale)>
+<!ELEMENT   pp.so.toe          ((%flow.normal;)*,(%seq.h3;)*,pp.objectives)>
+<!ELEMENT   pp.so.environment  ((%flow.normal;)*,(%seq.h3;)*,pp.objectives)>
+<!ELEMENT   pp.so.rationale    ((%flow.normal;)*,(%seq.h3;)*,pp.objectives)>
+
+<!ELEMENT pp.itsecurityrequirements ((%flow.normal;)*,(%seq.h2;)*,pp.it.functional,pp.it.assurance)>
+<!ELEMENT   pp.it.functional  ((%flow.normal;)*,(%seq.h3;)*,pp.sfrs*)>
+<!ELEMENT   pp.it.assurance   ((%flow.normal;)*,(%seq.h3;)*,pp.sfrs*)>
+
+<!ELEMENT ProtectionProfile (copyright?, pp.front, pp.disclaimer,
+   pp.introduction,
+   pp.toedescrip, pp.securityenvironment, pp.securityobjectives,
+   pp.itsecurityrequirements, back?)>

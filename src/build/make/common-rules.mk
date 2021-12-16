@@ -1,7 +1,9 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
+# Copyright (C) 2005, 2009, 2010, Strawberry Development Group
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,8 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
 
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 unexport DIRS
 unexport ETAGDIRS
@@ -26,10 +30,6 @@ unexport CLEANLIST
 
 ifndef MAKEVARS_LOADED
 include $(EROS_SRC)/build/make/makevars.mk
-endif
-
-ifndef CLEANDIRS
-CLEANDIRS=$(DIRS)
 endif
 
 ifeq "$(BUILDDIR)" ""
@@ -64,11 +64,15 @@ endif
 #
 ######################################################################
 
-export RECURSE_TARGET
+# IDIRS is a list of directories to recurse on for "interfaces".
+# LDIRS is a list of directories to recurse on for "libs".
+# PDIRS is a list of directories to recurse on for "install".
+# DIRS is a list of additional directories to recurse on
+#   for "interfaces" and "install" (not "libs").
 
 .PHONY: subdirs
 subdirs:
-	@for i in $(DIRS); do \
+	@for i in $(RECURSE_DIRS); do \
 		if [ -d "$$i" ]; then\
 			$(MAKE) -C $$i $(MAKERULES) $(RECURSE_TARGET); \
 			if [ $$? -ne 0 ]; then\
@@ -78,52 +82,45 @@ subdirs:
 		fi; \
 	done
 
-.PHONY: recurse
-recurse:
-	@for i in $(DIRS); do \
-		if [ -d "$$i" ]; then\
-			$(MAKE) -C $$i $(MAKERULES) $(RECURSE_TARGET) recurse; \
-			if [ $$? -ne 0 ]; then\
-				echo "*** RECURSIVE BUILD STOPS ***";\
-				exit 1;\
-			fi; \
-		fi; \
-	done
-
 .PHONY: install
 install: RECURSE_TARGET=install
-install: recurse
+# DIRS and PDIRS should not have duplicate entries.
+install: RECURSE_DIRS=$(DIRS) $(PDIRS)
+install: subdirs
 
 .PHONY: interfaces
 interfaces: RECURSE_TARGET=interfaces
-interfaces: recurse
+# DIRS and IDIRS should not have duplicate entries.
+interfaces: RECURSE_DIRS=$(DIRS) $(IDIRS)
+interfaces: subdirs
 
-### install: recursive-install
-### recursive-install:
-### ifneq "$(DIRS)" ""
-### 	@for i in $(DIRS); do \
-### 		if [ -d "$$i" ]; then\
-### 			$(MAKE) -C $$i $(MAKERULES) install; \
-### 			if [ $$? -ne 0 ]; then\
-### 				echo "*** RECURSIVE BUILD STOPS ***";\
-### 				exit 1;\
-### 			fi; \
-### 		fi; \
-### 	done
-### endif
+.PHONY: libs
+libs: RECURSE_TARGET=libs
+libs: RECURSE_DIRS=$(LDIRS)	# recurse over LDIRS only
+libs: subdirs
+
+# Target clean removes generated files in the current directory
+# and CLEANDIRS recursively. 
+# It also removes files in CLEANLIST.
+# Local Makefiles can add dependencies to nonrecursiveClean. 
+
+ifndef CLEANDIRS
+CLEANDIRS=$(DIRS) $(IDIRS) $(LDIRS) $(PDIRS)
+endif
 
 .PHONY: clean
 
 clean: nodepend
-
 clean: RECURSE_TARGET=clean
-clean: recurse
-clean: generic-clean
+# Remove duplicates from CLEANDIRS
+clean: RECURSE_DIRS=$(shell echo $(CLEANDIRS) | tr " " "\n" | sort | uniq)
+clean: nonrecursiveClean subdirs
+nonrecursiveClean: generic-clean
 
 .PHONY: generic-clean
 generic-clean:
 	-rm -f *.o core *~ new.Makefile  ".#"*
-	-rm -f .*.m sysgen.map $(TARGETS) TAGS
+	-rm -f sysgen.map TAGS
 	-rm -f *.dvi *.blg *.aux *.log *.toc $(CLEANLIST)
 ifneq "$(CLEAN_BUILDDIR)" ""
 	-rm -rf $(CLEAN_BUILDDIR)
@@ -137,7 +134,6 @@ endif
 .PHONY: nodepend 
 nodepend:
 	-find . -name '.*.m' -exec rm {} \;
-	-find . -name 'DEPEND' -exec rm {} \;
 	-find . -name 'BUILD' | xargs -n 40 rm -rf \;
 
 .PHONY: webify
@@ -146,12 +142,14 @@ webify: tags
 endif
 webify: $(BUILDDIR) $(GENERATED)
 webify: RECURSE_TARGET=webify
-webify: recurse
+webify: RECURSE_DIRS=$(DIRS)
+webify: subdirs
 
 # This is a debugging target..
 .PHONY: walk
 walk: RECURSE_TARGET=walk
-walk: recurse
+walk: RECURSE_DIRS=$(DIRS)
+walk: subdirs
 
 here:
 	@echo $(PWD)

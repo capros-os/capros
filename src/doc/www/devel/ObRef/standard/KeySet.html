@@ -1,0 +1,523 @@
+<html>
+<head>
+<title>EOR: Key Set</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>Key Set</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> The <STRONG>Key Set</STRONG> is an object which manages an
+  arbitrary set of keys, each with an associated Word of data. It
+  is used when you need to keep track of a large number of keys and
+  must be able to tell if you have seen a key before.
+  <p> Note that there is no way to get back a key from a KeySet.  If
+  you need to use the key again, you have to hold on to it somehow.
+  <!-- Something about invalid? -->
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Destroy</strong> (OC = KT + 4)
+    <dd>
+	 <p> Destroys the KeySet and its associated data.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The Key Set is destroyed.  All outstanding keys to
+	       it are now void keys.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_UnknownRequest</em>
+	     </td>
+	     <td> The invoked key was not a read-write key to the
+	       KeySet.  The KeySet is unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The space bank from which the Key Set was crafted no
+	       longer exists.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Add Key</strong> (OC = 1)
+    <dd>
+	 <p> Adds a key and associated Word to the KeySet.  If the
+	 Key is already in the KeySet, its associated Word is
+	 updated to the passed in Word, and the old integer is
+	 returned to the caller.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>	     <td> The key to add to the KeySet.
+	     </td>
+	   <tr valign=top>
+	     <td align=right> <strong>R1</strong>
+	     </td>
+	     <td> The Word to be associated with the added key
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>R1</strong>
+	     </td>
+	     <td> The previous integer associated with the key, or 0
+	       if the key was not already in the set. (Note that it is
+	       impossible to tell whether or not a key with an
+	       associated Word of 0 was already in the set -- use the
+	       Contains Key order instead)
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The passed in key is now in the set and associated
+	       with the passed in integer.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_UnknownRequest</em>
+	     </td>
+	     <td> The invoked key was not a Read-write key to the
+	       KeySet.  the KeySet is unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The KeySet is invalid.  No operation happened.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Remove Key</strong> (OC = 2)
+    <dd>
+	 <p> Removes a key from the keyset and returns its associated
+	 Word.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> The key to remove from the KeySet.
+	     </td>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>R1</strong>
+	     </td>
+	     <td> The previous integer associated with the key, or 0
+	       if the key was not already in the set. 
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=4> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The passed in key is no longer in the KeySet
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_UnknownRequest</em>
+	     </td>
+	     <td> The invoked key was not a Read-write key to the
+	       KeySet.  The KeySet is unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The passed in key was not a member of the KeySet.
+	       The KeySet is unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The KeySet is invalid.  The KeySet is unchanged.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Contains Key</strong> (OC = 3)
+    <dd>
+	 <p> Checks whether or not a key is contained in the set, and
+	 returns the Word associated with it.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> The key to check
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>R1</strong>
+	     </td>
+	     <td> The Word associated with the key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The passed in key is in the KeySet.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The passed in key is not in the keyset.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The KeySet is invalid.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Is Empty</strong> (OC = 5)
+    <dd>
+	 <p> Checks whether or not the keyset contains any keys.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The KeySet is empty
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The KeySet is not empty
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The KeySet is invalid.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Empty</strong> (OC = 6)
+    <dd>
+	 <p> Removes all keys from the KeySet
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The KeySet is now empty
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_UnknownRequest</em>
+	     </td>
+	     <td> The invoked key was not a Read-Write key to the
+	       KeySet.  The KeySet is unchanged.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Make Read-Only Key</strong> (OC = 8)
+    <dd>
+	 <p> Returns a read-only key to the KeySet.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> RK0
+	     </td>
+	     <td> A read-only key to the KeySet
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The operation completed sucessfully
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Add Keys From Set</strong> (OC = 9)
+    <dd>
+	 <p>Compares the invoked set with the passed set, adding any
+	 keys (and their associated Words) which are in the passed set
+	 and not in the invoked set.  The associated Words of any keys
+	 that were initially in the invoked keyset are <em>unchanged</em>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> The KeySet to add keys from.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=5> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The invoked KeySet now contains all of the keys in
+	       the passed set.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_UnknownRequest</em>
+	     </td>
+	     <td> The invoked key was not a Read-Write key to the
+	       KeySet.  The invoked KeySet is unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_RequestError</em>
+	     </td>
+	     <td> The passed in key is not a KeySet.  The invoked
+	       KeySet is unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The invoked KeySet is invalid. The invokedKeySet is
+	       unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>3</strong>
+	     </td>
+	     <td> The passed KeySet is invalid. The invoked KeySet is
+	       unchanged.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Remove Keys Not In Set</strong> (OC = 10)
+    <dd>
+	 <p>Compares the invoked set with the passed set, removing any
+	 keys which are in the invoked set and not in the passed set.
+	 The associated Word is ignored.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> The KeySet to check keys with.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=5> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The invoked KeySet now contains no keys not in the
+	       passed set.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_UnknownRequest</em>
+	     </td>
+	     <td> The invoked key was not a Read-Write key to the
+	       KeySet.  The invoked KeySet is unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_RequestError</em>
+	     </td>
+	     <td> The passed in key is not a KeySet.  The invoked
+	       KeySet is unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The invoked KeySet is invalid. The invoked KeySet is
+	       unchanged.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>3</strong>
+	     </td>
+	     <td> The passed KeySet is invalid. The invoked KeySet is
+	       unchanged.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+  <dt> <strong>Is Subset of Set</strong> (OC = 16)
+    <dd>
+	 <p>Tells you whether or not a set is a subset of another set.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> The KeySet to compare with.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=9> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The invoked set contains no keys not in the
+	       passed set.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The invoked set contains keys not in the passed set.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_RequestError</em>
+	     </td>
+	     <td> The passed in key is not a KeySet. 
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The invoked KeySet is invalid.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>3</strong>
+	     </td>
+	     <td> The passed KeySet is invalid. 
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+<!-- commented out
+  <dt> <strong>Compare Sets</strong> (OC = 16)
+    <dd>
+	 <p>Compares the invoked set with the passed set and returns
+	 a code indicating the relation between the two sets.
+	 Optionally compares data fields of keys which are in both sets.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> The KeySet to compare with.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>R1</strong>
+	     </td>
+	     <td> If non-zero, indicates that data fields should be
+	       compared.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=9> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>16</strong>
+	     </td>
+	     <td> The invoked set and the passed set contain the same keys.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>17</strong>
+	     </td>
+	     <td> The invoked set contains all keys in the passed set.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>18</strong>
+	     </td>
+	     <td> The passed set contains all keys in the invoked set.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>19</strong>
+	     </td>
+	     <td> The invoked set and the passed set have no keys in common.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>20</strong>
+	     </td>
+	     <td> The invoked set and the passed set have keys in
+	       common, but there are keys in the invoked set which are
+	       not in the passed set and vice versa.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>21</strong>
+	     </td>
+	     <td> Data comparisons were asked for and there was at
+	       least one key which was in the passed set and the
+	       invoked set with different associated data.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_RequestError</em>
+	     </td>
+	     <td> The passed in key is not a KeySet. 
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The invoked KeySet is invalid.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>3</strong>
+	     </td>
+	     <td> The passed KeySet is invalid. 
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+-->
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 2003, The EROS Group, LLC.
+ * Copyright (C) 2009, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -121,7 +123,8 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   int i;
 
   unsigned snd_regcount = FIRST_REG;
-  unsigned needRegs;
+  unsigned needRegs = 0;	// This is probably wrong;
+	// just initialize it to prevent a compiler warning.
 
   PtrVec *rcvRegs = extract_registerizable_arguments(s, sc_formal);
   PtrVec *sndRegs = extract_registerizable_arguments(s, sc_outformal);
@@ -408,7 +411,7 @@ emit_if_decoder(Symbol *s, FILE *outFile)
   do_indent(outFile, 2);
   fprintf(outFile, "default" ":\n");
   do_indent(outFile, 4);
-  fprintf(outFile, "msg->snd_code = RC_eros_key_UnknownRequest;\n");
+  fprintf(outFile, "msg->snd_code = RC_capros_key_UnknownRequest;\n");
   do_indent(outFile, 4);
   fprintf(outFile, "return;\n");
 
@@ -593,7 +596,7 @@ compute_server_dependencies(Symbol *scope, PtrVec *vec)
   return;
 }
 
-void
+static void
 emit_server_decoders(Symbol *scope, FILE *outFile)
 {
   unsigned i;
@@ -612,7 +615,7 @@ emit_server_decoders(Symbol *scope, FILE *outFile)
   return;
 }
 
-void 
+static void 
 emit_server_dispatcher(Symbol *scope, FILE *outFile)
 {
   size_t rcvSz = size_server_buffer(scope, sc_formal);
@@ -711,7 +714,7 @@ emit_server_dispatcher(Symbol *scope, FILE *outFile)
   do_indent(outFile, 4);
   fprintf(outFile, "msg.snd_w2 = 0;\n");
   do_indent(outFile, 4);
-  fprintf(outFile, "msg.snd_code = RC_eros_key_UnknownRequest;\t/* Until otherwise proven */\n");
+  fprintf(outFile, "msg.snd_code = RC_capros_key_UnknownRequest;\t/* Until otherwise proven */\n");
 
   fprintf(outFile, "\n");
 

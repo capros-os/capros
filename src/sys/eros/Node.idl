@@ -1,0 +1,85 @@
+package capros;
+
+/* Interface to node keys.
+ */
+interface Node extends key raises (key.RequestError) {
+  exception NoAddr;
+  exception Nondecreasing;
+  exception UnrepresentableGuard;
+
+  const unsigned byte nSlots = 32;
+  const unsigned byte l2nSlots = 5;	// log base 2 of the above
+  const unsigned byte keeperSlot = 31;
+
+  const unsigned long opaque = 1;
+  const unsigned long readOnly = 2;
+
+  typedef unsigned long extAddr_t;	// an extended address
+
+  /* Return the key in the specified slot. */
+  /* If the key is opaque, this call goes to the keeper. */
+  capros.key getSlot(unsigned byte slot); 
+
+  /* Return the key at the specified address in a tree of nodes. */
+  /* If the key is opaque and the node is Blocked,
+     this call goes to the keeper. */
+  // Raises NoAddr if the address does not exist.
+  /* Raises Nondecreasing if the l2v of the path of nodes is nondecreasing.*/
+  capros.key getSlotExtended(extAddr_t slot); 
+
+  /* Store a key into the specified slot and return the former contents. */
+  /* If the key is opaque, this call goes to the keeper. */
+  capros.key swapSlot(unsigned byte slot, capros.key k); 
+
+  /* Store a key at the specified address in a tree of nodes,
+  and return the former contents. */
+  /* If the key is opaque and the node is Blocked,
+     this call goes to the keeper. */
+  // Raises NoAddr if the address does not exist.
+  // Raises NoAccess if this or any node key in the path is readOnly.
+  /* Raises Nondecreasing if the l2v of the path of nodes is nondecreasing.*/
+  capros.key swapSlotExtended(extAddr_t slot, capros.key k); 
+
+  /* Store a number key into the specified slot. */
+  void writeNumber(unsigned long slot, capros.Number.value val); 
+
+  /* Return a key with reduced permissions. */
+  capros.key reduce(unsigned long restrictions); 
+
+  /* Return the l2v field of this Node. */
+  unsigned byte getL2v(); 
+
+  /* Set the l2v field of this Node. */
+  void setL2v(unsigned byte newL2v); 
+
+  /* Sets a key as the Node's keeper. */
+  /* The keeper slot may not be used in *SlotExtended (else NoAddr). */
+  /* (The keeper slot may be overwritten with swapSlot(keeperSlot).) */
+
+  /* key.getType goes to the keeper if there is one.
+     key.destroy always goes to the keeper.
+     If the key is opaque, all other operations, except *SlotExtended
+     and reduce, go to the keeper. 
+     Any methods not handled by the node go to the keeper. */
+  /* If the keeper is not a gate key, it is not called. */
+  void setKeeper(capros.key k);
+
+  /* Sets the Node as having no keeper. Slot keeperSlot is unchanged. */
+  void clearKeeper();
+
+  /* While the node is Blocked, get/swapSlotExtended on an opaque key
+  will go the keeper. */
+  void setBlocked();
+  void clearBlocked();
+
+  /* Returns the guard of this key. */
+  extAddr_t getGuard();
+
+  /* Returns a key to the node with the specified guard.
+  Due to storage constraints, all the one bits in guard
+  must be in 8 contiguous bits, else raises UnrepresentableGuard. */
+  capros.key makeGuarded(extAddr_t guard);
+
+  /* Copy the contents of this node to another. */
+  void clone(capros.key fromNode); 
+};

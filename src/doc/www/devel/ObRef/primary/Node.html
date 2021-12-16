@@ -1,0 +1,549 @@
+<html>
+  <head>
+    <title>EOR: Node</title>
+  </head>
+
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+    vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+	  <div class=KeyName>
+	    [<em><a href="../Cover.html">Return to Top</a></em>]
+	    [<em><a href="00Primary.html">Primary Objects</a></em>]
+	    <div align=right>
+	      <H2>EROS Object Reference</H2>
+	      <H2>Primary Objects</H2>
+	    </div>
+	    <h2>Node</h2>
+	    <em>D R A F T</em>
+	    <hr>
+	  </div>
+	  <div class=KeyDescrip>
+	    <h3>Description</h3> 
+	    <p> 
+	      A <strong>Node</strong> provides
+	      persistent storage for a fixed number of keys.  Just as
+	      the <a href="Page.html"><strong>page</strong></a> is the
+	      basic unit of storage for user data, the Node provides the
+	      basic unit of storage for 32 keys. Every Node corresponds
+	      to one or more unique locations on some persistent storage
+	      medium, such as a disk drive.  In most installations,
+	      Nodes are therefore available in large supply.
+	      Applications acquire Node keys by requesting them from a
+	      <a href="../standard/SpaceBank.html"><strong>Space
+		  Bank</strong></a>.  Nodes are primarily used to construct
+	      address space trees.  The term ``node'' refers to their
+	      use as tree nodes in address spaces.
+	    </p>
+	    <p>
+	      Node keys may carry several attributes that restrict
+	      the behavior of operations on the node in certain
+	      contexts.  A given node key may carry some, all, or none
+	      of the following restrictions:
+	    </p>
+	    <ul>
+	      <table>
+		<tr valign=top>
+		  <td><strong>Read-Only</strong></td>
+		  <td>
+		    <p>
+		      Prohibits modification of the node.  New keys
+		      cannot be written to this node's slots.  When
+		      the node appears in a memory tree, all stores to
+		      pages below this node in the tree will generate
+		      access violations.
+		    </p>
+		    <p>
+		      A read-only node key may not be used to perform
+		      the swap, compare, zero, or write number
+		      operations.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td><strong>No Call</strong></td>
+		  <td>
+		    <p>
+		      Prohibits the invocation of a keeper via this
+		      node.  When the node appears in a memory tree,
+		      keepers specified at or below this node are
+		      ignored.  If an access violation or invalid
+		      reference occurs within the subspace rooted at
+		      this node, the nearest keeper <em>above</em> the
+		      node (if any) in the memory tree will be
+		      notified of the fault.
+		    </p>
+		    <p>
+		      For a red address space node key (see <a
+			href="AddressSpace.html"><strong>address
+			  space</strong></a>), this attribute causes the
+		      forwarding of invocations to the space keeper
+		      to be suppressed.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td><strong>Weak</strong></td>
+		  <td>
+		    <p>
+		      A weak node key performs the sensory
+		      transformation (see <a
+			href="../concepts/SensoryKey.html"><strong>sensory
+			  keys</strong></a> in the concepts section) on
+		      any key that is <em>loaded</em> via this
+		      node. Keys returned by the copy and swap
+		      operations will be <em>desensitized</em> so as
+		      not to (transitively) convey mutate authority
+		      on any object.  When a weak node key appears
+		      in a memory tree, key load operations from
+		      locations within that subspace will return
+		      similarly desensitized keys.
+		    </p>
+		  </td>
+		</tr>
+	      </table>
+	    </ul>
+	    <hr></hr>
+	    <h3>Operations</h3>
+	    <dl>
+	      <dt> <strong>Check Alleged Key Type</strong> (OC = KT)</dt>
+	      <dd> 
+		<p>
+		  Returns the alleged type of the key.
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Reply</strong>
+		    </td>
+		    <td align=right>
+		      <strong>R1</strong>
+		    </td>
+		    <td align=right>
+		      <em>AKT_Node</em>:
+		      Key is some type of node key.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Reply</strong>
+		    </td>
+		    <td>
+		      <strong>R1</strong>
+		    </td>
+		    <td>
+		      Value of the key info field, as described above.
+		    </td>
+		  </tr>
+		</table>
+	      </dd>
+	      <dt> <strong>Copy Key</strong> (OC = 0)</dt>
+	      <dd> 
+		<p>
+		  Copies the key in  slot N (0 &lt;= N &lt;= 31) of the Node
+		  to the key register named in key slot 0 (RK0).
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td>
+		      <strong>Request</strong>
+		    </td>
+		    <td align=right>
+		      <strong>R1</strong>
+		    </td>
+		    <td>
+		      The node slot <strong>N</strong> to be copied.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td>
+		      <strong>Reply</strong>
+		    </td>
+		    <td align=right>
+		      RK0
+		    </td>
+		    <td>
+		      A copy of the key in the requested slot.
+		    </td>
+		  </tr>
+		  <tr>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=2>
+		      <strong>Result</strong>
+		    </td>
+		    <td align=right>
+		      RC_OK
+		    </td>
+		    <td>
+		      Operation completed successfully.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <em>RC_RequestError</em>
+		    </td>
+		    <td>
+		      Slot number was invalid.
+		    </td>
+		  </tr>
+		  </table>
+	      </dd>
+	      <dt> <strong>Swap Key</strong> (OC = 1)</dt>
+	      <dd> 
+		<p> 
+		  Places the passed key (SK0) in slot N (0 &lt;= N
+		  &lt;= 31), returning the old key in the designated
+		  return register (RK0).
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td rowspan=2>
+		      <strong>Request</strong>
+		    </td>
+		    <td align=right>
+		      R1
+		    </td>
+		    <td>
+		      The key slot <strong>N</strong> to be exchanged.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      SK0
+		    </td>
+		    <td>
+		      The key to be written to the indicated Node slot.
+		    </td>
+		  </tr>
+		  <tr>
+		  </tr>
+		  <tr valign=top>
+		    <td>
+		      <strong>Reply</strong>
+		    </td>
+		    <td align=right>
+		      RK0
+		    </td>
+		    <td>
+		      The previous value of the key in slot <em>N</em>.
+		    </td>
+		  </tr>
+		  <tr>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=4>
+		      <strong>Result</strong>
+		    </td>
+		    <td align=right>
+		      RC_OK
+		    </td>
+		    <td>
+		      Operation completed successfully.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <em>RC_NoAccess</em>
+		    </td>
+		    <td>
+		      Access violation.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <em>RC_RequestError</em>
+		    </td>
+		    <td>
+		      Slot number was invalid.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <em>RC_Process_Returnee</em>
+		    </td>
+		    <td> Operation would modify the returnee.  This usually
+		      means that the node key names a node that shares
+		      structure with the process named by the resume key for
+		      this operation.
+		    </td>
+		  </tr>
+		</table>
+		<p>
+		  This operation is not permitted for sensory or fetch
+		  keys.
+		</p>
+	      </dd>
+	      <dt> <a name="makeseg"><strong>Make Node
+	      Key</strong></a> (OC = 64)</dt> 
+	      <dd> 
+		<p>
+		  Returns a node key to the invoked
+		  key, using the passed data value as the key info
+		  field.  The requested attributes of the new key are
+		  <b>or</b>'d with the attributes of the invoked key;
+		  the make node key operation can never reduce the
+		  restrictions on a node key.
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Request</strong>
+		    </td>
+		    <td align=right>
+		      <strong>R1</strong>
+		    </td>
+		    <td> The desired key info field for the newly
+		      created key, using the encoding shown above.  Must be
+		      &lt;= 65535.
+		    </td>
+		  </tr>
+		  <tr>
+		  </tr>
+		  <tr valign=top>
+		    <td>
+		      <strong>Reply</strong>
+		    </td>
+		    <td align=right>
+		      RK0
+		    </td>
+		    <td>
+		      A copy of the invoked key, whose BLSS value is as
+		      specified in <strong>R1</strong> and whose attributes
+		      are the logical <strong>OR</strong> of the requested
+		      attributes and the attributes of the invoked key.
+		    </td>
+		  </tr>
+		  <tr>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=3>
+		      <strong>Result</strong>
+		    </td>
+		    <td align=right>
+		      RC_OK
+		    </td>
+		    <td>
+		      Operation completed successfully.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <em>RC_RequestError</em>
+		    </td>
+		    <td>
+		      Request format error.  These requests require a
+		      word data argument whose value is <= 65535.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <em>RC_NoAccess</em>
+		    </td>
+		    <td>
+		      Access violation.  Sense keys may only be used
+		      to construct sense keys.  Fetch keys can only
+		      be used to construct fetch keys or sense keys.
+		    </td>
+		  </tr>
+		</table>
+	      </dd>
+	      <dt> <strong>Clear Node</strong> (OC = 73)</dt>
+	      <dd> 
+		<p>
+		  Replaces all keys in the Node with the <a
+		    href="../kernel/Void.html"><strong>void key</strong></a>.
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td rowspan=3>
+		      <strong>Result</strong>
+		    </td>
+		    <td align=right>
+		      RC_OK
+		    </td>
+		    <td>
+		      Operation completed successfully.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <em>RC_NoAccess</em>
+		    </td>
+		    <td>
+		      Access violation.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <em>RC_Process_Returnee</em>
+		    </td>
+		    <td> Operation would modify the returnee.  This usually
+		      means that the process key names the same process that is
+		      named by the resume key for this operation.
+		    </td>
+		  </tr>
+		</table>
+		<p>
+		  This operation is not permitted for sensory or fetch keys.
+		</p>
+	      </dd>
+	      <dt> <strong>Key Data</strong> (OC = 74)</dt>
+	      <dd> 
+		<p>
+		  Returns the key data field of the invoked Node key.
+		  (The key data field is not used.)
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Reply</strong>
+		    </td>
+		    <td align=right>
+		      <em>db</em>
+		    </td>
+		    <td>
+		      The value of the key's data byte
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Result</strong>
+		    </td>
+		    <td align=right>
+		      RC_OK
+		    </td>
+		    <td>
+		      Operation completed successfully.
+		    </td>
+		  </tr>
+		</table>
+	      </dd>
+	      <dt> <strong>Clone Node</strong> (OC = 80)</dt>
+	      <dd> 
+		<p>
+		  Copies all of the keys in the passed in Node into
+		  the Called node, making it a clone.  The old keys in
+		  the invoked node are lost.
+		</p>
+		<p> 
+		  The <strong>Clone Node</strong> operation is not
+		  permitted on a read-only node key.
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td>
+		      <strong>Request</strong>
+		    </td>
+		    <td align=right>
+		      SK0
+		    </td>
+		    <td>
+		      The Node Key clone from.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=3>
+		      <strong>Result</strong>
+		    </td>
+		    <td align=right>
+		      0
+		    </td>
+		    <td>
+		      Success.  The node now holds the same keys as
+		      <STRONG>SK0</STRONG>.
+		    </td>
+		  </tr>
+		  <tr>
+		    <td align=right>
+		      RC_RequestError
+		    </td>
+		    <td>
+		      <STRONG>SK0</STRONG> is not a Node key.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      RC_NoAccess
+		    </td>
+		    <td>
+		      The invoked node key is read-only. The node
+		      remains unchanged. 
+		    </td>
+		  </tr>
+		</table>
+	      </dd>
+	      <dt> <strong>Write Number</strong> (OC = 96)</dt> 
+	      <dd>
+		<p> 
+		  Fabricates a number key in slot N (0 &lt;= N &lt;=
+		  31) whose values are obtained from the sent registers.
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td rowspan=4>
+		      <strong>Request</strong>
+		    </td>
+		    <td align=right>
+		      <strong>R1</strong>
+		    </td>
+		    <td>
+		      The slot number to overwrite.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <strong>W</strong>
+		    </td>
+		    <td>
+		      The least significant 32 bits of the value.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <strong>W</strong>
+		    </td>
+		    <td>
+		      The middle 32 bits of the value.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td align=right>
+		      <strong>W</strong>
+		    </td>
+		    <td>
+		      The most significant 32 bits of the value.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Result</strong>
+		    </td>
+		    <td align=right>
+		      RC_OK
+		    </td>
+		    <td>
+		      Operation completed successfully.
+		    </td>
+		  </tr>
+		</table>
+	      </dd>
+	    </dl>
+	  </div>
+	  <hr>
+      <em>Copyright 1998, 2001 by Jonathan Shapiro,
+      2007 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</html>

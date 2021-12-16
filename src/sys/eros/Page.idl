@@ -1,0 +1,26 @@
+package capros;
+
+/** Kernel interface to page keys.
+ *
+ */
+interface Page extends Memory
+  raises(capros.key.RequestError, capros.key.NoAccess) {
+
+  /* Sets the contents of the page to zero. 
+     Raises NoAccess if the key is read only. */
+  void zero();
+
+  /* Sets the contents of the page equal to the contents of fromPage.
+     Raises NoAccess if the invoked key is read only.
+     Raises RequestError if fromPage is not a page key. */
+  void clone(capros.key fromPage);
+
+  /** Get DMA page key.
+
+  Get a capability to the nth page of the multi-page block referred to
+  by the invoked capability.
+  ordinal == 0 refers to the first block, etc.
+  Raises key.RequestError
+  if ordinal is &gt;= the number of pages in the block. */
+  capros.key getNthPage(unsigned short ordinal);
+};

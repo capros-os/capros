@@ -1,0 +1,251 @@
+package capros;
+
+/* Interface to a Home Automation Inc. (HAI) Omni controller. */
+interface HAI extends key 
+{
+  exception NACK;
+
+  struct SystemStatus {
+    unsigned byte timeDateValid;	// 0 or 1
+    unsigned byte year;		// 0 through 99
+    unsigned byte month;	// 1 through 12
+    unsigned byte day;		// 1 through 31
+    unsigned byte dayOfWeek;	// 1 (Monday) through 7 (Sunday)
+    unsigned byte hour;		// 0 through 23
+    unsigned byte minute;	// 0 through 59
+    unsigned byte second;	// 0 through 59
+    unsigned byte DST;		// 1 if daylight savings time else 0
+    unsigned byte sunriseHour;	// 0 through 23
+    unsigned byte sunriseMinute;	// 0 through 59
+    unsigned byte sunsetHour;	// 0 through 23
+    unsigned byte sunsetMinute;	// 0 through 59
+    unsigned byte batteryReading;	// ?
+  };
+  void getSystemStatus(out RTC.time_t asOf, out SystemStatus status);
+
+  /// @brief Get the status of a unit.
+  /* For a counter, condition is the value of the counter.
+     timeLeft is in seconds.
+     asOf is the time as of which the status was read. */
+  void getUnitStatus(unsigned short unit,
+                     out RTC.time_t asOf,
+                     out unsigned byte condition, out unsigned short timeLeft);
+
+  unsigned byte enum Command {
+    /// @brief Turn the unit off indefinitely.
+    /// param1 must be zero.
+    UnitOff,
+
+    /// @brief Turn the unit off for param1 seconds.
+    /// param1 must be between 1 and 99 inclusive.
+    UnitOffForSeconds,
+
+    /// @brief Turn the unit off for param1 minutes.
+    /// param1 must be between 1 and 99 inclusive.
+    UnitOffForMinutes,
+
+    /// @brief Turn the unit off for param1 hours.
+    /// param1 must be between 1 and 18 inclusive.
+    UnitOffForHours,
+
+    /// @brief Turn the unit on indefinitely.
+    /// param1 must be zero.
+    UnitOn,
+
+    /// @brief Turn the unit on for param1 seconds.
+    /// param1 must be between 1 and 99 inclusive.
+    UnitOnForSeconds,
+
+    /// @brief Turn the unit on for param1 minutes.
+    /// param1 must be between 1 and 99 inclusive.
+    UnitOnForMinutes,
+
+    /// @brief Turn the unit on for param1 hours.
+    /// param1 must be between 1 and 18 inclusive.
+    UnitOnForHours,
+
+    /// @brief Decrement the unit counter.
+    /// param1 must be zero.
+    UnitDecrement,
+
+    /// @brief Increment the unit counter.
+    /// param1 must be zero.
+    UnitIncrement,
+
+    /// @brief Set the unit counter to param1.
+    /// param1 must be between 0 and 255 inclusive.
+    UnitSet
+  };
+  /* Raises NACK if the HAI responded with a Negative Acknowledge message. */
+  void setUnitStatus(unsigned short unit, Command cmd, unsigned byte param1);
+
+  /// @brief Get the status of a zone.
+  /* asOf is the time as of which the zone status was read.
+     Bits 0 and 1 of status contain the zone's current condition: */
+  const unsigned byte Status_Condition_Mask = 3;
+  const unsigned byte Status_Condition_Secure = 0;
+  const unsigned byte Status_Condition_NotReady = 1;
+  const unsigned byte Status_Condition_Trouble = 2;
+  /* Other bits of status may be on and are described in the HAI
+     OmniLink II Protocol. */
+  void getZoneStatus(unsigned short zone,
+                     out RTC.time_t asOf,
+                     out unsigned byte status, out unsigned byte loopReading);
+
+  /* for future: 
+  execute button n
+  */
+
+  /* Notifications */
+
+  unsigned byte enum NotificationType {
+    Zone = 1,
+    Unit = 2,
+    Area = 5,
+    Thermostat = 6,
+    Message = 7,
+    AuxSensor = 8,
+    AudioZone = 10,
+    AccessControlReader = 14,
+    AccessControlReaderLock = 15,
+    Other = 255
+  };
+
+  struct ZoneNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned byte loopReading;
+    unsigned byte padding1;
+    unsigned short padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct UnitNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned short time;
+    unsigned short padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct AreaNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte mode;
+    unsigned short objectNumber;
+    unsigned byte alarms;
+    unsigned byte entryTimer;
+    unsigned byte exitTimer;
+    unsigned byte padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct ThermostatNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned byte temperature;
+    unsigned byte heatSetpoint;
+    unsigned byte coolSetpoint;
+    unsigned byte systemMode;
+    unsigned byte fanMode;
+    unsigned byte holdStatus;
+    unsigned byte humidity;
+    unsigned byte humidifySetpoint;
+    unsigned byte dehumidifySetpoint;
+    unsigned byte outdoorTemperature;
+    unsigned byte HCHDStatus;
+    unsigned byte padding;
+    unsigned long padding2;
+    unsigned long trailer;
+  };
+
+  struct MessageNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned long trailer;
+  };
+
+  struct AuxSensorNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte outputStatus;
+    unsigned short objectNumber;
+    unsigned byte value;
+    unsigned byte lowSetpoint;
+    unsigned byte highSetpoint;
+    unsigned byte padding1;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct AudioZoneNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte power;
+    unsigned short objectNumber;
+    unsigned byte source;
+    unsigned byte volume;
+    unsigned byte mute;
+    unsigned byte padding1;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct AccessControlReaderNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte denied;
+    unsigned short objectNumber;
+    unsigned byte lastUser;
+    unsigned byte padding1;
+    unsigned short padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct AccessControlReaderLockNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned short time;
+    unsigned short padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct OtherNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte padding;
+    unsigned short event;
+    unsigned long trailer;
+  };
+
+  /* For a generic notification, use Notification to access the type field.
+     This has the maximum size of any notification.
+     Since the size is unknown, do not access anything after the type field. */
+  typedef ThermostatNotification Notification;
+
+  /* getNotificationsLog
+     This operation returns a read only capability to the Logfile
+     containing all notifications. */
+  Logfile getNotificationsLog();
+};
+
+/* Interface for internal use. */
+interface HAIIPLink extends key
+{
+  capros.IP getIP();
+};

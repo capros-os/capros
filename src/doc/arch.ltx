@@ -1,0 +1,1425 @@
+\documentstyle[psfig,twocolumn]{article}
+
+%%% I like quotes to use unindented paragraphs with a decent paragraph
+%%% seperator. LaTeX does not.  A particular misfortune of the LaTeX2e
+%%% default is that it botches abstracts rather badly.  Unfortunately,
+%%% the solution depends on which LaTeX version you are using:
+
+% This version for the latex at Penn:
+
+\def\quotation{\list{}{\listparindent 0em
+    \itemindent\listparindent
+    \rightmargin\leftmargin 
+    \parsep 4pt} \item[] }
+
+% This version for latex2e:
+
+%%%\renewenvironment{quotation}
+%%%               {\list{}{\listparindent 0em %was 1.5em in LaTex2e
+%%%                        \itemindent    \listparindent
+%%%                        \rightmargin   \leftmargin
+%%%                        % latex2e: \parsep        \z@ \@plus\p@}
+%%%                        \parsep        4pt}
+%%%                \item[]}
+%%%               {\endlist}
+
+\parindent=0pt
+\parskip=4pt
+\flushbottom
+
+%%% Make sure the table of contents on the first page doesn't get
+%%% too overwhelming.  This must be done in the preamble:
+
+\setcounter{tocdepth}{2}
+
+\if@twoside \oddsidemargin 0pt \evensidemargin 36pt \marginparwidth 0pt
+\else \oddsidemargin 0pt \evensidemargin 0pt
+\marginparwidth 0pt 
+\fi
+\marginparsep 0pt 
+\topmargin=-36pt \headheight 12pt \headsep 25pt \footskip 30pt 
+\textheight = 9in
+\textwidth 6.5in \columnsep 10pt \columnseprule 0pt 
+
+\pagestyle{headings}
+
+\begin{document}
+
+\title{{\LARGE The EROS Microkernel Architecture}\\
+  {\normalsize A Reliable, secure kernel for the next decade.}\\ 
+  {\small DRAFT 0.1}\thanks{
+    Copyright \copyright 1995, Jonathan S. Shapiro.
+    Permission is granted to redistribute this
+    document in electronic or paper form, provided that this copyright
+    notice is retained.
+    }
+  }
+
+%%%
+%%% Following is, in my opinion, an utterly disgusting hack
+%%%
+\author{
+  Jonathan S. Shapiro
+  {\em Synergistic Computing Associates}
+}
+
+\date{23 June, 1995}
+
+\maketitle
+
+\begin{abstract}
+  This paper describes EROS, the Extremely Reliable Operating System.
+  EROS is a reliable, secure system that supports modern computing
+  environments, including composable computing infrastructures and
+  disconnected computing.  EROS is a pure capability system, designed
+  to ensure both application and system reliability in the face of
+  mutually adversarial users.  Applications constructed using the
+  native EROS application environment are both more robust and more
+  easily debugged than their monolithic counterparts.
+
+  In diskless configurations, the EROS kernel is small enough to be
+  used for embedded or handheld applications, yielding improved
+  application reliability and recovery.  In configurations providing
+  nonvolatile storage, EROS provides recoverable persistence for data
+  and applications and unsurpassed effective storage bandwidth.  With
+  appropriate operating environments installed, EROS is powerful
+  enough to execute applications intended for other operating systems.
+  In single-node configurations, EROS is well-suited to real-time
+  applications requiring scheduling guarantees.
+
+  This paper presents an introduction to the architecture and
+  implementation of the EROS Microkernel, describing the key features
+  and facilities of the EROS system.
+\end{abstract}
+
+%\vfill 
+%\thispagestyle{empty}
+%\setcounter{page}{0}%
+
+\pagebreak
+\tableofcontents
+\thispagestyle{empty}
+\setcounter{page}{0}%
+\twocolumn
+
+
+\section{Introduction}
+The EROS microkernel is a highly reliable, secure platform for
+embedded or general purpose computing.  Like it's predecessor
+KeyKOS\footnote{KeyKOS is a registered trademark of Key Logic, Inc.},
+EROS is a pure capability system: objects are named exclusively by
+secure capabilities, and all interprocess communication is performed
+by invoking capabilities.  This enables a surprising degree of
+reliability and fault isolation.  In environments providing
+nonvolatile storage, EROS processes are persistent, providing recovery
+from transient failures with a tunable amount of information loss.
+
+While the original goal of the EROS project was to closely follow the
+KeyKOS kernel design, we have since departed from this approach.  The
+EROS kernel differs substantially in both design and implementation
+from its predecessor.  The changes have resulted in higher
+performance, better support for fine-grain scheduling, and
+improvements in blocked I/O to raw devices.  Collectively, these
+changes make it possible to use the EROS system for both real-time and
+data-intensive applications.
+
+EROS provides a minimal kernel.  Most traditional supervisor functions
+are performed by non-supervisor code through capabilities that convey
+suitable privilege.  Excluding device drivers, the kernel is roughly
+17,000 of reasonably portable C++ code. The i486 implementation
+typically takes less than 64 Kbytes of code.  This is an unusually
+large implementation due to the variety of disk controllers available
+in the PC world.
+
+The simplicity and flexibility of EROS derives in large part from the
+fact that the kernel maintains very little non-recoverable state.
+Except for the kernel process table and the checkpoint area
+directories, all state maintained by the kernel can be reconstructed
+from persistent objects.
+
+This paper provides a detailed description of the single-node EROS
+kernel.  Future versions of EROS will provide large-scale, under
+construction as part of the ENIAC 2000 effort at the University of
+Pennsylvania, will support recoverable distribution based on the
+SNOCRASH distributed consistency algorithm.
+
+\section{EROS Objects}
+
+The fundamental objects in the EROS system are {\bf Pages}, {\bf
+  Nodes}, and {\bf Keys}.  A page holds an machine-defined quantity of
+user data.  A node holds an implementation-defined number of keys.  In
+the current EROS implementation, nodes contain 16 keys, and we do not
+anticipate that this will change.
+
+A key is a an unforgeable, protected (name, authority pair).  Every
+key names a node, a page, a device, or a kernel implemented service.
+In addition, every key contains the access rights conveyed by that
+key.  A holder of a read-only key to a page cannot mutate the page.  A
+holder of a read-write key can read or write that page.  In most
+cases, the holder of a key can obtain a key to the same object that
+has lesser authority.  No mechanism exists in the system to increase
+the authority of a key.
+
+In addition to the (name, authority) pair, EROS keys include a {\em
+  version} field.  If the version in the key and the version in the
+corresponding object do not agree, the key is invalid.  Invalid keys
+convey no authority.
+
+Posession of a valid key is a necessary and sufficient condition to
+perform the operations conveyed by that key.  The kernel has no
+concept of users, groups, access lists, or other protection schemes.
+Key security is enforced by partitioning; only the kernel has direct
+access to the content of a key.  A user with appropriate authorities
+(conveyed, of course, by holding appropriate keys) can copy a key from
+a slot in one node to a slot in another, but this is done by
+reference; at no time does the content of the key become visible to
+the user process.
+
+Other EROS objects, including processes and memory segments, are
+constructed from pages and nodes.  These are described in detail
+below.
+
+\subsection{Object Persistence}
+In system configurations providing nonvolatile storage, every page and
+node has a unique home location in the persistent store.  All or part
+of the persistent storage may be duplexed.  In such configurations,
+the kernel views main memory as a cache of the nodes and pages on the
+persistent store.  Periodically, it performs an asynchronous
+checkpoint to write all mutated objects back to disk.  The checkpoint
+is performed using a two-stage mechanism; objects are first appended
+to a fixed-size circular log, and later migrated to their home
+locations.  This ensures that there is always a consistent snapshot of
+the system state that can be recovered when the system restarts.
+
+In order to ensure that a checkpoint is always possible; the kernel
+will not permit an object in main memory to be mutated until a
+location for the object has been reserved in the log.  In typical
+installations, the log is considerably larger than the system's main
+memory; in such configurations, the log doubles as a paging area.
+
+For conceptual details of the checkpoint mechanism, the reader is
+referred to \cite{KeyKOS:Checkpoint}.  The use of a circular log
+somewhat alters the details of the disk management, but the basic
+checkpoint/migration mechanism used is similar.  The EROS
+implementation of checkpoint is considerably faster, primarily due to
+a different implementation of Keys.
+
+\subsection{Object Allocation}
+
+The EROS kernel performs no storage allocation.  Pages and nodes are
+managed by a user level process called a {\bf space bank}.  When a
+user process requires a page or a node, it obtains one from the space
+bank.  Space banks have the ultimate authority to allocate and
+deallocate disk storage.
+
+This design has several useful consequences:
+\begin{itemize}
+\item There are no conflicting resource management objectives in the
+  kernel that can lead to deadlock.
+\item No kernel state is required to remember the structure of user
+  storage.  This improves the speed and reduces the complexity of
+  persistence.
+\item No analogue to a file system needs to be included in the kernel.
+  The kernel views disks as a collection of linear object arrays.
+\item It is not possible for the kernel to run out of kernel virtual
+  memory.  The EROS kernel performs no dynamic storage management
+  during normal operation.
+\end{itemize}
+
+Space banks construct page and node keys by means of a
+kernel-implemented service called a {\bf range key}.  When the space
+bank allocates an object to a user, it uses the range key to increment
+the object version and create a new key of the appropriate type.  This
+ensures that any outstanding keys to prior versions of the object will
+not allow their holders to read the new object content.
+
+\section{Memory Segments}
+
+Memory Segments in EROS are constructed by building trees of nodes and
+pages, exactly as one would construct page tables for most virtual
+memory systems.  Page keys are inserted in the slots of the
+bottom-most nodes, and node keys in successively higher nodes.
+Collectively, these define an addressable segment, which can be used
+as a file or an address space.  EROS segments can contain up to
+$2^{128}$ bytes.
+
+Most processes will, in practice, use only a small fraction of such a
+space.  Rather than require a fully populated segment tree, EROS
+borrows a mechanism from the MC68000 MPU: each node key includes a
+field describing the span of the tree that it points to.  This
+span descriptor is used only for purposes of address translation and
+segment access.
+
+Previous systems, notably Mach, have provided for seperate handling of
+segment and execution related faults.  An EROS segment can be wrapped
+by a fault catcher, which provides
+
+
+takes a fault that requires the allocation of additional
+space, the fault is redirected to a user level fault handler, which
+obtains the needed storage resources from a space bank and installs
+them in the process address space.  Having done so, it restarts the
+process at the faulted instruction.
+
+
+ While the system supplies a swap area, this is used
+primarily to preserve the illusion of a larger physical store.  Any
+page or node
+
+
+
+\onecolumn
+\begin{thebibliography}{9999999}
+\bibitem[Bom92]{KeyKOS:NanoKernel} Allen C. Bomberger, A. Peri Frantz,
+  William S. Frantz, Ann C. Hardy, Norman Hardy, Charles R. Landau,
+  Jonathan S. Shapiro. ``The KeyKOS NanoKernel Architecture,'' {\em
+    Proceedings of the USENIX Workshop on Micro-Kernels and Other
+    Kernel Architectures}.  USENIX Association. April 1992. pp 95-112.
+  \verb'http://www.cis.upenn.edu/~shap/KeyKOS/MicroKernelPaper.html'
+\bibitem[Davidson84]{Davidson:Optimism} Susan B. Davidson.  ``Optimism
+  and Consistency in Partitioned Distributed Database Systems'' in
+  {\em ACM Transactions on Database Systems}, Vol 9 No 3. September
+  1984. pp 456-481
+\bibitem[Davidson85]{Davidson:Consistency} Susan B. Davidson, Hector
+  Garcia-Molina. ``Consistency in Partitioned Networks,'' {\em ACM
+    Computing Surveys}.  Association for Computing Machinery.
+  September 1985. Vol 17 No 3. pp 341-370.
+\bibitem[Fujimoto89]{Fujimoto:TimeWarp} Richard M. Fujimoto.  ``Time
+  Warp on a Shared Memory Multiprocessor'' in {\em 1998 Conference on
+    Parallel Processing}. 
+\bibitem[Gray93]{Gray:TransactionProcessing} Jim Gray and Andreas
+  Reuter. {\em Transaction Processing, Concepts and Technology}.
+  Morgan Kaufmann. 1993. 
+\bibitem[Hardy85]{KeyKOS:Architecture} Norman Hardy. ``The KeyKOS
+  Architecture'' {\em Operating Systems Review}. Oct. 1985, pp 8-25.
+  \verb'http://www.cis.upenn.edu/~shap/KeyKOS/OSRpaper.html'
+\bibitem[Hardy88]{KeyKOS:Deputy} Norman Hardy. ``The Confused Deputy''
+  {\em Operating Systems Review}. Oct. 1988, vol 22 no 4, pp 36-38.
+  \verb'http://www.cis.upenn.edu/~shap/KeyKOS/ConfusedDeputy.html'
+\bibitem[Hardy92]{Hardy:SilkRoad} Norman Hardy. ``The Digital Silk
+    Road,'' to appear in {\em Agoric Systems: Market Based
+      Computation}.
+    \verb'http://www.cis.upenn.edu/~shap/KeyKOS/DSR.html'
+\bibitem[Jeff85]{Jefferson:VirtualTime}
+  David R. Jefferson.  ``Virtual Time'' in {\em ACM Transactions on
+    Programming Languages and Systems}.  Vol 7 No 3. July 1985, pp
+  404-425. 
+\bibitem[Lamport78]{Lamport:Clocks} L. Lamport.  ``Time, clocks, and
+  ordering of events in a distributed system.''  {\em Communications
+    of the ACM}.  Vol 21 No 7.  July 1978.  pp 558-565.
+\bibitem[Lampson93]{Lampson:PresumedCommit} Butler Lampson and David
+  Lomet. ``A New Presumed Commit Optimization for Two Phase Commit''
+  in {\em Proceedings of the 19th Very Large Databases Conference}.
+  1993.
+\bibitem[Landau92]{KeyKOS:Checkpoint} Charles R. Landau. ``The
+  Checkpoint Mechanism in KeyKOS,'' {\em Proceedings of the Second
+    International Workshop on Object Orientation in Operating
+    Systems}.  IEEE. September 1992. pp 86-91.
+\bibitem[Moore91]{mktng:chasm} Geoffrey A. Moore. {\em Crossing the
+    Chasm}. HarperCollins Publishers, 1991
+\bibitem[Shap95a]{EROS:Architecture} Jonathan Shapiro ``The EROS
+  Kernel Architecture,'' in progress.
+\bibitem[Shap95b]{EROS:Checkpoint} Jonathan Shapiro and Norm Hardy
+  ``Further Improving a Fast Checkpoint,'' in progress.
+\bibitem[Sunder90]{Sunderam:PVM} V. S. Sunderam. ``PVM: A Framework
+  for Parallel Distributed Computing,'' {\em Concurrency: Practice and
+    Experience}.  Vol 2 No 4.  December 1990.
+\bibitem[Tomasulo67]{Tomasulo:Rename} R. M. Tomasulo.  ``An Efficient
+  Algorithm for Exploiting Multiple Arithmetic Units'' in {\em IBM
+    Journal of Research and Development} Vol 11 No 1 (January) pp
+  25-33.
+\bibitem[Venka87]{Venkatesh:Checkpoint} K. Venkatesh, T.
+  Radhakrishnan, and H.F. Li. ``Optimal Checkpointing and Local
+  Recording for Domino-Free Rollback Recovery,'' {\em Information
+    Processing Letters}. No 25.  July 1987.  pp 295-303.
+\bibitem[Warp93a]{WARP:Coherence} {\em Coherence in Distributed
+    Persistent Object Systems}. WARP Report W1-93, Division of
+  Computer Science, University of St Andrews, 1993.
+  \hfill \break \verb'http://warp.dcs.st-and.ac.uk/warp/reports/W1-93.ps' 
+\bibitem[CODA]{CODA:CODA} {\em I need a reference for this}
+\end{thebibliography}
+\end{document}
+
+<html>
+<head>
+<!-- This document was created from RTF source by rtftohtml version
+2.7.5 -->
+<title>KeyKOS Nanokernel Architecture</title>
+</head>
+<body>
+<H1>The KeyKOS&#174 Nanokernel Architecture</H1>
+<p> Alan C. Bomberger
+<br> A. Peri Frantz
+<br> William S. Frantz
+<br> Ann C. Hardy
+<br> Norman Hardy
+<br> Charles R. Landau
+<br> Jonathan S. Shapiro
+<p> <em>Copyright &#169; 1992, Jonathan S. Shapiro.  All rights
+reserved.  Permission to reproduce this document for non-commercial
+use is hereby granted, provided that this copyright notice is
+retained.</em>
+<p> This paper first appeared in <i> Proceedings of the USENIX Workshop on
+Micro-Kernels and Other Kernel Architectures</i>, USENIX Association,
+April 1992. pp 95-112
+<H1>ABSTRACT</H1>
+The KeyKOS nanokernel is a capability-based object-oriented operating system
+that has been in production use since 1983.  Its original implementation was
+motivated by the need to provide security, reliability, and 24-hour
+availability for applications on the Tymnet&#174 hosts.  Requirements
+included the ability to run multiple instantiations of several operating
+systems on a single hardware system. KeyKOS was implemented on the System/370,
+and has since been ported to the 680x0 and 88x00 processor families.
+Implementations of EDX, RPS, VM, MVS, and UNIX&#174 have been constructed.  The
+nanokernel is approximately 20,000 lines of C code, including capability,
+checkpoint, and virtual memory support.  The nanokernel itself can run in less
+than 100 Kilobytes of memory.<p>
+KeyKOS is characterized by a small set of powerful and highly optimized
+primitives that allow it to achieve performance competitive with the
+macrokernel operating systems that it replaces. Objects are exclusively invoked
+through protected capabilities, supporting high levels of security and
+intervals between failures in excess of one year.  Messages between agents may
+contain both capabilities and data.  Checkpoints at tunable intervals provide
+system-wide backup, fail-over support, and system restart times typically less
+than 30 seconds.  In addition, a journaling mechanism provides support for
+high-performance transaction processing.  On restart, all processes are
+restored to their exact state at the time of checkpoint, including registers
+and virtual memory.<p>
+This paper describes the KeyKOS architecture, and the binary compatible UNIX
+implementation that it supports.<p>
+
+<h1> Table of Contents, Trademarks </h1>
+
+<ol>
+<li><a href="#RTFToC1">1.Introduction</a>
+<li><a href="#RTFToC2">2.Architectural Foundations</a><ol>
+<li><a href="#RTFToC3">Stateless Kernel</a>
+<li><a href="#RTFToC4">Single-Level Store</a>
+<li><a href="#RTFToC5">Capabilities</a></ol>
+<li><a href="#RTFToC6">3.Major Nanokernel Features</a>
+<li><a href="#RTFToC7">4.Fundamental KeyKOS Objects</a><ol>
+<li><a href="#RTFToC8">Devices</a>
+<li><a href="#RTFToC9">Pages</a>
+<li><a href="#RTFToC10">Nodes</a>
+<li><a href="#RTFToC11">Segments</a>
+<li><a href="#RTFToC12">Meters</a>
+<li><a href="#RTFToC13">Domains</a></ol>
+<li><a href="#RTFToC14">5.Message Passing</a>
+<li><a href="#RTFToC15">6.Checkpointing and Journaling</a><ol>
+<li><a href="#RTFToC16">The Checkpoint Mechanism</a>
+<li><a href="#RTFToC17">The Journaling Mechanism</a></ol>
+<li><a href="#RTFToC18">7.Exception Handling</a>
+<li><a href="#RTFToC19">8.A KeyKOS-Based UNIX Implementation</a><ol>
+<li><a href="#RTFToC20">UNIX Services</a></ol>
+<li><a href="#RTFToC21">9.Structure of KeyNIX</a><ol>
+<li><a href="#RTFToC22">One Kernel per Process</a>
+<li><a href="#RTFToC23">The KeyNIX File and Device System</a>
+<li><a href="#RTFToC24">The Problem of Signals</a>
+<li><a href="#RTFToC25">Expected Performance</a>
+<li><a href="#RTFToC26">Known Incompatibilities</a></ol>
+<li><a href="#RTFToC27">10.Performance Comparison</a><ol>
+<li><a href="#RTFToC28">Simple System Calls</a>
+<li><a href="#RTFToC29">Open and Close</a>
+<li><a href="#RTFToC30">Fork and Exit</a>
+<li><a href="#RTFToC31">Exec</a>
+<li><a href="#RTFToC32">Sbrk</a>
+<li><a href="#RTFToC33">Pipe Bandwidth</a>
+<li><a href="#RTFToC34">Disk File I/O</a>
+<li><a href="#RTFToC35">Performance Summary</a></ol>
+<li><a href="#RTFToC36">11.Implementation Alternatives</a><ol>
+<li><a href="#RTFToC37">Domains for Process and File Table Manipulation</a>
+<li><a href="#RTFToC38">Small Files</a>
+<li><a href="#RTFToC39">File System Domain</a></ol>
+<li><a href="#RTFToC40">12.Conclusions</a>
+<li><a href="#RTFToC41">13.Bibliography</a>
+</ol>
+
+<a name="fn0">
+<strong>KeyKOS</strong> is a registered mark of Key
+Logic, Inc.<p>
+<strong>Tymnet</strong> is a registered mark of British Telecom, Inc.<p>
+<strong>UNIX</strong> is a registered mark of AT&amp;T Bell Laboratories, Inc.<p>
+<h1>
+<a name="RTFToC1">1.
+Introduction
+</a></h1>
+This paper describes the KeyKOS nanokernel, a small capability-based system
+originally designed to provide security sufficient to support mutually
+antagonistic users.  KeyKOS consists of the nanokernel, which can run in as
+little as 100 Kilobytes of memory and includes all of the system privileged
+code, plus additional facilities necessary to support operating systems and
+applications.  KeyKOS presents each application with its own abstract machine
+interface.  KeyKOS applications can use this abstract machine layer to
+implement KeyKOS services directly or to implement other operating system
+interfaces.  Implementations of EDX, RPS, VM/370, an MVS subset, and UNIX have
+been ported to the KeyKOS platform using this facility.<p>
+Tymshare, Inc. developed the earliest versions of KeyKOS to solve the security,
+data sharing, pricing, reliability, and extensibility requirements of a
+commercial computer service in a network environment.  Development on the
+KeyKOS system began in 1975, and was motivated by three key requirements:
+accounting accuracy that exceeded any then available; 24-hour uninterrupted
+service; and the ability to support simultaneous, mutually suspicious time
+sharing customers with an unprecedented level of security.  Today, KeyKOS is
+the only commercially available operating system that meets these
+requirements.<p>
+KeyKOS began supporting production applications on an IBM 4341 in January 1983.
+KeyKOS has run on Amdahl 470V/8, IBM 3090/200 (in uniprocessor System/370
+mode), IBM 158, and NAS 8023.  In 1985, Key Logic was formed to take over
+development of KeyKOS.  In 1988, Key Logic began a rewrite of the nanokernel in
+C.  After 10 staff months of effort a nanokernel ran on the ARIX Corporation
+68020 system, and the project was set aside.  The project resumed in July of
+1990 on a different processor, and by October of 1990 a complete nanokernel was
+running on the Omron Luna/88K.  The current nanokernel contains approximately
+20,000 lines of C code and less than 2,000 lines of assembler code.<p>
+This paper presents the architecture and design of the KeyKOS nanokernel, and
+the UNIX system that runs on top of it.  In the interest of a clear
+presentation of the KeyKOS architecture, we have omitted a description of the
+underlying kernel implementation.
+<h1>
+<a name="RTFToC2">2.
+Architectural Foundations
+</a></h1>
+KeyKOS is founded on three architectural concepts that are unfamiliar to most
+of the UNIX community: a stateless kernel, single-level store, and
+capabilities.  Our experience indicates that understanding a single-level store
+model requires a fundamental shift in perspective for developers accustomed to
+less reliable architectures.  It therefore seems appropriate to present these
+concepts first as a foundation on which to build the balance of the KeyKOS
+architectural description.
+<h2>
+<a name="RTFToC3">Stateless
+Kernel
+</a></h2>
+An early decision in the KeyKOS design was to hold no critical state in the
+kernel.  All nanokernel state is derived from information that persists across
+system restarts and power failures.  For reasons of efficiency, the nanokernel
+does reformat state information in private storage.  All private storage is
+merely a cache of the persistent state, and can be recycled at any time.  When
+the discarded information is needed again, it is reconstructed from the
+information in nodes and pages (which are described below)<p>
+As a consequence, the nanokernel performs no dynamic allocation of kernel
+storage.  This has several ramifications:<p>
+<ul>
+  <li>  The kernel is faster, since no complicated storage allocation code is ever
+run.<p>
+  <li> The kernel never runs out of space.<p>
+  <li> There is no nanokernel storage (such as message queues) that must be a part of
+the checkpoint.<p>
+</ul>
+The absence of dynamic allocation means that there can be no interaction
+between dynamic allocation strategies, which is the predominant source of
+deadlock and consistency problems in most operating systems.<p>
+The system outside the nanokernel is completely described by the contents of
+nodes and pages (see below), which are persistent.  This state includes files,
+programs, program variables, instruction counters, I/O status, and any other
+information needed to restart the system.<p>
+In addition, the ability to recover all run-time kernel data from checkpointed
+state means that an interruption of power does not disrupt running programs.
+Typically, the system loses only the last few seconds of keyboard input.  At
+UNIFORUM '90, Key Logic pulled the plug on our UNIX system on demand.  Within
+30 seconds of power restoration, the system had resumed processing, complete
+with all windows and state that had previously been on the display.  We are
+aware of no other UNIX implementation with this feature today.
+<h2>
+<a name="RTFToC4">Single-Level
+Store
+</a></h2>
+KeyKOS presents a persistent single-level store model.  To the KeyKOS
+application, all data lives in persistent virtual memory.  Only the nanokernel
+is aware of the distinction between main memory and disk pages.  Periodic
+system-wide checkpoints guarantee the persistence of all system data.  The
+paging system is tied to the checkpoint mechanism, and is discussed in the
+section on checkpointing, below.  Persistence extends across system shutdown
+and power failure.  Several IBM 4341 systems ran for more than three years
+across power failures without a logical interruption of service.<p>
+Like memory pages, KeyKOS applications are persistent.  An application
+continues to execute until it is explicitly demolished.  To the application,
+the shutdown period is visible only as an unexplained jump in the value of the
+real time clock, if at all.  As a result, the usual issues surrounding orderly
+startup and shutdown do not apply to KeyKOS applications.  Most operating
+systems implement a transient model of programs; persistence is the exception
+rather than the rule. A client operating system emulator may provide transient
+applications by dismantling its processes when they terminate.<p>
+The single-level store model allows far-reaching simplifications in the design
+of the KeyKOS system.  Among the questions that the nanokernel does <i>not</i>
+have to answer are:<p>
+<ul>
+  <li> How does the system proceed when it runs out of swap space? (It
+checkpoints.)<p>
+  <li> How does the kernel handle the tear-down of a process? (It doesn't.)<p>
+  <li> How is kernel state retained across restarts? (The kernel contains no state
+that requires checkpointing.)<p>
+</ul>
+Each of these areas is a source of significant complexity in other systems, and
+a consequent source of reliability problems.
+<h2>
+<a name="RTFToC5">Capabilities</a></h2>
+KeyKOS is a capability system.  For brevity, KeyKOS refers to capabilities as
+<b><i>keys</i></b>.  Every object in the system is exclusively referred to by
+one or more associated keys.  Keys are analogous in some ways to Mach's ports.
+KeyKOS entities call upon the services of other entities by sending messages
+via a key.  Message calls include a kernel-constructed <b><i>return key</i></b>
+that may be used by the recipient to issue a reply.  Messages are most commonly
+exchanged in an RPC-like fashion.<p>
+What sets KeyKOS apart from other microkernels is the total reliance on
+capabilities without any other mechanisms.  There are no other mechanisms that
+add complexity to the ideas or to the implementation.  Holding a key implies
+the authority to send messages to the entity or to pass the key to a third
+party.  If <i>A</i> does not have a key for <i>B</i>, then <i>A</i> cannot
+communicate with <i>B</i>.  Applications may duplicate keys that they hold, but
+the creation of keys is a privileged operation.  The actual bits that identify
+the object named by a key are accesible only to the nanokernel.<p>
+Through its use of capabilities and message passing, KeyKOS programs achieve
+the same encapsulation advantages of object-oriented designs.  Encapsulation is
+enforced by the operating system, and is available in any programming language.
+It is the complete security of this information hiding mechanism that makes it
+possible to support mutually suspicious users.<p>
+A fundamental concept in KeyKOS is that a program should obey the "principle of
+least privilege".  To that end, the design of KeyKOS gives objects <i>no</i>
+intrinsic authority, and relies totally upon their keys to convey what
+authority they have.  Using these facilities, the system is conveniently
+divided into small modules, each structured so as to hold the minimal privilege
+sufficient for its operation.<p>
+Entities may be referred to by multiple, distinct keys.  This allows an entity
+that communicates with multiple clients to grant different access rights to the
+clients.  Every key has an associated 8-bit field that can be used by the
+recipient to distinguish between clients.  When the entity hands out a key, it
+can set the field to a known value.  Because all messages received by the
+entity include the 8-bit value held in the key, this mechanism can be used to
+partition clients into service classes or privilege levels by giving each class
+a different key.<p>
+It is worthwhile to contrast this approach with the ring-structured security
+model pioneered in Multics and propagated in the modern Intel 80x86 family.
+The capability model is intrinsically more secure.  A ring-structured security
+policy is not powerful enough to allow a subsystem to depend on the services of
+a subsystem with lesser access rights.  Ring policies intrinsically violate the
+principle of least privilege.  In addition, ring-based security mechanisms
+convey categorical authority: any code running in a given layer has access to
+all of the data in that layer.  Capability systems allow authority to be
+minimized to just that required to do the job at hand.<p>
+Using a capability model offers significant simplifications in the nanokernel.
+Among the questions that the nanokernel does <i>not</i> have to answer are:<p>
+<ul>
+  <li> Does this user have the authority to perform this operation? (Yes - if you
+hold the key you can send the message.)<p>
+  <li> How do I allocate enough kernel memory to perform name resolution on a
+variable length name? (The kernel never deals with names, only keys.)<p>
+  <li> Where does this file name get inserted in this directory? (The nanokernel does
+not deal with file names or directories.)<p>
+</ul>
+Because the nanokernel has no naming mechanism other than capabilities, entity
+naming is intrinsically decentralized. As a result, extending KeyKOS to
+multiprocessors is straightforward.  KeyKOS applications cannot tell if they
+are running on a uniprocessor or a multiprocessor.
+<h1>
+<a name="RTFToC6">3.
+Major Nanokernel Features
+</a></h1>
+The nanokernel includes all of the supervisor-mode code of the system.  The
+entire kernel is implemented in approximately 20,000 lines of reasonably
+portable C code, and 2,000 lines of 88x00 assembly code. Of the assembly lines,
+1,000 lines are in the context switch implementation.  This compiles to roughly
+60 Kilobytes of executable code.  While running, the nanokernel requires as
+little as 100 Kilobytes of main memory.<p>
+The nanokernel is the only portion of the system that interprets keys.  No
+other program has direct access to the bits contained in the keys, which
+prevents key forgery.  In addition, the nanokernel includes code that defines
+the primitive system objects.  These objects are sufficient to build the
+higher-level abstractions supported by more conventional operating systems.
+The nanokernel provides:<p>
+<ul>
+  <li> multiprogramming support, primitive scheduling, and hooks for more
+sophisticated schedulers running as applications;<p>
+  <li> a single-level store, as discussed above;<p>
+  <li> separate virtual address space(s) for each KeyKOS process;<p>
+  <li> redundant disk storage for system-critical information;<p>
+  <li> a system-wide checkpoint-restart feature;<p>
+  <li> journaling pages exempt from checkpoint for database and transaction
+processing support;<p>
+  <li> keys by which messages are sent from one application to another;<p>
+  <li> primitive and limited access to individual I/O devices;<p>
+  <li> interpretation of keys that hides the location of the object on disk or in
+main memory.<p>
+</ul>
+During normal operation, KeyKOS executes a system-wide checkpoint every few
+minutes to protect from power failures, most kernel bugs, and detected hardware
+errors.  Both data <i>and processes</i> are checkpointed.  All run-time state
+in the nanokernel can be reconstructed from the checkpoint information.  Except
+for the initial installation, the system restarts from the most recent
+checkpoint on power up.<p>
+In addition to local checkpoint support, the nanokernel provides for
+checkpoints to magnetic tape or remote hot-standby systems.  This allows a
+standby system to immediately pick up execution in the event of primary system
+failure.
+<h1>
+<a name="RTFToC7">4.
+Fundamental KeyKOS Objects
+</a></h1>
+The KeyKOS kernel supports six types of fundamental objects:
+<b><i>devices</i></b>, <b><i>pages</i></b>, <b><i>nodes</i></b>,
+<b><i>segments</i></b>, <b><i>domains</i></b>, and <b><i>meters</i></b>.
+<h2>
+<a name="RTFToC8">Devices</a></h2>
+The nanokernel implements low-level hardware drivers in privileged code.  The
+supervisor-mode driver performs message encapsulation and hardware register
+manipulation.  Except where performance compels otherwise, KeyKOS applications
+implement the actual device drivers.
+<h2>
+<a name="RTFToC9">Pages</a></h2>
+The simplest KeyKOS object is the page.  Page size is dependent on the
+underlying hardware and storage architectures, but in all current
+implementations is 4 Kilobytes.  Every page has one or more persistent
+locations on some disk device, known as its <b><i>home location</i></b>.  The
+KeyKOS system manages a fixed number of pages that are allocated when the
+system is first initialized.  This number can be increased by attaching
+additional mass storage devices to the system.<p>
+A page is designated by one or more <b><i>page keys</i></b>.  Pages honor two
+basic message types: read, and write.  When pages are mapped into a process
+address space, loads and stores to locations in a page are isomorphic to read
+and write messages on the page key.  When a message is sent to a page that is
+not in memory, the page is transparently faulted in from backing store so that
+the operation can be performed.<p>
+Applications that perform dynamic space allocation hold a key to a <b><i>space
+bank</i></b>.  Space banks are used to manage disk resource allocation.  The
+system has a master space bank that holds keys to all of the pages and nodes in
+the system.<a href="#fn1">[1]</a>  One of the operations supported
+by space banks is creating subbanks, which are subbanks of the master space
+bank.  If your department has bought the right to a megabyte of storage, it is
+given a key to a space bank that holds 256 page keys.  Space banks are a type
+of domain.
+<h2>
+<a name="RTFToC10">Nodes</a></h2>
+A node is a collection of keys.  All keys in the system reside in nodes.  A
+<b><i>node key</i></b> conveys access rights to a node, and can be used to
+insert or remove keys from a node.  Like pages, nodes can be obtained from
+space banks.  In all current KeyKOS implementations, a node holds precisely 16
+keys.<p>
+Nodes are critical to the integrity of the system.  The KeyKOS system vitally
+depends on the data integrity of node contents.  As a result, all nodes are
+replicated in two (or more) locations on backing store.  In keeping with the
+general policy of not performing dynamic allocation in the kernel, and because
+the integrity requirements for nodes are so critical, KeyKOS does not
+interconvert nodes and pages.
+<h2>
+<a name="RTFToC11">Segments</a></h2>
+A segment is a collection of pages or other segments.  Segments are used as
+address spaces, but also subsume the function of files in a conventional
+operating system. Segments can be combined to form larger segments.  Segments
+may be sparse; they do not necessarily describe a contiguous range of
+addresses.<p>
+Nodes are the glue that holds segments together.  KeyKOS implements segments as
+a tree of nodes with pages as the leaves of the tree.  This facilitates
+efficient construction of host architecture page tables.  Because nodes and
+pages persist, so do segments.  The system does not need to checkpoint page
+table data structures because they are built exclusively from the information
+contained in segments.
+<h2>
+<a name="RTFToC12">Meters</a></h2>
+Meters control the allocation of CPU resources.  A <b><i>meter key</i></b>
+provides the holder with the right to execute for the unit of time held by the
+meter.  The KeyKOS kernel maintains a <b><i>prime meter</i></b> that represents
+the time interval from the present until the end of time. Like space banks,
+meters can be subdivided into submeters.  Every running process holds a meter
+key that authorizes the process to execute for some amount of time.<p>
+KeyKOS processes can be preempted.  Holding a key to a meter that provides 3
+seconds of CPU time does not guarantee that the process will run for 3
+contiguous seconds.  In the actual KeyKOS implementation, time slicing is
+enforced by allowing a process to run for the minimum of its entitled time or
+the time slice unit.  Political scheduling policies may be implemented external
+to the kernel.
+<h2>
+<a name="RTFToC13">Domains</a></h2>
+Domains perform program execution services.  They are analogous to the virtual
+processors of the POSIX threads mechanism.  It was a design goal not to
+restrict the architecture available to the user.  A consequence is that KeyKOS
+supports virtual machines.  Domains model all of the non-privileged state of
+the underlying architecture, including the general purpose register set,
+floating point register set, status registers, instruction set architecture,
+etc.  A domain interprets a program according to the hardware user-mode
+architecture.  Domains are machine-specific, though we have considered the
+implementation of domains that perform architecture emulation (e.g. for DOS
+emulation on a RISC machine).<p>
+In addition to modeling the machine architecture, domains contain 16 general
+key slots and several special slots.  The 16 general slots hold the keys
+associated with the running program.  When a key occupies one of the slots of a
+domain, we say that the program executing in that domain holds the key.  One of
+the special slots of the domain is the <b><i>address slot</i></b>.  The address
+slot holds a segment key for the segment that is acting as the address space
+for the program.  On architectures with separate instruction and data spaces,
+the domain will have an address slot for each space.  Each domain also holds a
+meter key.  The meter key allows the domain to execute for the amount of time
+specified by the meter.<p>
+KeyKOS processes are created by building a segment that will become the program
+address space, obtaining a fresh domain, and inserting the segment key in the
+domain's address slot.  The domain is created in the <i>waiting</i> state,
+which means that it is waiting for a message.  A threads paradigm can be
+supported by having two or more domains share a common address space segment.<p>
+Because domain initialization is such a common operation, KeyKOS provides a
+mechanism to generate "prepackaged" domains.  A <b><i>factory</i></b> is an
+entity that constructs other domains.  Every factory creates a particular type
+of domain.  For example, the queue factory creates domains that provide queuing
+services.  An important aspect of factories is the ability of the client to
+determine their trustworthiness.  It is possible for a client to determine
+whether an object created by a factory is secure.  Understanding factories is
+crucial to a real understanding of KeyKOS, but in the interest of brevity we
+have elected to treat factories as "black boxes" for the purposes of this
+paper.  To understand the UNIX implementation it is sufficient to think of
+factories as a mechanism for cheaply creating domains of a given type.
+<h1>
+<a name="RTFToC14">5.
+Message Passing
+</a></h1>
+The most important operation supported by the nanokernel is message passing.
+Messages sent from one domain to another involve a context switch.  In order to
+encourage the separation of applications into components of minimal privilege,
+the nanokernel's message transfer path has been carefully optimized.  The
+KeyKOS inter-domain message transfer path ranges from 90 instructions on the
+System/370 to 500 cycles on the MC88x00.<p>
+Messages are composed of a parameter word (commonly interpreted as a method
+code), a string of up to 4096 bytes, and four keys.  A domain constructs a
+message by specifying an integer, contiguous data from its address segment, and
+the keys to be sent.  Only keys held by the sender can be incorporated into a
+message.  Once constructed, the message is sent to the object named by a
+specified key.  Sending a message is sometimes referred to as key invocation.<p>
+KeyKOS supplies three mechanisms for sending messages.  The <b><i>call</i></b>
+operation creates a <b><i>resume key</i></b>, sends the message to the
+recipient, and waits for the recipient to reply using the message's resume key.
+While waiting, the calling domain will not accept other messages.  A variant is
+<b><i>fork</i></b>, which sends a message without waiting for a response.  The
+resume key is most commonly invoked using a <b><i>return</i></b> operation, but
+creative use of call operations on a resume keys can achieve synchronous
+coroutine behavior.  The return operation sends a message and leaves the
+sending domain available to respond to new messages.  All message sends have
+copy semantics.<p>
+The nanokernel does not buffer messages; a message is both sent and consumed in
+the same instant.  If necessary, invocation of a key is deferred until the
+recipient is ready to accept the message.  Message buffering can be implemented
+transparently by an intervening domain if needed.  The decision not to buffer
+messages within the nanokernel was prompted by the desire to avoid dynamic
+memory allocation, limit I/O overhead, keep the context switch path length
+short, and simplify the checkpoint operation.<p>
+A message recipient has the option to selectively ignore parts of a message.
+It may choose to accept the parameter word and all or part of the byte string
+without accepting the keys, or accept the parameter word and the keys without
+the data.
+<h1>
+<a name="RTFToC15">6.
+Checkpointing and Journaling
+</a></h1>
+KeyKOS provides for regular system-wide checkpoints and individual page
+journaling.  Checkpoints guarantee rapid system restart and fail-over support,
+while journaling provides for databases that must make commit guarantees.
+<h2>
+<a name="RTFToC16">The
+Checkpoint Mechanism
+</a></h2>
+The KeyKOS nanokernel takes system-wide checkpoints every few minutes.
+Checkpoint frequency can be adjusted by the administrator at any time without
+interruption of service.<p>
+The KeyKOS system maintains two disk regions as checkpoint areas.  When a
+checkpoint is taken, all processes are briefly suspended while a rapid sweep is
+done through system memory to locate modified pages.  No disk I/O is done while
+processes are frozen.  Once the sweep has been done, processes are resumed and
+all modified pages are written to the current checkpoint area.  Once the
+checkpoint has completed, the system makes the other checkpoint area current,
+and begins migrating pages from the first checkpoint area back to their home
+locations.  Checkpoint frequency is automatically tuned to guarantee that the
+page migration process will complete before a second checkpoint is taken.
+Because the migration process is incremental, a power failure during migration
+never leads to a corrupt system.<p>
+An implementation consequence of this approach to checkpointing is unusually
+efficient disk bandwidth utilization.  Checkpoint, paging, and page migration
+I/O is optimized to take advantage of disk interleave and compensates for arm
+latencies to minimize seek delays.  This accounts for all page writes.  The
+aggregate result is that KeyKOS achieves much higher disk efficiency than most
+operating systems.  If the system bus is fast enough, KeyKOS achieves disk
+bandwidth utilization in excess of 90% on all channels.<p>
+It is worth emphasizing that the checkpoint is not simply of files, but
+consists of all processes as well.  If an update of a file involves two
+different pages and only one of the pages has been modified at the time of the
+checkpoint, the file will not be damaged if the system is restarted.  When the
+system is restarted the process that was performing the update is also
+restarted and the second page of the file is modified as if there had been no
+interruption.  A power outage or hardware fault does not leave the system in
+some confused and damaged state.  The state at the last checkpoint is
+completely consistent and the system may be restarted from that state without
+concern about damaged files.
+<h2>
+<a name="RTFToC17">The
+Journaling Mechanism
+</a></h2>
+For most applications, it is acceptable for the system as a whole to lose the
+last few minutes work after a power outage.  Transaction processing and
+database systems require the additional ability to commit individual pages to
+permanent backing store on demand.  Using the journaling mechanism, a domain
+may request that changes to a particular page be synchronously committed to
+permanent storage.  If a system failure occurs between the commit and the next
+completed checkpoint, the journaled page will remain committed after the system
+restarts. It is the responsibility of the requesting domain to see to the
+semantic consistency of such pages.<p>
+The journaling mechanism commits pages by appending them to the most recent
+committed checkpoint.  As a result, journaling does not lead to excessive disk
+arm motion.  A curious consequence of this implementation is that transaction
+performance under KeyKOS <i>improves</i> under load.<a
+href="#fn2">[2]</a>  This is due to locality at two levels.  As
+load increases, it becomes common for multiple transactions to be committed by
+a single page write.  In addition, performing these writes to the checkpoint
+area frequently allows the journaling facility to batch disk I/O, minimizing
+seek activity.  The KeyKOS transaction system significantly exceeds the
+performance of competing transaction facilities running on the same hardware.
+CICS, for example, is unable to commit multiple transactions in a single write.
+<h1>
+<a name="RTFToC18">7.
+Exception Handling
+</a></h1>
+Process exceptions are encapsulated by the nanokernel and routed to a
+user-level handler known as a <b><i>keeper</i></b>.  The keeper technology of
+KeyKOS brings all exception policy to application level programs outside of the
+nanokernel.  A keeper is simply a domain that understands the exception
+messages delivered by the kernel; it is in all regards an ordinary domain.
+Since the UNIX implementation relies heavily on the Domain Keeper technology,
+the ideas and specifications concerning Keepers will be discussed before we
+delve into the UNIX specifics.<p>
+Recall that a KeyKOS application has an address space, a domain, and a meter.
+Each of these objects holds a start key to an associated domain known as its
+<b><i>keeper</i></b>.  When the process performs an illegal, unimplemented, or
+privileged instruction, the error is encapsulated in a message which is sent to
+the appropriate keeper, along with the keys necessary to transparently recover
+or abort the application.  The keeper may terminate the offending program,
+supply a correct answer and allow execution to continue, or restart the
+offending instruction.<p>
+Each segment has an associated <b><i>segment keeper</i></b>.  The segment
+keeper is a KeyKOS process that is invoked by the kernel when an invalid
+operation, such as an invalid reference or protection violation, is performed
+on a segment.  Page faults are fielded exclusively by the nanokernel.<p>
+By appropriate use of a <b><i>meter keeper</i></b>, more sophisticated
+scheduling policies can be implemented.  The meter keeper is invoked whenever
+the meter associated with a domain times out.  A thread supervisor might
+implement a priority scheduling policy by attaching the same meter keeper to
+all threads, and having the meter keeper parcel out time to the individual
+threads according to whatever policy seemed most sensible.<p>
+The most interesting keeper for this paper is the <b><i>domain keeper</i></b>.
+The domain keeper is invoked when a trap or exception is taken.  When a domain
+encounters an exception (system call, arithmetic fault, invalid operation,
+etc.) the domain stops executing and the domain keeper receives a message.  The
+message contains the non-privileged state of the domain (its registers,
+instruction counter, etc.), a domain key to the domain, and a form of resume
+key that the keeper can use to restart the domain.  When the faulting domain is
+restarted, it resumes at the instruction pointed to by the program counter.  If
+necessary, the domain keeper can adjust the PC value of the faulting domain
+before resumption.  
+<h1>
+<a name="RTFToC19">8.
+A KeyKOS-Based UNIX Implementation
+</a></h1>
+In July of 1990, Key Logic undertook to produce a binary-compatible prototype
+UNIX implementation for the Omron Luna/88K.  The effort had two principle
+goals.  The first was to rapidly construct a system that could run existing
+Omron application binaries.  Based on Mach 2.5, the Omron implementation
+provides a reasonably complete version of the Berkeley UNIX system, including
+the X11r4 windowing system.  KeyNIX was implemented by a single developer over
+a six month period, without reference to the UNIX source code.  The
+implementation was partly based on an earlier Minix port that had been built
+for KeyKOS on the System/370.<p>
+Our experience in implementing other systems was that breaking an application
+into separate function-oriented domains simplified the application enough to
+improve overall performance.  A second goal of the KeyNIX implementation was to
+learn where such decomposition into separate domains would cause performance
+degradation.  In several areas, multi-domain implementations were tried where
+the problem area was clearly a boundary case in order to explore the
+limitations of the domain paradigm.
+<h2>
+<a name="RTFToC20">UNIX
+Services
+</a></h2>
+Broadly speaking, the UNIX system provides the following services:<p>
+<ul>
+  <li> Process management (fork, exec, exit, kill),<p>
+  <li> File system and namespace services (open, link),<p>
+  <li> I/O services (read, write, stat, ...)<p>
+  <li> Timing facilities (sleep, nap, sometimes socket)<p>
+  <li> Messaging (sockets, pipes)<p>
+  <li> Memory management (mmap, mprotect)<p>
+  <li> Signals<p>
+  <li> Device support<p>
+  <li> Networking (TCP/IP, NFS)<p>
+</ul>
+With the exception of networking, KeyNIX implements all of these services.
+Adding networking support would be straightforward, but was not part of the
+prototype effort.
+<h1>
+<a name="RTFToC21">9.
+Structure of KeyNIX
+</a></h1>
+Under KeyNIX, every UNIX process runs as a KeyKOS domain with a segment as its
+address space.  A standard KeyKOS segment keeper is used to manage stack and
+heap growth within the address space segment.  From the outside, the UNIX
+process model is essentially unchanged. No KeyNIX code is mapped in with the
+application, nor is special linking required.  The application address spaces
+are bit for bit identical.  This severely penalizes all trivial system calls,
+and is a significant departure from the implementations used by other
+microkernels.  The penalty could be eliminated in a dynamic-library based
+standard such as System V Release 4.<p>
+<img src="NanoKernel1.gif"><p>
+Figure 1: Structure of the UNIX Implementation<p>
+To support UNIX processes, we implemented a domain keeper, known as the
+<b><i>UNIX Keeper</i></b>.  The UNIX keeper interprets the system call and
+either manages the call itself or directs request to other domains for
+servicing.  The implementation includes a number of cooperating domains, is
+shown in Figure 1.  The gray box surrounds the domains and segments that are
+replicated for each UNIX process.<p>
+Each of these domains in turn depends on other domains provided by the KeyKOS
+system.  For example, a small integer allocator domain is used to allocate
+monotonically increasing inode numbers.  To simplify the picture, domains that
+are not essential to understanding the structure of the UNIX implementation
+have been omitted.<p>
+
+<h2>
+<a name="RTFToC22">One
+Kernel per Process
+</a></h2>
+An unusual aspect of the KeyNIX design is that every UNIX process has a
+dedicated copy of the UNIX Keeper. When a process forks, the UNIX Keeper is
+replicated along with the process.  By providing a separate UNIX keeper to each
+UNIX application, the scope of UNIX system failures is reduced to a single
+process.  If a given UNIX process <i>does</i> manage to crash its copy of the
+operating system, no other processes are impacted.  An individual kernel is
+very hard to crash.  To crash the entire UNIX system essentially requires
+physical abuse of the machine or its power supply.<p>
+State that must be shared between multiple UNIX keepers, including the process
+table and open file table, is kept in a segment shared by all UNIX Keepers.
+Each process has a description block (a process table entry) that describes the
+process' address space, open files, and signal handling.  Process table entries
+contain chains of child processes and pointers to the parent process table
+entry.  Each open file has an entry in the Open File Table which keeps track of
+the number of processes that have the file open, the attributes of the file,
+and a pointer to the data structures that buffer the file data in memory.<p>
+The UNIX keeper implements UNIX process and memory management services by
+calling directly on the underlying KeyKOS services.  The nanokernel handles
+virtual memory mapping and coherency directly.  When a program is loaded by
+<i>exec</i>(2), the UNIX keeper builds an address space segment and copies the
+executable file segment into it.  Manipulating the KeyKOS segment structures is
+simpler than the equivalent structure manipulations in UNIX, and allows the
+UNIX keeper to be largely platform independent.  The nanokernel is responsible
+for the construction of mapping tables for the particular hardware platform.
+<h2>
+<a name="RTFToC23">The
+KeyNIX File and Device System
+</a></h2>
+The UNIX Keeper holds a key to the root inode of the KeyNIX file system.  Each
+inode contains the usual UNIX inode information, and is implemented by a KeyKOS
+domain.  If the inode denotes a file, the inode domain holds a key to a KeyKOS
+segment containing the file data.  If the inode denotes a device, the device
+major and minor numbers are contained in the inode.<p>
+By making each UNIX inode into a KeyKOS domain, the UNIX Keeper does not have
+to manage an inode cache or worry about doing I/O to read and write inodes.
+When the Keeper needs to read the status information from an inode it sends a
+message to the Inode object and waits for the reply.  Similar arguments apply
+to other operations.  The Keeper does not cache file or directory blocks, and
+does not maintain paging tables for support of virtual memory.  All of these
+functions are handled by the nanokernel.<p>
+In the original KeyNIX implementation, directory inodes contained a key to a
+B-tree domain that was an underlying KeyKOS tool.  An analysis of typical
+directory sizes led to the conclusion that it would be more space efficient to
+implement small directories (less than five entries) in the inode itself.  As a
+result, directory protocol requests are implemented directly by the inode
+domain.  If the inode does not denote a directory it fails the directory
+messages appropriately.  A curious artifact of this approach is that directory
+order is alphabetical order.  This is occasionally visible to end users as a
+change of behavior in programs that search directories without sorting them.<p>
+When opening a file, the UNIX Keeper issues a message to the file system root
+inode domain.  This domain in turn calls on other domains, until ultimately the
+request is resolved to a segment key that holds the file content.  Once the
+file has been located, the UNIX keeper maps the segment into the keeper address
+space and adds an entry to the open file table.  The open file table is shared
+by all UNIX Keepers, and is used to hold dynamically changing information such
+as the file's current size and last modification date.<p>
+When opening a device, the UNIX Keeper receives the major and minor device
+number from the appropriate inode domain.  The major number is in turn handed
+to the device table domain, which returns a key to the domain that implements
+the driver.  Drivers implemented in the prototype include character I/O,
+graphics console (supports the X Window System), the null device, sockets,
+kmem, and the mouse.  Support for /dev/kmem is limited to forging those
+responses necessary to run the <i>ps</i>(1) command.  In most cases, the device
+driver domain consists of the original UNIX device driver code linked with a
+support library that maps the UNIX driver-kernel interface onto KeyKOS key
+invocations.
+<h2>
+<a name="RTFToC24">The
+Problem of Signals
+</a></h2>
+The most difficult part of the KeyNIX implementation, was support for the
+<i>signal</i>(2) mechanism.  One of the deliberate design decisions of KeyKOS
+is that domains are single threaded.  A domain is either waiting for a message,
+waiting for a reply to a message, or processing a message.  There is no
+mechanism for stacking messages.  This decision increases the reliability of
+the KeyKOS system, but occasionally requires that queuing domains be inserted
+into an otherwise straightforward remote procedure call.<p>
+UNIX signals are asynchronous with respect to the receiving process.  As a
+result, the implementation of the signal mechanism is one of the more
+complicated and pervasive (not to say perverse) aspects of the UNIX kernel.<a
+href="#fn3">[3]</a><p>
+To ensure that the UNIX Keeper is always able to receive signal notifications
+promptly, trivial queuing domains are required where an operation might block
+or complete slowly.  The purpose of these domains is to queue messages to
+devices such as ttys and pipes that might otherwise delay the receipt of
+signals by the UNIX Keeper.  The UNIX Keeper delivers these messages through
+the queue domain, and waits asynchronously for the queue domain to send a
+message indicating completion of the requested service.  In effect, a series of
+fork messages are used to implement a non-blocking remote procedure call to the
+device domain in order to ensure that the UNIX kernel is always ready to
+receive another message.<p>
+<img src="NanoKernel2.gif"><p>
+Figure 2: Domains in a Pipe<p>
+The queue insertion approach has unfortunate consequences for slow devices
+(with disk devices one can reasonably assume instant service and duck the
+issue), and severly impacted communication facilities such as pipes or sockets,
+as shown in Figure 2.<p>
+These mechanisms are penalized by the requirement from both sides to remain
+able to receive signals while proceeding with the I/O transfer.  The impact is
+easily visible in the performance of KeyNIX pipes.  A better alternative is
+discussed below.
+<h2>
+<a name="RTFToC25">Expected
+Performance
+</a></h2>
+To the best of our knowledge, the KeyNIX system uses far more processes than
+any other microkernel-based UNIX implementation.  Reactions to the KeyNIX
+design from UNIX developers range from shocked to appalled at the profligate
+use of processes.  UNIX developers find it difficult to accept that the task
+switch cost can be lower than the data management code that it replaces.  We
+find this ironic, as one of the major innovations of the UNIX system was the
+notion that processes were cheap.<p>
+The object paradigm was at the heart of the design of the KeyKOS system and, as
+a result, the task switch costs are very much lower than in traditional systems
+and several times lower than in competing microkernels such as MACH and Chorus.
+On the Motorola 88x00 series, a typical message send takes less than 500
+cycles.<a href="#fn4">[4]</a>  The low cost of task switches makes
+it possible to obtain better performance with much simpler software by taking
+an object-oriented approach to the decomposition of the system.  The UNIX
+implementation described here takes considerable advantage of KeyKOS building
+blocks.  The complete UNIX kernel implementation is approximately 16,000 lines
+of C code.
+<h2>
+<a name="RTFToC26">Known
+Incompatibilities
+</a></h2>
+The KeyNIX implementation is 99% compatible with the Omron BSD 4.3
+implementation.  While KeyNIX could be equally compatible with MACH 2.5, the
+existing prototype is not.  There are four significant incompatibilities in the
+prototype:<p>
+<ol>
+  <li>
+The application prolog ("crt0") in MACH 2.5 initializes certain MACH ports.
+Because KeyNIX does not yet implement MACH ports, applications built with the
+MACH 2.5 crt0.o do not run under KeyNIX.<p>
+<li> MACH 2.5 port functions are accessed by a trap instruction in the same
+fashion as are UNIX system calls.  KeyNIX does not implement these traps.<p>
+<li>In MACH 2.5, the <i>fork</i>(2) system call does the same port
+initialization for the new task that was done by "crt0" in the parent task.
+This change is not implemented in KeyNIX.<p>
+<li>MACH 2.5 does not implement the <i>sbrk</i>(2) system call.  This call is
+handled by a library routine that uses the "VMALLOC" of MACH 2.5 to handle
+memory expansion and contraction.<p>
+<li>The KeyNIX text segment is writable, which can impact buggy programs.  This
+is the result of a quick and dirty implementation, and could be easily fixed.<p>
+</ol>
+Programs compiled on the Luna 88K under MACH 2.5 that are to be run in the
+KeyNIX system must be linked with a new prolog and new library stubs for
+<i>fork</i>(2) and <i>sbrk</i>(2).  In cases where the ".o" files exist, there
+is no need to recompile the programs, but the programs must be relinked.  <p>
+The existing prototype does not support all BSD 4.3 system calls.  The major
+criterion for choosing what to implement and what not to implement was the need
+to run X-Windows, <i>csh</i>(1), <i>ls</i>(1) and similar useful utilities.  If
+the system call is not needed to run these applications then it is not
+implemented.  There are a number of calls that are implemented in a limited
+fashion, again sufficiently to run the required applications.  As an example,
+<i>csh</i>(1) makes <i>usage</i>(2) calls but does not depend on the answers
+for correct behavior.  <i>Usage</i>(2) always returns the same fixed values and
+is not useful as a measuring tool as a result.<p>
+To get an intuitive sense of the compatibility achieved, it may suffice to say
+that all of the application binaries running on KeyKOS were obtained by copying
+the binary file from the existing BSD 4.3 system. The X Window System,
+compilers, shells, file system utilities, etc. all run without change under
+KeyNIX.
+<h1>
+<a name="RTFToC27">10.
+Performance Comparison
+</a></h1>
+A limited performance comparison was made between the KeyNIX prototype and the
+Omron MACH 2.5 implementation.  A more careful analysis would be required for
+any serious evaluation of the two systems for production use.  KeyNIX got mixed
+results for common system call sequences:
+
+<pre>
+Operation           Iterations          KeyNIX    MACH 2.5  Ratio
+getpid();               10,000      12,000/sec  30,000/sec   0.4
+open();close();          1,000         714/sec   2,777/sec   0.26
+fork();exit();             100          64/sec      10/sec   6.4
+exec();                    100         151/sec      12/sec  11.6
+sbrk(4096);sbrk(-4096)     100       2,564/sec     181/sec  14
+</pre>
+<p>
+I/O
+performance was equally mixed:
+<p>
+<pre>
+Operation            KeyNIX           MACH 2.5         Ratio
+Pipe (round trip)    .588 Mbyte/sec   1.05 Mbyte/sec     .56
+Disk access program  4 seconds        26 seconds        6.5
+</pre>
+<p>
+As
+anticipated, the simplification achieved by adding domains doesn't always lead
+to better performance. The cases that the KeyNIX prototype handled poorly have
+straightforward corrections which are discussed below.
+<h2>
+<a name="RTFToC28">Simple
+System Calls
+</a></h2>
+Simple system calls include calls such as <i>getprocid</i>(2),
+<i>putprocid</i>(2), and <i>gettimeofday</i>(2), which are essentially accessor
+functions.  A trap is taken, but the system call itself performs little or no
+interesting activity within the kernel.  The KeyNIX system is binary compatible
+with this approach.<p>
+The MACH 2.5 implementation is able to execute these system calls 2.5 times as
+fast as the KeyNIX system because no context switch is involved.  MACH 3 uses
+special system call libraries to implement some of these functions in the UNIX
+process address space.  A similar approach would be possible in KeyNIX if the
+system calls were implemented in dynamic libraries, as in System V Release 4,
+or if binary compatibility could be sacrificed.  We were surprised that KeyNIX
+did so well on this comparison.
+<h2>
+<a name="RTFToC29">Open
+and Close
+</a></h2>
+To explore the limits of domain performance, we elected to implement each inode
+as an individual domain.  On the basis of our previous experiences, it seemed
+likely that the simplification achieved by this approach would overcome the
+overhead of multiple domains.  With the benefit of hindsight, we were mistaken,
+and the performance of <i>open</i>(2) suffered excessively.  The namei()
+routine within the UNIX kernel is heavily used, and the decision to use
+multiple domains in effect inserted four context switches into the inner
+loop(for two round-trip RPC's).<a href="#fn5">[5]</a>  In a small
+program that simply opens and closes a single file 1,000 times, the MACH 2.5
+system outperformed the KeyNIX system by nearly four to one (3.89).
+Alternative implementations are discussed below.
+<h2>
+<a name="RTFToC30">Fork
+and Exit
+</a></h2>
+Because the UNIX programming model assumes that processes are cheap, the
+performance of <i>fork</i>(2) is critical to the overall performance of the
+system.  In KeyKOS, the equivalent to <i>fork</i>(2) is even more critical, and
+is possibly the most carefully optimized path in the nanokernel.  We therefore
+expected KeyNIX to do well on <i>fork</i>(2) calls.  KeyNIX outperforms MACH
+2.5 by a little more than six to one.<p>
+The current KeyNIX implementation suffers from an extremely naive loader
+implementation in the UNIX keeper.  When performing a <i>fork</i>(2), a
+complete copy of the process address space is made.  The implementation could
+be improved by sharing the read-only text pages rather than copying their
+content.  In addition, it would not be difficult to implement UNIX
+copy-on-write semantics as part of the segment keeper that services faults on
+the UNIX address space.  Neither of these optimizations was performed in the
+prototype due to time constraints, and we would expect each to result in
+substantial improvements.
+<h2>
+<a name="RTFToC31">Exec</a></h2>
+Given the naive loader implementation, we were pleasantly surprised to find
+that KeyNIX outperformed MACH 2.5 by better than eleven to one on
+<i>exec</i>(2) calls.  The test program simply calls <i>exec</i>(2) one hundred
+times and exits.  Implementing shared text would significantly improve the
+KeyNIX results.
+<h2>
+<a name="RTFToC32">Sbrk</a></h2>
+In order to compare the performance of the <i>sbrk</i>(2) system call, a
+program was written to repeatedly grow and shrink the heap.  100 calls to
+sbrk(4096) and sbrk(-4096) were executed with a fetch of a byte from the newly
+allocated memory.  The fetch of the byte forces the UNIX implementation to
+actually allocate the main store for the page, and consequently forces the page
+to be deallocated when the heap segment size is reduced.  KeyNIX outperformed
+the MACH 2.5 implementation by fourteen to one, which was consistent with our
+expectation.
+<h2>
+<a name="RTFToC33">Pipe
+Bandwidth
+</a></h2>
+Pipe performance is one of the areas where we expected KeyNIX to suffer.  In
+order to compare the pipe implementations, a megabyte of data was passed
+through a pipe to a child process task and back in 1000 byte chunks.  The MACH
+2.5 implementation outperformed KeyNIX by nearly two to one.<p>
+This result is principally due to the insertion of queue domains into both ends
+of the pipe, imposing considerable context switch overhead.  In retrospect, we
+could have eliminated the queues and depended on the fact that asynchronous
+signal delivery timing is not guaranteed by the UNIX process model.  In
+particular, correct UNIX programs cannot depend on the fact that
+<i>interprocess</i> signals will interrupt a system call in the receiving
+process.  Taking advantage of this loophole would allow for a much simpler and
+faster implementation.
+<h2>
+<a name="RTFToC34">Disk
+File I/O
+</a></h2>
+To measure disk performance, we built a program to create a large test file and
+read it repeatedly.  The I/O model of KeyNIX and MACH 2.5 are so radically
+different that other comparisons are very difficult.   Uncached writes, for
+example, are dominated by disk arm movement, so a comparison of such activity
+is unenlightening. The times reported are the elapsed time to write and then
+read a one megabyte file ten times.  KeyNIX outperforms MACH 2.5 by better than
+six to one.<p>
+KeyNIX I/O performance is a direct result of the underlying KeyKOS I/O design.
+KeyKOS never writes to disk as a direct result of writing to a file.  All
+writes to the disk are part of the paging, checkpoint, and migration system.<p>
+To determine the impact of the checkpoint process on the test, we arranged for
+KeyKOS to perform a checkpoint and migration in parallel.  This process
+increases the KeyKOS time to 4.4 seconds, giving a performance ratio of 5.9 to
+one.  To the best of our knowledge, the prototype KeyNIX system achieves the
+highest I/O bandwidth utilization of any UNIX system today.<a
+href="#fn6">[6]</a>  KeyKOS's I/O performance makes the overall
+performance of many applications better under KeyNIX than under a more
+conventional system, and appears to more than balance the prototype's
+performance deficiencies.
+<h2>
+<a name="RTFToC35">Performance
+Summary
+</a></h2>
+The overall performance of the KeyNIX system is quite comparable with MACH 2.5.
+Some operations are slower and some quite a bit faster.  A user using X-Windows
+doing VI and using a variety of shell commands and scripts is unaware of any
+significant performance difference between MACH 2.5 and KeyNIX.
+<h1>
+<a name="RTFToC36">11.
+Implementation Alternatives
+</a></h1>
+In the course of the prototype effort, we came up with several ways to simplify
+the UNIX keeper and to cut down on some of the overhead.   Each of these ideas
+represents a compromise in the use of domains and multiple instantiation.
+<h2>
+<a name="RTFToC37">Domains
+for Process and File Table Manipulation
+</a></h2>
+The current process table segment is an array of process table entries.  The
+UNIX process id is used to index the table.  Process numbers are reallocated
+quickly, which leads to certain problems in the human interface for system
+maintenance.  Also there are circumstances when process table entries should be
+chained so that children can be located more quickly.  This is best handled by
+introducing a domain for process table entry manipulation that allocates and
+chains process table entries.  The UNIX keeper continues to reference its own
+process table entry directly, but accesses other process table entries (to
+obtain a signal key) using the process table management domain.  Similarly, the
+open file table could be implemented by a domain.  These modifications would
+both simplify the UNIX keeper and remove the primary impediment to distribution
+of the KeyNIX implementation on loosely coupled architectures.
+<h2>
+<a name="RTFToC38">Small
+Files
+</a></h2>
+The data for small files could be kept in nodes instead of segments.  A small
+file might be a single-level tree of nodes with up to 16 leaf nodes each
+holding 176 bytes of data.  When the 17th node is required the file is
+converted to a segment.  The inode domain would convert the file to a segment
+when it is opened, and on the last close would convert it back into node form
+if it is small enough.   This would allow KeyNIX to achieve more efficient
+storage of small files than current UNIX systems.
+<h2>
+<a name="RTFToC39">File
+System Domain
+</a></h2>
+Opening files is a crucial operation in UNIX systems, and the domain-per-inode
+approach is not nearly fast enough.  Two alternative implementations would have
+delivered competitive performance.<p>
+The first approach is to build the entire directory and inode support structure
+for a file system into a single domain, while continuing to implement files as
+individual segments.  This would eliminate almost all of the context switching
+performed in the file subsystem, and would probably outperform the MACH 2.5
+implementation.<p>
+The second alternative is to implement a compatibility library that would
+enable us to simply compile a vnodes-compatible file system into a domain.
+Using this approach, the entire file system would reside in a single KeyKOS
+segment, and bug-for-bug compatibility is achievable.  This approach is
+something like the File Manager tasks of CHORUS and MACH 3.  In practice,
+supporting vnodes file systems is probably a compatibility requirement for a
+commercial UNIX implementation, but system reliability suffers greatly from
+this requirement.<p>
+Our current preference would be the first alternative, mainly to eliminate the
+bugs of the existing file system implementations.  In addition, we feel that
+this approach significantly simplifies recovery in the event of a disk block
+failure, as it eliminates the need for a complicated file system consistency
+checker.
+<h1>
+<a name="RTFToC40">12.
+Conclusions
+</a></h1>
+The KeyKOS nanokernel has been running in production environments for nine
+years.  It is proven technology, and we feel that the architecture and
+implementation have much to offer to the computing community at large.  A
+serious development project could far exceed the performance that we obtained
+from the six month UNIX prototype effort.<p>
+KeyKOS represents a pardigmatic shift in operating system technology.  It is
+therefore difficult to make direct comparisons with other approaches.  A pure
+capability architecture brings fundamentally greater discipline, control, and
+reliability to application construction.  In the long term, we feel that this
+degree of reliability is necessary to realize the productivity promises of the
+information age.<p>
+For further information on KeyKOS:
+<address>
+Norman Hardy<br>
+143 Ramona Road 3754<br>
+Portola Valley, CA  94028<br>
+(415) 851-2582<br>
+norm@netcom.com<br>
+<br>
+Jonathan S. Shapiro<br>
+870 North 28th Street, Suite 101<br>
+Philadelphia, PA  19130<br>
+(215) 236-7583<br>
+shap@gradient.cis.upenn.edu<br>
+</address>
+<h1>
+<a name="RTFToC41">13.
+Bibliography
+</a></h1>
+<ol>
+<li>    Theodore A. Linden, "Operating System Structures to Support Security and
+Reliable Software," NBS Technical Note 919, U.S. Department of Commerce,
+National Bureau of Standards, Institute for Computer Sciences and Technology,
+August 1976. (Also published in ACM <i>Computing Surveys,</i> 8, 4, December
+1976, pp. 409-445).
+<li>    Norman Hardy, "The Keykos Architecture," <i>Operating Systems Review,</i>
+September, 1985.
+<li>    <i>Introduction to KeyKOS Concepts</i>, KL004, Key Logic, 1988.
+<li>    <i>KeyKOS/370 Principles of Operation</i>, KL002, Key Logic, 1988.
+<li>    <i>KeyKOS Architecture</i>, KL028, Key Logic, 1988.
+<li>    Butler Lampson, "A Note on the Confinement Problem," <i>Communications of
+the ACM</i>, 16, 10, October 1973.
+<li>    Henry M. Levy, <i>Capability Based Computer Systems</i>, Digital Press,
+1984.
+<li>    M. Ritchie and K. L. Thompson, "The UNIX Time-sharing System."
+<i>Communications of the ACM</i>, July, 1974.
+<li>    <i>System/370 Principles of Operation</i>, GA22-7000-9, IBM, 1983.
+<li>    Patent number 4,584,639 (describes the secure factory mechanism).
+<li>    William A. Wulf, Roy Levin, and Samuel P. Harbison, <i>Hydra/C.mmp: An
+Experimental Computer System</i>, McGraw-Hill Book Company, 1981.</ol>
+<h1>
+<a name="RTFToC42">
+Notes
+</a></h1>
+<a name="fn1">[1]</a>   The system can support multiple master space banks.  In a
+B3 implementation, system pages would be partitioned into multiple security
+classes, and there would be one master space bank for each class.<p>
+<a name="fn2">[2]</a>   Up to a point. There ain't no such thing as a free
+lunch.<p>
+<a name="fn3">[3]</a>   This is also a significant problem for debugging
+interfaces, such as <i>/proc</i>(4) and <i>ptrace</i>(2).<p>
+<a name="fn4">[4]</a>   This time includes the context switch and copying both
+data and keys. The Motorola implementation is the slowest implementation to
+date.<p>
+<a name="fn5">[5]</a>   One round trip to access the inode domain, the second to
+access the directory domain.<p>
+<a name="fn6">[6]</a>   We are well aware of the significance of the I/O
+subsystem design in this claim, and believe that the claim would hold up when
+examined with other I/O subsystems and bus architectures.  On the System/370,
+KeyKOS achieves channel utilization of better than 95% on all channels.  With
+current SCSI technology, KeyKOS's disk utilization is limited by the SCSI
+channel performance.
+</body></html>

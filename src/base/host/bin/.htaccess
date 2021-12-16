@@ -1,0 +1,10 @@
+AddDescription "CROSS TOOLS MAKEFILE" eros-src/cross/bin/Makefile
+AddDescription "(obsolete)" eros-src/cross/bin/divmgr
+AddDescription "Lists image files" eros-src/cross/bin/lsimage
+AddDescription "Create image files" eros-src/cross/bin/mkimage
+AddDescription "List volume files" eros-src/cross/bin/lsvol
+AddDescription "Create volume files" eros-src/cross/bin/mkvol
+AddDescription "PCI header extraction" eros-src/cross/bin/pci
+AddDescription "(obsolete)" eros-src/cross/bin/segtest
+AddDescription "Change vol hdr/kernel" eros-src/cross/bin/setboot
+AddDescription "Map image to volume" eros-src/cross/bin/sysgen

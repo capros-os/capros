@@ -1,0 +1,136 @@
+package capros;
+
+/** Kernel support for device drivers.
+ *
+ * The DevPrivs interface exports control over interrupts and device
+ * memory mapping for use by application-level device drivers.
+ *
+ * Any of these operations may fail with the AllocFail exception if
+ * the specified IRQ is not presently allocated.
+ */
+interface DevPrivs extends key raises(AllocFail) {
+  exception AllocFail;
+
+  typedef unsigned long long addr_t;
+
+  /* The largest block that can be allocated using allocateDMAPages
+  is 2**logMaxDMABlockSize. */
+  const unsigned short logMaxDMABlockSize = 7;
+
+  /** Allocate an IRQ.
+   *
+   * Indicates to the kernel that the specified IRQ now has a driver
+   * that is listening for it.
+   * priority is architecture-specific
+   *
+   * Raises key.RequestError is irq is larger than supported by the hardware.
+   * Raises AllocFail if the IRQ is already allocated. 
+   */
+  void allocIRQ(unsigned long irq, long priority);
+
+  /** Release an IRQ.
+   *
+   * Indicates to the kernel that the specified IRQ no longer has a driver
+   * that is listening for it.
+     The IRQ is also disabled.
+
+     If there is a process waiting for an interrupt on the specified IRQ,
+     it is restarted. Normally it will then receive AllocFail, but
+     there is a race condition if another process tries to allocate
+     the same irq.
+   */
+  void releaseIRQ(unsigned long irq);
+
+  /** Enable an IRQ.
+   *
+   * Indicates to the kernel that the specified IRQ should be enabled.
+   */
+  void enableIRQ(unsigned long irq);
+
+  /** Disable an IRQ.
+   *
+   * Indicates to the kernel that the specified IRQ should be disabled.
+   */
+  void disableIRQ(unsigned long irq);
+
+  /** Wait for interrupt.
+   *
+   * Wait for a designated interrupt to arrive.
+     While waiting, the IRQ will be enabled.
+     Raises AllocFail if the specified irq is not allocated.
+     On successful return, the IRQ has been disabled.
+   */
+  void waitIRQ(unsigned long irq);
+
+  /** Modify the system's device configuration register (ARM EP93xx only).
+
+     Set or clear the bit(s) in the mask.
+     The bit(s) in the mask must also be present in this key's
+     u.nk.value[0] field, otherwise key.NoAccess is raised.
+   */
+  void deviceConfig(boolean set, unsigned long mask);
+
+  /** Allocate pages for DMA.
+
+  If nPages %gt; 2**logMaxDMABlockSize, RequestError is raised.
+
+  Allocate a block of nPages pages that have contiguous physical addresses.
+  All the physical addresses p are such that (p &amp; addrMask) == p.
+  They physical address of the first page is returned in physAddr.
+  A page key to the first page is returned;
+    use Page.getNthPage to get subsequent pages. */
+  capros.Page allocateDMAPages(unsigned short nPages,
+                               addr_t addrMask, out addr_t physAddr);
+
+  /** Deallocate pages for DMA.
+
+  Deallocate the block of pages represented by pg, which must be a
+  capability returned from allocateDMAPages.
+  Caller must ensure there is no I/O in progress to the pages. */
+  void deallocateDMAPages(capros.Page pg);
+
+  /** Declare a Page Fault Handler process.
+
+  This operation tells the kernel that the specified process,
+  which must be non-persistent,
+  is part of the user-mode page fault handler (disk driver).
+  To avoid deadlock, all the mapping tables of the process's address space
+  will be locked in memory.
+  After this point the process must not cause any physical memory
+  to be allocated. */
+  void declarePFHProcess(Process proc);
+};
+
+interface DevPrivs32 extends DevPrivs raises(DevPrivs.AllocFail) {
+  /** Allocate an IOReqQ32.
+   */
+  capros.IOReqQ32 allocateIORQ();
+
+  /** Publish device memory.
+   *
+   * Inform the kernel that a hardware device publishes (presents to
+   * the bus) a physical memory region.
+   * Any parts of the region that were previously unknown to the kernel
+   * will be set up with the necessary kernel structures.
+   *
+   * Returns a Range cap that covers the region.
+   *
+   * May raise:
+   *   AllocFail if there is not enough kernel memory to do the operation.
+   */
+  capros.Range publishMem(DMA32.DMAAddress start, DMA32.DMAAddress end);
+};
+
+interface DevPrivs64 extends DevPrivs raises(DevPrivs.AllocFail) {
+  /** Allocate an IOReqQ64.
+   */
+  capros.IOReqQ64 allocateIORQ();
+
+  /** Publish device memory.
+   *
+   * See comments above.
+   */
+  /* Below, unsigned long long should be DMA64.DMAAddress,
+     but the IDL compiler has a problem with that. */
+  capros.Range publishMem(unsigned long long start, unsigned long long end);
+};

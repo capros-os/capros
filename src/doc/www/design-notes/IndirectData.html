@@ -1,0 +1,161 @@
+<html>
+  <head>
+    <title>Deferred String Passing</title>
+  </head>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+  <center>
+    <h1 class="title">Deferred String Passing</h1>
+  </center>
+    <h1>The Problem</h1>
+<p>
+A message contains some fixed-length data and capabilities, and a 
+variable-length string of bytes. A server receiving messages from clients must
+allocate a buffer to receive the largest string it expects. This 
+has a number of disadvantages:
+</p>
+<ul>
+  <li>The server may receive the string for a request that cannot be serviced
+      at the time. It must store the string until the request can be
+      completed.
+  <li>The server may receive the string for a request that will be serviced
+      by a different process that may execute on a different CPU.
+      This may require a second copy, and may have dragged the data
+      through the cache of a CPU that will never look at it. 
+</ul>
+    <h1>The Proposal</h1>
+<p>
+This proposal allows the transfer of the string to be deferred
+until the server has determined the right time and place for the transfer.
+It introduces a new capability type called an Indirect Data capability.
+Let's consider first the case of a CALL invocation from a client to a server.
+</p>
+<p>
+Assuming the server is Available, the fixed-length portion of the
+message is transferred.
+If the client's passed string is longer than the server's receive buffer,
+and the server's receive operation requested this new functionality,
+then as much of the string as will fit is copied,
+and the receiver receives an Indirect Data capability in the third
+capability parameter (as well as a Resume key in the fourth parameter).
+(This functionality cannot be used if there are requests that send
+both long strings and three keys.) 
+The server is told the length of the string that the sender
+attempted to pass. 
+</p>
+<p>
+An Indirect Data capability refers to a process that is sending a message.
+The sending process is in a new process state called Sending.
+The address and length of the string being sent are stored in
+registers or pseudoregisters of the process. 
+The Indirect Data capability grants the authority to read that region
+of the process's address space. 
+</p>
+<p>
+At any later time, the server calls the Indirect Data capability
+to obtain the rest of the string. 
+The Indirect Data capability has the following methods:
+</p>
+<ul>
+  <li>Copy n bytes beginning at offset x in the region.
+  <li>Copy n bytes beginning at offset x in the region, and Release the sender.
+      (Where n = 0, this just Releases the sender.)
+</ul>
+<p>
+The server can read any part of the string in any order and can read the
+same data more than once. (However, if reading more than once, beware of 
+time-of-check-to-time-of-use errors.) 
+</p>
+<p>
+The server uses the Release method to signal that it is done
+receiving the string. 
+The Release method changes the sender's state from Sending to Waiting
+(because the sender executed a CALL invocation),
+and voids all Indirect Data capabilities to the sending process.
+</p>
+<p>
+The server completes the request and returns to the caller using
+the Resume key in the normal way.
+It is an error to invoke the Resume key without having first
+Released the send string. 
+</p>
+    <h1>Details</h1>
+<p>
+If the client's invocation was a SEND or RETURN rather than a CALL,
+then when the Indirect Data capability is Released, the sender's
+state is changed to Running or Available as appropriate. 
+This ensures that the sender can safely overwrite his send buffer
+after the invocation completes. 
+</p>
+<p>
+There will be a way to specify on an invocation that the passed string
+should be taken from an existing Indirect Data capability 
+that the sender holds. 
+(The recipient may or may not get the Indirect Data capability, depending
+on whether he receives the whole string.) 
+This may be useful for services that forward or proxy requests. 
+</p>
+<p>
+This mechanism allows us to remove the limit on the length of a
+string that may be passed.
+(The limit on the length of a string that may be <em>received</em>
+in a single operation (by receiving a message or calling an
+Indirect Data capability)
+remains, because kernel operations are unpreemptible.)
+</p>
+<p>
+Invoking an Indirect Data capability to copy data 
+may cause the sender's segment keeper to be invoked, unless the invoker
+specified that the invocation must be prompt. 
+(A server with multiple independent clients generally would require promptness.)
+This behavior means that an Indirect Data capability cannot be proxied
+with a start key, only another Indirect Data capability. 
+This means that the Indirect Data capability needs its own Discrim type.
+</p>
+<p>
+The possibility that a segment keeper on a passed string won't be invoked
+is a change in behavior, but that shouldn't be serious,
+since most segment keepers don't take action on read access. 
+</p>
+<p>
+If the sender specified a prompt invocation, the Indirect Data capability
+is not sent. 
+This prevents the situation where the sender is delayed until the recipient
+issues a Release.
+This generally occurs when a server returns to a client;
+the client must be prepared to accept the entire string.
+</p>
+    <h1>Performance</h1>
+<p>
+This proposal requires more code to handle a gate invocation.
+On the sender's side, no new code is executed unless the sender's string
+is longer than the receiver's buffer, a case which was formerly an error.
+When returning to a Resume key, there was already a sanity check of
+the client's process state. 
+Therefore I don't think there will be any performance penalty
+except in the case where you are using the new mechanism. 
+</p>
+<p>
+Using this mechanism presents a tradeoff between copying a string
+an extra time (or more), and making an extra system call.
+We estimate the crossover point to be about 256 bytes on ARM,
+which leaves ample opportunity to benefit. 
+</p>
+  <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 2007 by Strawberry Development Group.
+      All rights reserved.
+      For terms of redistribution, see the <a
+      href="./legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+  </body>
+</html>

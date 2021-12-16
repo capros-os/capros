@@ -1,0 +1,73 @@
+; Hey, EMACS! This is -*- indented-text -*-
+
+
+What follows is a cut at describing the Block I/O logic.  It applies,
+for the moment, only to EROS-related I/O.
+
+The block I/O subsystem design makes several assumptions about the
+nature of failures in the underlying media:
+
+1. There are no write failures.  A sector-level write failure may
+occur, but the subsystem assumes that there are spare sectors
+available.  In the event of a sector write failure, a bad sector will
+be allocated and the write will proceed.  If you are running out of
+spares, you have big problems, and it's time to replace your hard
+disk.
+
+2. Reads are either from reliable media (duplexed or RAID), or it is
+acceptable for a read to fail.
+
+
+Conceptually, a page read is caused by the fact that some process has
+need of a page with a particular CDA.
+
+Since two (or more) processes can share a CDA, there is a small
+likelihood that more than one process may be blocked on a particular
+CDA.  In the original design, this was deemed to be important enough
+to design for.  
+
+The original logic worked as follows when faulting in a CDA:
+
+    1. For each division in which the desired object resides, create a
+       block I/O request.  The net effect is to enqueue the I/O
+       request on every device that in principle can supply the page.
+
+    2. Put the process to sleep on a CDA wait queue.  There are far
+       fewer wait queues than there are in-core CDA's.  Which queue
+       you wait on depends on the CDA.
+
+In the case where a second task worked out to need the same CDA, this
+results in two identical queue requests on the devices.  It was
+assumed that the device queue logic would quietly discard the
+redundant request, relying on the CDA wait queue to cause all
+processes to be properly woken up.
+
+In the event of an I/O error (unable to read the requested page, for
+example), the error was simply remembered in an error cache and the
+request restarted.  When the process subsequently restarted the
+request, it would catch the error in the cache.
+
+
+Initially, I had some reservations about adopting this design for
+EROS, for the following reasons:
+
+1. The error mechanism seemed a poor one.  The cache of invalid CDA's
+is pretty much a kludge, and seems on the face of it to preclude
+real-time notification that the CDA corresponds to a bad object.
+
+2. It introduces false starts.  When an object comes in from the disk
+multiple processes may get woken up that didn't care about this
+particular object.  This is a necessary consequence of queueing on a
+hash of the desired CDA.  I was concerned about what this will do in
+multiprocessors.
+
+
+I am unable to improve on the error mechanism.  Initially I thought
+that a back-pointer from the I/O queue operation to the process would
+enable me to do direct error reporting, but this leads to design
+problems - a process that is waiting on an I/O completion can get
+gronked on the head by its domain keeper.  Unless the back pointer is
+somehow disarmed, the process will at some later point get dinked for
+an I/O operation that it decommitted.  This is rather messy.
+
+The wakeup mechanism is another matter entirely.

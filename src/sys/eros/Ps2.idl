@@ -1,0 +1,67 @@
+package capros;
+
+/** Interface for character streams.
+ */
+interface Ps2 extends key raises(KbdInitFailure, KbdTimeout,
+				 KbdAllocFailure, MouseInitFailure,
+				 MouseAllocFailure, HelperInitFailure) {
+
+  
+  exception KbdInitFailure;
+  exception KbdTimeout;
+  exception KbdAllocFailure;
+  exception MouseInitFailure;
+  exception MouseAllocFailure;
+  exception HelperInitFailure;
+  
+  /* IRQ values */
+  const long IRQ1  = 1;
+  const long IRQ12 = 12;
+    
+  /** Init the ps2 driver
+   *
+   * Initializes the ps2 hardware and returns status.
+   * Need to note error(if any).
+   */
+  void initPs2();
+  
+
+  /**
+   * Notify arrival of IRQ
+   *
+   * Notifies the PS2reader of arrival of IRQ. 
+   * CAUTION:: This function is for the IRQ helpers only
+   */
+  void irqArrived(long IRQ);
+
+  
+  /** Get mouse data
+   *
+   * Returns mouse data,Mouse type(? button mouse) 
+   */
+  long getMousedata(out long valid,out long Is4Button);
+
+  
+  /** Set Keyboard LEDs
+   *
+   * Sets the LEDs on the Keyboard (in response to kbd input)
+   */
+  void setLed(long state);
+
+  
+  /** Get keycode
+   *
+   * Returns keycode of the keyboard input. If it is the end of
+   * a sequence of keycodes returns -1 for xlating purposes.
+   */
+  long getKeycode(out long valid);
+  
+   
+  /** Flush Ps2 Buffer
+   *
+   *
+   * Flushes the ps2 buffer. Use with caution	
+   */ 
+   void flushBuffer();
+
+};

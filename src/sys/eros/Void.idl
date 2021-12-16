@@ -1,0 +1,21 @@
+package capros;
+
+/** Void key.
+ *
+ * The Void interface has no operations, and throws the Void
+ * exception for every operation that is requested on it. By
+ * convention, the void key is the <em>only</em> key that throws the
+ * void exception.
+ *
+ * Note that Void is outside of the normal key hierarchy, in that it
+ * responds to the getType() operation with the Void exception even
+ * though it has a valid alleged type code. In this way, void is
+ * similar to Java's distinguished "NULL" value, which is legal where
+ * any object reference might be passed or returned.
+ *
+ * As a special case, the key.getType() is hand-implemented to return
+ * the alleged type code capros.Void whenever it receives a void
+ * exception in response to the key.getType() operation.
+ */
+interface Void raises(capros.key.Void) {
+};

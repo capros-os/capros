@@ -1,0 +1,220 @@
+package capros;
+
+interface IPDefs {
+  typedef unsigned <32> ipv4Address;
+  typedef unsigned <16> portNumber;
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Already;
+  exception Refused;
+  exception Aborted;
+};
+
+interface UDPPort extends key {
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Already;
+  exception NoPort;
+  exception NoRoute;
+
+  void getMaxSizes(IPDefs.ipv4Address destipaddr,
+                   out unsigned long maxReceiveSize,
+                   out unsigned long maxSendSize);
+
+  /* UDPPort obeys key.destroy().
+     This releases the reserved local port and other resources. */
+
+  /* The following two are not implemented in IDL because the IDL compiler
+  is not yet up to the task. */
+
+  /* Order code 0:
+  Raises Already if a receive is already in progress.
+
+  A datagram can be as large as the maxReceiveSize returned by getMaxSizes.
+  The entire datagram is returned.
+  If you receive fewer bytes than that, the excess is lost.
+   */
+  client void receive(unsigned long maxBytesToReceive,
+                      out IPDefs.ipv4Address sourceipaddr,
+                      out IPDefs.portNumber sourceport,
+                      out unsigned long bytesReceived,
+                      out unsigned byte data); /* this is a lie, the output
+				 is actually an array of bytes. */
+
+  /* Order code 1:
+  May raise Already if a send is already in progress.
+  Raises NoPort if LocalPortAny was specified when the UDPPort was created,
+  and there is no local port available.
+  Raises NoRoute if destipaddr cannot be reached.
+   */
+  client void send(IPDefs.ipv4Address destipaddr, IPDefs.portNumber destport,
+                   unsigned long len,
+                   out unsigned byte data); /* this is a lie, this is
+				really an input array of bytes. */
+};
+
+interface TCPSocket extends key {
+
+  const unsigned long maxSendLength = 4096;
+  const unsigned long maxReceiveLength = 4096;
+
+  const unsigned byte flagPush   =  8;	// send this data ASAP
+  const unsigned byte flagUrgent = 32;
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Already;
+  exception RemoteClosed;
+  /* If the other end aborts the connection, the TCPSocket will be destroyed,
+     and any operation in progress may raise key.Void. */
+
+  /*
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
+  */
+  void getRemoteAddr(out IPDefs.ipv4Address ipaddr, out IPDefs.portNumber port);
+
+  /** close - Close the connection.
+
+  After the close operation:
+  - No more sends are allowed.
+  - Any send in progress will finish.
+  - Receive is still allowed until the other end acknowledges the close.
+
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
+  May raise NoMem, in which case the connection is not closed. 
+  Raises Already if there is already a send or close in progress,
+  or a close has already been done.
+  This returns as soon as the close has been queued for transmission.
+  It may not have been received yet at the other end.
+  You may continue to receive, but not send.
+
+  To terminate the connection without losing data, call close(),
+  then receive() until you get a RemoteClosed exception.
+  At that point the connection will be destroyed.
+  */
+  void close();
+
+  /** abort - Abort the connection.
+
+  An abort signal is sent to the other end of the connection.
+  Warning: data sent to the other end may be lost. 
+
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
+
+  After the abort operation:
+  - No more sends or receives are allowed.
+  - Any send or receive in progress will suffer a key.Void exception.
+  - Any queued data to or from the connection is discarded.
+  - The TCPSocket object is destroyed.
+  */
+  void abort();
+
+  /* TCPSocket obeys key.destroy, which does the same thing as abort(). */
+
+  /* The following four are not implemented in IDL because the IDL compiler
+  is not yet up to the task. */
+
+  /* Order code 0:
+  Read up to maxBytesToReceive bytes of data.
+  flags contains flagPush if any data returned came from a packet
+    with the Push flag.
+  flags contains flagUrgent if there remains urgent data to be received.
+
+  bytesReceived may be less than maxBytesToReceive for several reasons:
+    - the data has the PUSH flag
+    - the TCP window is full, so data needs to be delivered
+
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
+  Raises key.RequestError if maxBytesToReceive is greater than maxReceiveLength.
+  Raises Already if a receive is already in progress.
+  Raises RemoteClosed if the other end of the connection has closed the
+    connection, in other words, indicated it will send no more data.
+   */
+  client void receive(unsigned long maxBytesToReceive,
+                      out unsigned long bytesReceived,
+                      out unsigned byte flags,
+                      out unsigned byte data); /* this is a lie, the output
+				 is actually an array of bytes. */
+
+  /* receiveLong - same as receive except no length limit.
+  It is implemented by repeated calls to receive. */
+  client void receiveLong(unsigned long maxBytesToReceive,
+                      out unsigned long bytesReceived,
+                      out unsigned byte flags,
+                      out unsigned byte data); /* this is a lie, the output
+				 is actually an array of bytes. */
+
+  /* Order code 1:
+  flags may be any combination of flagPush and flagUrgent.
+
+  This returns as soon as the data has been queued for transmission.
+  It may not have been received yet at the other end.
+
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
+  Raises key.RequestError if len is greater than maxSendLength.
+  Raises Already if there is already a send or close in progress,
+  or a close has been done.
+   */
+  client void send(unsigned long len,
+                   unsigned byte flags,
+                   out unsigned byte data); /* this is a lie, this is
+				really an input array of bytes. */
+
+  /* sendLong - same as send except no length limit.
+  It is implemented by repeated calls to send. */
+  client void sendLong(unsigned long len,
+                   unsigned byte flags,
+                   out unsigned byte data); /* this is a lie, this is
+				really an input array of bytes. */
+};
+
+/* A non-persistent capability to a local TCP port. */
+interface TCPListenSocket extends key {
+  /** accept - wait for a connection on this local port.
+  Raises Already if there is already a process waiting for a connection.
+  Raises key.Restart if the TCPListenSocket cap is rescinded
+  due to a system restart.
+  */
+  TCPSocket accept();
+
+  /* TCPListenSocket obeys key.destroy().
+     This releases the reserved local port. */
+};
+
+interface IP extends key {
+
+  /** createUDPPort - Create a UDP socket.
+  An available local port number will be selected.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  */
+  UDPPort createUDPPort();
+
+  /** connect - Create a connection ("active open").
+  Specify the remote ipaddr and port.
+  An available local port number will be selected.
+  May raise IPDefs.Refused or IPDefs.Aborted or key.Restart.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  */
+  TCPSocket TCPConnect(IPDefs.ipv4Address ipaddr, IPDefs.portNumber port);
+};
+
+/* A capability with authority over a specific local UDP port number. */
+interface UDPPortNum extends key {
+
+  /** createUDPPort - Open a UDP socket on the local port.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  Raises IPDefs.Already if the port is already open.
+  */
+  UDPPort createUDPPort();
+};
+
+/* A persistent capability with authority over
+ a specific local TCP port number. */
+interface TCPPortNum extends key {
+
+  /** listen - Open the local port for listening.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  Raises IPDefs.Already if the port is already open.
+  May raise key.Restart.
+  */
+  TCPListenSocket listen();
+};

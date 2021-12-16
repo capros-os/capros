@@ -1,0 +1,75 @@
+#ifndef __USBHCD_MAP_
+#define __USBHCD_MAP_
+/*
+ * Copyright (C) 2008-2010, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
+#include <linuxk/lsync.h>
+#include <eros/machine/target-asm.h>
+#include <eros/Reserve.h>
+#include <asm/thread_info.h>
+#include <drivers/driver.map>
+#include <drivers/usbregistry.map>
+
+/*********************************************
+ * USB Host Controller driver.
+ *********************************************/
+
+//// Arrange for module parameters:
+
+/* cycle leds on hubs that aren't blinking for attention */
+// int blinkenlights = 0;
+
+//// End of module parameters.
+
+usbhcd_prog = program segtree LIBDIR "drivers/usbhcd";
+usbhcd_pc = symbol LIBDIR "drivers/usbhcd" _start;
+
+BOOT_DOMCRE(usbhcd);	// maybe each should have his own??
+
+#define USBHCD_DRIVER_GENERIC(name, devcfgbit) \
+DRIVER(name##usbhcd, usbhcd_prog, usbhcd_pc, sched(8), usbhcd_proccre, devcfgbit) \
+name##usbhcd key reg KR_APP2(0) = usbreg_c;
+
+#define AHB_PA 0x80000000
+#define APB_PA 0x80800000
+#include <devclock.map>
+/* The "4" below is offsetof(PwrCnt, struct SYSCONRegisters). */
+DEVCLOCK(usbhost, 0, APB_PA + (SYSCON_APB_OFS + 4), SYSCONPwrCnt_USH_EN);
+
+usbhcd_le_clocks = new node;
+usbhcd_le_clocks[0] = number("usb_host");
+usbhcd_le_clocks[1] = usbhost_devclock;
+
+#define physreg (AHB_PA + USB_AHB_OFS)
+
+USBHCD_DRIVER_GENERIC(arm, 0 /* no bit in DeviceConfig */)
+armusble_iomem = new node;
+armusble_iomem[0] = number(1 /* one page */, physreg, 0);
+armusble_iomem[1] = physpage(physreg);
+armusbhcdle[LE_CLOCKS] = usbhcd_le_clocks as ro node key;
+armusbhcdle[LE_IOMEM] = armusble_iomem;
+
+usbhcdKey = armusbhcd;
+
+#endif

@@ -1,0 +1,54 @@
+package capros;
+
+/* Explain This object . */
+interface File extends HTTPResource
+{
+  typedef unsigned<64> fileLocation;
+
+  /* maxLength is the largest length that can be read or written
+  by a non-Long operation: */
+  const unsigned long maxLength = 65536;
+
+  client // because of inadequate support for passing strings in IDL compiler
+  void read(fileLocation at, unsigned long length,
+            out unsigned byte data, // this is really an output string
+            out unsigned long lengthRead);
+
+  // Raises key.NoAccess if the invoked key is read-only.
+  client // because of inadequate support for passing strings in IDL compiler
+  void write(fileLocation at, unsigned long length, 
+            out unsigned byte data,	// this is really an input string
+            out unsigned long lengthWritten);
+
+  client void readLong(fileLocation at, unsigned long length,
+            out unsigned byte data, // this is really an output string
+            out unsigned long lengthRead);
+
+  // Raises key.NoAccess if the invoked key is read-only.
+  client void writeLong(fileLocation at, unsigned long length, 
+            out unsigned byte data,	// this is really an input string
+            out unsigned long lengthWritten);
+
+  /* Return 1 + the highest location that has ever been written. */
+  /* fileLocation doesn't work due to bug in IDL compiler */
+  unsigned<64> getSize();
+
+  File getReadOnlyCap();
+
+  // File obeys key.destroy.
+  // Raises key.NoAccess if the invoked key is read-only.
+
+  /* File obeys HTTPResource.request, ignoring all inputs,
+  and returning rhtype=File and a key to the file itself. */
+};
+
+interface FileServer extends key
+{
+  exception TooManyFiles;
+
+  /* Raises TooManyFiles if an implementation limit would be exceeded.
+  */
+  File createFile();
+
+  // key.destroy is not implemented yet for FileServer.
+};

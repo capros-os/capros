@@ -1,0 +1,21 @@
+package capros.timer;
+
+interface manager extends capros.key {
+
+  /**
+   * Set the interval.
+   */
+  void setInterval(unsigned long interval);
+
+  /**
+   * Start the timer.
+   */
+  void startTimer();
+
+  /**
+   * Stop the timer.
+   */
+  void stopTimer();
+
+};
+

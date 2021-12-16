@@ -1,0 +1,243 @@
+<html>
+<head>
+  <title>CapROS kdb Reference</title>
+</head>
+
+<BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../capros.html"><em>CapROS home</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Kernel Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>kdb</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>kdb</b> -- Kernel Debugger</p>
+      <h2>Description</h2>
+      <b>kdb</b> is based on the Mach kernel debugger ddb.<p>
+      Typing control-c while CapROS is running will cause the kernel
+      debugger to be entered.<p>
+      Try <a href="http://www.gsp.com/cgi-bin/man.cgi?section=4&topic=ddb">this link</a>
+      for a formatted "man page", giving a description of most commands.
+      Here are a few useful commands:
+      <dl>
+        <dt>help
+        <dd>Print a list of commands.
+        <p>
+        <dt>trace [<i>proc</i>] [,<i>count</i>]
+        <dd>Print a stack trace of the specified process, or if no process
+            is specified, the kernel and current process. 
+        <p>
+        <dt>c
+        <dd>Continue execution
+        <p>
+        <dt>reboot (or rb)
+        <dd>Reboot the target computer.
+        <p>
+        <dt>addrspace [&lt;address&gt;]
+        <dd>Switch to the address space of the Process at the specified address.
+            If no address is specified, this command uses the current Process.
+        <p>
+        <dt>check nodes
+        <dd>Checks the validity of all Node structures.
+        <dt>check pages
+        <dd>Checks the validity of all pages.
+        <dt>check procs
+        <dd>Checks the validity of all Process structures.
+        <p>
+        <dt>debug inttrap y
+        <dt>debug inttrap n
+        <dd>Turns the "dbg_inttrap" flag on and off. When on, the debugger
+            is entered at the beginning of the interrupt/trap handler.
+            The flag is off by default.
+        <dt>debug wild y
+        <dt>debug wild n
+        <dd>If the kernel is configured with DBG_WILD_PTR defined, this
+            command turns the "dbg_wild_ptr" flag on and off. 
+            When on, the kernel does extensive checking of pointers.
+            If configured, the flag is on by default.
+        <p>
+        <dt>node &lt;OID&gt;
+        <dd>Print the node with the specified OID.
+        <dt>page &lt;OID&gt;
+        <dd>Print information about the page with the specified OID.
+        <dt>pframe &lt;physAddr&gt;
+        <dd>Print information about the page at the specified physical address.
+        <p>
+        <dt>kstat show
+        <dd>Print the kernel statistics.
+        <dt>kstat fast
+        <dd>Print the fast IPC statistics.
+        <dt>kstat clear
+        <dd>Clear the kernel statistics counters.
+        <dt>kstat hist depend
+        <dd>Print usage counts for all depend buckets.
+        <dt>kstat hist depend &lt;bucket&gt;
+        <dd>Print data for the specified depend bucket.
+        <dt>kstat hist object
+        <dd>Print usage counts for all objhash buckets.
+        <dt>kstat hist object &lt;bucket&gt;
+        <dd>Print data for the specified objhash bucket.
+        <p>
+        <dt>mesg <i>flag</i>
+        <dd>Toggle a flag, which must be one of:
+            allinv, gate, keyerr, keeper, return,
+            segwalk, uqueue, uyield. These flags enable debugging
+            stops throughout the kernel.
+        <dl>
+           <dt>uqueue
+           <dd>Stops when a user process is queued or exits the kernel.
+           <dt>uyield
+           <dd>Stops when a user process yields or the current process changes.
+        </dl>
+        <dt>mesg procinv [<i>addr</i>]
+        <dd>Toggle a flag that enables a debugging stop when the process
+            at the specified <i>addr</i> performs an invocation.
+            If <i>addr</i> is omitted, the current process is used.
+        <dt>mesg proctrap [<i>addr</i>]
+        <dd>Toggle a flag that enables a debugging stop when the process
+            at the specified <i>addr</i> traps to a keeper.
+            If <i>addr</i> is omitted, the current process is used.
+        <dt>mesg show
+        <dd>Print the flags that are currently set.
+        <p>
+        <dt>show
+        <dd>Without any arguments, this command prints a list of arguments
+            you can give. Here are explanations of most of them:
+          <p>
+          <dl>
+          <dt>show regs
+          <dd>Print the kernel registers on entry to the debugger.
+          <dt>show inv
+          <dd>If a CapROS invocation is active, this command prints 
+              some information in the inv structure.
+          <dt>show entry
+          <dd>If a CapROS invocation is active, this command prints
+              the information in the inv.entry structure.
+          <dt>show exit
+          <dd>If a CapROS invocation is active, this command prints
+              the information in the inv.exit structure.
+          <dt>show invokee
+          <dd>If a CapROS invocation is active, this command prints
+              the context of the invokee.
+          <dt>show keyregs [&lt;address&gt]
+          <dd>Print the key registers of the current or specified process.
+          <dt>show invkeys
+          <dd>If a CapROS invocation is active, this command prints
+              the key registers of the invokee.
+          <dt>show key &lt;address&gt
+          <dd>Print the key at the specified address.
+          <dt>show keyring &lt;address&gt;
+          <dd>Print all the keys on the specified keyring.
+          <dt>show cckr [&lt;address&gt;]
+          <dd>Print all the keys that refer to the process
+              context at the specified address (the keyring of the process).
+              If no address is specified, this command prints
+              the information for the current process.
+          <dt>show activity [&lt;address&gt]
+          <dd>Print the Activity at the specified address.
+              If no address is specified, this command prints
+              the current activity.
+          <dt>show activities
+          <dd>Print all the Activitys.
+          <dt>show mappings &lt;space&gt &lt;base&gt &lt;nPages&gt
+          <dd>&lt;space&gt must be the physical address of the beginning
+              of a top-level mapping table.
+              For the &lt;nPages&gt pages beginning at virtual address
+              &lt;base&gt, this command prints the PTEs for each address.
+              &lt;space&gt, &lt;base&gt, and &lt;nPages&gt must be
+              numbers not expressions.
+          <dt>show depend &lt;address&gt;
+          <dd>Show all depend entries for the specified key address.
+          <dt>show proc [&lt;address&gt;]
+          <dd>Print the Process at the specified address.
+              If no address is specified, this command prints the current
+              Process.
+          <dt>show floatregs [&lt;address&gt;]
+          <dd>Print the floating point registers
+              of the Process at the specified address.
+              If no address is specified, this command prints the registers
+              of the current Process.
+          <dt>show sa &lt;address&gt
+          <dd>Print the registers in the fixregs_t
+              save area at the specified address.
+          <dt>show ioreqs
+          <dd>Print information about all the IORequests.
+          <dt>show node &lt;address&gt;
+          <dd>Print the node at the specified address.
+          <dt>show nodes all
+          <dt>show nodes persistent
+          <dt>show nodes nonpersistent
+          <dd>Print information about all the specified nodes in memory.
+          <dt>show pages all
+          <dt>show pages persistent
+          <dt>show pages nonpersistent
+          <dd>Print information about all the specified pages in memory.
+          <dt>show procs
+          <dd>Print information about all the processes in memory.
+          <dt>show readylist
+          <dd>Print the list of processes ready to run.
+          <dt>show pmem
+          <dd>Print information about all the regions of physical memory
+              (PmemInfo).
+          <dt>show obhdr &lt;address&gt
+          <dd>Print the ObjectHeader or PageHeader structure
+              at the specified address.
+          <dt>show pins
+          <dd>Print information about all pinned objects.
+          <dt>show pte &lt;address&gt;
+          <dd>Print the page table entry at the specified virtual address.
+          <dt>show sizes
+          <dd>Print the sizes of some kernel structures.
+          <dt>show sources
+          <dd>Print information about all the ObjectSources.
+          <dt>show walkinfo &lt;address&gt
+          <dd>Print the SegWalk structure at the specified address.
+          </dl>
+        <p>
+        <dt>profile clear
+        <dd>
+        <dt>profile all
+        <dd>
+        <dt>profile top
+        <dd>These commands are available when the kernel profiling option
+            is configured.
+      </dl>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+      <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+  <em>Copyright 2000, 2001 by The EROS Group,
+      2005-2010 by Strawberry Development Group.
+      All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+</body>
+</html>

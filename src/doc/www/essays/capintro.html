@@ -1,0 +1,708 @@
+<HTML>
+  <HEAD>
+    <TITLE>What is a Capability, Anyway?</TITLE>
+    <meta name=linknotify content=all>
+    <meta name=author content="Jonathan Shapiro">
+    <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+  </HEAD>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <center>
+	    <h1><a name="top">What <I>is</I> a Capability,
+	    Anyway?</a></h1>
+	    <div>
+	      &nbsp;
+	    </div>
+	  </center>
+	  <P>
+	    Recently, a non-programmer friend pointed out that there
+	    is no simple explanation of capabilities available on the
+	    web. Less than a week later, another friend -- this one a
+	    senior operating system developer for a major UNIX
+	    software company -- said to me that he really didn't
+	    understand what I was working on (capabilities). If
+	    neither the lay reader nor the experts understand what
+	    these things are, an introductory description is
+	    <I>definitely</I> needed, so I set out to write one. I
+	    quickly discovered that doing so isn't easy. Capabilities
+	    themselves are very simple, but they turn everything
+	    people ``know'' about security upside down. A lot of
+	    people look at them and say ``this is too simple to
+	    possibly work.''
+	  </P>
+	  <P>
+	    This essay is a basic introduction to capabilities and
+	    capability-based systems. Rather than try to give an
+	    exhaustive discussion, I have taken some editorial
+	    liberties in the interest of clarity:
+	  </P>
+	  <UL>
+	    <LI>
+	      <p>
+		This essay is <B>informal</B>. My goal here is to get
+		across the core of an idea rather than to give every
+		detail precisely. There are a number of places to go
+		to get more detailed information.
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		This essay is <B>partisan</B>. I have chosen to talk
+		about one particular style of capability system. I
+		think it's the best one, but others are worth looking
+		at if you get a hankering to do so. If you get to the
+		point of comparing capability systems, you are past
+		the point of asking <I>what</I> they are and are now
+		asking <I>how</I> they should be implemented. That,
+		however, is a subject for a different essay.
+	      </p>
+	    </LI>
+	  </UL>
+	  <P>
+	    This essay will tell you what the term <I>access
+	    control</I> covers, what a capability is, and provide some
+	    examples of how capabilities can be used to provide
+	    flexible access to objects without giving up
+	    security. I'll describe some problems that currently
+	    popular access control mechanisms cannot handle. I'll talk
+	    about the problem of <I>revoking</I> access, and how this
+	    is solved. Finally, I'll give my own opinion on how
+	    capabilities came to be rejected by mainstream computing
+	    people.
+	  </P>
+	  <P>
+	    While this essay uses UNIX as its example system, the
+	    problems identified with UNIX exist in VMS, Windows/NT and
+	    Windows95 as well.
+	  </P>
+	  <P>
+	    If you find this note helpful, or you have suggestions for
+	    improvement, please drop me some mail at <A
+	    HREF="mailto:shap@eros-os.org">shap@eros-os.org</A>.
+	  </P>
+	  <H2><a name="problem">1.&nbsp;&nbsp;The Problem: Access Control</a></h2>
+	  <P>
+	    The basic problem of computer security is to control which
+	    objects a given program can access, and in what
+	    ways. Objects are things like files, sound cards, other
+	    programs, the network, your modem, and so forth. Access
+	    means what kind of operations can be done on these
+	    objects. Examples include reading a file, writing to a
+	    file, creating or deleting objects, communicating with
+	    another program, etc.
+	  </P>
+	  <P>
+	    When we talk about ``controlling access,'' we are really
+	    talking about four kinds of things:
+	  </P>
+	  <UL>
+	      <P>
+		<I>Preventing</I> access: You want to make sure that
+		one person cannot damage another, or peek at another
+		person's private information. I should not be able to
+		read your medical records, for example. You should not
+		be able to delete my work. This is the what most
+		people mean when they talk about computer security.
+	      </P>
+	      <p>
+		<I>Limiting</I> access. You want to ensure that a
+		program or a user doesn't do more than you mean them
+		to. For example, you might want to run a program off
+		of the Web but prevent the program from reading or
+		writing any files so that it cannot plant a computer
+		virus or give away your private phone book. This issue
+		has been getting more attention lately with all of the
+		hype around Java.
+	      </P>
+	      <p>
+		<I>Granting</I> access. You may want to <I>allow</I>
+		two people to work together on a document or to grant
+		access to a particular file to someone else so that
+		you can delegate a job to them. Note however, that you
+		probably want to do this <I>selectively</I>. Just
+		because we are working on a business plan together
+		doesn't mean that I should get to read your medical
+		records. From a practical perspective, this is just as
+		important as the first two, but security people don't
+		tend to think about it very much.
+	      </P>
+	      <p>
+		<I>Revoking</I> access.  Having allowed access to an
+		object, you may later need to take that access back
+		when the person is no longer authorized to look at a
+		particular document.
+	      </P>
+	  </UL>
+	  <P>
+	    Access control is about determining what a <I>program</I>
+	    can access, not about what a <I>person</I> can access. In
+	    computers, people do not access objects; programs do. This
+	    distinction has practical importance for several reasons:
+	  </P>
+	  <UL>
+	    <LI>
+	      <p>
+		The same person can run with different user identities
+		(logins). I have a different account as a system
+		administrator than I use for day to day activities.
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		The same program can be run by different users at
+		different times with different authorities.  Just
+		because you and I run the same word processor doesn't
+		mean we should both be able to access the same files.
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		Special programs sometimes need to have more authority
+		than the user does. The password program, for example,
+		is entitled to modify the password file even though
+		the typical user is not. The password program is
+		careful to do this only in an appropriate way.
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		<applet code="fireApp.class" codebase="./"
+		align="right" width="100" height="100"></applet>People
+		do not always know <I>which</I> programs they are
+		running. If you are reading this essay in a
+		Java-compatible browser you will see an image of
+		moving fire to the right. This is a Java demo written
+		by <A
+		HREF="http://www.developer.com/person.cgi?id=LL13">Lars
+		Nicolai L&oslash;vdal</A> of Norway; I have no idea
+		who he is or what this demo program actually
+		does. When you opened up this document, you did not
+		set out to run this program, but there it is, running
+		away. In a similar way, applications like
+		Microsoft Word are made up of many components
+		from many vendors. Since you don't know who supplied
+		your software, it's difficult to know if you can trust
+		them.
+	      </p>
+	    </LI>
+	  </UL>
+	  <P>
+	    Having set the stage, we can now turn to what capabilities
+	    are, and how access control is accomplished using them.
+	  </P>
+	  <H2><a name="defn">2.&nbsp;&nbsp;What a Capability Is</a></h2>
+	  <P>
+	    The term <I>capability</I> was introduced by Dennis and
+	    Van Horn in 1966 in a paper entitled <I>Programming
+	    Semantics for Multiprogrammed Computations</I>. The basic
+	    idea is this: suppose we design a computer system so that
+	    in order to access an object, a program must have a
+	    special token. This token <B>designates an object and
+	    gives the program the authority to perform a specific set
+	    of actions (such as reading or writing) on that
+	    object</B>. Such a token is known as a <I>capability</I>.
+	  </P>
+	  <P>
+	    A capability is a lot like the keys on your key ring. As
+	    an example, consider your car key. It works on a specific
+	    car (it designates a particular object), and anyone
+	    holding the key can perform certain actions (locking or
+	    unlocking the car, starting the car, opening the glove
+	    compartment).  You can hand your car key to me, after
+	    which <I>I</I> can open, lock, or start the car, but only
+	    on <I>your</I> car.  Holding your car key won't let me
+	    test drive my neighbor's Lamborghini (which is just as
+	    well -- I would undoubtedly wrap it around a tree
+	    somewhere).  Note that the car key doesn't know that it's
+	    me starting the car; it's sufficient that I possess the
+	    key.  In the same way, <B>capabilities do not care who
+	    uses them</B>.
+	  </P>
+	  <P>
+	    Car keys sometimes come in several variations. Two common
+	    ones are the <I>valet key</I> (starts, locks, and unlocks
+	    the car, but not the glove compartment) or the <I>door
+	    key</I> (locks/unlocks the car, but won't start it). In
+	    exactly this way, <B>two capabilities can designate the
+	    same object </B>(such as the car) <B>but authorize
+	    different sets of actions</B>. One program might hold a
+	    read-only capability to a file while another holds a
+	    read-write capability to the same file.
+	  </P>
+	  <P>
+	    As with keys, you can give me a capability to a box full
+	    of other capabilities.
+	  </P>
+	  <P>
+	    <B>Capabilities can be delegated</B>. If you give your car
+	    key to me, you are trusting me not to hand it to somebody
+	    else.  If you don't want trust me, you shouldn't hand me
+	    the key.
+	  </P>
+	  <P>
+	    <B> Capabilities can be copied</B>. If you give me your
+	    car key, there is nothing to stop me from going down to my
+	    local car dealer and having a duplicate key made. In
+	    practice, this isn't much of a problem, because you
+	    wouldn't have handed me the key if you didn't trust me. If
+	    it comes down to desperate measures, you can change the
+	    locks on the car, making <I>all</I> of the keys
+	    useless. This can be done with capabilities too; it is
+	    known as <I>severing</I> an object, which has the effect
+	    of <I>rescinding</I> all capabilities. A rescinded
+	    capability conveys no authority to do anything at all.
+	  </P>
+	  <P>
+	    In fact, there are only a few ways that capabilities and
+	    ordinary keys are different. The important differences
+	    are:
+	  </P>
+	  <UL>
+	    <LI>
+	      <p>
+		Capabilities are easier to copy. No locksmith is
+		required. Rather than hand over an original
+		capability, the more common action is to hand over a
+		copy of it.
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		Capabilities are harder to bypass. I can break your
+		window and hot-wire your car. Breaking into a
+		capability system is a lot harder.
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		Capabilities can have more variants. Creating a new
+		kind of capability (for example: one that lets me
+		inquire about the size of a file, but not read it) is
+		simply a matter of adding a little bit of software.
+	      </p>
+	    </LI>
+	  </UL>
+	  <P>
+	    <B> Key Points:</B> Capabilities are simple and
+	    familiar. You use them every day, and they don't surprise
+	    you very often. If you think about ordinary keys and the
+	    sorts of access controls they provide you will not go far
+	    wrong.
+	  </P>
+	  <P>
+	    In order to be useful, capabilities must be
+	    unforgeable. If you could just conjure up a key to any car
+	    you wanted, they wouldn't provide much
+	    protection. Protecting capabilities from forgery can be
+	    handled in either hardware or in system software. The
+	    software approach is more convenient because it can run on
+	    an ordinary PC. <A
+	    HREF="http://www.eros-os.org">EROS</A>, which is
+	    currently the fastest capability system in existence, does
+	    this in system software, and the data suggests that there
+	    wouldn't be any real benefit to doing it in hardware.
+	  </P>
+	  <H2><a name="systems">3.&nbsp;&nbsp;Capability-Based Computer
+	  Systems</a></h2>
+	  <P>
+	    In a capability-based computer system, all access to
+	    objects is done through capabilities, and capabilities
+	    provide the <I>only</I> means of accessing objects.  In
+	    such a system, every program holds a set of capabilities.
+	    If program A holds a capability to talk to program B, then
+	    the two programs can grant capabilities to each other. In
+	    most capability systems, a program can hold an infinite
+	    number of capabilities. Such systems have tended to be
+	    slow. A better design allows each program to hold a fixed
+	    (and small -- like 16 or 32) number of capabilities, and
+	    provides a means for storing additional capabilities if
+	    they are needed.  The only way to obtain capabilities is
+	    to have them granted to you as a result of some
+	    communication.
+	  </P>
+	  <P>
+	    Holding a large number of capabilities is usually
+	    foolish. The goal is to make the set of capabilities held
+	    by each program as specific and as small as possible,
+	    because a program cannot abuse authority it does not
+	    have. This is known as the <I>principle of least
+	    privilege</I>.
+	  </P>
+	  <P>
+	    In this kind of system, a program that wants to perform an
+	    operation on an object must hold a capability to that
+	    object. To perform the action, it <B>invokes</B> the
+	    capability and names the action that is to be
+	    performed. In the UNIX&reg; operating system, for
+	    example, the system call <CODE>read(fd,&nbsp;buf,&nbsp;sz)
+	    </CODE>system call can be thought of as performing the
+	    <U><CODE>read</U></CODE> operation on the file named by
+	    <U><CODE>fd</U></CODE> (the capability), passing the
+	    arguments <CODE>buf</CODE> and <CODE>sz</CODE>. Aside from
+	    the fact that UNIX file descriptors carry some associated
+	    information about the current file offset, a UNIX file
+	    descriptor is essentially a capability.
+	  </P>
+	  <H3><a name="persistence">Writing Things Down</a></h3>
+	  <P>
+	    The main problem with capabilities is finding a way to
+	    save them to disk so that you can get them back. This is
+	    one of the main reasons that few capability systems have
+	    been built, and the main reason why most current
+	    capability systems break down at the file system boundary.
+	  </P>
+	  <P>
+	    Assume for a minute that your program had a capability
+	    that let it create a file and write things down in
+	    it. Suppose it does so, and all of the information you
+	    need has now been written down. My helpful dog, Sheena,
+	    now comes along and kicks your computer's plug out of the
+	    wall. We start the system up and we now have to answer a
+	    chicken and egg problem:
+	  </P>
+	  <UL>
+	    <LI>
+	      <p>
+		To access the file, you must first have a capability
+		to the file system.  Where do the first few programs
+		get their capabilities from?
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		By what authority do they hold them?
+	      </p>
+	    </LI>
+	  </UL>
+	  <P>
+	    These problems basically stumped capability system
+	    designers until the early 1970's.
+	  </P>
+	  <h4><a name="acl">Conventional Solution: Access Control
+	  Lists</a></h4>
+	  <P>
+	    The usual solution has been to have some kind of file
+	    system, grant <I>every</I> program the right to use the
+	    file system, and use some sort of user-identity based
+	    system to decide which programs can open which files. If a
+	    program is running on behalf of Natasha (my other dog), it
+	    can open any of the files that Natasha created. Such a
+	    system is called an <I>access control list</I> (ACL)
+	    system. Every object has attached to it a list of users
+	    and the actions that each user is authorized to
+	    perform. If the user is on the access control list, then
+	    programs operating on behalf of that user can obtain a
+	    capability for that object. Once they have the capability,
+	    they can manipulate the object itself. This is the purpose
+	    of the UNIX <U><CODE>open</U></CODE> system call.
+	  </P>
+	  <P>
+	    Take a minute to go back and look at the four things an
+	    access control mechanism was supposed to accomplish. ACL
+	    systems can <I>prevent</I> and <i>revoke</i> access, but
+            they can neither
+	    <I>limit</I> access nor <I>grant</I> access. All programs
+	    running on behalf of Natasha -- even that raging inferno
+	    program written by a stranger in Norway -- can get access
+	    to any of Natasha's objects. In current ACL systems, there
+	    is no means to subset these rights. Also, there is no way
+	    for Natasha to delegate some of her authority (say, access
+	    to a single file she does not own) to me unless Natasha
+	    owns the object(s) in question. Unless she owns the
+	    object, she cannot modify the access control list.
+	  </P>
+	  <h4><a name="persistence">A Better Solution: Universal
+	  Persistence</a></h4>
+	  <P>
+	    A better solution is not to have a common file system, and
+	    not to give any program access to the file system by
+	    default. File systems are very useful, but most programs
+	    and subsystems do not need access to them. A spell checker
+	    that runs as part of a word processor, for example, needs
+	    access to the particular files it works on, but has no
+	    need to open any other files (and therefore no need of
+	    access to a file system).
+	  </P>
+	  <P>
+	    If things aren't remembered by writing them in a file,
+	    some other means must be found to remember them. The
+	    solution is to simply remember <I>everything</I>. Every
+	    five minutes, write down all of the things the computer is
+	    working on. If Sheena pulls the plug, the system simply
+	    comes back to the last saved copy. Since the saved copy
+	    includes all of the running programs, there is no need to
+	    figure out who is entitled to what when the system
+	    restarts.
+	  </P>
+	  <P>
+	    You might think this is an inefficient approach. In
+	    practice it's actually faster than file systems and
+	    requires less code.
+	  </P>
+	  <P>
+	    Of course, the user may have walked away from the machine,
+	    so a means is needed to get back to their work. The
+	    solution is to give every user a program that runs on
+	    their behalf (the window system, if you like) at all
+	    times. The job of the login agent is to reconnect you to
+	    your window system, where all of your programs are still
+	    running.
+	  </P>
+	  <P>
+	    Universal persistence is used by both <A
+	    HREF="http://www.cis.upenn.edu/~KeyKOS/KeyKOS.html">KeyKOS</A>
+	    and <A
+	    HREF="http://www.eros-os.org/eros.html">EROS</A>. It
+	    works very nicely.
+	  </P>
+	  <H2><a name="problems">4.&nbsp;&nbsp;You Can't Get There From Here</h2>
+	  <P>
+	    Traditional access control systems run into trouble with a
+	    variety of important problems. Here are some examples of
+	    these problems in today's computer systems, and an
+	    explanation of why the problems do not exist in capability
+	    systems.
+	  </P>
+	  <h3><a name="privprog">Privileged Programs</a></h3>
+	  <P>
+	    Consider the program that changes your password. It needs
+	    the authority to read and write the password file, but
+	    must not give that authority to you. In an ACL system the
+	    only way to do this is to have access to the password file
+	    restricted to a special user (<U><CODE>root</U></CODE> or
+	    <U><CODE>sysadm</U></CODE>), and have some means to say
+	    that the password program runs as that user. This has led
+	    to ideas such as the <I>setuid bit</I> (lets a program
+	    runs as both the owner [usually root] and as you at the
+	    same time) or the system privilege table (VMS: lists
+	    programs with special privileges in a system-wide table).
+	  </P>
+	  <P>
+	    Both of these mechanisms are insecure. Giving the password
+	    program <I>all</I> of root's authority is simply too
+	    much. In the VMS mechanism, the program file itself can be
+	    attacked, leaving a hard to find security hole. The next
+	    time the program is run it will obey the new program,
+	    which can do absolutely anything.
+	  </P>
+	  <P>
+	    Maybe more important, such programs tend to get into
+	    trouble over time. As maintainers alter these programs
+	    without fully understanding their constraints, they become
+	    sources of new security flaws.
+	  </P>
+	  <P>
+	    The right solution is to explicitly give the program
+	    access to the password file, and not leave the password
+	    program lying around in a file system where it can be
+	    overwritten. In a capability system, you simply give the
+	    program a capability to the password database and let it
+	    run forever. You then give out a capability that lets
+	    people run the password program but does not let them read
+	    or modify that program.
+	  </P>
+	  <h3><a name="restriction">Access Restriction</a></h3>
+	  <P>
+	    Suppose you have a program that manages your financial
+	    data. You don't really want it sending that information to
+	    the IRS without your permission, but your computer is
+	    attached to the network. In an ACL system, since you have
+	    access to the network, so does the program. In a
+	    capability system you simply leave the capabilities for
+	    the network out when you install the program, guaranteeing
+	    that it cannot send data to those helpful, friendly people
+	    at the IRS.
+	  </P>
+	  <P>
+	    Java solves this problem by ad-hoc restrictions. You may
+	    have noticed that people keep finding new security
+	    problems with Java. This is because ad-hoc security
+	    mechanisms don't work. It is better to have done the job
+	    right in the first place.  Capabilities have a formal,
+	    mathematically sound model that can be (and has been) used to
+	    <I>prove</I> their security.
+	  </P>
+	  <h3><a name="collaboration">Collaboration</a></h3>
+	  <P>
+	    The really hard part, however, is dealing with
+	    collaboration. Suppose I have a secret program that is
+	    very valuable. I'm afraid to give out the binary code,
+	    because somebody will decompile it and steal my program
+	    (yes, this really does happen). You have some very secret
+	    data concerning the results of a new drug trial. You need
+	    to run my program, but you're not willing to show me the
+	    data.
+	  </P>
+	  <P>
+	    In a capability system, we can set things up so that you
+	    can run the program without being able to see the code,
+	    but you are able to control what authority my program is
+	    given. Since you control the authorities, you can ensure
+	    that my program will not tell me your secrets. Since you
+	    cannot gain access to the binary code, you cannot steal
+	    the program. Most computer security experts believe that
+	    this is impossible. In ACL systems, it really <I>is</I>
+	    impossible.
+	  </P>
+	  <h2><a name="revoking">5.&nbsp;&nbsp;Revoking Access Selectively</a></h2>
+	  <P>
+	    One problem with capabilities is that there is no way to
+	    say "Remove all of Fred's access to this object."  If
+	    Sheena (my dog) decides to leave me for another owner, how
+	    do I take away her capability for the dog food can?  More
+	    realistically, if your employee leaves how do you make
+	    sure that their access to the file cabinet is cut.  More
+	    importantly, suppose the user <I>isn't</I> fired, but is
+	    just moved to another department, and should no longer
+	    have access to sensitive documents in their old
+	    department?
+	  </P>
+	  <P>
+	    On the face of it, there <I>seem</I> to be three different
+	    cases here:
+	  </P>
+	  <OL>
+	    <LI>
+	      <p>
+		Removing a user's access entirely
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		Revoking a user's <I>current</I> access without
+		removing the user, possibly keeping access to some of
+		their files.
+	      </p>
+	    </LI>
+	    <LI>
+	      <p>
+		Revoking a user's access <I>to a particular
+		object</I>.
+	      </p>
+	    </LI>
+	  </OL>
+	  <P>
+	    Actually, the last two cases are the same.
+	  </P>
+	  <P>
+	    In both capability and ACL systems, the first problem is
+	    solved by deleting the user's login.
+	  </P>
+	  <P>
+	    In both capability and ACL systems, the second problem can
+	    be solved by creating a new login for the same user and
+	    selectively copying into the new account those personal
+	    documents that the user should retain access to.  In many
+	    cases this is the best solution.  In capability systems,
+	    another solution is possible: build a software-enforced
+	    special compartment that prevents the documents from being
+	    copied out of the compartment, and only let the user
+	    access those documents inside the compartment.  This is
+	    not the same as a <I>user group</I>.  In the user group
+	    approach, the user may have made copies of the documents.
+	    Deleting them from the group will prevent future damage,
+	    but does nothing to control theft while the user has
+	    legitimate access.
+	  </P>
+	  <P>
+	    Revoking access to a particular object is exactly like the
+	    special compartment problem.  Either you build a special
+	    compartment in advance, or there really isn't any good way
+	    to prevent the user from absconding with the data.
+	  </P>
+	  <h2><a name="badrap">6.&nbsp;&nbsp;Why the Bad Rap?</a></h2>
+	  <P>
+	    So if capabilities are so much better than ACLs, why
+	    haven't they been used?  How come so many companies are
+	    shipping insecure operating systems when we know how to
+	    solve these problems?
+	  </P>
+	  <P>
+	    Part of the problem is historical.  The early capability
+	    systems were built in hardware before we knew a lot about
+	    hardware architecture, and used capabilities for access to
+	    main memory.  This made them terribly slow and terribly
+	    complex.  Those systems are a good bit less complex than
+	    today's operating systems, but their reputation persists.
+	  </P>
+	  <P>
+	    In the 1970s, an operating system called MULTICS came
+	    along, and most of the world went galloping down the UNIX
+	    trail.  UNIX is an extraordinary system, designed in a day
+	    when most computers were not connected to the outside
+	    world.  In a world where all of the other users are known
+	    to you, collaboration is more important than security.
+	    The UNIX security mechanisms are adequate for a
+	    collaborative environment.  Until the advent of the
+	    Internet and commonplace connectivity, only a few machines
+	    running dedicated financial applications needed to worry
+	    seriously about security, and those machines needed to
+	    implement it in the application anyway.
+	  </P>
+	  <P>
+	    In the 1980s a lot of truly mediocre work was done on
+	    microkernels (which are similar to modern capability
+	    systems), and some equally bad analysis concluded that the
+	    problem was with microkernels in general rather than with
+	    the flaws of particular implementations.  We now have
+	    examples of microkernels that are significantly faster
+	    than conventional operating systems, and at least one
+	    example of a capability system that is so.
+	  </P>
+	  <P>
+	    The bottom line is that over the past 25 years a huge
+	    investment has been put into insecure systems, and until
+	    there is a compelling reason to change these systems the
+	    people who support them won't bother.  In fact, computer
+	    software vendors have taken steps to ensure that they are
+	    not held liable for the flaws in their software, even when
+	    they are real, demonstrable, and incontrovertable.  Until
+	    this changes, there is no reason to do secure systems.
+	    One of the arguments that has been made against capability
+	    systems is that capabilities and access control lists can
+	    be made <I>formally</I> equivalent (if you make enough
+	    repairs to access control lists, that is).  This is a
+	    deceptive argument, because people think that means they
+	    are the same.  Two things can be <I>theoretically</I> the
+	    same without being <I>practically</I> the same.  I can
+	    imagine ways to augment traditional access control lists
+	    to handle suspicious collaborators on paper, but the
+	    solutions are both unacceptably draconian and too slow to
+	    actually use.
+	  </P>
+	  <P>
+	    Things are changing slowly.  Java is a partial step in the
+	    right direction, and the PR around Java is starting to
+	    wake users up to how exposed they are.  Over time you can
+	    expect to see some of the Java ideas embedded in
+	    mainstream systems.
+	  </P>
+	  <P>
+	    Actually, compatibility environments for UNIX have been
+	    built that run <I>securely</I> on top of capability
+	    systems (it's worth noting that you can't build a
+	    capability system on top of an ACL system), so it may not
+	    be necessary to discard existing code.
+	  </P>
+	  <h2><a name="conclusions">7.&nbsp;&nbsp;Conclusions</a></h2>
+	  <P>
+	    Hopefully, you now know what a capability is, and can
+	    start to take part in discussions about them.  At some
+	    point soon I'll add links here to other sources of
+	    information for people who want to read further.
+	  </P>
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</HTML>

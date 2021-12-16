@@ -1,0 +1,1036 @@
+  <HTML>
+    <HEAD>
+      <TITLE>EROS Plan</TITLE>
+      <meta name=linknotify content=all>
+	<meta name=author content="Jonathan Shapiro">
+	  <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+	    <style type="text/css">
+	      BODY {
+	      margin-left: 10%; margin-right: 10%; 
+	      }
+	      P.note {
+	      margin-left: 5%;
+	      color: blue; 
+	      border-width: 1;
+	      }
+	      H1 { 
+	      text-indent: -5%;
+	      font-family: Helvetica; 
+	      }
+	      H1.title {
+	      font-family: Helvetica; 
+	      font-size: xx-large;
+	      }
+	      H2 {
+	      text-indent: -2%; 
+	      font-style: italic; }
+	      H3 {
+	      font-weight: normal; 
+	      font-family: Helvetica, sans-serif;
+	      text-decoration: underline; 
+	      }
+	      UL { list-style: disc; }
+	      UL UL { list-style: square; }
+	    </style>
+    </HEAD>
+    <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+	  vlink="#551a8b" alink="#ff0000">
+      <center>
+	<H1 class=title>EROS Plan</H1>
+      </center>
+      <p>
+	I've been asked by several groups to assemble a general
+	list of "what needs to be done" for EROS to really be
+	usable, and also to provide a sense of how long it might
+	take to get there. This document is an attempt to do so.
+      </p>
+      <P>
+	The answer depends in part on whether you are thinking
+	primarily about client applications or server
+	applications. There is a fair bit of overlap.
+      </p>
+      <p>
+	The structure of this document is that it first lays out
+	the requirements for various usage scenarios, and then
+	assembles a detailed list of the "to-do" items to
+	accomplish them, along with my time estimates.
+      </p>
+      <p>
+	More accurately, I assembled the time table by writing my way
+	through a number of nagging problems. The work items and
+	proposed ordering are at the end.
+      </p>
+      <h1>Gating Decisions</h1>
+      <p>
+	At this time, I'm aware of only a few gating decisions
+	that need to be made. I'll be starting discussion of
+	these on the eros-arch list shortly.
+      </p>
+      <h2>Approach to Networking</h2>
+      <p>
+	Charlie Landau and I have a pending debate about how
+	networking should be implemented. The question is
+	whether it should be implemented in the kernel or
+	outside the kernel. For release one, my opinion is "in
+	kernel."
+      </p>
+      <p>
+	Rationale:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	    Networking implementations are evolving and
+	    improving all the time.  Purely as a matter of
+	    minimizing the overhead of "keeping up" I think
+	    there is a strong incentive to adopt a solution
+	    that involves minimal change to some existing
+	    stack. Current stacks are really designed to run
+	    in-kernel.
+	  </p>
+	  <p>
+	    In trying to do a user-level port of the BSD
+	    networking stack, most of the work was in smashing
+	    headers to do something vaguely reasonable. Setting that
+	    aside, I ran into three challenges:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		<b>Timers.</b> There are portions of the BSD
+		networking stack that rely on the presence of a
+		timer callback in the kernel. In domain logic
+		this must be "faked" by a timer thread that
+		calls a separate entry point. Unfortunately,
+		there are windows of code during which timer
+		callbacks must be deferred. This means that the
+		design of faked timer callbacks is a bit tricky.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		<b>NI interface.</b> Given that in a user-level
+		implementation the Network Interface in fact
+		lives in a separate address space, some of the
+		logic of the interface between the net stack
+		proper and the network interface would need to
+		be rethought.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		<b>Copies.</b> A straightforward user-level port
+		of the BSD stack will result in an extra data
+		copy. We already know that the total number of
+		copies is the gating factor in network
+		performance. I'm therefore reluctant to
+		introduce another one intentionally.
+	      </p>
+	    </li>
+	  </ul>
+	</li>
+	<li>
+	  <p>
+	    All of the user-level networking implementations I
+	    know about are either highly experimental or not
+	    readily evolvable. <em>Does anyone know of a
+	      counter-example?</em>
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    We spent some time at Penn figuring out how a
+	    user-level implementation should work. Doing it
+	    well relies on having a shared-memory interface
+	    between the low-level driver and the user level
+	    code. This is more complicated than it at first
+	    appears, because a really good implementation
+	    needs to share that memory all the way out to
+	    the client, which raises the question of whether
+	    the shared memory buffer is checkpointed or not.
+	  </p>
+	  <p>
+	    In the end, we need to solve this problem, but
+	    it's going to take some thought to get right. I
+	    don't want to gate our first release on getting
+	    that right.
+	  </p>
+	</li>
+      </ul>
+      <H2>Driver Acquisition Strategy</H2>
+      <p>
+	We need to sit down and really look at the
+	driver/kernel interface in Linux and decide what we
+	are going to do here. My personal opinion is that we
+	will have better luck migrating the Linux driver
+	architecture to an improved design than we will have
+	going our own way. One thing we may need to do is encourage
+	this interface to become better specified within Linux.
+      </p>
+      <p>
+	I have in mind someone who has done a similar
+	exercise recently, and I'ld like to contract with
+	him to undertake this for us.
+      </p>
+      <p>
+	Some issues that will need to be addressed in
+	<em>any</em> resolution that borrows drivers from a UNIX
+	implementation:
+      </p>
+      <h3>Threading Model</h3>
+      <p>
+	UNIX assumes what Bryan Ford has characterized as a
+	<em>threaded kernel</em> model:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	    Kernel invocations may be long running, and may be
+	    interrupted in the middle (e.g. by a page
+	    fault). If interrupted, they restart at the point
+	    where they were interrupted.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	  Every process has a per-process kernel stack. This
+	  stack may contain state necessary for the
+	  successful restart of a kernel invocation.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	  Processes may sleep in the kernel as the result of
+	  an in-kernel interrupt. Doing so does not
+	  invalidate their kernel stack.
+	  </p>
+	</li>
+      </ul>
+      <p>
+	In contrast, EROS assumes what Bryan calls an
+	<em>interrupt kernel</em> model:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	  All kernel invocations are "all or nothing." No
+	  modification of state is allowed until it is known
+	  that the call will run to completion [There is
+	  fine print here for optimization of IPC, but this
+	  is the general design rule.]
+	  </p>
+	</li>
+	<li>
+	  <p>
+	  There is no per-process kernel stack. There is a
+	  per-CPU stack. When a process enters the kernel as the
+	  result of a capability invocation or an exception,
+	  it runs <em>temporarily</em> on the kernel stack
+	  associated with the faulting CPU. While on this
+	  stack, it may be interrupted by a low-level
+	  interrupt handler, but if it blocks the entire
+	  unit of operation is abandoned.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	  Processes may not sleep in the kernel [There is
+	  some fine-print optimization here].  Where a UNIX
+	  system call restarts in the middle, an EROS
+	  "system call" equivalent must be retried from the
+	  beginning.
+	  </p>
+	</li>
+      </ul>
+      <p>
+	The design issue is how to glue UNIX-style processes
+	into the EROS interrupt-style kernel. Ford has proposed
+	re-specifying the system calls as "atomic system
+	calls," but the amount of rework required to accomplish
+	this is considerable, and I don't think that the Linux
+	community would "buy back" the result.
+      </p>
+      <p>
+	<b>A Possible Solution:</b> One of the differences between the
+	EROS and KeyKOS kernels is that EROS has pure in-kernel
+	processes. These may export capability interfaces as though
+	they were domains and may participate in ordinary IPC
+	invocations. Also, they have in-kernel stacks.
+      </p>
+      <p>
+	For most devices, then, the "device capability" can
+	simply be a capability to an in-kernel process. A simple
+	indirect lookup mechanism would suffice to implement
+	this.
+      </p>
+      <p>
+	For disk devices, because of the need for duplexing, we
+	would need a structure in which the in-kernel device
+	process blocks on an empty I/O request queue and
+	fulfills the requests in sequence.
+      </p>
+      <h3>Memory Allocation Model</h3>
+      <p>
+	UNIX assumes that entities in the kernel can call
+	<em>malloc()</em> at run time. EROS assumes that they
+	cannot. To support UNIX drivers, EROS will have to change.
+      </p>
+      <p>
+	All UNIX malloc callers (in theory) are prepared to respect
+	the answer "there is no more memory now" and deal with this
+	situation sensibly. The kernel <em>malloc()</em> interface is
+	augmented with a third argument giving the "class" from which
+	the memory is allocated. This is best thought of as a pool
+	identifier. It prevents overallocation in one driver from
+	impacting the behavior of another. Conceptually, the pools
+	should be thought of as disjoint. In practice, the kernel
+	malloc implementation often backs the individual pools by a
+	general malloc pool to deal with high-variance situations. Some
+	constraints are nonetheless maintained:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	  There is a low water mark for each pool that represents a
+	  portion of memory that is guaranteed to be available for
+	  that purpose. Think of this memory as truly reserved to the
+	  pool. This is tunable on a per-pool basis.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	  There is (or should be) a tunable total upper bound on
+	  kernel malloc'd space. This includes both the pool
+	  allocations and the general malloc pool.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	  The caller is free to say whether they are willing to block
+	  in order to allow the memory pool to be grown (which may
+	  require paging activity).
+	  </p>
+	</li>
+      </ul>
+      <p>
+	Given these constraints, I believe that a reasonably safe
+	kernel malloc implementation can be done for EROS.
+      </p>
+      <p>
+	There is, however, a tricky collision of issues here:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	    One would like the opportunistic pool to be large. For
+	    example, one might like to allow allocation of a large DMA
+	    buffer for use by the audio driver, but only grab this
+	    buffer when software audio is in fact being used. Note
+	    that all such allocations are cases where the caller
+	    should be willing to block.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    When not in use, one would like this memory to be
+	    available for allocation by the kernel page cache.
+	  </p>
+	</li>
+      </ul>
+      <p>
+	This implies that there is a knowledge relationship between
+	the page cache and the memory allocator. It's not conceptually
+	hard to build, but it does require re-examining some of the
+	foundational assumptions about boot-time memory allocation.
+      </p>
+      <H3>Handling of SPLxxx() Calls</H3>
+      <p>
+	UNIX drivers have a rude way of demanding not to be preempted
+	by means of SPLxxx() calls, which establish a crude interrupt
+	prioritization mechanism. The whole SPLxxx() idea is silly in
+	the face of multiprocessors. Since EROS is a non-preemptive
+	kernel, the notion doesn't translate well.
+      </p>
+      <p>
+	Using pure in-kernel processes may have restored the
+	rationality of this design idea. Offhand, I see no reason why
+	the scope of SPLxxx() should not be restricted to a single
+	processor. The one area where care must be taken is to ensure
+	that the same activity is not simultaneously scheduled on two
+	processors. By using first-class kernel processes this would
+	appear to be largely dealt with.
+      </p>
+      <H2>UNIX Emulation Strategy</H2>
+      <p>
+	There are a number of possibilities for supporting a
+	POSIX environment, ranging from the work that my
+	students at Penn did to adapting the user level
+	Linux implementation that has already been done in
+	the Linux community. From a community building
+	standpoint, adapting the user mode Linux effort has
+	some appeal.
+      </p>
+      <H3>Source or Binary?</H3>
+      <p>
+	We need to pick a strategy for this. The question is whether
+	to go for source compatibility or binary compatibility. I am
+	tempted to go for source compatibility as the primary objective,
+	but I think some discussion on this is called for. The issues
+	I see are:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	    In an open source world, you really <em>can</em>
+	    recompile most of the time.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Source compatibility would let us choose a different
+	    packaging and vetting mechanism more easily, which is
+	    useful for an allegedly secure system.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Source compatibility lets us more easily compile tools for
+	    integration into a more native EROS environment.
+	  </p>
+	</li>
+      </ul>
+      <p>
+	Source and binary compatibility, of course, can both be done.
+      </p>
+      <H3>Conversion to C</H3>
+      <p>
+	Using C++ in the EROS kernel was a mistake, and getting the
+	Linux drivers to compile will be hugely simplified if we
+	convert the existing kernel to C.
+      </p>
+      <h1>Functional Requirements</h1>
+      <p>
+	Here is what I see the "basic system" as needing to do to meet
+	minimal acceptance standards for starting any serious effort
+	on it.
+      </p>
+      <p>
+	<em>If this list is missing something, let me know!</em>
+      </p>
+      <h2>Universal Requirements</h2>
+      <p>
+	Regardless of purpose, EROS certainly needs the
+	following items to be assembled as part of a core
+	distribution:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	    Complete the kernel.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Implement a networking subsystem.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Resolve Linux driver compatibility strategy and
+	    incorporate key drivers.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Create installation tools and scripts
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    An LDAP service.
+	  </p>
+	  <p>
+	    I include this in the core list because it's my
+	    belief on reflection that the common authentication
+	    and login mechanism should be built on LDAP. This is
+	    primarily because so many applications are already
+	    being built to do so.
+	  </p>
+	  <p>
+	    We are seeing the emergence in the Linux space of
+	    "imap operating environments" and "web server
+	    operating environments" where one network-aware
+	    service has taken over the role of the traditional
+	    login mechanism and supplies a fully contained
+	    environment to the external world. In support of
+	    distribution, LDAP appears to be the common
+	    mechanism for authentication information in such
+	    environments.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    An authentication subsystem.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    A JVM implementation. Hopefully, we can persuade
+	    Blackdown to take this on.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    A terminal handling subsystem
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    A native "file system" (directories and files).
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Debugging support.
+	  </p>
+	  <p>
+	    At an absolute minimum, this needs to be a GDB
+	    remoting stub implementation. Ultimately, a full
+	    native debugger is needed.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    A Linux (POSIX) binary compatibility
+	    environment. It's okay on the server side if this
+	    does not support video or sound.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    A native "shell" (command processor)
+	  </p>
+	</li>
+      </ul>
+      <h2>Server-Side Requirements</h2>
+      <p>
+	For use in server applications, here are some things
+	that EROS needs to have running on it:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	    A web server.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    An LDAP network service.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    A transacted database system.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Administration tools for account management and
+	    setup.
+	  </p>
+	</li>
+      </ul>
+      <p>
+	These in turn require some other things:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	    Support for X11 <em>clients</em> (as distinct from
+	    an X server).
+	  </p>
+	  <p>
+	    This raises the broader question of what window
+	    system to support and how to secure it.
+	  </p>
+	</li>
+      </ul>
+      <h2>Client-Side Requirements</h2>
+      <p>
+	For use in client applications, here are some things
+	that EROS needs to have running on it:
+      </p>
+      <ul>
+	<li>
+	  <p>
+	    A web browser.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    A secure window system and GUI library
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    An authentication/login subsystem.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    <em>What, if anything, is needed in the way of application
+	    frameworks?</em>
+	  </p>
+	</li>
+      </ul>
+      <h1>Kernel To-Do List</h1>
+      <p>
+	Here are the main work items on the kernel. I'm going to
+	capture the items first and then deal with ordering issues.
+      </p>
+      <h2>Linux Driver Integration</h2>
+      <p>
+	Here are the items I see to be able to integrate Linux drivers.
+      </p>
+      <h3>Convert to C</h3>
+      <p>
+	My experience in trying to recompile the
+	existing Linux drivers with the C++ compiler has been
+	quite discouraging. I think in the end this will always be
+	an uphill battle, and I'm disinclined to fight it.
+      </p>
+      <p>
+	Secondarily, we have found with each successive revision
+	of the G++ compiler that we need to use more switches to
+	turn <em>off</em> support for this or that feature of the
+	language. This means that we are using an increasingly
+	specialized source language already, which is bad.
+      </p>
+      <p>
+	Believe it or not, C++ type checking is causing some
+	serious pain in the area of header inclusion. While the
+	visibility rules provide encapsulation at the source code
+	level, the need for all the types to be fully defined
+	means that it's very hard to separate machine-dependent
+	and machine-independent include files.
+      </p>
+      <p>
+	My suggestion is that the C conversion proceed in five phases,
+	testing after each phase.
+      </p>
+      <ol>
+	<li>
+	  <p>
+	    Convert the portion of the kernel headers that
+	    reside in <tt>sys/disk/</tt> and <tt>sys/eros/</tt> (and
+	    the associated C++ code). These two directories describe the
+	    disk-level objects, and capture the interface between the
+	    kernel and the volume build tools.
+	  </p>
+	  <p>
+	    The bulk of this work will relate to converting the Node
+	    and Key structures.
+	  </p>
+	  <p>
+	    This is one of the few pieces we can actually test against
+	    a C compiler prior to full conversion.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Convert the ObCache structure. This will cover the
+	    dependency management logic.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Convert the Process structures. This will tend
+	    to force the entire rest of the kernel to C. While
+	    performing this conversion, make a pass over the Process
+	    structure determining which portions of the interface
+	    should be declared machine-dependent and which
+	    machine-independent. I suspect that the current
+	    implementation gets some of this wrong.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    Convert any remaining code, such as the checkpoint logic.
+	    Only when this is complete will the kernel compile using a
+	    conventional C compiler.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    The last step is to integrate the Linux-oriented changes
+	    for low resource allocation and memory management (see
+	    below).
+	  </p>
+	</li>
+      </ol>
+      <h3>Design &amp; Implement Low Resource Allocation</h3>
+      <p>
+	By "low resource" I mean interrupt vectors, I/O ports, memory
+	ranges, etc. I suspect that most of this will ultimately be
+	dictated by the current Linux design. The real issue to think
+	through is what changes (if any) are motivated by the switch
+	from a threaded kernel to an interrupt kernel.
+      </p>
+      <h3>Design &amp; Implement Low-Level Memory Allocation</h3>
+      <p>
+	This is discussed above.
+      </p>
+      <H3>Decide Which Drivers are Used by Kernel</h3>
+      <p>
+	Some drivers merely <em>reside</em> in the kernel, but the
+	behavior of the kernel does not really depend on them at
+	all. An example is serial drivers, where the kernel is purely
+	an intermediary on behalf of a user-level process.
+      </p>
+      <p>
+	A few drivers -- most notably disk and network drivers --
+	exist for which the kernel itself is the client. These may
+	require a different "glue layer" than the previous case.
+      </p>
+      <p>
+	Regrettably, because of the way things like SCSI work, there
+	are some hybrid cases. To make life really fun there are
+	devices that come and go, and the same device address can
+	represent a kernel device at one moment (PC Card networking)
+	and a user device at another (PC Card modem in same slot). We
+	need to think this out.
+      </p>
+      <h3>Bring on the Drivers</h3>
+      <p>
+	Following all of this we need to port/adapt a bunch of drivers
+	from the Linux world. Thank God we may finally be able to
+	deprecate ISA by the time this happens.
+      </p>
+      <h3>Implement Networking</h3>
+      <p>
+	If we do in-kernel networking this is really a subcase of
+	driver integration.
+      </p>
+      <h2>Checkpoint Logic Revision</h2>
+      <p>
+	There are two problems with the current checkpoint mechanism.
+      </p>
+      <h3>Overburdened Complexity</h3>
+      <p>
+	The current checkpoint logic tries to make aggressive reuse of
+	space. If a frame in the checkpoint area is freed, the
+	checkpoint system will attempt to keep track of this and reuse
+	the block.
+      </p>
+      <p>
+	This requires a fair amount of book-keeping. If it were all
+	"allocate on demand" the book-keeping would be no big deal,
+	but there are multiple levels of allocation involved. In
+	particular, there is a concept of reserved but unallocated
+	blocks that correspond to dirty objects that have not yet
+	(ever) been written down.
+      </p>
+      <p>
+	Because objects may be smaller than log frames, a sub-frame
+	allocation mechanism has been implemented that is unreasonably
+	complicated. This makes the checkpoint directory quite
+	complicated.
+      </p>
+      <p>
+	Just to make matters really fun, the current mechanism tries
+	hard to remember where objects are in the log until the
+	instant that their containing frame gets reclaimed.
+      </p>
+      <p>
+	The end result is that the current checkpoint mechanism fails
+	to self-check during reboot in several cases, not because the
+	state on the disk is bad but because the accounting is so
+	complex that I can't recreate it correctly.
+      </p>
+      <p>
+	The <em>real</em> problem is that I'm not convinced we can get
+	journaling implemented cleanly using the current design.
+      </p>
+      <p>
+	The solution is to simplify the mechanism to be purely
+	append-only, reclaiming the storage in a lump only when the
+	entire checkpoint area is reclaimed after migration. We should
+	still try to keep track of where objects are until they are
+	reclaimed. The bottom line is that the current implementation
+	has one layer too many of complexity.
+      </p>
+      <p class=note>
+	This work probably needs to be done early because the
+	system should be expected to crash frequently while we are
+	doing driver integration, and we want to minimize developer
+	disruption.
+      </p>
+      <h2>Journaling</h2>
+      <p>
+	The journaling mechanism is currently unimplemented. We should
+	do a quick and dirty journaling implementation following the
+	KeyKOS design until Norm and Charlie and I can sit down and
+	work out whether the colored journaling idea I came up with a
+	couple of years ago makes sense.
+      </p>
+      <p class=note>
+	This is not high-priority. We can implement a dummy journaling
+	key that is good enough to let us implement the database
+	storage manager without actually having journaling. The
+	high-priority issue is to understand how journaling will be
+	implemented given the checkpoint data structures. This is a
+	matter of having a brief design discussion.
+      </p>
+      <h2>Scheduler</h2>
+      <p>
+	Charlie, Norm, and I need to sit down and re-examine the
+	current scheduling logic and decide whether to keep it or
+	abandon it. The key question is whether we want a real-time
+	scheduler or not. If the answer is yes then we are probably
+	not going with meters, though I need to review Bryan Ford's
+	hierarchical CPU scheduling design before concluding that. We
+	also should look at the quasi-real-time stuff from the latest
+	SOSP.
+      </p>
+      <p>
+	We then need to implement it. The basic hooks are there, but
+	there is a bug in the current implementation somewhere that is
+	making its response time inadequate. It's probably related to
+	the interrupt logic.
+      </p>
+      <p class=note>
+	This is not a gating item. It needs to be done before
+	shipping, but not before people can usefully get started.
+      </p>
+      <h2>Self-Paging and Non-Checkpointed Memory</h2>
+      <p>
+	We need to extend the current red segment logic to support
+	pinned memory and non-checkpointed memory. These are really
+	the same thing. What we need to do is introduce a notion of
+	page frame pools (coloring) and then associated attributes
+	with each pool.  A pool has two properties:
+      </p>
+      <ol>
+	<li>
+	  <p> 
+	    In response to an object fault-in, some object in the same
+	    memory pool is kicked out. That is, ageing is per-pool
+	    rather than across all of memory. This is not a major
+	    change; think of the current memory as a single pool.
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    A pool can be marked exempt from checkpoint. Such a pool
+	    will never be hazarded by copy-on-write, but also will not
+	    be saved across restarts. It should initially be a
+	    closely-held authority to mark a pool exempt from
+	    checkpointing.
+	  </p>
+	</li>
+      </ol>
+      <p class=note>
+	This is not a gating item for most applications. It is
+	important for databases, and it will be important for any
+	application doing intensive audio or video. Most of that is
+	client-side, which doesn't seem to be emerging as an early focus.
+      </p>
+      <h2>Multithreading Model</h2>
+      <p>
+	We have to implement a first-class multithreading model (I can
+	just hear the KeyKOS guys drawing breath to yell at me
+	:-). I've outline the reasons on the eros-arch list. The
+	original note is <a
+	href="http://www.eros-os.org/~majordomo/eros-arch/0883.html">here</a>
+	and two responses can be found by following the "thread" link.
+      </p>
+      <p class=note>
+	This needs to be thought out because it may impact the process
+	structure, but <em>implementing</em> it does not appear
+	offhand to be urgent.
+      </p>
+      <h1>User-Mode To-Do List</h1>
+      <p>
+	Here are the main work items above the kernel layer.
+      </p>
+      <h2>Replacement for "Receptionist"</h2>
+      <p>
+	In the wake of server applications increasingly taking over
+	their own "login" functions, I think that we need to
+	re-examine the receptionist. It remains a fine model for user
+	login, but I'm not sure that it's still the only model. We
+	definitely want to look at componentizing it so that it can
+	share code with, say, an <tt>imap</tt> server that implements
+	a distinct user name space.
+      </p>
+      <p>
+	Along with this, however, we need to implement the equivalent
+	to the "terminal front end" object. If we have adopted the
+	Linux driver model then it is likely that a good bit of the
+	line discipline handling will be done in the kernel, and it's
+	not clear to me that termfe works well if it appears on the
+	wrong side of the line discipline implementation. <em>Bill
+	Frantz should know the answer to this</em>.
+      </p>
+      <p>
+	Terminal handling may want to be pushed out of the kernel
+	entirely, in which case we need to figure out what to do about
+	pseudo-terminals.
+      </p>
+      <p class=note>
+	A design for this probably needs to be done soon. It's hard to
+	develop natively on a machine where you cannot log in.
+      </p>
+      <h2>Minimal Native Command-Line Environment</h2>
+      <p>
+	Directories, files, etc.
+      </p>
+      <p>
+	I'm partial to the "Plan 9" model of union-mounted directories
+	for standard utilities in the native environment.
+      </p>
+      <h2>UNIX/POSIX Cross-Compilation Library</h2>
+      <p>
+	We need to build enough of a cross-environment that UNIX
+	processes can be brought to run under the EROS command line
+	environment with low overhead.
+      </p>
+      <p>
+	Actually, there is a question here: is it sufficient to just
+	declare that the native command environment for users will be
+	UNIX, and then integrate non-passive files into the UNIX file
+	system model? This might simplify things quite a lot.
+      </p>
+      <h2>Record Collection</h2>
+      <p>
+	This is the KeyKOS equivalent to the UNIX DBM library, and I
+	wonder if we shouldn't just port and use DBM or GDBM.
+      </p>
+      <h2>Native Transaction System</h2>
+      <p>
+	Here again, I wonder if the right approach isn't something
+	along the lines of Sleepycat's "Berkeley DB", which is DBM on
+	steroids with transactions. Do we want to build a whole
+	database system, or just provide the key components for people
+	who need transactions? I'm actually inclined to think that we
+	want the latter.
+      </p>
+      <h2>Backup and Restore Utilities</h2>
+      <p>
+	Obviously need this. I want to have a design that can do a
+	total system recovery starting with nothing but a bare drive,
+	the EROS install media, and a backup media. Try this on
+	Windows sometime and you'll understand what I mean...
+      </p>
+      <h2>Installation and Setup Utilities</h2>
+      <p>
+	We need to write the system installation program and also the
+	subsequent software installation tools.
+      </p>
+      <h2>Base Image</h2>
+      <p>
+	The base system image needs to get defined. What needs to be
+	included on the first installation disk? Recall that this disk
+	can be a CD -- the issue isn't size. On the other hand, I'ld
+	like to support embedded, so a single disk image would be a
+	nice thing to have. It's also politically useful to be able to
+	send people cheap trial floppies, though these days a CD might
+	be cheap enough to just send that.
+      </p>
+      <h2>Embedded?</h2>
+      <p>
+	While I'm at it, what additional/orthogonal items are needed
+	for embedded system support? Do we want to make this an early
+	focus of attention?
+      </p>
+      <p>
+	For some of my current clients, it would certainly be
+	desirable to do so, and I think that putting this on the "in"
+	list would let us fund a bunch of the other work more readily.
+      </p>
+      <h1>Documentation</h1>
+      <p>
+	The existing documentation tree needs to be reorganized. On
+	the one hand, there is too much in it (like the postscript
+	files). On the other, it is incomplete.  Also, the current
+	HTML format does not lend itself to generation of paper
+	documents.
+      </p>
+      <p>
+	The general plan for the documentation tree should be to
+	reorganize it as a collection of books (volumes, if you
+	prefer), each consisting of multiple sections, each section
+	consisting of a single document authored in XML. Reference
+	manuals are an exception, because for reasons of tradition
+	each reference page wants to be presentable as a single
+	document.
+      </p>
+      <h2>Tools</h2>
+      <p>
+	We need a set of XML DTD's and conversion tools that go from
+	XML to HTML and also from XML to TeX/LaTeX. I actually built a
+	set of these while at IBM; it's not unduly complicated.
+      </p>
+      <p>
+	The bad news is that this will introduce a dependency in our
+	build chain on the Java JDK, because the best XSLT processors
+	out there are currently written in Java. More accurately, the
+	only ones that <em>work</em> are the Xalan/Xerces java-based
+	processors.
+	Xalan implements the XSLT transforms and Xerces
+	implements the DOM parser.
+	Regrettably, the performance of the Java versions sucks. 
+      </p>
+      <p>
+	The good news is that the C version of Xerces is now very
+	stable, and the C version of Xalan is humming right along. I
+	believe that we can rely on Xalan becoming stable enough
+	shortly that we will be able to abandon the Java tool chain if
+	we choose to do so. In fact, I currently have both versions
+	and I'll simply give them a try.
+      </p>
+      <h2>ObRef</h2>
+      <p>
+	A pass needs to be made through the kernel interface to make
+	sure that every object is properly documented.
+      </p>
+      <h2>Guide</h2>
+      <p>
+	The programmer's guides need to be written, and the general
+	style and pattern of such guides needs to be established.
+      </p>
+      <h1>Testing</h1>
+      <p>
+	The first thing that needs to be done here is to separate the
+	working and non-working tests and to put the benchmarks in a
+	separate tree.
+      </p>
+      <p>
+	In general, I have found that low-level machine-dependent
+	tests get in the way, and have tended to rely on interfaces
+	that have a rude way of changing. These at least need to be
+	isolated.
+      </p>
+      <p>
+	We need to build some stress tests for minimal memory
+	configurations to test the checkpoint logic fairly hard. In
+	support of this, we need to implement a "hard reset now"
+	capability in the kernel so that we can test checkpoint
+	recovery.
+      </p>
+      <p>
+	Once we have a framing for a proper test harness, we need to
+	start the ugly process of writing tests for every single piece
+	of function in the system.
+      </p>
+      <h1>Linux Environment</h1>
+      <p>
+	Finally, we have the whole Linux environment issue to
+	resolve. This is a whole development path of its own.
+      </p>
+      <hr>
+	<em>Copyright 2000 by Jonathan Shapiro.  All rights reserved.  For terms of 
+	  redistribution, see the 
+	  <a href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </BODY>
+  </HTML>

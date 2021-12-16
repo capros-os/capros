@@ -1,0 +1,14 @@
+package capros;
+
+/** Kernel interface to system control functions.
+ *
+ */
+interface SysTrace extends key {
+  void CheckConsistency();
+
+  void clearKernelStats();
+
+  /* Set tracing of invocations and page faults on or off. 
+  */
+  void setInvocationTrace(boolean onOff);
+};

@@ -1,0 +1,83 @@
+<html>
+<head>
+  <title>CapROS sysgen Reference</title>
+</head>
+
+<BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../capros.html"><em>CapROS home</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Kernel Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>sysgen</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>sysgen</b> -- make new CapROS volume</p>
+      <h2>Synopsis</h2>
+      <p><b>sysgen</b> [-m mapfile] [-b baseOID]
+         volume image_file</p>
+      <h2>Description</h2>
+      <p> The <b>sysgen</b> utility maps the content of the CapROS image
+      file <b>image_file</b> (from <b>mkimage</b>) onto the specified
+      CapROS <b>volume</b>.  Pages in the CapROS image file are written to
+      divisions in the volume sequentially, followed by Nodes.  Any
+      capabilities within the image file are relocated to reflect the
+      final locations of these objects on the actual volume before
+      being written.
+      </p>
+      <p>If mapfile is specified, sysgen outputs there the mapping
+      of indexes in the image_file to oid's in the volume. </p>
+      <p>
+        Object IDs for objects will be assigned beginning with baseOID
+        (0 if not specified.)
+      </p>
+      <p>
+      The principal reason for distinguising between image and volume
+      files is flexibility -- the image file captures the logical
+      relationships between pages and nodes, while the volume file
+      captures the representation of these objects on some particular
+      physical medium.  Separating the two files eliminates the need
+      to store images of zero pages, and also allows the choice of
+      volume to be made long after the system image has been
+      constructed.
+      </p>
+      <p>
+      One way to think of the <b>sysgen</b> utility is as a relocating
+      loader for CapROS images.
+      </p>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+      <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 1998 by Jonathan Shapiro, 2005, 2008 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+</body>
+</html>

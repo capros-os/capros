@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -18,24 +19,27 @@
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 
-# Overrides for building under FreeBSD.  We assume that you have installed
-# the EROS cross-environment in /usr/local/eros-xenv.  If it is someplace
-# else, you'll need to set EROS_XENV as an environment variable.
-
-CROSS_PREFIX=$(EROS_TARGET)-unknown-eros-
+# Cross tools use i386 not i486.
+ifeq "$(EROS_TARGET)" "i486"
+EROS_CROSS_TARGET=i386
+else
+EROS_CROSS_TARGET=$(EROS_TARGET)
+endif
+CROSS_PREFIX=$(EROS_CROSS_TARGET)-unknown-capros-
 
 EROS_GCC=$(EROS_XENV)/bin/$(CROSS_PREFIX)gcc
 EROS_GPLUS=$(EROS_XENV)/bin/$(CROSS_PREFIX)g++
 EROS_LD=$(EROS_XENV)/bin/$(CROSS_PREFIX)ld
 EROS_AR=$(EROS_XENV)/bin/$(CROSS_PREFIX)ar
 EROS_SIZE=$(EROS_XENV)/bin/$(CROSS_PREFIX)size
+EROS_OBJCOPY=$(EROS_XENV)/bin/$(CROSS_PREFIX)objcopy
 EROS_OBJDUMP=$(EROS_XENV)/bin/$(CROSS_PREFIX)objdump
 EROS_RANLIB=$(EROS_XENV)/bin/$(CROSS_PREFIX)ranlib
+EROS_STRIP=$(EROS_XENV)/bin/$(CROSS_PREFIX)strip
 
-#NATIVE_GCC=$(EROS_XENV)/bin/gcc
-#NATIVE_GPLUS=$(EROS_XENV)/bin/g++
-
-EROS_GCC_KERNEL_ALIGN=-malign-functions=4
+ifeq "$(EROS_TARGET)" "i486"
+EROS_GCC_KERNEL_ALIGN=-falign-functions=4
+endif
 
 EROS_CPP=/lib/cpp -undef -nostdinc -D$(EROS_TARGET)
 

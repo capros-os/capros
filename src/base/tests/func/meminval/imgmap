@@ -1,0 +1,93 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, 2007, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+sharedpg = new page;
+
+proc2 = new process;
+proc2.seg = program segment BUILDDIR "proc2";
+proc2.pc = symbol BUILDDIR "proc2" _start;
+proc2.seg = proc2.seg with page at 0x20000; /* for stack */
+proc2.seg[2] = sharedpg;
+
+proc2 pc = proc2.pc;
+proc2 sp = 0x21000;
+proc2 space = proc2.seg;
+proc2 schedule = sched(8);	/* normal */
+
+proc2 key reg 9 = misc Sleep;
+proc2 key reg 10 = misc Console;
+proc2 key reg 11 = misc SysTrace;
+
+proc1 = new process;
+proc1.pc = symbol BUILDDIR "proc1" _start;
+seg17 = program segtree BUILDDIR "proc1";
+seg17 = seg17 with page at 0x1f000; /* for stack */
+
+/* seg17 is of size 2**17. Build other size segments: */
+seg22 = new GPT with lss 2;
+seg27 = new GPT with lss 3;
+seg32 = new GPT with lss 4;
+seg22[0] = seg17 as opaque GPT key;
+seg27[0] = seg22 as opaque GPT key;
+seg32[0] = seg27 as opaque GPT key;
+
+// #define LARGE_SPACE
+
+#ifdef LARGE_SPACE
+seg27[0x1c] = sharedpg;
+#else
+seg17[0x1c] = sharedpg;
+#endif
+
+proc1 pc = proc1.pc;
+proc1 sp = 0x21000;
+proc1 space = seg32 as opaque GPT key;
+proc1 schedule = sched(8);	/* normal */
+proc1 process keeper = start proc2 5;
+
+proc1 key reg 8 = start proc2 0;
+proc1 key reg 9 = misc Sleep;
+proc1 key reg 10 = misc Console;
+proc1 key reg 11 = misc SysTrace;
+
+proc1 key reg 12 = seg17[31];
+proc1 key reg 13 = seg17;
+proc1 key reg 14 = seg22;
+proc1 key reg 15 = seg27;
+proc1 key reg 16 = seg32;
+proc1 key reg 17 = proc1;
+
+proc1 key reg 18 = proc2;
+
+proc2 key reg 12 = seg17[31];
+proc2 key reg 13 = seg17;
+proc2 key reg 14 = seg22;
+proc2 key reg 15 = seg27;
+proc2 key reg 16 = seg32;
+proc2 key reg 17 = proc1;
+
+ipl proc1;
+run proc2;	// to set the proper state

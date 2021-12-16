@@ -1,0 +1,170 @@
+<html>
+  <head>
+    <title>Booting CapROS</title>
+  </head>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+  <center>
+    <h1 class="title">Booting CapROS</h1>
+  </center>
+    <h1>Overview</h1>
+    <p>
+      Booting a CapROS system involves the following steps, each of which
+      is discussed in detail below.
+    </p>
+    <ol>
+    <li>The kernel and preloaded objects are loaded into RAM.
+    <li>The kernel runs and initializes itself.
+    <li>The kernel runs the nonpersistent IPL process, which in turn starts the
+      other initially running nonpersistent processes.
+    <li>The kernel executes the restart sequence, which initializes
+      the persistent objects.
+    </ol>
+    <h1>Loading the kernel and preloaded objects</h1>
+    <p>
+      A CapROS system consists of the kernel and objects. 
+      Preloaded objects are those that are loaded at the same time
+      as the kernel. 
+      Non-preloaded objects are loaded from disk by the CapROS pager.
+      Preloaded objects include all nonpersistent objects,
+      and may include the persistent objects that define a big bang.
+      The <a href="../devel/CrossGuide/build-tut.html">build tutorial</a>
+      has more information on the big bang.
+    </p>
+    <p>
+      The kernel and preloaded objects are loaded by a boot loader
+      from some nonvolatile medium. The details are machine-specific.
+      Here are some examples:
+    </p>
+    <ul>
+    <li>
+      On the PC, we use <a href="Multiboot.html">GRUB</a>
+      to load a system image containing the kernel and preloaded objects.
+      The kernel is Multiboot compliant. 
+      See the <a href="../devel/CrossGuide/build-tut.html">build tutorial</a>
+      for details of building the system image. 
+      For development, we use NFS to copy the system image from the
+      development system to the test system,
+      temporarily running Linux on the test system.
+      See the <a href="../project/build.html">build instructions</a>
+      for details.
+    <li>
+      On the ARM, for development we use Redboot to load the kernel code,
+      the kernel data, and the preloaded objects. Redboot receives
+      these files from the development system over Ethernet.
+      See the <a href="../project/build.html">build instructions</a>
+      for details.
+    <li>
+      An embedded system might load a system image from ROM.
+    </ul>
+    <h1>Kernel initialization</h1>
+    <p>
+      Kernel initialization is not yet documented.
+    </p>
+    <h1>IPL process</h1>
+    <p>
+      The kernel starts the system by running the single nonpersistent
+      IPL process. The IPL process is identified by an OID that is defined
+      in the system image, using the
+      <a href="../devel/CrossGuide/mkimage-ref.html">mkimage</a>
+      "ipl" directive. 
+      The IPL process goes through a list of nonpersistent processes
+      to be started, and starts them. 
+      This list is built using the mkimage "run" and "threadlist" directives.
+      In a fully nonpersistent system, this list of processes includes all the
+      initial processes, such as device drivers.
+    </p>
+    <h2>Big Bang Theory</h2>
+    <p>
+      In a persistent system, the initial state of the persistent objects
+      must be defined using mkimage and then set up in the system.
+      There are two ways to do this.
+    </p>
+    <ul>
+    <li>
+      <a href="../devel/CrossGuide/sysgen-ref.html">Sysgen</a>
+      takes a file produced by mkimage and writes it to a disk volume
+      so the objects can be loaded from the disk
+      as though they were checkpointed there.
+      During development, this method requires moving the initialized volume
+      from the development system to the test system.
+    <li>
+      <a href="../devel/CrossGuide/npgen-ref.html">Npgen</a>
+      takes a file produced by mkimage and includes those objects
+      in the preloaded objects of a system image. 
+      These preloaded persistent objects will then be saved to disk
+      on the first checkpoint.
+      This method limits the big bang objects to what will fit in RAM,
+      but it is more convenient for development.
+    </ul>
+    <h1>Restart Sequence</h1>
+    <p>
+      There are several different scenarios for the restart sequence. 
+    <ul>
+    <li><h2>Big Bang from Preloaded Objects</h2>
+      <p>
+        In this scenario, the initial (big bang) persistent objects
+        are preloaded into RAM.
+        The system image of the persistent objects should contain an
+        IPL process. The IPL process is started in the restart sequence,
+        and it in turn starts the other persistent processes.
+        If there is any checkpoint on disk, it is ignored.
+      </p>
+      <p>
+        To build such a system, npgen is run twice, once to create an
+        image file of the nonpersistent objects, and once to create an
+        image file of the persistent objects.
+        When building the nonpersistent objects, the -p option must be
+        given to npgen.
+      </p>
+      <p>
+        After the system is initialized and running, it can be checkpointed
+        to disk. Note that it takes at least two checkpoints to overwrite
+        any old checkpoint that may already be on the disk. 
+      </p>
+    <li><h2>Restart from Disk</h2>
+      <p>
+        If there are no preloaded persistent objects, but there is
+        a disk with a checkpoint, the restart sequence loads the state of
+        the persistent world from the checkpoint.
+        See the <a href="../../design-notes/Checkpoint.html">
+        Checkpoint Mechanism</a> for details. 
+        The checkpoint on disk may be either the previous state of the
+        system saved by a checkpoint, or a big bang (including an IPL process)
+        written to disk by sysgen. 
+      </p>
+      <p>
+        When building the nonpersistent objects, the -p option must be
+        given to npgen so the nonpersistent world can find the
+        persistent world. 
+      </p>
+    <li><h2>Nonpersistent system</h2>
+      <p>
+        If there are no preloaded persistent objects and no disk
+        with a checkpoint, the system runs without any persistent objects;
+        it is nonpersistent only. 
+        In this case the -p option must <em>not</em> be given to npgen.
+      </p>
+    </ul>
+    <p>
+      As an implementation detail, the restart sequence is driven by
+      a kernel process.
+    </p>
+  <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 2007, 2008 by Strawberry Development Group.
+      All rights reserved.
+      For terms of redistribution, see the <a
+      href="./legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+  </body>
+</html>

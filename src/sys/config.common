@@ -1,0 +1,186 @@
+# -*- python -*-
+#
+# Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2006, 2007, Strawberry Development Group.
+#
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
+
+# This file is processed by scripts/config.py to produce the kernel
+# Makefile and kernel-config.h. 
+#
+# defoption("name") declares that there is an option named OPTION_NAME.
+# defoption("name", 1) declares that there is an option named NAME.
+# option("name") declares that the above option is to be defined (as 1).
+
+#####################################################################
+#
+# Incorporates the kernel debugger into the kernel.
+#
+#####################################################################
+defoption("ddb")
+
+#####################################################################
+#
+# Determines whether kernel debugger watchpoints will be
+# supported. This option has not been tested in a very long time, and
+# may not be working.
+#
+#####################################################################
+defoption("ddb_watch")
+depends("ddb_watch", "ddb")
+
+#####################################################################
+#
+# Determine what device the kernel diagnostic output (printf)
+# and kernel debugger (if present) should use as their
+# input/output device. Exactly one of these should be set.
+# If no selection is made, it defaults to using the console.
+#
+#####################################################################
+defoption("output_on_console")
+defoption("output_on_tty0")
+
+defoption("ndebug", 1)
+defoption("inet")
+defoption("scsi")
+defoption("npx")
+
+#####################################################################
+#
+# If the architecture in question supports the small spaces 
+# operation, this option enables it in the kernel source code.
+# If available, small spaces make a great many domains run a lot
+# faster.
+#
+#####################################################################
+defoption("small_spaces")
+
+#####################################################################
+#
+# The OB_MOD_CHECK option causes checksums to be computed as each
+# object is loaded into the kernel.  If OB_MOD_CHECK is enabled,
+# checksums for allegedly unmodified are periodically verified.
+# This has proven VERY helpful in debugging wild pointer errors.
+#
+#####################################################################
+defoption("ob_mod_check")
+
+#####################################################################
+#
+# The DBG_WILD_PTR option adds code which can be turned on with the
+# kdb command "debug wild y".
+# This code executes frequent consistency checks, to debug
+# difficult-to-find corruption.
+# This has proven VERY helpful in debugging wild pointer errors.
+#
+#####################################################################
+defoption("dbg_wild_ptr", 1)
+
+#####################################################################
+#
+# Controls whether internal statistics are kept for various kernel
+# book-keeping actions, which is a useful for checking whether the
+# kernel tunables need reevaluation.  Kernel stats are accessable
+# via either OPTION_DDB or the systrace key.
+#
+#####################################################################
+defoption("kern_stats")
+option("kern_stats")
+
+#####################################################################
+#
+# On machines that provide a fine-grain cycle counter, additional
+# measurements of the cost of various parts of the kernel can be
+# collected and manipulated via both the SysTrace key and the kernel 
+# debugger.
+#
+#####################################################################
+defoption("kern_timing_stats")
+
+#####################################################################
+#
+# On machines that provide an event tracing interface, event
+# recording can also be compiled in to the kernel.
+#
+#####################################################################
+defoption("kern_event_tracing")
+
+#####################################################################
+#
+# Controls whether kernel profiling is run.  Running profiling takes
+# some bit of space, but doesn't seem to carry a lot of overhead.
+# You cannot get to the results without also enabling ddb.
+#
+#####################################################################
+defoption("kern_profile")
+
+#####################################################################
+#
+# Controls whether the IPC fast path (if any) should be compiled in.
+#
+#####################################################################
+defoption("fast_path")
+#option("fast_path")
+
+#####################################################################
+#
+# Controls how fast the clock interrupt rate is.  If FAST_CLOCK is
+# enables, clock interrupts are more frequent, but the overall load
+# on the system is nontrivial.  The precise interrupt rate resulting
+# from fast_clock is platform-dependent.
+#
+#####################################################################
+defoption("fast_clock")
+
+#####################################################################
+#
+# Controls whether the kernel is compiled to support persistence or
+# not. A non-persistent kernel will never attempt to write dirty pages
+# or nodes to the store, though it will attempt to "forget" clean
+# pages on the assumption that they can be reloaded from the ROM image
+# or RAM image. If the kernel is not persistent, and the ager cannot 
+# free any memory when a new page/node is required, the kernel will 
+# halt with a diagnostic.
+#
+# If the kernel is not persistent, then the checkpoint support logic
+# is omitted.
+#
+# There is presently no support for user-level directed cleaning, 
+# though there should be.
+#
+#####################################################################
+defoption("persistent")
+defoption("romable")
+
+#####################################################################
+#
+# Enable the following option in those builds where you want
+# the files related to the MOPS static checker. This will define
+# -DOPTION_MOPS and also OPT_MOPS in the Makefile. The MOPS files
+# won't actually get built unless you have in your shell environment
+# a variable MOPS that names the directory of your mops installation.
+#
+# In order to build the MOPS-related files you also need a valid
+# 'java' in your path.
+#
+#####################################################################
+defoption("mops")

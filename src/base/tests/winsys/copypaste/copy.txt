@@ -1,0 +1,4 @@
+Here is some text that was copied from one window to another.
+If you're reading this, it probably means that our implementation of
+the copy-paste buffer logic is working well enough for this demo.
+Isn't that just great?

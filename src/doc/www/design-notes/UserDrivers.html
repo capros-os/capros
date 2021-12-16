@@ -1,0 +1,600 @@
+<html>
+  <head>
+    <title>Persistence, Non-persistence, and Device Drivers</title>
+  </head>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+  <center>
+    <h1 class="title">Persistence, Non-persistence, and Device Drivers</h1>
+  </center>
+    <h1>Device Drivers</h1>
+    <p>
+       The ability to port drivers from Linux is very important, because
+       there are very many drivers. The ability to port them with
+       minimal changes is important because they are said to have
+       a high rate of change. 
+    </p>
+    <p>
+      Device drivers, in most cases, have the same security properties
+      as the kernel - they must be trusted by everyone,
+      because they direct hardware that on most architectures
+      has write access to all of physical memory. 
+      In KeyKOS and early versions of EROS, device drivers executed
+      as part of the kernel. 
+    </p>
+    <p>
+      However, there are several advantages to having drivers execute
+      in user processes:
+    </p>
+    <ul>
+    <li>
+      It's easier to write a program to run in user mode than in the kernel.
+    </li>
+    <li>
+      User mode provides some protection from accidental damage. 
+    </li>
+    <li>
+      To port drivers from Linux with a minimum of rewriting, you need to
+      run them in an environment that looks like the Linux kernel
+      (with, for example, a per-process stack). 
+      Building such an environment is, like most everything, easier
+      in processes than in the kernel. 
+    </li>
+    <li>
+      If a GPL-licensed driver is linked with the kernel, 
+      there is an argument that the kernel is at risk of being considered
+      a derived work of the driver and therefore subject to GPL.
+      Placing the driver in a user-mode process reduces this risk.
+    </li>
+    </ul>
+    <p>
+      There are also some disadvantages:
+    </p>
+    <ul>
+    <li>
+      There is a performance cost in putting drivers
+      outside the kernel, as there is for most code. 
+      But today, virtually all devices are architected in a way
+      (such as using DMA) that 
+      does not place a high penalty on user-mode drivers.
+      See <a href="http://www.coyotos.org/pipermail/coyotos-dev/2005-October/000181.html">
+      this email thread</a> for a discussion of this.
+    </li>
+    <li>
+      Linux drivers are already designed to run in a kernel;
+      running them in a user process is an additional change required
+      to port them. 
+    </li>
+    </ul>
+    <p>
+      The decision in CapROS is to run virtually all drivers in user processes. 
+    </p>
+    <p>
+      Drivers will of course be granted whatever
+      privileges are needed to do their job (this is architecture-dependent). 
+      The DevicePrivs key allows drivers to field interrupts
+      and (together with a Range key) access memory containing device registers.
+      The DevicePrivs key will also make it possible for a driver
+      to obtain contiguous physical memory for use with DMA. 
+    </p>
+    <h1>Page Fault Handler</h1>
+    <p>
+      The Page Fault Handler (PFH) is defined as all the user objects which 
+      could be needed to service requests (from the kernel) to fetch and
+      write pages and nodes from or to backing store. This includes
+      the process that fields those requests,
+      any other processes that service those requests,
+      the process(es) that service backing store device interrupts,
+      all the code and data used by those processes,
+      and any other pages and nodes used by those processes. 
+    </p>
+    <p>
+      Backing store is usually disk, but the PFH is not exactly the same
+      as the disk driver. The PFH includes any objects used to handle
+      the buses by which the backing store is accessed, such as PCI,
+      USB, Firewire, or even Ethernet. The PFH excludes any part of the
+      disk driver that is used to service user requests (for example,
+      querying statistics) but not used to service kernel requests. 
+    </p>
+    <p>
+    </p>
+    <h1>Persistence and Non-Persistence</h1>
+    <p>
+      The CapROS model is that user data and capabilities are persistent,
+      meaning their state is preserved even when the system is rebooted.
+      Persistence is accomplished by checkpointing the state to 
+      nonvolatile backing storage. 
+      By checkpointing all user state, we
+      assure that the security state (the state of the capabilities)
+      is valid and consistent. 
+    </p>
+    <p>
+      The problem is that the PFH, though part of the user state, 
+      cannot be persistent, for several reasons:
+    </p>
+    <ul>
+    <li>
+      The PFH obviously cannot load itself, so it must be loaded by the
+      boot loader. 
+      Available boot loaders can't decipher the checkpoint log
+      to find the correct version of the data to load. 
+    </li>
+    <li>
+      It is awkward, though theoretically possible,
+      for the PFH to checkpoint itself.
+      At a checkpoint, we would do copy-on-write of the PFH data
+      (this logic will exist anyway). 
+      It would be necessary to ensure that enough available memory
+      exists to do all the copies in memory. 
+      Making the PFH non-persistent removes this constraint. 
+    </li>
+    <li>
+      There is little reason for the PFH (or other drivers for that matter)
+      to be persistent,
+      because on reboot the device state is either reset or unknown.
+      Drivers could in theory use something like the KeyKOS journaling
+      mechanism to remember the device state, but this mechanism
+      is generally better applied at a higher level. 
+    </li>
+    </ul>
+    <p>
+      Therefore, we must declare that some user state is non-persistent. 
+      Non-persistent objects will live in OID ranges that are marked as such.
+      These ranges will be loaded by the boot loader
+      (in GRUB, they are considered to be "modules").
+      Non-persistent objects must never be cleaned, checkpointed, or written
+      back to disk. 
+      They must never be removed from memory. 
+      (It may prove useful to allow non-persistent objects to be
+      <i>explicitly</i> released from memory, after a configuration
+      procedure has determined they are not needed.) 
+    </p>
+    <h2>Classes of Objects</h2>
+    <p>
+      We can now identify four different classes of objects:
+    </p>
+<ol>
+<li>
+The PFH, which is non-persistent.
+</li>
+<li>
+Non-persistent objects other than the PFH.
+We want to limit the number of non-persistent objects, if only because
+they cannot be paged out, but will probably put all device drivers
+(other than the PFH) in this class just for consistency.
+</li>
+<li>
+Persistent objects that are pinned (locked in memory).
+We want to limit the number of pinned objects because they use
+physical memory which is a limited resource. 
+Persistent objects may need to be pinned if they are referenced by the PFH.
+Note that immediately after a restart from checkpoint, class 3 is empty, 
+because no persistent objects have been fetched from backing store yet, 
+let alone pinned.
+</li>
+<li>
+Persistent objects that are not pinned.
+All normal user objects fall into this class.
+</li>
+</ol>
+    <p>
+      Note that objects move between classes 3 and 4 as they are
+      pinned and unpinned. 
+      And an object in class 2 effectively moves to class 1 while
+      it holds a lock that is also used by the PFH. 
+    </p>
+    <p>
+      Also note that if the system is configured as a
+      diskless or "embedded" system, the entire system is non-persistent. 
+      Such systems need not be considered further here.
+    </p>
+<h1>Consistency</h1>
+    <p>
+      We said above that the system takes checkpoints to ensure
+      the consistency (including security) of the user data.
+      Now the question is, what is the consistency contract between
+      the persistent and non-persistent worlds? For example, we want
+      to avoid scenarios such as the following :
+    </p>
+    <ol>
+    <li>
+      A persistent user process P calls a driver. The driver receives a 
+      resume key to P.
+    </li>
+    <li>
+      A checkpoint is taken and a restart occurs. Because the driver is
+      non-persistent, it reverts to its initial state
+      and loses the resume key. It never returns to process P. 
+    </li>
+    </ol>
+    <h2>Capability Sharing</h2>
+    <p>
+      Here are the design constraints for the interaction of the four
+      classes of objects.
+    </p>
+    <h3>Deadlock when Fetching</h3>
+    <p>
+      The PFH must never reference unpinned objects, because that
+      would lead to a deadlock. 
+      (It is permissible to have a capability to such an object,
+      as long as it is never used.)
+    </p>
+    <p>
+      The PFH may read persistent pinned objects, but must never write them. 
+      The reason is that at the instant a checkpoint is taken, persistent
+      objects are made temporarily read-only until their state can be saved.
+      Saving the state may require using the PFH. 
+    </p>
+    <p>
+      It follows that the PFH cannot use a gate key to any persistent
+      process. 
+      A process should not CALL a start key to the PFH,
+      because the PFH must not receive and use the resume key. 
+    </p>
+    <p>
+      More generally, the PFH could be designed to handle its own page faults
+      recursively. There needs to be some limit on the depth of recursion.
+      For simplicity, we will design with no recursion. 
+    </p>
+    <p>
+      Another constraint applies to locks (such as semaphores, mutexes,
+      or spinlocks) that are used by the PFH. 
+      While holding such a lock, a process must obey the same rules as the PFH.
+    </p>
+    <h3>Deadlock when Cleaning</h3>
+    <p>
+      When the kernel allocates a page frame, if space is not available,
+      it begins cleaning pages. Meanwhile the process requesting the space
+      waits for the cleaning to finish. Similarly, when a node frame is
+      needed, it may require cleaning nodes into a node pot,
+      which in turn may require a page frame,
+      which may require page cleaning.
+    </p>
+    <p>
+      If the PFH needs to allocate a page frame, this could lead to deadlock.
+      The PFH may allocate pages or nodes to expand heap space,
+      or to build a mapping table (mapping tables are allocated
+      from page frame space). 
+    </p>
+    <p>
+      To address this problem, the kernel reserves a number of page frames
+      (KTUNE_MapTabReserve) for mapping tables and for allocations by the PFH.
+      If this number is large enough to guarantee that the PFH can
+      finish cleaning, then the deadlock is eliminated.
+    </p>
+    <h3><a name="Reset"></a>Reset</h3>
+    <p>
+      On a restart, the state of the non-persistent world is reset to its
+      initial state. This means that any capabilities acquired during
+      execution will be lost. 
+      This should not be a problem for the 
+      non-persistent world, because it will be initialized to
+      a consistent state. However, a persistent object that expected
+      to be invoked by a non-persistent object may wait forever. 
+    </p>
+    <p>
+      We will solve this problem for resume keys. When the system
+      takes a checkpoint, it will examine all non-persistent nodes. 
+      For each resume key it finds to a persistent process,
+      it will save the state of the
+      waiting process such that if restarted from that state,
+      the process will find that the CALL has returned with a
+      distinctive reply code (RC_capros_key_Restart).
+      Alternatively, it could save the state such that if restarted,
+      the process will run and re-execute its CALL invocation. 
+      Assuming that the CALL was directly to a non-persistent process,
+      that cap will have been rescinded (see below), and the
+      response from the now-void cap will signal the restart.
+    </p>
+    <p>
+      In that case, the operation that was requested by the CALL
+      invocation may have partially completed before the last checkpoint,
+      and partially or fully completed after the last checkpoint and
+      before the restart.
+      This behavior is unavoidable, because the system cannot in general
+      checkpoint and roll back the state of I/O devices. 
+      Programs that invoke I/O devices must be prepared to cope with
+      this possibility. 
+      In some cases, the driver can respond to the re-executed CALL
+      by saying "the device is not now known to be in a state
+      where you can perform that request (for example, not "open"). 
+    </p>
+    <p>
+      Any keys other than resume keys will be dropped on restart.
+      If a non-persistent object held a start capability to a
+      persistent process, the persistent process will not be notified
+      that the start capability has been dropped.
+      As for security, it should be clear that dropping capabilities
+      does not open any vulnerabilities. 
+    </p>
+    <p>
+      Non-persistent objects in class 2 could be initialized with capabilities
+      to persistent objects, but they must recognize that the
+      persistent object's state may get out of sync.
+    </p>
+    <h3>Time Travel</h3>
+    <p>
+      Persistent objects may hold capabilities to non-persistent objects.
+      A persistent process may hold and call a start key to an object
+      in class 2.
+      When the system is restarted,
+      from the point of view of the persistent object,
+      the non-persistent objects appear to travel backwards in time
+      to their initial state. 
+      To alert the persistent object that this has happened, on restart
+      we will rescind all capabilites in persistent objects
+      to non-persistent objects.
+    </p>
+    <p>
+      (The effect of this is similar, from the point of view of the
+      persistent world, to what would happen if the
+      non-persistent world were created out of a single space bank,
+      and on restart that bank were asked to reclaim all the space
+      created from it. 
+      Note that on restart, unlike the SpaceBank.destroySpace operation, 
+      resume caps held in objects created under the bank will be
+      effectively invoked with an error code.
+      The equivalent KeyKOS space bank operation did invoke such
+      resume caps, and we believe the CapROS bank should also.)
+    </p>
+    <p>
+      This can be implemented as follows. During execution, 
+      non-persistent objects may be allocated and rescinded as normal,
+      from a space bank that allocates from a non-persistent range.
+      This may result in incrementing the object's allocation count.
+      We will keep track of the maximum allocation count or call count of any
+      non-persistent object, and save that on a checkpoint.
+      On restart, all non-persistent objects are given an allocation count
+      and call count equal to that maximum plus one.
+      All capabilities in persistent objects
+      to non-persistent objects will thus be rescinded.
+      Capabilities to non-persistent objects in non-persistent objects
+      will be initialized to contain the new allocation count,
+      so those capabilities will be valid. 
+    </p>
+    <p>
+      There are two ways to calculate the maximum allocation/call count.
+    </p>
+    <ul>
+      <li>
+        In the first, we recognize that when an object's allocCountUsed
+        bit is on, that object's allocation count will be incremented
+        when the object is rescinded. The count saved on a checkpoint
+        should be the count that results in rescinding all the
+        non-persistent objects, so it should be based on the
+        incremented count. 
+      <li>
+        In the second, we simply assume that the allocCountUsed bits
+        of non-persistent objects are on, and save the maximum
+        of the unincremented counts, plus one.
+        This number may be larger than necessary, but it is safe.
+    </ul>
+      The second method may increment the maximum count faster than
+      the first, but only by the number of restarts.
+      We will implement the second method, because the first method
+      requires more code, and therefore execution time, at the point when
+      a capability is unprepared.
+    <p>
+      There is an implementation wrinkle. 
+      On restart, we load and start the non-persistent processes,
+      which then read the checkpoint headers. 
+      We will have to initially load the non-persistent objects
+      with zero allocation and call counts.
+      Once the needed counts are read from the checkpoint headers,
+      and before any persistent objects are loaded,
+      we must adjust the counts of the already-loaded non-persistent objects.
+    </p>
+    <h1>Communication</h1>
+    <p>
+      The design for communication between the persistent
+      and non-persistent worlds respects the severe limitations
+      described above.
+    </p>
+    <p>
+      There is a persistent node called (for historical reasons) Volsize
+      with a well-known OID (PVOLSIZE_OID which is 0x0100000000000000).
+      A slot (volsize_nplinkCap) of this node contains a start capability
+      to a persistent bridge process called NPLink (Non-Persistent Link). 
+      Non-persistent drivers access the persistent Volsize node
+      to obtain the capability to NPLink. 
+    </p>
+    <p>
+      When a device, to which access is required from persistent objects,
+      is recognized, either when the system is booted, or when the
+      device is later attached to the system,
+      the driver sends to the start cap to the NPLINK process
+      a message containing a cap (the "device cap") (usually a start cap)
+      to the non-persistent object (which must be in class 2)
+      that provides access to the device.
+      The NPLink process is responsible for granting this cap
+      to the appropriate client of the device.
+    </p>
+    <p>
+      Communication between the device and the client proceeds normally
+      until the system restarts. Then,
+      as described above, the device cap, and any other caps to
+      non-persistent objects, which may have been derived from the
+      device cap, are rescinded.
+      The client will discover the rescission the next time it tries
+      to use one of these caps, and will use that information
+      to initiate whatever restart recovery is appropriate.
+      If and when the device is present after the restart,
+      a new device cap to it will be created and distributed once again
+      as described above. 
+    </p>
+    <h2>Upgrading</h2>
+    <p>
+      This design allows either side of the interface to be upgraded,
+      while protecting against the possibility of an unscheduled
+      restart at any time.
+      To upgrade the non-persistent side:
+    </p>
+<ol>
+<li> Create the new non-persistent objects in the boot image.
+This may be in a new non-persistent disk range.
+<li> Set up the boot image so that when and if
+the system is restarted, it will use the new objects.
+To protect against a restart at any time, this must be atomic.
+That is, there is a point X in time such that
+a restart at any time, up to point X, will use the old objects,
+and a restart at any time after point X will use the new objects.
+<li> Create the new non-persistent objects in the running system,
+and arrange to transfer operation from the old to the new objects.
+Then destroy the old objects.
+This step is no different than upgrading persistent objects. 
+Alternatively, you may restart the system.
+</ol>
+    <p>
+      Upgrading the persistent side can be done as follows:
+    </p>
+<ol>
+<li> Create the new NPLink process.
+<li> Overwrite the slot in the persistent Volsize node with the cap
+to the new NPLink process.
+<li> Ensure the old NPLink process is no longer being used. This can be done
+by waiting for a sufficient time, or by rebooting the system.
+<li> Destroy the old NPLink process.
+</ol>
+    <h2>Example</h2>
+    <p>
+      Consider the driver for a USB mouse.
+    </p>
+    <p>
+      The mouse is obviously not a paging device, but it interfaces
+      with the USB bus, which may also have paging devices.
+      In the current implementation, the USB host controller driver
+      (which manages the bus) has dependencies on the USB device drivers.
+      For example, if the mouse is unplugged, the mouse driver receives
+      a notification, to which it must respond promptly.
+      While processing such a notification, the mouse driver is in class 1,
+      because a page fault may depend on the USB host controller driver
+      which depends on the mouse driver.
+    </p>
+    <p>
+    Because USB devices are hot-plugged, the driver is constructed
+    as needed.
+    The constructor has as a constituent a capability to the non-persistent
+    Volsize node, which has a capability to the persistent Volsize node,
+    which has a start capability to 
+    the NPLink process. When a mouse is recognized (either when the
+    system is booted, or when a device is plugged in),
+    a driver is constructed, consisting of two processes (threads).
+    One thread responds to requests from the USB bus handler, which it
+    must do as class 1.
+    The second thread will respond to requests
+    from persistent processes for mouse I/O. 
+    The second thread will be in class 2
+    while it is receiving or replying to requests, and
+    must not hold any locks needed by the first thread at that time.
+    </p>
+    <p>
+    The second thread passes to the NPLink process
+    a start capability to itself, which we
+    will call a mouse capability.
+    If the mouse is unplugged, the driver rescinds the mouse cap.
+    If the system restarts, the system rescinds the mouse cap.
+    </p>
+    <h2>Design Patterns</h2>
+    <p>
+      Some drivers, such as the serial port driver, are totally separate
+      from the PFH. They can be entirely in class 2. 
+    </p>
+    <p>
+      A device driver could be divided into different parts,
+      each in a different one of the four classes of objects. 
+      In many cases a driver will need a persistent front end that presents
+      a more usable interface to clients, and can handle multiple
+      independent clients. 
+      The only requirement is that any part used by the kernel for paging
+      is part of the PFH and therefore must be non-persistent. 
+    </p>
+    <p>
+      Perhaps the simplest design is to have a part of the driver
+      in class 2 that is the user interface, and the rest in class 1
+      acting as a server for both the class 2 part and the kernel. 
+      The user interface can pin (and unpin) user objects if it is necessary
+      for the class 1 part to read them. 
+    </p>
+    <p>
+      Another design issue concerns protection boundaries. 
+      Class 3 objects have more authority than class 4 (because they can
+      pin), and class 2 have more than class 3 (because they can
+      cause time travel). We want to keep different authorities in
+      different processes, and use gate keys to transfer control
+      between them. For efficiency, we want to avoid the need for
+      one gate jump from 4 to 3, and a second jump from 3 to 2. 
+      (And possibly more from 2 to 1.) 
+      In other words, we want to traverse the most authority change
+      with the fewest gate jumps. 
+      From class 4, we cannot call class 1, so calling class 2
+      makes sense. 
+    </p>
+    <h1>Linux Userspace I/O drivers</h1>
+    <p>
+      Support for device drivers in user processes 
+      was added to the Linux kernel in version 2.6.23-rc4 (drivers/uio). 
+      We took a quick look at this feature and discovered the following:
+    </p>
+    <ul>
+    <li>
+      A small amount of code is still needed in the kernel to register
+      and unregister the device. 
+      An interrupt handler is also needed; it need do nothing more than
+      disable further interrupts before the user process is notified
+      of the interrupt via a signal (SIGIO). (Clearly, in CapROS it
+      is also necessary to prevent continuous interrupts,
+      because user processes run with interrupts enabled,
+      but on some architectures it may be possible to accomplish this
+      with an interrupt controller that has no device-specific knowledge.) 
+    <p>
+      Apparently kernel code is also needed to support open, release,
+      and mmap.
+    </p>
+    </li>
+    <li>
+      This interface doesn't seem to change the Linux driver model
+      in any substantial way. 
+      Because there are few (or none) device drivers using this interface
+      at this point, it is largely irrelevant from the standpoint of porting
+      drivers to CapROS. 
+    </li>
+    <li>
+      A motivation for this feature was to support device drivers
+      with licenses more restrictive than GPL. This hardly helps us
+      obtain drivers for CapROS. 
+    </li>
+    </ul>
+    <h1>Paging</h1>
+    <p>
+      The interface between the kernel and the disk driver(s)
+      has yet to be fully designed, but should be straightforward.
+      For paging in,
+      the driver periodically calls a special key to learn of any OIDs
+      (object identifiers)
+      that need to be fetched. The driver also receives a handle for
+      the Activity that needs to be awakened when the OID is available. 
+      This handle could be a special key that the driver invokes
+      when it is done. 
+      Alternatively, the kernel could enqueue the Activity on a wait queue
+      based on a hash of the OID,
+      and when done the driver could instruct the kernel
+      to wake up that queue. 
+    </p>
+  <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 2006, 2007, 2008, 2009 by Strawberry Development Group.
+      All rights reserved.
+      For terms of redistribution, see the <a
+      href="./legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+  </body>
+</html>

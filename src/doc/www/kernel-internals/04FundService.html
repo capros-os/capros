@@ -1,0 +1,120 @@
+<html>
+<title>Fundamental Services</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> As was mentioned in <a href="02KernLook.html">Chapter 2</a>, many EROS
+system services are implemented as domains.  This chapter presents a
+brief overview of some of the more important examples.
+<h1>1 The Space Bank</h1>
+<p> The space bank maintains a list of which nodes and pages on the
+disk have been allocated and which are available.  When a new disk is
+added to the system, range keys for the newly created ranges are
+provided to the space bank so that space from the disk can be
+allocated.
+<p> Whenever a domain needs a new page or node, it asks a space bank
+to provide one.  When a space bank hands out a node or page to a
+requesting domain, all previous keys to that object are <em>
+rescinded</em>, ensuring that the requesting domain is the only domain
+with authority on that page or node.
+<p> One of the questions that is frequently asked about EROS is how
+pages and nodes are reclaimed by the system when they are no longer in
+user.  Usually, the real question being asked is: how is garbage
+collection performed in this system.  The short answer is: it isn't.
+The philosophical view is that if you purchase a node or page from a
+space bank and manage to lose your key to it, that's your problem.
+<p> In practice, it is quite common for domains to wish to allocate a
+number of pages and nodes that will be deallocated as a group.  For
+example, all of the pages and nodes that make up a temporary storage
+segment can be discarded together when the segment is destroyed.  To
+support this, a holder of a space bank key can ask for a
+<strong>subspace bank</strong>.  All of the objects allocated under a
+particular subspace bank are remembered.  When the subspace bank is
+destroyed, all of the objects allocated through that bank are
+rescinded as a group.
+<h1>2 The Domain Creator</h1>
+<p> The domain creator is a program the constructs domains.  The
+caller hands the domain creator a space bank key, and a description of
+the domain to be constructed, and the domain creator returns a domain
+key to a newly crafted domain.
+<p> In practice, it is quite rare for users to invoke a domain creator
+directly.  More commonly, an escrow agent invokes the domain creator
+on behalf of the user.
+<h1>3 Escrow Agents</h1>
+<p> Escrow agents are one of the unusual features of the EROS system.
+One of the objectives of EROS is to support mutually adversarial users
+who need to collaborate.  A problem that arises in this circumstance
+is as follows:
+<p>
+<ul>
+  <p>
+  <li> User $A$ has a proprietary algorithm.  They are unwilling to
+       disclose even the binary code for this algorithm.
+       Equivalently, they may have a public algorithm that makes use
+       of proprietary supporting information.
+       <p>
+  <li> User $B$ wishes to run user $A$'s proprietary algorithm, but is
+       unwiling to disclose the data to user $A$.
+</ul>
+<p> The escrow agent provides a guarantee to both parties.  It
+certifies to $B$ that $A$ is unable to obtain $B$'s data, and
+simultaneously certifies to $A$ that $B$ is unable to see $A$'s
+algorithm.
+<p> This approach to security problems is notably different from the
+conventional NCSC security categories (the so-called ``orange book''
+ratings).  Where the NCSC ratings are concerned with completely
+preventing disclosure across trust boundaries, the EROS system is
+designed to facilitate selective, controlled disclosure.  This is more
+in keeping with the needs of commercial and academic users.
+<p> EROS is also capable of enforcing the strictest NCSC
+classifications when running on suitable hardware.
+<h1>4 The Virtual Copy Agent</h1>
+<p> The virtual copy agent implements copy-on-write services.  Given a
+segment, the virtual copy agent efficiently creates an initially
+read-only copy of the segment, and installs itself as the segment
+keeper for the new segment.  As write accesses occur to the new
+segment, the virtual copy agent copies the pages from the old segment
+into the new one, granting read-write access to the newly copied page.
+<h1>5 The Address Space Keeper</h1>
+<p> Certain programming conventions have proven to be useful and
+general enough that EROS provides a standard segment keeper to support
+address spaces.  Domains that locate their data and heap areas at the
+conventional locations can use the system-provided address space
+keeper to grow those regions on demand.
+<p> It should be mentioned here that use of the address space keeper
+by native EROS domains is quite rare.  EROS domains tend to be
+designed on the philosophy that their total resource usage should be
+well understood, and that exceeding these expectations is indicative
+of a program failure.  Native-written domains therefore tend to
+allocate the full stack and heap spaces in advance, and as a result do
+not require an address space keeper.
+<h1>6 The Disk Formatter</h1>
+<p> The disk formatter domain is used to prepare a disk volume for use
+by the EROS kernel.  Given a disk volume, the formatter divides the
+volume into ranges of pages and nodes, performs a surface scan of the
+volume, and then mounts the volume for use by the EROS system.
+<h1>7 The Login Agent</h1>
+<p> The login agent is the initial access point to the EROS system.
+While the system is internally secure, human beings tend to want to
+have identifying names.  The login agent performs login and password
+authentication, and informs the session manager that a user has
+started a new session.  Depending on the user, the session manager
+will then offer a choice of operating environments to the user.
+<p> In principle, EROS can support a number of independent login
+policies on different terminal lines.  For example, a Kerberos agent
+might be prepared to accept kerberos server based authentication in
+lieu of a password.  This is an area that we intend to explore
+further.  The important point to note for now is that the
+authentication service is encapsulated and replaceable, and multiple
+authentication services can be supported simultaneously.
+<h1>8 The Wait Manager</h1>
+<p> The wait manager implements kernel timer multiplexing.  The EROS
+kernel implements a small number of high-performance timers, one of
+which is held by the wait manager.  The wait manager uses this timer
+to perform multiplexed sleep and wakeup services for any programs that
+need them.
+<p>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

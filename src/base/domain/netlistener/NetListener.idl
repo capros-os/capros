@@ -1,0 +1,25 @@
+package capros;
+
+interface NetListener extends key {
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Already;    // There is already a listener on the socket
+
+  /**
+   * Listen - Fork process to listen for connections on socket
+   *
+   * After constructing a NetListener, call listen once to specify
+   * the socket and handler.
+   *  
+   * @param[in] socket The TCPListenSocket to listen on
+   * @param[in] handler A constructor for the process which will handle the
+   *            new connection.
+   * @exception - TBD
+   */
+  void listen(TCPListenSocket socket, ConstructorRequestor handler);
+
+  /* NetListener obeys key.destroy().
+     This stops listening on the local port and releases resources. */
+
+  /* NetListener obeys key.getType(). */
+};

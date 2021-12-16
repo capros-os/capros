@@ -1,0 +1,92 @@
+#
+# Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+
+In order to use this library, you need to do three things:
+
+1. create a .h file which defines TREEKEY and TREENODE, defines
+RB_TREE if it wants a red-black tree, then includes <rbtree/tree.h>:
+
+sampletree.h:
+
+#define RB_TREE
+
+typedef double TREEKEY;
+
+typedef struct TREENODE_s TREENODE;
+
+struct TREENODE_s {
+  TREENODE *left;
+  TREENODE *right;
+  TREENODE *parent;
+#ifdef RB_TREE
+  int       color : 1;
+#endif
+
+  TREEKEY   value;
+	
+  int data;
+};
+
+#include <rbtree/tree.h>
+
+
+/* end of header file */
+
+2. create a C file which includes the above header file, defines
+tree_compare and tree_compare_key, defines a couple macros for
+printing trace messages and error messages, and includes all of the
+various <rbtree/tree_*.c> files that it needs.
+
+sampletree.c:
+
+#include "sampletree.h"
+
+#define tree_compare(t0,t1) (((t0)->value < (t1)->value)? -1 : \
+                             (((t0)->value > (t1)->value)? 1 : 0))
+
+#define tree_compare_key(t0,key) (((t0)->value < key)? -1 : \
+                                  (((t0)->value > key)? 1 : 0))
+
+
+#define ERROR_PRINTF(x) fprintf x
+#define ERR_FIL stderr
+
+#define VERB_PRINTF(x) fprintf x
+#define VERB_FIL stdout
+
+#include <rbtree/tree_init.c>
+#include <rbtree/tree_util.c>
+#include <rbtree/tree_find.c>
+#include <rbtree/tree_insert.c>
+#include <rbtree/tree_validate.c>
+#include <rbtree/tree_remove.c>
+#include <rbtree/tree_contains.c>
+#include <rbtree/tree_succ.c>
+#include <rbtree/tree_pred.c>
+#include <rbtree/tree_min.c>
+#include <rbtree/tree_max.c>
+
+/* end of .c file */
+
+3.  tree_init() must be called before *any* tree library functions are
+called.
+
+

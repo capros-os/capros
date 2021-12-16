@@ -1,0 +1,52 @@
+package capros;
+
+/* The interface to a Dallas Semiconductor DS2450 1-Wire A/D converter. */
+interface DS2450 extends key 
+{
+  /* The configuration for one port of the DS2450.
+
+  If output is true, the port is configured for output,
+    and rangeOrOutput specifies the output value (true = 1 = high).
+    Other fields are ignored.
+
+  If output is false, the port is configured for input.
+    rangeOrOutput specifies the input range (0 = 2.55V, 1 = 5.10 V).
+    The input will be sampled at least every 2**log2Seconds seconds.
+    The input value will have bitsToConvert bits of resolution
+      (1 <= bitsToConvert <= 16).
+      Note, the DS2450 has only 8 bits of accuracy.
+    Data changes will not be logged unless they exceed the specified
+      hysteresis.
+  */
+  /* This should be a union, but unions aren't quite working
+  in the current version of capidl. */
+  struct portConfiguration {
+    boolean output;
+    boolean rangeOrOutput;
+    unsigned byte log2Seconds;
+    unsigned byte bitsToConvert;
+    unsigned short hysteresis;
+  };
+  struct portsConfiguration {
+    array <portConfiguration, 4> port;
+  };
+
+  /*
+  Set the device configuration.
+
+  For each port, if there is a change from the previous configuration
+  of that port (or this is the first configuration),
+  the next input reading will be logged regardless of hysteresis.
+
+  Returns, for each port configured for input,
+  a read-only capability to the port's Logfile,
+  containing records of type Logfile.LogRecord16 
+  in which the value field is *unsigned* data for that port
+  (despite the fact that the value field is declared as signed).
+
+  May raise SpaceBank.LimitReached.
+  */
+  void configurePorts(portsConfiguration config,
+         out Logfile port0Log, out Logfile port1Log,
+         out Logfile port2Log, out Logfile port3Log);
+};

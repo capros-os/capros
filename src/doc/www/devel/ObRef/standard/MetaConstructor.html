@@ -1,0 +1,170 @@
+<html>
+<head>
+<title>EOR: MetaConstructor</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>MetaConstructor</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> <img src="../../../img/construction.gif"> The
+  <strong>MetaConstructor</strong> is the originator of new <a
+  href="Constructor.html">Factory</a> objects.  Factories provide the
+  basic program construction service of the EROS system.
+  <p> The newly fabricated factory is created in the
+  <strong>build</strong> state (see the <a
+  href="../concepts/Constructor.html">factory concept</a> and <a
+  href="Constructor.html">Factory</a> pages).  The initial state of the
+  newly created factory contain:
+  <ul>
+    <table>
+      <tr>
+	<th align=left>Item</th>
+	<th align=left>Value</th>
+      </tr>
+      <tr>
+	<td>KR3</td>
+	<td>A factory copy key to the newly created factory.</td>
+      </tr>
+      <tr>
+	<td><em>start address</em></td>
+	<td>The initial PC of the factory product (initially 0).</td>
+      </tr>
+    </table>
+  </ul>
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       <em>AKT_MetaConstructor</em>:
+	       Key is a metaconstructor key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Create a Factory</strong> (OC = 1)
+    <dd>
+	 <p> Creates a new factory in the initial state described
+	 above, and returns a builder's key to the factory.  The
+	 process creator of this factory is a newly created process
+	 creator.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>SK0</strong>
+	     </td>
+	     <td>
+	       A prompt space bank.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RK0</strong>
+	     </td>
+	     <td>
+	       A builder's key to the new factory, if the operation
+               was successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_capros_SpaceBank_LimitReached</em>
+	     </td>
+	     <td> There was insufficient space in the space bank to create the
+	       new factory. 
+	     </td>
+	   </tr>
+	 </table>
+    <dt> <strong>Get Fetcher Key</strong> (OC = 8)
+    <dd>
+	 <p> Creates a new factoryin the initial state described
+	 above, and returns a builder's key to the factory.  The
+	 process creator of this factory is a newly created process
+	 creator.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>SK0</strong>
+	     </td>
+	     <td>
+	       A requestor's key to a factory created by this factory
+	       creator.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RK0</strong>
+	     </td>
+	     <td>
+	       A fetcher key to the factory designated by SK0.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       Mutex ownership granted.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998, 2001 by Jonathan Shapiro.
+    Copyright 2009, Strawberry Development Group.
+  All rights reserved.  For terms of redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

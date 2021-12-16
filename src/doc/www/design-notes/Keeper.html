@@ -1,0 +1,162 @@
+<html>
+<head>
+<title>x86 Keeper Construction</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <H1>x86 Keeper Construction</H1>
+</center>
+<p> <em>NOTE: This design note has been supersceded by the
+introduction of small spaces.  The basic address space keepers now run
+as small spaces that explicitly construct their own memory spaces, and
+have no (recursive) need for a keepeer.</em>
+<p> One of the problems with the EROS keeper design is making it
+terminate. This note describes the problem and our solution.  The
+question is: <em>What happens the first time a keeper is invoked?</em>
+<p> On a machine like the x86, where the register set is heavily
+constrained, the keeper will not be able to proceed without modifying
+it's data space.  The question is, where does this private data come
+from?  At first glance, it cannot come from a keeper, because that
+keeper would in turn fault the first time it was invoked, and so on
+and on.
+<p> The solution is surprisingly straightforward.  All segment faults
+are restartable -- indeed, the typical behavior of the segment keeper
+will be to request that the faulting operation be restarted.  The
+segment keeper can therefore be coded as:
+<ul>
+  <pre>
+OnFirstEntry:
+     Initialize myself
+     set return order code to OK, which will
+       cause refault
+ReturnToCaller:
+     return to caller
+AllSubsequentInvocations:
+     process fault
+     determine return code
+     jump to 
+     
+  </pre>
+</ul>
+<h2>Self-Bootstrap</h2>
+<p> The problem is now reduced to the initialization phase.  The trick
+is to ensure that the keeper can purchase it's own stack and working
+storage.  Having done so, it can safely restart the faulter in order
+to actuall field the request..  The trick is that it must contrive to
+purchase this storage <em>before</em> it in any way alters it's data
+space.
+<p> The following is a cut at x86 pseudo-code to do this.  If it can
+be done on a machine with this small a register set, it can be done on
+anything.
+<ul>
+<pre>
+OnFirstEntry:
+    ; Key register conventions:
+    ;    KR1   node key to red segment
+    ;    KR2   fault key from caller
+    ;    KR3   red seg space bank key (from slot 12)
+    ;    KR4   register for purchased objects
+    ;    KR5   node key to node that will hold stack
+    ;
+
+    ; Fetch space bank key from red segment node into a key
+    ; register.  Buy a page from it, and locate that page
+    ; as the top of our stack.  A key to the node that will
+    ; contain the top-of-stack page is assumed to be in a
+    ; well-known key register (in this code KR3)
+
+    ; This code further assumes that the key in slot 2 is a
+    ; node key, which will be true if we were fabricated by
+    ; a red segment factory.
+
+    ; We assume that the initial exit block accepted the node
+    ; key into KR1.  Invoke that key to load the space bank key
+    ; into KR2.  Space bank key is in slot 12 of red segment node
+
+    movl $1,%invokedKey          ; invoke red seg node
+    movl $12,%orderCode          ; fetch key 12
+    movl $0x0,%entryBlock        ; send no data, no keys
+    movl $0x00030000,%exitBlock  ; acccept RK0 into KR3, no data
+    movl $0x01110000,%invCtl     ; CALL, snd from string, rcv to string
+    int  $0x31                   ; do invocation
+
+    ; Now buy a page from the SpaceBank:
+    movl $3,%invokedKey          ; invoke space bank
+    movl $1,%orderCode           ; buy a page
+    movl $0x0,%entryBlock        ; send no data, no keys
+    movl %0x00040000,%exitblock  ; accept RK0 into KR4, no data
+    movl $0x01110000,%invCtl     ; CALL, snd from string, rcv to string
+    int  $0x31                   ; do invocation
+
+    ; *That* might have failed. Check the return code.
+    cmp  $0,%returnCode
+    je  gotFirstPage
+
+    ; first page fetch failed. Pass the return code back
+    ; to the invoker via the fault key.
+    movl $2,%invokedKey          ; the fault key
+    movl %returnCode,%orderCode  ; pass the buck to domain keeper
+    movl $0x0,%entryBlock        ; send no data, no keys
+    movl $0x21000000,%exitBlock  ; accept usual key arguments but no string
+    movl $0x00110000,%invCtl	 ; REPLY, snd from string, rcv to string
+    int  $0x31                   ; do invocation
+
+    jmp OnFirstEntry
+
+GotFirstPage:
+    movl $5,%invokedKey          ; invoke stack seg node
+    movl $31,%orderCode          ; swap key 15
+    movl $0x00040000,%entryBlock ; send no data, KR4 (the page key)
+    movl $0x00000000,%exitBlock  ; acccept no data, no keys
+    movl $0x01110000,%invCtl     ; CALL, snd from string, rcv to string
+    int  $0x31                   ; do invocation
+
+    movl $0x00100000,%exitString ; well known address, top of stack page
+    subl $32,%exitString         ; size of usual entry arg
+    movl %exitString,%esp        ; stack starts below that
+    pushl %exitString
+
+    ; FROM HERE ON WE CAN CALL C CODE.
+    call FinishInitialization
+
+    popl %exitString
+    movl $2,%invokedKey          ; the fault key
+    movl 0,%orderCode            ; force caller to retry
+    movl $0x0,%entryBlock        ; send no data, no keys
+    movl $0x21000020,%exitBlock  ; accept usual key arguments WITH STRING
+    movl $0x00110000,%invCtl	 ; REPLY, snd from string, rcv to string
+    int  $0x31                   ; do invocation
+
+    ; Push arguments for normal RETURN invocation:
+NormalEntry:
+    ........
+    movl $0x00110000,%invCtl	 ; REPLY, snd from string, rcv to string
+    int  $0x31                   ; do invocation
+    jmp NormalEntry
+</pre>
+</ul>
+<h2>Restrictions</h2>
+<p> This approach works only if the following conditions are
+maintained:
+<ul>
+  <li> The "buy a page" order on the space bank must not require a
+       data argument.  Actually, a constant argument (one that can be
+       provided in read-only fashion) is okay.
+       <p>
+  <li> The node copy and node swap operations must not require data
+       arguments.
+       <p> 
+  <li> The fault key must not require data arguments.
+       <p>
+  <li> There must exist a version of the key invocation trap that does
+       not require use of the stack.
+       <p>
+</ul>
+<p> All of these are desirable in any case.  The last implies that on
+machines like the x86 we may want to have two invocation paths.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

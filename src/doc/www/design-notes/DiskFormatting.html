@@ -1,0 +1,466 @@
+<html>
+<head>
+<title>Disk Formatting and Layout</title>
+</head>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<center>
+  <H1>Disk Formatting and Layout</H1>
+</center>
+<p> This note describes how the disk formatting logic works in the
+CapROS system, and how CapROS volumes are structured.  Both disk
+partitioning and range creation/deletion are covered.
+<p>
+Note that the current implementation does not provide for live
+creation of new volumes, so the discussion of partition creation
+should be taken with suitable skepticism; it snapshots what we intend
+to do when the online disk partitioning/formatting utility is written.
+<H2>1 Disks and Partitions</H2>
+<p> Disks can be divided into multiple, independent chunks known as
+<strong>partitions</strong>.  Each partition constitutes a logical
+disk volume.  CapROS, for the most part, deals in terms of disk volumes.
+CapROS volumes, in turn, are divided into <strong>ranges</strong>,
+described below.
+<p>
+Over the life of a disk, it may prove convenient to add or remove
+partitions/volumes, and to adjust the content of existing volumes.
+<h3>1.1 Adding New Partitions</h3>
+<p> Adding new volumes (paritions) must be done carefully for the sake
+of consistency, but it isn't especially difficult to do.  The
+principle challenge is to defend against disk failure during format.
+The creation of new CapROS partitions proceeds in steps:
+<ol>
+  <li> Create a partition of non-CapROS type.  This ensures that if a
+       failure occurs while partition format is in progress the
+       partition will not be seen as a CapROS partition.
+       <p> 
+  <li> Obtain a raw disk range key to the new partition.  Use it to
+       write a proper CapROS-formatted volume image to the new
+       partition.  At a minimum, this would include a boot block and
+       an empty pair of range tables.
+       <p>
+  <li> Delete the partition, and create a new partition covering the
+       same range of sectors that is really a CapROS partition
+       (i.e. retype the partition).
+       <p> 
+  <li> Tell CapROS to try and mount the newly created partition.
+</ol>
+<h3>1.2 Deleting Existing Partitions</h3>
+<p> There are two cases to consider when deleting CapROS partitions. 
+CapROS treats the case of an <em>unplanned</em> deletion
+the same as if the disk became unreachable due to removal or failure,
+which of course means that any data that existed solely on that disk
+is lost. This can cause critical software components to fail.
+Another problem is that data in the checkpoint log destined for the
+removed partition will be unmigrateable. 
+<p> <em>Planned</em> deletion of a partition involves migrating
+all the data on it elsewhere.  
+The Object IDentifiers of the data do not change.
+Most likely this will use mirroring/duplexing as follows:
+<ol>
+  <li>Create and mount a new partition with ranges that duplicate the
+  ranges in the partition to be deleted. This may be on a different disk.
+  <li> Dirty all the objects in the partition.
+  <li> Wait for those dirty objects to be checkpointed and migrated to
+  both partitions. 
+  <li> Dismount the partition to be deleted.
+</ol>
+<p> The question of how to actually reduce the amount of data in the system,
+so disk space can be permanently freed, is beyond the scope of the
+current design of the system.
+
+<H2>2 Ranges</H2>
+<p>
+CapROS views each logical volume as further divided into ranges.
+This section describes the range types,
+and the formatting of each range type <em>as seen by the kernel</em>.
+All ranges are an exact
+multiple of the architecture page size; extra trailing sectors, if
+any, are unused.
+<p>In the kernel code, ranges are called Divisions; should we change
+this documentation to match?
+<H3>2.1 Range Types</H3>
+<p>
+Ranges come in a variety of types.
+<ul>
+  <TABLE>
+    <TR VALIGN=top>
+      <TD><B>Range Table</B></TD>
+      <TD>The range table contains the list of all ranges present on the
+	volume, including itself.  At least one
+	range table is required on every volume.  There may be multiple
+	range tables on a given volume (for redundancy).
+        <p>How to find the range table?
+	<p>
+	Each range table entry contains the following information:
+	<ul>
+	  <table>
+	    <tr valign=top>
+	      <td width="90"><b>start</b></td>
+	      <td>The sector number, relative to the start of the volume,
+		at which the range begins.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>end</b></td>
+	      <td>The (exclusive) sector number, relative to the start of
+		the volume, at which the range ends.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>Start OID</b></td>
+	      <td>The unique object identifier (OID) of the first object
+		within the range.  Note that this is also the OID of the
+		first object <em>frame</em> within the range.
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>End OID</b></td>
+	      <td>The (exclusive) unique object identifier (OID) of the last object
+		within the range.  Ranges never contain partial frames.
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>Type</b></td>
+	      <td>The range type.
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>Flags</b></td>
+	      <td>A flags field, which is currently unused.
+	      </td>
+	    </tr>
+	  </table>
+	</ul>
+      </TD>
+    </TR>
+
+
+    <TR VALIGN=top>
+      <TD><B>Object</B></TD>
+      <TD>An object range holds pages and nodes (and other types of objects,
+        should we implement them).
+	There can be multiple object ranges on a volume, and all
+	mounted object ranges act together as the data space for CapROS.
+	Every object in CapROS has a unique home location in some Object
+	Range.
+        Object ranges are further described below.
+      </TD>
+    </TR>
+
+    <TR VALIGN=top>
+      <TD><B>Log</B></TD>
+      <TD>Log ranges hold the log areas used for checkpointing. Modified
+	objects are periodically written to the log, and are later
+	migrated to their home locations.  There can be many log
+	ranges in a partition, and all mounted checkpoint log areas
+	act as a single log used for checkpointing.
+	<p>
+	Every CapROS system <em>must</em> have a log range containing
+	log locations zero and one, which contain the most recent two
+	checkpoint headers. 
+Is this correct?
+      </TD>
+    </TR>
+    <TR VALIGN=top>
+      <TD><B>Unused</B></TD>
+      <TD>The unused range type identifies an unused entry in
+	the range table.
+      </TD>
+    </TR>
+  </table>
+</ul>
+<p>
+No provision is made for allocating spare space for use in the event of
+disk failure, because both IDE and SCSI provide transparent sparing.
+<p>
+There is no boot range and no kernel range. It is presumed that the disk
+contains another partition which contains the GRUB boot loader, the kernel,
+and the preloaded range(s). This partition is formatted with a boot
+sector and a traditional file system understood by GRUB. 
+We also need to document somewhere how systems will be booted from ROM.
+<H2>3 Object Ranges</H2>
+	<p>
+	Object ranges are made up of a sequence of <em>clusters</em>.
+        Every cluster begins with a disk frame known as a <em>tag pot</em>,
+        followed by a fixed number of <em>object frames</em>.
+  The size of a cluster is determined by the
+number of Object Frames a Tag Pot can keep track of.
+        (The last cluster in a range may have as few as zero object frames.)
+        All frames are the size of the architecture's page.
+  So the Object
+Range looks like:
+<p>
+<PRE>
+----------------------------------------------------------------------
+| TagPot | ObjFrm |...Object Frames...| ObjFrm | TagPot | ObjFrm | ...
+----------------------------------------------------------------------
+ \_____________________   _____________________/
+                       \ /
+                     cluster
+</PRE>
+<p>
+Each Object Frame contains one or more objects of a single type (node or page).
+The type is specified in the tag pot.
+The type of the frame determines how the Frame is laid out, as follows:
+<ul>
+<LI>If the object is the size of a Frame (namely, a Page),
+    the frame is completely taken up by the object, and its
+    allocation count is kept in the Tag Pot. For example, a Page frame
+    looks like:
+     <p>
+<PRE>
+ ------------------
+|//////////////////|
+|//////////////////|
+|//////////////////|
+|///////Page///////|
+|//////////////////|
+|//////////////////|
+|//////////////////|
+ ------------------
+</PRE>
+<p>
+<LI>
+If the object is smaller than a Frame (for instance, a Node),
+then the Object Frame is split into as many Objects as can
+fit.  Each object in the frame has to keep track of all its own state,
+and the Frame's Tag Pot allocation count is undefined (and
+is used for optimization).  For example, a Node frame looks like:
+<p>
+<PRE>
+ ------------------
+|///////Node///////|
+|\\\\\\\Node\\\\\\\|
+|///////Node///////|
+|\\\\\\\Node\\\\\\\|
+|///////Node///////|
+|\\\\\\\Node\\\\\\\|
+|///////Node///////|
+|                  |
+ ------------------
+</PRE>
+</ul>
+<h3>Allocation Count</h3>
+<p>
+If the allocation count of an object is N, that means that
+there are no applicable capabilities
+containing an allocation count M &gt; N, and
+there are no <em>rescinded</em> applicable capabilities
+containing an allocation count M = N. 
+(There may exist
+rescinded applicable capabilities
+containing an allocation count M &lt; N.)
+For nodes, applicable capabilities are all capabilities
+containing the node's OID.
+other than resume capabilities.
+For all other objects, applicable capabilities are all capabilities
+containing the object's OID.
+<p>
+In the simple case, rescinding capabilities to an object requires incrementing
+the allocation count of the object. 
+<p>When the allocation count reaches its maximum possible value,
+the object is "worn out" and cannot be reused, because we can no longer
+rescind capabilities to it.
+<p>To reduce the "wear" on the allocation count, we keep track of some
+in-memory capabilities (they are linked to the object) 
+and we can invalidate these capabilities without incrementing the
+allocation count. 
+A bit called <em>allocCountUsed</em> indicates whether there may be unrescinded
+ capabilities (other than resume capabilities)
+ that contain the current value of the allocation count.
+If the bit indicates that there are no such capabilities,
+rescinding can be done without incrementing the allocation count.
+With this optimization, it would take an extremely long time for a 32-bit
+allocation count to wear out.
+<p>The <em>allocCountUsed</em> bit is not stored on the disk.
+When an object is fetched from disk, its <em>allocCountUsed</em> bit
+is set to one.
+(If we did store the bit on the disk, then we would have to consider 
+the object dirty whenever the bit is set (or cleared).
+The bit is set when an in-memory capability is converted to the
+out-of-memory form, and for technical reasons it's not possible
+to dirty the target object at that time.)
+<h3>Call Count</h3>
+<p>
+Nodes contain a call count that is similar to the allocation count,
+but for resume capabilities.
+If the call count of a node is N, that means that
+there are no resume capabilities
+containing the node's OID and a call count M &gt; N, and
+there are no <em>rescinded</em> resume capabilities
+containing the node's OID and a call count M = N. 
+(There may exist rescinded resume capabilities containing
+the node's OID and a call count M &lt; N.)
+Similarly, there is a <em>callCountUsed</em> bit,
+and it's not stored on disk either.
+<h3>Tag Pots</h3>
+<p>
+A tag pot has an entry for each frame in its cluster.
+Each entry has the following fields:
+<dl>
+<dt><b>type</b>
+<dd>The type says whether the frame contains a page or nodes.
+In the future other types may be implemented (process is high on our list).
+<p>A virgin frame should be typed as a page, since it is easier to
+retype a page to a different type than vice versa.
+<dt><b>allocationCount</b>
+<dd>If the frame holds a page, this is its allocation count.
+If there were other types with only one object per frame,
+this field might hold the allocation count for that object too.
+Otherwise, this field is unused.
+</dl>
+<p>
+To avoid wasting space on alignment, a tag pot is arranged as two arrays:
+<pre>
+struct TagPot {
+  ObCount allocationCount[];
+  uint8_t type[];
+};
+</pre>
+<p>
+Using a 32-bit count, a tag pot can describe 819 object frames.
+<h3>Retyping</h3>
+<p>
+It is possible to change the base type of a frame,
+for example from page to node pot or vice versa.
+By "base type" we mean the type of the container of an object.
+For example, forwarders and GPTs are different types, but, as an
+implementation detail, they both occupy a node frame;
+they both are of base type node.
+<p>
+The space bank internally allocates a whole frame at a time to a given
+base type. 
+The space bank does not always know the base type of free frames,
+and allocating the first object in a frame may require changing its type.
+(As an optimization, the space bank preferentially allocates free frames
+that were previously of the same base type, to reduce the amount of retyping
+needed.)
+<p>
+Retyping a frame must not cause any rescinded capabilities to become
+unrescinded.
+(When a frame is retyped, there are no allocated objects in the frame,
+and therefore no unrescinded capabilities to objects in the frame,
+so we don't need to worry about unrescinded capabilities becoming
+rescinded.)
+This requires that allocation counts and call counts never decrease.
+Here's how we ensure that:
+<ul>
+  <li>When retyping a node frame to any other type, we set the
+  allocation counts of the new objects to the maximum of
+  all the allocation counts and call counts of the old nodes
+  in the frame.
+  <li>When retyping another type to a node frame, we set the
+  allocation counts and call counts of the new objects
+  to the maximum of the allocation counts of the old
+  objects in the frame.
+</ul>
+<p>Retyping a frame involves the following steps. These steps ensure that
+the retyping operation does not change the state of the last
+committed checkpoint.
+The steps are described in the context of a persistent (checkpointed) system,
+but they apply equally well to a non-persistent (embedded) system.
+<ol>
+  <li>The space bank invokes a Range capability to request a capability
+  to an object in the frame. The kernel attempts to find the requested
+  object, and discovers that the frame is of the wrong type.
+  The Range operation returns an exception that tells the space bank
+  to retype the frame, and returns the current type of the frame. 
+  <p>Note that the kernel needs to know the current type of the frame. 
+  <ul>
+    <li>For objects whose source has a backing store
+    (i.e. a range on a mass medium
+    such as a disk), the kernel simply looks for the object in all the usual
+    places (in memory, in the in-core log directory, or in the home range),
+    but only to get the type, not the contents of the object. 
+    <li>For objects in a non-persistent range such as
+    preloaded data or ROM-backed data, uninitialized frames are initially given
+    whatever type is first requested. 
+    After that, the frame's objects must remain in memory
+    (even if they are null), so their type can be known.
+  </ul>
+  <li> When retyping, there are no allocated
+  objects in the frame. Therefore there should be no unrescinded capabilities
+  to objects in the frame.
+  Therefore the allocCountUsed and callCountUsed bits of those objects
+  should be zero.
+  <li>Knowing the type of the frame, the space bank now knows the number
+  of objects in the frame. It determines the maximum allocation count
+  (and, for nodes, call count)
+  by iterating over all the objects in the frame, invoking
+  a Range capability operation to get the current counts.
+  Note, the allocation and call counts should not be changing,
+  because the space bank
+  has not yet allocated anything from the frame.
+  <p>
+  As with obtaining the type, the counts are obtained
+  without requiring the contents of the object.
+  Specifically, the kernel
+  gets the counts (1) if the object is in memory, from the object header;
+  (2) if the object is in the in-core log directory, from the directory entry;
+  or (3) otherwise, from the home range tag pot (for a page)
+  or home range node pot (for nodes).
+  <p>There is a separate operation for each object, because each object
+  might be in a different node pot in the log, and we don't want to
+  require all the pots to be in memory at once.
+  (This function could be optimized later to return counts for multiple
+  objects in one operation, as long as that can be done
+  without doing multiple fetches of pots on any one operation.)
+
+  <p>In the case of nodes, the EROS design called for keeping in the tag pot
+  the maximum of the allocation counts of the nodes in that home node pot.
+  Note that this maximum only applies to the nodes whose current version is
+  in the home node pot; some nodes from that pot might have their current
+  version in log pots, and we still need to read those.
+  This design could save reading the home node pot when the frame is retyped,
+  but may require updating and writing the tag pot more frequently.
+  Since retyping should be rare, we choose to not keep node counts
+  in the tag pot. 
+  <li>The space bank then invokes an operation on the Range capability to
+  retype the frame.
+  This operation proceeds in three phases.
+  <ol>
+    <li>Ensure we have enough resources to complete the operation.
+    <li>Destroy vestiges of the old objects.
+    If the object is in memory, we free it.
+    Also, if the object is in the in-core log directory (for any generation),
+    we free that directory entry.
+    <li>Create nascent objects of the new type, for all objects in the frame.
+    For persistent objects,
+    these are created by making entries in the in-core directory
+    (for the working generation) indicating that the objects are null.
+    For non-persistent objects, the objects are created as null in memory
+    (non-persistent objects never have directory entries).
+    The allocation counts (and, for nodes, call counts)
+    are specified by the space bank
+    based on its earlier determination of the maximum counts.
+    (It is likely that the space bank will soon allocate at least some
+    of these objects.)
+  </ol>
+  <li>The space bank can then once again request a capability to the desired
+  object. The request will now succeed.
+  <li>Eventually, one or more of the new objects, if persistent,
+  will be migrated.
+  The migrator notices the change of type in the tag pot in the home range.
+  If the frame is now a node pot, the migrator formats the frame as such
+  before migrating to it.
+  The contents and counts of the nodes formatted in this frame
+  do not actually matter, because all the nodes in it were dirtied
+  and will be migrated to it either now or later.
+</ol>
+<hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+<em>Copyright 1998 by Jonathan Shapiro.
+Copyright 2008 by Strawberry Development Group.
+  All rights reserved.  For terms of redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+</BODY>
+</html>

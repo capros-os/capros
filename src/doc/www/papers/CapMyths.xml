@@ -1,0 +1,376 @@
+<!DOCTYPE obdoc SYSTEM "../DTD/doc.dtd">
+<doc>
+  <copyright>
+    <year>2001</year>
+    <organization>The EROS Group</organization>
+    <copy-terms>For terms of redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public
+	License</a>.</copy-terms>
+  </copyright>
+  <front>
+    <title>Myths Concerning Capabilities</title>
+    <subtitle>SRL-TR-2001-05</subtitle>
+    <author>
+      <name>Jonathan S. Shapiro</name>
+      <organization>Johns Hopkins University</organization>
+      <email>shap@cs.jh.uedu</email>
+    </author>
+    <abstract>
+      <p>
+	A recent exchange with a colleague has reminded me that even
+	within the computer science community there are a number of
+	commonly held misunderstandings about what capabilities are,
+	what they can (and cannot) do, and whether they are a viable
+	protection model.
+      </p>
+      <p>
+	This note attempts to give some historical perspective on
+	these myths, and where possible to correct them.
+      </p>
+    </abstract>
+  </front>
+  <body>
+    <p>
+      There are a number of prevalent myths in the computing research
+      community about capability systems, what they can (and cannot)
+      do, and whether a real-world  implementation of a capability
+      system with acceptable performance is even possible.
+    </p>
+    <p>
+      These myths are largely not the fault of researchers.  Much --
+      perhaps most -- of the early literature on capability systems
+      was published in book form or in quarterly research reports at
+      individual institutions. Diligent researchers making proper use
+      of available reference material haven't a hope in hell of
+      learning most of this history; a condition that I am trying to
+      change. For example, I was aware of Fabry's work on the Chicago
+      Magic Number Machine, which (so far as I know) was the first
+      attempt to build a capability-based hardware system. While
+      almost every survey of capability systems mentions this machine,
+      there are few actual citations in the literature about it, and
+      none that I have found to the actual system architecture
+      document. 
+    </p>
+    <p>
+      Last year, I had the good fortune to visit the University of
+      Chicago. While there, I made copies of every document I could
+      find on the project in the university library, with the intent
+      that they should be scanned and placed on the web. The Magic
+      Number Machine was a landmark effort, and while it was well
+      beyond what could be accomplished given the state of the art at
+      the time, it is a remarkable machine design.
+    </p>
+    <p>
+      Amusingly, the members of the Computer Science department had no
+      idea that Chicago had even <em>done</em> this work. In fairness,
+      it should be acknowledge that the work wasn't done in the
+      computer science department, and that the department itself had
+      been shut down and restarted from scratch in the intervening
+      years, but here was this treasure gathering dust in the archives
+      that even the originating institution had lost track of! 
+    </p>
+    <p>
+      Regrettably, similar obscurity has enveloped the CAP machine (at
+      least here in the United States), and detailed documentation on
+      CAL/TSS is hard to find (Bruce ??memory-fault?? kindly allowed
+      me to copy his original architecture manuals).
+    </p>
+    <p>
+      In the fact of such, let us say, archival decay, it is
+      exceedingly difficult for researchers to track the history of
+      these systems, or to get a handle on what worked, what didn't,
+      how, and why. This note attempts to convey what I have learned
+      from the original source materials.
+    </p>
+    <h1>Terms and Origins</h1>
+    <p>
+      First, what is a capability? The term was first defined by
+      Dennis and van Horn in a paper entitled <docname>Programming
+      Semantics for Multiprogrammed Computations</docname><cite
+      refname="Dennis:Capabilities"/>. In this paper, capabilities are
+      defined as a descriptor that identifies a segment of memory and
+      the access rights that a program possessing the descriptor has on
+      that memory.
+    </p>
+    <p>
+      In addition to the conventional <term>read</term> and
+      <term>write</term> authorities that one might expect of a memory
+      protection mechanism, Dennis defines the idea of an
+      <term>enter</term> authority. The enter authority grants the
+      wielder of a capability the right to transfer a thread of
+      control into the named segment. In the system Dennis envisions,
+      an executing segment is a domain of protection, and transfers of
+      control from one domain of protection to another are mediated by
+      capability access rights. If you don't hold a capability to
+      segment X, or your capability does not convey enter authority,
+      you cannot invoke the program that resides in segment X.
+    </p>
+    <p>
+      Thus, the earliest definition of ``capability'' in the published
+      literature is that a capability is an (object, access rights)
+      pair, and incorporated the idea that capabilities would control
+      something more than just memory access. Today's page table
+      entries, which identify a page and describe permissions on that
+      page, are an example of capabilities.
+    </p>
+    <p>
+      It should be emphasized that Dennis and van Horn explicitly
+      sought a protection mechanism whose behavior could be formally
+      characterized using operational semantics. Given this, it is
+      curious (to me) that they seem not to have recognized the
+      <em>denotational</em> semantic qualities of capabilities as they
+      defined them. The recognition of opcodes would wait nearly 18
+      years until the creation of HYDRA/C.mmp, and the realization
+      that this implied a denotational semantics embedded in the
+      capability idea would not be recognized until 1999 with the
+      construction of the E programming language.
+    </p>
+    <h2>CAP and Cal/TSS</h2>
+    <p>
+      The first complete implementation of a capability system was the
+      CAP machine <cite name="Wilkes:CAP"/>, constructed at the
+      University of Cambridge, England.  The CAP machine was a
+      hardware capability system that used capabilities for all
+      primitive protection operations. Two iterations of the CAP
+      protection architecture were implemented, the second designed by
+      Herbert <cite name="Herbert:CAP"/>. The system was complete
+      enough to run editors and compilers.
+    </p>
+    <p>
+      There have been a very large number of in both hardware and
+      software architecture since the 1960s. To give an obvious
+      example, memory is now slower than processor speed. The impact
+      of these changes on system architecture has been dramatic, and
+      it is therefore difficult to relate the performance of CAP to
+      the performance of modern machines. However, it is clear that
+      even in this early system the cost of protection was a focal
+      concern <cite name="Cook:CAP"/>.
+    </p>
+    <p>
+      In the context of CAP, however, it should be noted that the
+      question of interest was the cost of protection, not the cost of
+      capabiities. There were, at the time, no protection mechanisms
+      in generally available computers. CAP was one of the first
+      machines to experiment with protection features. Based on the
+      cycle times reported by Cook <cite name="Cook:CAP"/> and the later
+      measurements by Herbert <cite name="Herbert:CAP"/>, it seems
+      likely that the protection features of CAP were too slow.
+    </p>
+    <p>
+      <em>Do I want to say that, and on what basis?</em>
+    </p>
+    <p>
+      Major subsequent enhancements in capability systems came from
+      both Cal/TSS, and HYDRA/C.mmp.  As with CAP, Cal/TSS <cite
+      name="Lampson:Reflection"/> used capabilities to protect control
+      transfer operations across protection boundaries, but unlike
+      CAP, these operations were implemented in software. In fact, CAL
+      appears to be the first operating system to implement IPC in
+      software.
+    </p>
+    <p>
+      In addition to being an experiment in capability system design,
+      CAL was an experiment in system implementation decisions. Many
+      critical protection mechanisms in CAL, including pageing, were
+      implemented purely in software. This would later prove to be a
+      mistake, as it rendered the system both slow and vulnerable to
+      error. The CAL system was never completed.
+    </p>
+    <p>
+      For our purposes, two key insights concerning capability-based
+      operating systems (and in fact, operating systems in general)
+      are drawn from CAL in Lampson's <docname>Reflections</docname>
+      <cite name="Lampson:Reflection"/>. The first concerns the
+      granularity of protection domains: in CAL, the concepts of
+      <term>protection domain</term> and <term>process</term> were
+      separated for reasons of efficiency. In hindsight, Lampson
+      judges that they should have been unified.  This would have
+      eliminated the need for two independent messaging systems,
+      resulting in considerable simplification of the underlying
+      system. While Lampson does not say so, it also simplifies, and
+      therefore speeds, the implementation of protected control transfer.
+    </p>
+    <p>
+      The second insight of CAL was the success of an IPC mechanism
+      based on migrating threads; an idea that would not be revisited
+      in the published literature until the 1990s. Both migrating
+      threads and domain/process unification were used in KeyKOS,
+      which is discussed below.
+    </p>
+    <h2>Extensibility: HYDRA/C.mmp</h2>
+    <p>
+      The next significant innovation in capabilities can in the late
+      1970's, and is due to Wulf <cite name="Wulf:HYDRA"/>. Wulf
+      recognized the need for extensibility in capability systems. By
+      ``extensibility,'' we mean that user applications should be able
+      to introduce new objects into the system, and that these new
+      objects should be invokable via capabilities just as the native
+      (hardware- or OS-implemented) objects are.
+    </p>
+    <p>
+      Extensibility requires three innovations in capability system
+      design. First, a mechanism must exist to introduce new object
+      types. Second, it must be possible for object invocations to be
+      reflected to a process so that the process can implement the
+      behavior of the object. Finally, there must exist some means for
+      the process to know which object it is operating on. That is,
+      the identity of the simulated object must somehow be captured in
+      addition to the identity of the service process that implements
+      the object.
+    </p>
+    <p>
+      HYDRA achieves type introductoin by means of something called an
+      <term>template</term>. The idea here is that every object
+      implemented by a user application actually has a type known to
+      the operating system -- the template object. The template object
+      defines both the parameters of the object interface (so that
+      they can be checked) and the identity of the service process
+      that implements objects of this type.
+    </p>
+    <p>
+      When a template is invoked, the receiving service receives
+      arguments defined in the template along with arguments passed by
+      the invoker. The service can use this mechanism to encode a
+      unique object identifier within the template itself, allowing it
+      to distinguish between multiple objects. Every object is a
+      unique template.
+    </p>
+    <p>
+      By introducing extensibility, HYDRA also introduced the question
+      of virtualizability: should a user-defined object be able to
+      implement the protocol of a system object in such a way that the
+      caller cannot tell the difference between the two
+      protocols? That is, can the caller detect a difference in the
+      observed semantics of invocation barring measurements of
+      response time?
+    </p>
+    <p>
+      Virtualization introduces a question: how should operations be
+      encoded so that the simulating process will know what operation
+      was requested by the invoker of the capability? The idea that
+      capabilities supported multiple operations, and that some
+      encoding of these operations was needed, was implicit in even
+      the earliest capability systems. A segment capability on CAP,
+      for example, supported both read and write operations. With
+      HYDRA, for the first time, the fact that a capability defined
+      not just a set of legal operations, but that these operations
+      must be explictly assigned code points that may be viewed as the
+      ``instruction set'' of that capability.
+    </p>
+    <p>
+      Finally, extensibility is the transition point from capabilities
+      as a protection mechanism to capabilities as protected object
+      names. In contrast to its predecessors, HYDRA explicitly sought
+      to construct a system that could be viewed as a space of
+      protected objects interconnected by capabilities. For those
+      familiar with object-oriented languages, we should emphasize
+      that Hydra objects are not the fine-grained objects such as
+      structures or classes that we now associate with languages like
+      Java or C++. Rather, these objects were objects in the sense of
+      operating system resources: files, print queues, processes, and
+      so forth.
+    </p>
+    <p>
+      The Hydra project ended inconclusively, never having run real
+      applications. Simultaneously, MULTICS demonstrated a
+      well-protected system design with acceptable performance <cite name="">
+      At this point, academic research into capability
+      systems ceased for nearly a decade.
+    </p>
+    <h2>Mach and the Intel i432</h2>
+    <p>
+      With the end of the Hydra project,
+    </p>
+    <h2>KeyKOS</h2>
+    <p>
+    </p>
+
+    <h2>Redefining the Capability Abstraction</h2>
+    <p>
+      With the introduction of extensibility and virtualization, it
+      becomes necessary to discard the definition
+    </p>
+    <p>
+      appears to have been the first to recognizeresearch operation
+      system called CAP that described the use of capabilities for
+      interprocess communication.  William Wulf appears to have been
+      the described an operating system
+    </p>
+  </body>
+  <back>
+    <bibliography>
+      <citation name="Dennis:Capabilities">
+	<cite.author>J. B. Dennis</cite.author>
+	<cite.author>E. C. van Horn</cite.author>
+	<cite.title>Programming Semantics for Multiprogrammed
+	Computations</cite.title>
+	<cite.journal>Communications of the ACM</cite.journal>
+	<cite.year>1966</cite.year>
+	<cite.month>March</cite.month>
+	<cite.volume>9</cite.volume>
+	<cite.number>3</cite.number>
+	<cite.pages>143--154</cite.pages>
+      </citation>
+      <citation name="Lampson:Reflections">
+	<cite.author>Butler W. Lampson</cite.author>
+	<cite.author>Howard E. Sturgis</cite.author>
+	<cite.title>Reflections on an Operating System
+	Design</cite.title>
+	<cite.journal>Communications of the ACM</cite.journal>
+	<cite.year>1976</cite.year>
+	<cite.month>May</cite.month>
+	<cite.volume>19</cite.volume>
+	<cite.number>4</cite.number>
+      </citation>
+      <citation name="Wulf:HYDRA">
+	<cite.author>William A. Wulf</cite.author>
+	<cite.author>Roy Levin</cite.author>
+	<cite.author>Samuel P. Harbison</cite.author>
+	<cite.title>HYDRA/C.mmp: An Experimental Computer
+	System</cite.title>
+	<cite.publisher>McGraw Hill</cite.publisher>
+	<cite.year>1981</cite.year>
+      </citation>
+      <citation name="Wilkes:CAP">
+	<cite.author>M. V. Wilkes</cite.author>
+	<cite.author>R. M. Needham</cite.author>
+	<cite.title>The Cambridge CAP Computer and its Operating
+	System</cite.title>
+	<cite.publisher>Elsevier North Holland</cite.publisher>
+	<cite.year>1979</cite.year>
+      </citation>
+      <citation name="Herbert:CAP">
+	<cite.author>A. J. Herbert</cite.author>
+	<cite.title>A New Protection Architecture for the Cambridge
+	Capability Computer</cite.title>
+	<cite.journal>Operating Systems Review</cite.journal>
+	<cite.volume>12</cite.volume>
+	<cite.part>1</cite.part>
+	<cite.pages>24+</cite.pages>
+      </citation>
+      <citation name="Cook:CAP">
+	<cite.author>D. J. Cook</cite.author>
+	<cite.title>The Cost of Using the \mbox{CAP} Computer's
+	Protection Facilities</cite.title>
+	<cite.journal>Operating Systems Review</cite.journal>
+	<cite.volume>12</cite.volume>
+	<cite.part>2</cite.part>
+	<cite.pages>26+</cite.pages>
+      </citation>
+      <citation name="Schroeder:MulticsDesign">
+	<cite.author>Michael D. Schroeder</cite.author>
+	<cite.author>David D. Clark</cite.author>
+	<cite.author>Jerome H. Saltzer</cite.author>
+      </citation>
+@INPROCEEDINGS{Schroeder:MulticsDesign,
+title= "The {MULTICS} Kernel Design Project",
+author = "Michael D. Schroeder and David D. Clark and Jerome H. Saltzer",
+booktitle= "Proc. 6th ACM Symposium on Operating Systems Principles",
+publisher="ACM",
+pages="43--56",
+month=nov,
+year = 1977
+}
+    </bibliography>
+  </back>
+</doc>

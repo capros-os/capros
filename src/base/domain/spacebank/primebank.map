@@ -1,0 +1,135 @@
+/* -*-C-*- */
+
+/*
+ * Copyright (C) 1998, 1999, Jonathan Adams.
+ * Copyright (C) 2001, The EROS Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#ifdef __PRIMEBANK_MAP__
+#error "primebank.map multiply included"
+#endif
+#define __PRIMEBANK_MAP__
+
+/*********************************************
+ * PRIME SPACE BANK
+ *********************************************/
+
+#include <eros/machine/target-asm.h>
+#include <domain/Runtime.h>
+
+spacebank = new process with constituents;
+
+spacebank.seg = program segtree LIBDIR "spacebank";
+
+/* add a page for the stack: */
+spacebank.seg = spacebank.seg with page at 0xff000;
+
+/* Need to do this in several chunks so that we don't run afoul of
+   segment insertion rules: */
+rangemap.seg = empty GPT with 1024 pages;
+spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00400000;
+rangemap.seg = empty GPT with 1024 pages;
+spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00800000;
+rangemap.seg = empty GPT with 1024 pages;
+spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00c00000;
+rangemap.seg = empty GPT with 1024 pages;
+spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x01000000;
+
+hide rangemap.seg;
+
+#ifdef EROS_TARGET_arm
+// lss 3 is enough for a small space
+primeseg = spacebank.seg;
+#else
+primeseg = new GPT with lss EROS_ADDRESS_LSS;
+primeseg[0] = spacebank.seg;
+#endif
+
+spacebank pc = symbol LIBDIR "spacebank" _start;
+spacebank space = primeseg;
+spacebank schedule = sched(8);   /* normal */
+spacebank symtab = number("spacebank");
+
+hide spacebank.seg;
+hide primeseg;
+
+/* Official space bank brand is a distinguished start key to the space bank: */
+
+spacebank brand = start spacebank 65535;
+
+CONSTIT(spacebank, KC_PRIMERANGE, 0) = prime range;
+CONSTIT(spacebank, KC_VOLSIZE, 1) = volsize;
+CONSTIT(spacebank, KC_OSTREAM, 2) = misc Console;
+CONSTIT(spacebank, KC_DOMTOOL, 3) = misc ProcessTool;
+
+/* Set up a distinguished node that will hold the "runtime bits" for
+ * all of the primordial processes. ("Bits" here means "pieces".)
+   Various slots of this will be set
+ * up in later places, so we need to be careful to reuse this node
+ * rather than clone it, and the boot constructor logic has to clone
+ * this node by hand.
+ *
+ * The primordial runtime bits do not include a creator or a
+ * constructor verifier, because none
+ * of the primordial domains (spacebank, pcc, metacontstructor) ever
+ * exits, and none ever test constructors. In spite of this, pcc.map
+ * back-patches the creator slot to PCC so that process creators can
+ * simply reuse primordial_runtime_bits as their runtime node.
+ */
+
+primordial_runtime_bits = new ro node;
+  /* primordial_runtime_bits isn't currently used. */
+  /* RKT_SB_VERIFIER is set below. */
+  /* RKT_AUDIT_LOG temporarily set here to KR_OSTREAM, but will
+   * eventually be overridden in syslog.map */
+//primordial_runtime_bits[RKT_AUDIT_LOG]     = misc Console;
+
+spacebank key reg  KR_SELF = spacebank; /* domain key to spacebank */
+
+run spacebank;
+
+/* set up the precreated bank keys
+ * NOTE:  The space bank initialization code will overwrite these objects
+ * with all of the correct values.  However, it is necessary that these
+ * be valid forwarder keys with a valid target key which
+ * is a start key to the spacebank, so that calls before
+ * initialization is complete will not fail.
+ *
+ * The names and key registers must match /premade_keys/ in Bank.c
+ */
+primebank = new forwarder;
+primebank target = start spacebank 0x03; /* no destroy, no chg limits */
+
+CONSTIT(spacebank, KC_PRIMEBANK, 4) = primebank;
+primebank = primebank as sendWord opaque forwarder key;
+
+bank_verifier = new forwarder;
+bank_verifier target = start spacebank 0x03; /* no destroy, no chg limits */
+
+CONSTIT(spacebank, KC_VERIFIER, 5) = bank_verifier;
+bank_verifier = bank_verifier as sendWord opaque forwarder key;
+
+//primordial_runtime_bits[RKT_SB_VERIFIER] = bank_verifier;
+
+hide spacebank;

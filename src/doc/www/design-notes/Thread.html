@@ -1,0 +1,171 @@
+<html>
+<head>
+<title>Threads and Scheduling</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <h1>Threads and Scheduling</h1>
+</center>
+<p> Threads are where the EROS scheduler and the abstractions
+presented by the EROS kernel come together.  This note provides some
+details on the role of threads in EROS, detailing some variations on
+states that were somewhat obscure in KeyKOS.
+<h2>1. What is a Thread?</h2>
+<p> A thread defines a locus of computing.  Every allocated thread
+occupies a process, and every running process is occupied by exactly
+one thread.  EROS maintains a fixed-size table of threads.  The size
+of this table can be changed at compile time, (though shrinking it can
+create compatibility problems with the checkpoint area).
+<p> Threads are allocated by the <strong>send</strong> operation.
+They are deallocated by returning to a kernel capability or when the
+process they occupy is found to be malformed.
+<p> Each thread is in one of four states:
+<p> 
+<center>
+<table width=85% border>
+  <tr valign=top>
+    <th align=left>State</th>
+    <th align=left>Meaning</th>
+  </tr>
+  <tr valign=top>
+    <td><strong>Free</strong></td>
+    <td>The thread is not allocated, and can be allocated by a
+      <strong>send</strong> operation.</td>
+  </tr>
+  <tr valign=top>
+    <td><strong>Running</strong></td>
+    <td>The thread is currently active on some processor.</td>
+  </tr>
+  <tr valign=top>
+    <td><strong>Ready</strong></td>
+    <td>The thread is waiting to be activated.</td>
+  </tr>
+  <tr valign=top>
+    <td><strong>Stalled</strong></td>
+    <td>The thread is waiting for the availability of some resource,
+      such as a page that is being paged in or the availability of
+      some kernel data structure.</td>
+  </tr>
+</table>
+</center>
+<h3>1.1. The Meaning of ``Ready''</h3>
+<p> Note that the <strong>ready</strong> state does not correspond to
+the usual sense of a ``ready process'' in conventional operating
+systems.  The reason is that EROS processes are not kernel data
+structures.  One consequence is that a thread can become ready when
+it's associated process is not in core.  Indeed, one rationale
+for separating threads from their processes is that the thread is a
+much smaller data structure.
+<p> A thread becomes <strong>ready</strong> under three conditions:
+<ul>
+  <li> When it's quanta expires, 
+  <li> When it is preempted by a higher priority thread.
+  <li> When some resource that it has stalled on becomes available, or
+  <li> When it happens to have shared a resource stall queue with some
+       other thread, and the <em>other</em> thread's resource has
+       become available.
+</ul>
+<p> In order for a thread to be runnable, <em>all</em> of the
+following conditions must be met:
+<ul>
+  <li> The thread must occupy a process that is in memory.
+  <li> The thread must not be marked as needing to yield.
+  <li> The process must be cached in the <code>context</code> cache.
+  <li> The process must be well-formed.
+</ul>
+<p> A ready thread sits in the ready queue until it comes to the
+front, at which time the kernel attempts to <em>activate</em> the
+thread.
+<h3>1.2. Thread Activation</h3>
+In the worst case, where the associated process has been
+paged out, activating the thread involves the following steps:
+<ol>
+  <li> If necessary, the process capability within the thread
+       structure is <em>prepared</em>, which brings the node that is
+       the root of the process into memory.  This action may cause the
+       thread to stall for I/O; it is treated as though the thread
+       itself initiated the fault.
+       <p> 
+  <li> A context structure is allocated for the process root.
+       <p> 
+  <li> The context is <em>prepared</em>, which forces the following
+       steps to be taken:
+       <p> 
+       <ol>
+	 <li> The process capability registers node and any annex
+	      nodes are faulted into memory if necessary.
+	 <li> The process register state is loaded into the context
+	      structure, from which it can be efficiently loaded onto
+	      the processor itself.
+       </ol>
+       <p> 
+       The context preparation can initiate several I/O's, which may
+       again cause the thread to stall.
+       <p> It is also possible that the process will be found to be
+       malformed, in which case the occupying thread is freed.
+       <p> 
+</ol>
+<p> At this point, the thread is ready to run.
+<p> If the process has previously run, and remains well-formed, the
+context structure will exist and have a valid <code>saveArea</code>
+pointer, so in most cases, the steps described above can be collapsed
+into a fairly cheap piece of code in the interrupt logic:
+<pre>
+if (thread->context && thread->context->saveArea &&
+    !thread->shouldYield && !thread->context->faultCode)
+  ... thread can run ...
+else
+  thread->Activate();  /* may call keeper, may reschedule */
+</pre>
+<p> If the process fault code is non-zero, the thread transits to the
+keeper process, and xecution resumes there.
+<p> The system guarantees that <code>Thread::Activate()</code>can
+always return a runnable thread because the system maintains an
+always-runnable idle thread for this purpose.
+<p> The resulting state transition diagram looks like:
+<p> 
+<center>
+<table width=85% border>
+  <tr valign=top>
+    <th align=left>From</th>
+    <th align=left>To</th>
+    <th align=left>When</th>
+  </tr>
+  <tr valign=top>
+    <td><strong>Stalled</strong></td>
+    <td><strong>Ready</strong></td>
+    <td>A resource has become available, or the thread has been
+      awakened from a multiplexed resource queue.</td>
+  </tr>
+  <tr valign=top>
+    <td><strong>Ready, Running</strong></td>
+    <td><strong>Stalled</strong></td>
+    <td>The thread could not be activated because the occupied process
+      was not in memory.  The thread ends up stalled waiting for the
+      pagein operation.</td>
+  </tr>
+  <tr valign=top>
+    <td><strong>Ready, Running</strong></td>
+    <td><strong>Free</strong></td>
+    <td>The thread now occupies a malformed process.</td>
+  </tr>
+  <tr valign=top>
+    <td><strong>Ready</strong></td>
+    <td><strong>Running</strong></td>
+    <td>The thread has been successfully activated, and can be set in
+      motion.</td>
+  </tr>
+  <tr valign=top>
+    <td><strong>Running</strong></td>
+    <td><strong>Ready</strong></td>
+    <td>The thread has been preempted.</td>
+  </tr>
+</table>
+</center>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

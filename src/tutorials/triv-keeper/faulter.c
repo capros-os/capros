@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, 2009, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,14 +19,15 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
-
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Node.h>
+#include <idl/capros/Sleep.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -42,14 +45,20 @@
 int i = 5;
 
 int
+divby(int v)
+{
+  return i / v;
+}
+
+int
 main ()
 {
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
 #if 0
   kprintf(KR_OSTREAM, "Faulter is initialized and will sleep for 4 seconds.");
 
-  sl_sleep(KR_SLEEP, 4000);	/* sleep 4 secs */
+  capros_Sleep_sleep(KR_SLEEP, 4000);	/* sleep 4 secs */
 #endif
   
   kprintf(KR_OSTREAM, "Faulter faults...\n");
@@ -69,7 +78,7 @@ main ()
    * (courtesy David Braun):
    */
 
-  i /= 0;
+  divby(0);
 
   kprintf(KR_OSTREAM, "I survived divide by zero (this is not a good thing)...\n");
 

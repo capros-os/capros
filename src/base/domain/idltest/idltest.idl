@@ -1,0 +1,8 @@
+package capros;
+
+interface idltest extends capros.key {
+  typedef buffer<char,4096> iobuf;
+
+  iobuf echo(iobuf s);
+};
+

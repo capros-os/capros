@@ -1,0 +1,159 @@
+<html>
+<head>
+<title>EOR: Page</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Primary.html">Primary Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Primary Objects</H2>
+  </div>
+  <h2>Page</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> A <strong>page</strong> provides a persistent page of storage.
+  Pages are the basic unit of data storage in the EROS system, and
+  hold an architecture defined number of bytes (currently 4096 in all
+  implementations). Every page corresponds to one or more unique
+  locations on some physical storage medium, such as a disk drive.  In
+  most installations, pages are therfore available in large supply.
+  <p> Page keys come in two types: a <strong>read write page
+  key</strong> conveys the authority to mutate the page, while a
+  <strong>read only page key</strong> conveys only sufficient
+  authority to examine the page's content.  Applications acquire page
+  keys by requesting them from a <a
+  href="../standard/SpaceBank.html"><strong>Space Bank</strong></a>.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+                <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       <em>IKT_capros_Page</em>:
+	       Invoked key is a key to a page.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Make Read-Only Page Key</strong> (OC = 1)
+    <dd> 
+	 <p> Returns a read-only page key to the page.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Response</strong>
+	     </td>
+	     <td align=right>
+	       RK0
+	     </td>
+	     <td>
+	       A read-only key to the page.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Zero Page</strong> (OC = 2)
+    <dd> 
+	 <p> Clears the content of the page to zeros.  This operation
+	 is more efficient than writing zeros to the page, because the
+	 page need not always be brought in to memory for the
+	 operation to proceed. 
+	 <p> The <strong>zero page</strong> operation is not permitted
+	 on a read-only page key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       All bytes of the page are zero
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       RC_NoAccess
+	     </td>
+	     <td>
+	       The page key is read-only.  The page remains unchanged.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Clone Page</strong> (OC = 3)
+    <dd> 
+	 <p> Makes the called page's data identical to the passed in
+	 page.  The old contents are destroyed.
+	 <p> The <strong>Clone Page</strong> operation is not
+	 permitted on a read-only page key.
+	 <table>
+	   <tr valign=top>
+	     <td>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       SK0
+	     </td>
+	     <td>
+	       The Page Key to be cloned from.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       Success.  The page now holds the same data as
+	       <STRONG>SK0</STRONG>.
+	     </td>
+	   </tr>
+	   <tr>
+	     <td align=right>
+	       RC_RequestError
+	     </td>
+	     <td>
+	       <STRONG>SK0</STRONG> is not a Page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       RC_NoAccess
+	     </td>
+	     <td>
+	       The invoked page key is read-only.  The page remains unchanged.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1999 by Jonathan Shapiro.
+Copyright 2009 by Strawberry Development Group.
+All rights reserved.  For terms of redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

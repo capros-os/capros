@@ -1,0 +1,414 @@
+<!DOCTYPE doc SYSTEM "../DTD/doc.dtd">
+<doc>
+  <copyright>
+    <year>2001</year>
+    <organization>Johns Hopkins University</organization>
+    <copy-terms>For terms of redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public
+	License</a>.</copy-terms>
+  </copyright>
+  <front>
+    <title>Use Cases for EROS: Some Key Target Applications</title>
+    <author>
+      <name>Jonathan S. Shapiro</name>
+      <organization>
+	Johns Hopkins University Information Security Institute
+      </organization> 
+      <email>shap@eros-os.org</email>
+    </author>
+    <abstract>
+      <p>
+	This document describes several of the key usage scenarios for
+	the EROS system, and some of the implications of these
+	scenarios for purposes of security assurance evaluation.
+      </p>
+    </abstract>
+  </front>
+  <body>
+    <h1>Background</h1>
+    <p>
+      EROS is a secure, real-time operating system that is evolved and
+      maintained by a collaborative effort between The EROS Group and
+      Johns Hopkins University. There has also been significant past
+      involvement from the University of Pennsylvania. EROS is
+      currently available to the public under the <a
+      href="../legal/license/GPL.html">GNU General Public
+      License</a>. The system differs from other widely available
+      systems in several regards:
+    </p>
+    <ul>
+      <li>
+	<p>
+	  <b>EROS is designed for high assurance.</b>
+	</p>
+	<p>
+	  Our target assurance levels for this system have been the
+	  equivalent of the TCSEC (Orange Book) "A1" rating, or the
+	  more modern EAL7 assurance level under the Common
+	  Criteria. While there is some room for discussion, EAL7 can
+	  reasonably be characterized as the highest level of
+	  assurance that we in the security community currently know
+	  how to achieve with confidence.  In contrast, most of the
+	  publicly available (i.e. open source) systems available
+	  today are based on TCSEC C2 or CC EAL2/EAL3 levels. The
+	  TCSEC standard defines EAL3 as ``the <em>minimum</em> level
+	  of assurance appropriate for open, non-sensitive business
+	  computing systems.'' <gripe>Get this quote right.</gripe>
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b>EROS is a capability system.</b>
+	</p>
+	<p>
+	  A capability combines a protected descriptor to some state
+	  with an interface that manipulates that state. Unless a
+	  program holds a capability, it cannot attempt to attack the
+	  object -- in fact, it cannot even <em>name</em> the
+	  object. Capabilities therefore provide the primitive
+	  protection mechanism in EROS. 
+	</p>
+	<p>
+	  Most popular systems are built on a different protection
+	  model: access control lists. From a protection standpoint,
+	  capabilities and access control lists have very different
+	  properties. Capabilities are very good at controlling what
+	  programs can do and controlling what information flow is
+	  possible. Capabilities are <em>not</em> very good at
+	  controlling access based on the identity of a user. Another
+	  way to say this is that capabilities are good at enforcing
+	  those protection mechanisms that can, in principle, be automatically
+	  enforced in a computing system, and are <em>not</em> good at
+	  providing protections that cannot, in principle, be
+	  enforced. In contrast, access control lists are very bad at
+	  enforcing those protections that are computationally
+	  feasible, but very good at expressing the ones that aren't.
+	  In short, access control lists are universal, but
+	  fundamentally broken.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b>EROS is an object-based system.</b>
+	</p>
+	<p>
+	  Like most capability systems, EROS is an object-based
+	  system. From the perspective of both application developer
+	  and user, this means that components in the system are
+	  easily and flexibly composed. This has implications for both
+	  the use and the evaluation of the system. In particular, the
+	  natural native application structure for EROS is to divide
+	  an application into multiple protected objects, each of
+	  which is independently testable and verifiable.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b>EROS provides confinement.</b>
+	</p>
+	<p>
+	  The confinement policy says: ``A program X is confined if it
+	  can communicate only via authorized channels, and if parties
+	  outside the confinement boundary can obtain information
+	  about the state of exclusively through interfaces published
+	  by that program.'' That is, confinement is sandboxing plus
+	  proprietary protection.  Confinement serves as an important
+	  ``slicing'' tool for separating the system into isolatable
+	  components, and thereby for structuring an overall software
+	  design for improved security, resilience, and recoverability.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b>EROS is real time.</b>
+	</p>
+	<p>
+	  While many consumer device operating systems provide
+	  real-time functions, most of these are not
+	  protected operating systems. Conversely, most server
+	  operating systems are protected systems (in some degree) but
+	  provide little  if any real-time support. EROS does both.
+	</p>
+      </li>
+    </ul>
+    <p>
+      Collectively, these differences mean that an EROS user can run
+      untrusted (or possibly hostile) code safely by placing it within
+      a confinement box. For example, it is possible using the tools
+      provided by EROS to construct a mail or web browser in which:
+    </p>
+    <ol>
+      <li>
+	<p>
+	  Executable attachments can safely be executed,
+	</p>
+      </li>
+      <li>
+	<p>
+	  These attachments cannot harm the user's electronic
+	  ``world'', and
+	</p>
+      </li>
+      <li>
+	<p>
+	  When it's all over, we can say with confidence which
+	  programs are now in charge of the machine. That is, viruses
+	  cannot be installed via the browser.
+	</p>
+      </li>
+    </ol>
+    <p>
+      These properties seem to be a good match for the key target
+      applications of EROS.
+    </p>
+    <p>
+      The EROS Project is currently working to provide operating
+      system support for scenarios:
+    </p>
+    <ol>
+      <li>
+	<p>
+	  ASP server systems.
+	</p>
+      </li>
+      <li>
+	<p>
+	  High-end consumer devices, such as set-top boxes.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Secure handheld devices
+	</p>
+      </li>
+    </ol>
+    <p>
+      Surprisingly, these areas have significantly overlapping
+      requirements, and it appears that EROS will be able to address
+      all of them. Two of these are detailed further below.
+    </p>
+    <h1>Application 1: ASP Servers</h1>
+    <p>
+      The first EROS application scenario is the ASP server. An ASP
+      server is a machine on which three parties come together to
+      engage in a mutually suspicious collaboration that is
+      facilitated by a fourth party.
+    </p>
+    <dl>
+      <dlnm>SysOp</dlnm>
+      <dldescrip>
+	<p>
+	  The system operator is operating a machine that is part of a
+	  public computing infrastructure. It is public in the sense
+	  that users can establish either long-term or ephemeral
+	  accounts on the system in order to run arbitrary software. The
+	  role of the system operator is to provide the resources that
+	  the user has contracted for. While the system operator may
+	  facilitate such contracts by preloading the machine with
+	  software that is desirable to the user, this is merely a
+	  sales tactic. In the end, the <em>user</em> dictates what
+	  software is to run on their behalf.<footnote>
+	    <fn-p>This is in contrast to the current ASP business, in
+	      which the operator completely dictates the
+	      software that is available to be run by the user.</fn-p>
+	  </footnote>
+	</p>
+      </dldescrip>
+      <dlnm>User</dlnm>
+      <dldescrip>
+	<p>
+	  The user is the source of revenue in the system. The user pays
+	  for a certain allocation of resources, some of which may be
+	  probablistic rather than hard guarantees. The user also
+	  specifies the software to be executed on their behalf, and can
+	  initiate (in an automated way) the installation of new
+	  software <em>provided</em> that this software does not require
+	  unusual privilege. Such installation is mediated by an
+	  installation subsystem in order to allow the system operator
+	  to achieve returns to scale when multiple users use the same
+	  software.
+	</p>
+	<p>
+	  Note that the ability of users to establish accounts
+	  instantaneously using nothing more than a credit card nearly
+	  eliminates hackers as a separate category. There is no
+	  <em>need</em> to break in to an EROS-based ASP server, as
+	  accounts are readily available. The primary design challenge
+	  for the system is dealing with and isolating potential
+	  <em>internal</em> threat sources -- users with valid
+	  accounts.
+	</p>
+	<p>
+	  Note also that while the user may be forced to <em>use</em>
+	  software to do their task, it does not follow that they
+	  trust this software blindly. For example, a user's virtual
+	  rolodex may be stored in a generic record keeping system,
+	  but the user may desire assurance that the <em>contents</em>
+	  of the rolodex cannot be disclosed. Ideally this assurance
+	  should derive from something other than the record keeping
+	  software, as the user is not (in general) in a position to
+	  inspect such software.
+	</p>
+      </dldescrip>
+      <dlnm>Developer</dlnm>
+      <dldescrip>
+	<p>
+	  The developer is the author of some software subsystem that
+	  runs on the ASP server, and obtains payment from the system
+	  operator for services sold. The developer may wish to keep
+	  their code proprietary, and is therefore concerned with
+	  controlling the exposure of the program internals to
+	  arbitrary users.
+	</p>
+      </dldescrip>
+      <dlnm>SysArch</dlnm>
+      <dldescrip>
+	<p>
+	  The (EROS) system architect is the author of the EROS
+	  trusted system functions. It is this software that provides
+	  the guarantees on which the other contractual relationships
+	  in the scenario can be established. Each of the other
+	  parties trusts and relies on the system architect to enforce
+	  these guarantees.
+	</p>
+	<p>
+	  A second, and important role of the system architect lies in
+	  providing the administrative software for the system. The
+	  working assumption in the system design is that
+	  administrators are both overworked and non-expert, by which
+	  we mean that job pressure invites administrative errors.
+	</p>
+	<p>
+	  Unlike conventional systems, the power of the EROS SysOp is
+	  entirely constrained by the available administrative
+	  interface. Barring offline forensics, there is no file
+	  system by which the SysOp can alter critical administrative
+	  functions. This is important, as it forms the basis for
+	  limiting the authority of the SysOp.
+	</p>
+      </dldescrip>
+    </dl>
+    <p>
+      In considering this scenario, it is useful to consider the
+      requirements of ``common carrier'' status as applied to
+      application service providers. The telephone company is not
+      liable for a robbery that is planned using its phone lines. The
+      basis for this immunity is that the telephone company had no
+      knowledge of the conversation and no means to search for or
+      disconnect such discussions. In fact, a telephone company that
+      <em>does</em> censor conversations immediately <em>loses</em>
+      their protection as a common carrier. By demonstrating that
+      control was feasible, they take on potential liability for
+      failure to exercise that control with due dilligence.
+    </p>
+    <p>
+      The implications of common carrier doctrine for server software
+      operators has not received real attention, primarily because
+      current server software architectures do not provide a
+      foundation for this type of isolation between the SysOp and the
+      User. It is an important objective of the EROS design to ensure
+      that the SysOp (again, barring offline forensics) has the
+      ability to allocate and reclaim <em>resources</em>, but that
+      this ability does <em>not</em> grant to the SysOp any means to
+      learn the <em>content</em> stored in these resources.
+    </p>
+    <p>
+      There is a similar concern for developers. It may be useful in
+      some cases for the developer to be able to show that they could
+      not, in principle, have known that their word processor was used
+      to write threatening letters.
+    </p>
+    <h1>Application 2: Consumer Devices</h1>
+    <p>
+      Surprisingly, the high-end consumer device business is very
+      similar to the ASP server business. Consumer devices are very
+      low-margin artifacts. The potential for interesting revenue from
+      these devices lies in generating a subsequent subscription
+      business both for application software and for development
+      tools.
+    </p>
+    <p>
+      In short, a set-top box is just an ASP server that sits on your
+      television rather than in a server room. The box is (remotely)
+      operated by your cable provider. The SysArch is a combination of
+      the original operating system designer and the box vendor, who
+      customizes the box. The User is whoever presently has the remote
+      control, and the developer is the provider of any game, menu
+      ordering system, or interactive TV application that is
+      available.
+    </p>
+    <p>
+      One difference between the ASP service scenario and the set-top
+      box scenario is that many producers of set-top boxes are also
+      producers and licensees of audio or video content. This places
+      them under contractual obligation to copy protect the content,
+      which provides a significant and immediate incentive for a
+      secure platform.
+    </p>
+    <p>
+      A second difference is that set-top boxes are frequently
+      tamperproof, either through encrypted memories and/or busses or
+      tamper-detecting hardware. Many set-top box vendors are actively
+      concerned about the possibility of hardware probes for the
+      purpose of stealing content. This leads to the creation of a
+      more tamper-resistant device than is typical of server systems.
+    </p>
+    <p>
+      A third difference is that the need for real-time services in
+      set-top boxes is real and immediate. The MPEG player, for
+      example, must deliver a known frame rate reliably. This
+      requirement exists in ASP server as well (consider delivery of
+      isochronous media streams, for example), but in the server
+      scenario it doesn't really leap out and bite you on the nose.
+    </p>
+    <p>
+      A fourth difference is the degree of need for robustness. In the
+      consumer device business, a single support phone call resulting
+      from a box going down destroys the entire profit margin for that
+      box. In the server scenario, scheduled downtimes may be
+      acceptable if they are infrequent.
+    </p>
+    <h1>Application 3: Secure Handhelds</h1>
+    <p>
+      Handheld devices are becoming a common repository of personal
+      and financial information. Simultaneously, they are devices on
+      which the user installs arbitrary software in much the way that
+      an ASP user does. Ignoring form factor and display, the primary
+      difference between the handheld device and the ASP server is
+      that the user is the system operator.
+    </p>
+    <p>
+      In this scenario, the user has sensitive data that they wish to
+      protect even while running third-party software. Anyone who uses
+      current PalmOS devices can explain to you why protection is
+      needed in such an environment today simply to prevent crashes.
+    </p>
+    <p>
+      It appears that the handheld device  form factor may lend itself
+      to physical tamper-proofing that is currently impossible for
+      smart cards. If such tamper-proofing becomes widely deployed,
+      the handheld device becomes an ideal platform for electronic
+      money, raising still further the stakes when third-party
+      software is installed..
+    </p>
+    <p>
+      Finally, a particular application for handhelds is of interest
+      in the armed services: message authentication. Current armed
+      service personnel use Windows-based systems on their desktops,
+      and cannot rely on these machines to be virus-free. The
+      availability of a cheap, independently secure platform on which
+      critical items can be validated and secure documents generated
+      is a significant potential value.
+    </p>
+    <h1>Notes on Assurance Evaluation</h1>
+    <p>
+      The Common Criteria, in particular, was authored using
+      monolithic systems as its examples. Applying CC requirements and
+      processes to object-based systems requires some amount of
+      interpretation of the standard to generate the required evidence
+      at an appropriate level of detail and comprehensiveness.
+    </p>
+    <p>
+    </p>
+  </body>
+</doc>

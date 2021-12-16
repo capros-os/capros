@@ -1,0 +1,128 @@
+<html>
+<head>
+<title>The EROS Build Environment</title>
+</head>
+
+<body>
+<p> This is a brief note on the organization of the EROS build
+environment.  It describes the organization of the source tree, the
+environment variables you need to set to get the code built, and in
+general describes the rational behind the whole thing.  If you're just
+getting started on examining or modifying the sources, this is
+probably worth reading.
+<p> I don't make any particular claims for the merits of this build
+environment organization.  It works so far, and that's good enough for
+our current purposes.
+<h1>Brief Overview</h1>
+<p> The EROS source tree will eventually include support for several
+target architectures and several different build environments.  The
+architecture for which we are compiling is known as the
+<em>target</em> architecture.  The machine on which we are performing
+the compile is known as the <em>host</em> architecture.  In the vast
+majority of cases, these two architectures will be closely related.
+The <code>i486</code> target architecture, for example, is most
+commonly built from either the <code>i486-eros</code> or the
+<code>i486-posix-aout</code> host environment.
+<p> The current build tree probably would NOT succeed at building
+across incompatible architectures from a UNIX host, nor do we intend
+that it ever should.  Our intention is to bootstrap the i486 EROS
+implementation from the linux environment, and do subsequent
+development from the i486 EROS environment, where we have full control
+over the compilation environment.  The tool naming conventions for
+UNIX cross environments come in a bewildering number of varieties, and
+I really do not want to use the GNU configure facilities, so it is
+simpler to keep matters contained by building other EROS systems from
+the i486 EROS environment.
+<p> The source tree makes use of the host/target distinction.  Target
+architecture specific files will <em>usually</em> reside in a
+subdirectory whose name is something like
+<strong>.../arch/</strong><em>target_architecture</em>
+<strong>/...</strong>.  Similarly, host-specific files will always
+reside in a subdirectory such as
+<strong>.../host/</strong><em>host_architecture</em>
+<strong>/...</strong>.  The EROS makefiles determine which
+subdirectories are appropriate by examining the environment variables
+<strong>EROS_HOST</strong> and <strong>EROS_TARGET</strong>.
+<p> In general, files that are not in the target specific subtrees
+should be independent of any particular target architecture, and do
+not include any target-dependent header files.  There is an exception
+to this rule: certain attributes of the target architecture, such as
+the target page size, are used in the machine independent portion of
+the code.  These attributes are captured in the file
+<strong>sys/include/target.h</strong>, which contains these attributes
+for all supported target architectures.
+<p> Surprisingly enough, the presence of multiple architectures in the
+source tree is not a major source of complexity.  For the most part,
+things that are dependent on the target architecture do not interact
+much with other target architectures.  Things that are dependent on
+the host architecture are more complicated.  Typically, the host
+architecture programs are cross tools, intended to take, say, a
+collection of linux <strong>a.out</strong> files and produce a
+runnable system image from them.  While the same tool runs fine under
+the EROS POSIX environment, it is more common under EROS to want to
+test a new domain ``in situ''.  Thus, building EROS from the native
+environment builds more tools than from the cross environment.
+<h1>A Tour of the Source Tree</h1>
+The EROS source tree is divided into several major sections:
+<pre>
+eros
+   src
+      bin           -- volume manipulation tools, misc binaries
+      doc           -- documentation files, including this one
+      domains       -- source code for critical system domains
+      lib           -- common "library" files
+      posix         -- source code for the POSIX subsystem
+      sys           -- operating system related code:
+         sys        -- include files common to all OS and volume code
+         libkern    -- classes related to disk volumes that are used
+                       by both the kernel and the volume tools
+         kernel     -- kernel source code
+   domains          -- where compiled domains are installed
+   posix            -- where the posix environment gets installed
+   bin              -- where the volume tools get installed
+   lib              -- where various miscellaneous pieces get installed
+</pre>
+When building under a POSIX environment, the tree can be placed
+anywhere convenient.  The environment variable
+<strong>BUILDROOT</strong> identifies the location of the root of the
+tree. My own practice is to place the root of the tree in my home
+directory, and set <strong>BUILDROOT</strong> to
+<strong>/home/shap/eros</strong>.  There are no explicit paths in the
+makefiles.  Whenever dependencies are regenerated a <em>sed</em>
+script is used to convert absolute paths back to references to the
+<strong>BUILDROOT</strong> variable.
+<p> From the standpoint of a developer, the tree can be divided into
+several cleanly separated parts. The following discussoin describes
+each of these parts in turn.
+<h2>The Kernel Source Tree</h2> 
+<p> the kernel source tree is rooted at
+<strong>$BUILDROOT/src/sys</strong>:
+<pre>
+eros/src/sys
+   arch         -- architecture specific code
+      ppc603    -- code specific to the PowerPC (someday)
+      i486      -- code specific to the Intel family (i[34]86, Pentium, P6)
+         boot   -- disk bootstrap code
+         kernel -- kernel code
+   disk         -- disk volume object manipulation library, used by the
+                   kernel and a few utilities.  See the notes on this
+                   directory below.
+   kernel       -- the eros kernel common (machine independent) code
+   sys          -- public header files contributed by the kernel to the
+                   general include tree.
+</pre>
+<p> The convention for kernel code is that no file which is part of
+the kernel should make reference to any file that is outside of the
+<strong>sys/</strong> subtree.  The idea is that the kernel should not
+depend on application code.
+<p> The <strong>disk/</strong> subtree is unusual in that it's content
+must be built for both kernel and non-kernel use.  The kernel uses
+these files to manipulate the on-disk key structures.  The initial
+system generation tools use these files to construct EROS volume
+images out of collections of <strong>a.out</strong> files.  All of the
+code in this directory must be compilable in the kernel, which means
+in particular that it must make no use of stdio facilities.  This in
+turn implies that the disk volume manipulation code issues no
+diagnostics.
+</body>
+</html>

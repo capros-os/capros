@@ -1,0 +1,47 @@
+package capros.net.enet;
+
+/** This is the interface to the network system, which 
+ *  is called by the timer and by application clients
+ *   needing network access.
+ */
+interface enet extends capros.key {
+  
+  /** The various types of start keys specific for each 
+   * interface */
+  const unsigned short XMIT_HELPER_INTERFACE  = 1;
+  const unsigned short RECV_HELPER__INTERFACE = 2;
+  const unsigned short SESSION_KEYS_INTERFACE = 3;
+  const unsigned short STACK_ENET_SPACE_INTERFACE = 4;
+  const unsigned short IRQ_HELPER_INTERFACE     = 5;
+
+  /* IRQ helper call 
+   * The irq helper calls this to signify that an irq has arrived 
+   * and the corresponding isr has to be invoked */
+  void irq_arrived(short IRQ);
+  
+  /* XMIT_helper of stack
+   * Calls this function to signify that the stack has data to be 
+   * transmitted */
+  long xmit_queue();
+  
+  /* RECV_helper of stack
+   * Calls this function as is parked. Retry is done when data actually
+   * arrives for the stack */
+  long recv_queue();
+  
+  /* Stack calls the enet passing the keys of its client's subspaces
+   * to be mapped into the enet address space */
+  long map_client_space();
+
+  /* Stack calls the enet passing the keys of the stack's memory shared
+   * with the enet to be mapped into the enet address space */
+  long map_stack_space();
+
+  /* Get Network configuration */
+  long gethwconfig();
+  
+  /* Get wrapper key 
+   * Get a wrapper key for the receiver otherwise we have end up in a 
+   * busy spin */
+  void get_wrapper();
+};

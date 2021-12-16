@@ -1,0 +1,209 @@
+package capros.winsys;
+
+/**
+ * This is the interface most window system clients will use to
+ * request window-specific services.
+ */
+interface session extends capros.key raises (InvalidDimension) {
+
+  exception InvalidDimension;
+
+  /** 
+   *  NOTE: DON'T USE THIS IDL UNTIL CAPIDL HANDLES WRAPPER
+   *  KEYS PROPERLY.  WINDOW SYSTEM SESSIONS RELY ON "HIDDEN"
+   *  INFORMATION IN THE WRAPPER NODE!!
+   */
+
+  /**
+   * The following mouse buttons are supported:
+   */
+  const unsigned short MOUSE_LEFT   = 1;
+  const unsigned short MOUSE_RIGHT  = 2;
+  const unsigned short MOUSE_MIDDLE = 4;
+
+  /**
+   * Supported decorations
+   */
+  const unsigned short Shadow   = 1;
+  const unsigned short Border   = 2;
+  const unsigned short TitleBar = 4;
+  const unsigned short Resize   = 8;
+
+  /**
+   * The supported event types.
+   */
+  unsigned long enum EventType {
+    Null,
+    Mouse,
+    Key,
+    Resize
+  };
+
+  /** Definition of a generic event.
+   *
+   *  Events are dispatched to sessions.
+   */
+  struct Event {
+    EventType type;
+    unsigned long window_id;
+    array<unsigned long,5> data;
+  };
+
+  /** New default window
+   *
+   * Ask the window system for a window having default width, height,
+   * decorations and location in Root window.  Returns a unique window
+   * id (in the given session) and a segment key to the buffer into
+   * which the client should render the window contents.
+   *
+   */
+  void new_default_window(capros.key bank,
+                          out unsigned long window_id,
+                          out capros.key new_space);
+
+  /** New window
+   *
+   * Ask the window system for a window having the specified width, height,
+   * decorations and location in Root window.  Returns a unique window
+   * id (in the given session) and a segment key to the buffer into
+   * which the client should render the window contents.
+   *
+   */
+  void new_window(capros.key bank,
+                  long parent_location_x,
+                  long parent_location_y,
+                  unsigned long width,
+                  unsigned long height,
+		  unsigned short decorations,
+		  out unsigned long window_id,
+		  out capros.key new_space);
+
+  /** Display size
+   *
+   * Ask the window system for the current height and width (in
+   * pixels) of the displayable screen to which the specified session
+   * belongs.  This corresponds to the height and width of the Root
+   * window.  These dimensions are available so clients can choose
+   * parent location for new windows wisely.
+   *
+   */
+  void display_size(out unsigned long width,
+		    out unsigned long height);
+
+  /** Next event
+   *
+   * Ask the window system for the next event in the event queue for
+   * the specified session.  If no event is available the client will
+   * block on this call.
+   *
+   */
+  Event next_event();
+
+  /** Close
+   *
+   * Close the specified session.  This action kills all windows in
+   * that session and attempts to return the session's space to the
+   * space bank that was used to create it.
+   *
+   */
+  void close();
+
+  /* Get window size
+   *
+   * Query the window system for the current height and width of the
+   * specified window.
+   *
+   */
+  void win_size(unsigned long window_id,
+		out unsigned long width,
+		out unsigned long height);
+
+  /** Show window
+   *
+   * Ask the window system to actually show the specified window on
+   * the screen.  This is the equivalent of "mapping" windows in other
+   * well-known windowing systems.
+   *
+   */
+  void win_show(unsigned long window_id);
+
+  /** Hide window
+   *
+   * Ask the window system to hide (or "un-show") the specified
+   * window.  This is the equivalent of "unmapping" a window in other
+   * well-known windowing systems.
+   *
+   */
+  void win_hide(unsigned long window_id);
+
+  /** Kill window
+   *
+   * Ask the window system to permanently destroy the specified window.
+   *
+   */
+  void win_kill(unsigned long window_id);
+
+  /** Set clipping area
+   *
+   * Set the clipping rectangle for the specified window.  This
+   * setting remains in effect until a subsequent call to this
+   * routine.
+   *
+   */
+  void win_set_clipping(unsigned long window_id,
+			unsigned long topLeftX,
+			unsigned long topLeftY,
+			unsigned long bottomRightX,
+			unsigned long bottomRightY);
+
+  /** Set title
+   *
+   * Set the title for the specified window.  The title is displayed
+   * in the window's title bar, if present.
+   *
+   */
+  typedef buffer<char,256> _str;
+  void win_set_title(unsigned long window_id, _str title);
+
+  /** Redraw
+   *
+   * Ask the window system to redraw the contents of the specified
+   * window.  The contents are stored in an address segment that is
+   * shared by the client and the window system. The specified
+   * dimensions define the rectangular region within the buffer that
+   * should be redrawn.
+   *
+   */
+  void win_redraw(unsigned long window_id,
+		  unsigned long topLeftX,
+		  unsigned long topLeftY,
+		  unsigned long bottomRightX,
+		  unsigned long bottomRightY);
+
+  /** Resize
+   *
+   * Ask the window system to resize the specified window using the
+   * given height and width.
+   *
+   */
+  void win_resize(unsigned long window_id,
+		  unsigned long width, unsigned long height);
+
+  /** Set max size
+   *
+   * Inform the window system of the maximum size for
+   * this window.
+   *
+   */
+  void win_set_max_size(unsigned long window_id, unsigned long width,
+			unsigned long height);
+
+  /** Set min size
+   *
+   * Inform the window system of the minimum size for this window.
+   *
+   */
+  void win_set_min_size(unsigned long window_id, unsigned long width,
+			unsigned long height);
+};
+

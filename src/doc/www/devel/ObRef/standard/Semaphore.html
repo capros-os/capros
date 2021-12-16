@@ -1,0 +1,81 @@
+<html>
+<head>
+<title>EOR: Sempahore</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>Semaphore</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3> 
+  <p> The <strong>Semaphore</strong> object provides a mechanism for
+  one process to sleep until another awakens it.  An actor (a process)
+  that wishes to delay until a provider (another process) has completed
+  some operation invokes the semaphore object.  When the provider has
+  completed it's operation, it invokes the semaphore to awaken the
+  actor.
+  <p> A sempahore is in some sense the inverse of a mutex object.
+  Where a mutex object ensures that only a single process can run, a
+  semaphore ensures that only a single process is blocked.
+  <p> Note that an invoker can wake up a previous invoker without
+  sleeping by performing a <strong>fork</strong> rather than a
+  <strong>call</strong> of the semaphore key.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.  This operation does
+	 not cause the caller to block.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       0x030000:
+	       Key is a semaphore object key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Sleep</strong> (OC = 1)
+    <dd>
+	 <p> Causes the invoker to go to sleep in the semaphore
+	 object, waking up any party that may already be asleep.  On
+	 return, the caller may assume that the semaphore has been
+	 invoked by at least one other party.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       You are awake again.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

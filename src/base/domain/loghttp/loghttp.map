@@ -1,0 +1,59 @@
+#ifndef __LOGHTTP_MAP_
+#define __LOGHTTP_MAP_
+/*
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+loghttp.space = small program LIBDIR "loghttp";
+loghttp.pc = symbol LIBDIR "loghttp" _start;
+
+lhresource.space = small program LIBDIR "lhresource";
+lhresource.pc = symbol LIBDIR "lhresource" _start;
+
+#define LOGHTTP(name, type) \
+BOOT_CONSTRUCTOR(loghttpc##name, loghttp); \
+PROD_SPACE(loghttpc##name) = loghttp.space; \
+PROD_PC(loghttpc##name) = loghttp.pc; \
+PROD_CONSTIT(loghttpc##name, KC_OSTREAM, 1) = misc Console; \
+PROD_CONSTIT(loghttpc##name, KC_PROTOSPC, 2) = protospace; \
+PROD_CONSTIT(loghttpc##name, KC_FORMATTYPE, 3) = number(type); \
+lhresource##name = new process; \
+lhresource##name space = lhresource.space; \
+lhresource##name pc = lhresource.pc; \
+lhresource##name schedule = sched(8); \
+lhresource##name symtab = number("lhresource"); \
+lhresource##name key reg KR_SELF = lhresource##name; \
+lhresource##name key reg KR_BANK = primebank; \
+lhresource##name key reg KR_SCHED = sched(8); \
+lhresource##name key reg KR_APP(0) = misc Console; \
+lhresource##name key reg KR_APP(1) = loghttpc##name; \
+run lhresource##name;
+
+LOGHTTP(binary24, 0);
+LOGHTTP(32, 1);
+LOGHTTP(16, 2);
+LOGHTTP(u16, 3);
+LOGHTTP(16x2, 4);
+LOGHTTP(leds, 5);
+
+#endif

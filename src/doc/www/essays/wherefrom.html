@@ -1,0 +1,599 @@
+<HTML>
+  <HEAD>
+    <TITLE>Where Capabilities Come From</TITLE>
+    <link href="mailto:shap@eros-os.org" rel="author" rev="made"
+      title="Jonathan S. Shapiro">
+    <link rev=comment href="http:/www.rain.org/~hal/crit/deputy1.html#'(how-capabilities-are-born)">
+    <link rev=issue href="http:/www.rain.org/~hal/crit/deputy1.html#'(Surely-they-have-to-be-created-sometime)">
+    <meta name=linknotify content=all>
+    <meta name=author content="Jonathan Shapiro">
+    <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+  </HEAD>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <center>
+	    <h1>Where Capabilities Come From</h1>
+	    <div>
+	      &nbsp;<br>
+	    </div>
+	  </center>
+	  <P>
+	    A number of people, after reading <a
+	    href="capintro.html"><em>What</em> is <em>a Capability,
+	    Anyway?</em></a>, have asked ``<em>But where do
+	    capabilities come from?</em>''
+	  </p>
+	  <p>
+	    That question can mean a lot of different things:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		How are <em>primitive</em> objects created in a
+		capability system?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Where does the system <em>as a whole</em> get its
+		capabilities from, and how does it get new ones?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		How are higher level objects, including user objects,
+		created in a capability system?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Where does a particular program in a capability system
+		get its capabilities from, and how does it get new
+		ones?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		How are capabilities stored?
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    Each of these questions has a simple answer, and each
+	    raises further questions that can be challenging.  In this
+	    note I'll try to answer as many of them as I can.
+	  </p>
+	  <p>
+	    Because the answers are much clearer with a concrete
+	    example, I rely heavily in this note on examples from EROS
+	    illustrate these points. The ideas behind these examples
+	    can be used in other systems.  For further information on
+	    EROS, you can have a look at the <a
+	    href="../eros.html">EROS Home Page</a>.
+	  </p>
+	  <h2>1.&nbsp;&nbsp;How Are Primitive Objects Created?</h2>
+	  <p>
+	    First, let me say what I mean when I talk about a
+	    ``primitive object.''
+	  </p>
+	  <p>
+	    In real systems, there is some place where the rubber
+	    meets the road.  Processes, files, directories, and so
+	    forth are abstractions provided by the system, but they
+	    are also ``objects'' that the system lets you manipulate.
+	    Ultimately, these objects are constructed out of other
+	    objects -- mainly disk storage.
+	  </p>
+	  <p>
+	    Disk sectors, in contrast, are primitive objects.  A disk
+	    drive manufacturer can tell you what they are made of, but
+	    as far as the operating system is concerned a disk sector
+	    is a basic building block.  An indivisible, basic building
+	    block of this sort is a primitive object.
+	  </p>
+	  <p>
+	    The choice of primitive objects, and the mechanism(s) used
+	    to name them, are among the most basic decisions in any
+	    operating system design.  The following subsections
+	    illustrate two very different alternatives.
+	  </p>
+	  <p>
+	    Some thoughts from Lewis Caroll on the subject of on
+	    naming, identity, and confusing the two:
+	  </p>
+	  <table>
+	    <tr valign=top>
+	      <td width="10%">&nbsp;</td>
+	      <td>
+		<p>
+		  "The name of the song is called `Haddocks' Eyes.'"
+		<p>
+		  "Oh, that's the name of the song, is it?" Alice
+		  said, trying to feel interested.
+		<p>
+		  "No, you don't understand," the knight said, looking
+		  a little vexed. "That's what the name is
+		  <em>called</em>.  The name really <em>is</em> `The
+		  Aged Aged Man.'"
+		<p>
+		  "Then I ought to have said `That's what the
+		  <em>song</em> is called'?" Alice corrected herself.
+		<p>
+		  "No, you oughtn't: that's quite another thing! The
+		  <em>song</em> is called `Ways And Means': but that's
+		  only what it's <em>called</em> you know!"
+		<p>
+		  "Well, what <em>is</em> the song, then?" said Alice,
+		  who was by this time completely bewildered.
+		<p>
+		  "I was coming to that," the Knight said. "The song
+		  realy <em>is</em> `A-sitting On A Gate': and the
+		  tune's my own invention."
+		<p align=right>
+		  <em>Through the Looking Glass</em><br> Lewis Carroll
+	      </td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	  </table>
+	  <h3>1.1&nbsp;&nbsp;Primitive Objects in EROS</h3>
+	  <p>
+	    In EROS, the primary objects are <a
+	    href="../devel/ObRef/primary/Page.html">pages</a>, <a
+	    href="../devel/ObRef/primary/Node.html">nodes</a>, and <a
+	    href="../devel/ObRef/primary/Number.html">numbers</a>.
+	    Pages and Nodes are both low-level disk objects.  Numbers
+	    represent integers in the range [0..2<sup>96</sup>-1].
+	    These objects are not composed out of more basic objects.
+	    There are also some objects (really services) that are
+	    implemented by the kernel that might be considered
+	    primitive.  These kernel objects have no state.
+	  </p>
+	  <p>
+	    These primitive objects need to be named by the system,
+	    and the names need to fit within a capability.  It is
+	    desirable that capabilities be of some fixed size, so the
+	    name can only be a fixed number of bits long (in EROS they 
+	    are 64 bits).
+	  </p>
+	  <p>
+	    This tends to result in a sort of odd view of things: all
+	    of the objects that are ever going to exist exist when the
+	    system is first installed.  Some of them (like pages on a
+	    disk that hasn't been attached yet) are going to take a
+	    really long time to respond if you try to access them.
+	  </p>
+	  <p>
+	    Think of disk pages as being like electrons: there is some
+	    fixed number (however large) of electrons in the universe.
+	    Some of them are near at hand (like a connected disk) and
+	    some of them are pretty far away (like a disk we haven't
+	    added yet).  We don't create new electrons (yet); we just
+	    rearrange the ones that we have in new configurations.
+	  </p>
+	  <p>
+	    In EROS, then, <em>primitive objects are neither created
+	    nor destroyed</em>.  Your access to them can be
+	    invalidated, but the object itself conceptually exists
+	    forever.
+	  </p>
+	  <h3>1.2&nbsp;&nbsp;Primitive Objects in Other Systems</h3>
+	  <p>
+	    EROS is persistent, so it is fairly easy to say what the
+	    primitive objects are and to account for what happens to
+	    them.  Other systems do not adopt this approach, and their
+	    stories about primitive objects are greatly complicated as
+	    a result.  While I use Amoeba as an example here, the
+	    questions raised should be asked about almost every
+	    operating system out there today.
+	  </p>
+	  <p>
+	    The <a
+	    href="http://www.cs.vu.nl/pub/amoeba/amoeba.html">Amoeba</a>,
+	    distributed system, for example, is not persistent.  When
+	    a program wants to create a new process, it performs an
+	    <i>exec_process()</i> call, which fabricates a new process
+	    from an executable file and returns a capability to the
+	    new process.
+	  </p>
+	  <p>
+	    In Amoeba, the process is manufactured out of whole cloth.
+	    This raises a number of questions:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		From what storage was the process created, and by what 
+		authority was this storage allocated?
+	      </p>
+	      <p>
+		Answers:
+	      </p>
+	      <p>
+		The process was created from swap space, which is a
+		finite resource that is not properly accounted for in
+		most systems.
+	      </p>
+	      <p>
+		No special authority was required to create the
+		process, which means that I can crash the system by
+		allocating too many processes.
+	      </p>
+	      <p>
+		Adding space quotas doesn't really help, as it
+		increases the number of operations in the system that
+		can fail due to lack of space.  A better design would
+		require the creating program to present a capability
+		for the space that will be used.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The file presumably came from a file system, which
+		raises some interesting security issues.  How do we
+		account for where the file storage came from and why
+		we can trust the supplier?  How do we know that the
+		file we intended to run has not been replaced?
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    In Amoeba, <em>the capability to the process is made up on
+	    demand</em>.  The saving grace is that capabilities are
+	    not stored to the disk, so it suffices for the allocator
+	    (in this case, the operating system) to remember which
+	    object numbers have been used during the current
+	    execution.
+	  </p>
+	  <h2>2.&nbsp;&nbsp;Where Does the <em>System</em> get its
+		Capabilities From?</h2>
+	  <p>
+	    The answer to this question is system-specific, but most
+	    systems are pretty similar.  There is some storage
+	    manager, which may be the kernel, and this storage manager 
+	    has the authority to create capabilities to any primitive
+	    object.  It is the responsibility of the storage manager
+	    to make sure that it doesn't give the same primitive
+	    object out to multiple parties.
+	  </p>
+	  <p>
+	    The following is a description of how this actually works
+	    in EROS.
+	  </p>
+	  <h3>2.1&nbsp;&nbsp;Adding a New Drive Under EROS</h3>
+	  <p>
+	    In EROS, when a new drive is connected to the system, a
+	    utility called the <em>disk formatter</em> is used to
+	    create EROS partitions and to define EROS <em>ranges</em>
+	    within those partitions.  A range is a contiguous sequence
+	    of pages on the disk, and has a known starting <em>object
+	    identifier</em> (OID).  Pages within the range are
+	    numbered sequentially starting from this object
+	    identifier.  The disk formatter performs a high-level
+	    format on each of these ranges to make it suitable for use
+	    by EROS.
+	  </p>
+	  <p>
+	    The disk formatter imposes some rules about the object
+	    identifiers.  Either
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		They do not overlap any existing identifiers at all,
+		in which case the new range is considered "new"
+		storage.
+	      </p>
+	  </ul>
+	  <p>
+	  or
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		They <em>exactly</em> match some existing range, in
+		which case the new range is a <em>duplex</em> of the
+		old range.  Duplexing is a low-level function of the
+		EROS kernel.
+	      </p>
+	  </ul>
+	  <p>
+	    Under the covers, an EROS page capability contains an
+	    object identifier, a type (page or node) and a version
+	    number.  The object identifiers come from a predefined
+	    space.  In EROS, a page OID is a number in the range
+	    [0..2<sup>64</sup>).  When you invoke a page capability,
+	    the range table is consulted to find the appropriate
+	    range, and then a lookup is done within that range to find
+	    the actual page.
+	  </p>
+	  <p>
+	    Once a new range is defined, it is either handed to the
+	    master EROS storage manager (the prime space bank) for use
+	    as new pages, or a special sub-bank is created and handed
+	    back to the caller of the disk formatting utility.  The
+	    second case is used for things like database programs that 
+	    want to manage their own storage.
+	  </p>
+	  <h3>2.2&nbsp;&nbsp;Fabricating New Pages</h3>
+	  <p>
+	    The next question to ask is: ``Where do the new page
+	    capabilities come from?''
+	  </p>
+	  <p>
+	    The answer is that the disk formatter doesn't actually
+	    create any new page capabilities.  The EROS storage
+	    manager (the prime space bank) holds a special capability
+	    known as a <a
+	    href="../devel/ObRef/kernel/Range.html">range
+	    capability</a>.  A range capability specifies a range of
+	    OIDs, and allows the holder to manufacture page and node
+	    capabilities with any OID in that range.  If you like, you
+	    can think of the <em>range capability</em> as representing
+	    a set of all pages and nodes in the corresponding range.
+	  </p>
+	  <p>
+	    The prime space bank holds a range capability for the
+	    entire range of OIDs.  It avoids giving out capabilities
+	    to nonexistent pages by remembering which ranges are
+	    valid.  It knows the list of valid ranges because it
+	    trusts the disk formatting utility.
+	  </p>
+	  <p>
+	    In summary, then: <em>The system never gets any new
+	    capabilities.</em>
+	  <h2>3.&nbsp;&nbsp;How are Higher Level Objects Created?</h2>
+	  <p>
+	    A higher level object is simply one that is built out of
+	    primitive objects.  In EROS, these include processes,
+	    address spaces, system services, files, directories, and
+	    so forth.  Since a higher-level object is built out of
+	    primitive objects, there is always some unique primitive
+	    object that we can use to identify the higher-level
+	    object.  Two examples:
+	  </p>
+	  <h3>3.1&nbsp;&nbsp;Process Creation in EROS</h3>
+	  <p>
+	    In EROS, a <a
+	    href="../devel/ObRef/primary/Process.html">process</a> is
+	    made up of some number of nodes (how many is architecture
+	    specific), one of which serves as the <em>process
+	    root</em>.
+	  </p>
+	  <p>
+	    In some sense, you will note, we haven't actually created
+	    any objects when we make a process out of nodes.  What has
+	    really happened is that we have agreed to pretend that
+	    these nodes constitute a process for the moment.  A
+	    natural way to name the process is by taking the object
+	    identifier of the process root and creating a capability
+	    with a new <em>type</em> that tells the kernel to use the
+	    process abstraction instead of the node abstraction.
+	  </p>
+	  <p>
+	    In
+	    EROS, this is exactly how a process capability is built.
+	    There is a kernel service called the <a
+	      href="../devel/ObRef/kernel/ProcessTool.html">process
+	      tool</a>.  Given a node capability, the process tool
+	    returns a process capability to that node.  This
+	    effectively turns the node into a process root.
+	  </p>
+	  <p>
+	    Two observations about this design:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		The EROS kernel is not harmed if both process
+		capabilities and node capabilities exist at the same
+		time for the same node.  It therefore does not care if
+		this is so.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		There are ways that a user program <em>might</em> be
+		harmed if a node capability exists to one of your
+		processes.  There is a standard system utility, called 
+		the <a
+		  href="../devel/ObRef/standard/ProcessCreator.html">process
+		  creator</a> that provides this guarantee to programs 
+		that need it.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    A similar technique is used for <a
+	      href="../devel/ObRef/primary/AddressSpace.html">address
+	      space</a> objects, though in that case the protection of 
+	    a process tool is unnecessary.
+	  </p>
+	  <p>
+	    Note, however, that in the case of processes, the higher
+	    level object was not ``created'' in the usual sense:
+	    nothing is built from scratch when an EROS process comes
+	    into the world.
+	  </p>
+	  <h3>3.2&nbsp;&nbsp;User-Defined Objects</h3>
+	  <p>
+	    In most capability systems (and for that matter in most
+	    microkernel systems), programs can define and implement
+	    new objects, which are often referred to as
+	    <em>user-defined objects</em>.
+	  </p>
+	  <p>
+	    From the operating system's perspective, no new object is
+	    defined.  A user-defined object is simply a capability
+	    that invokes the <em>program</em> that a process obeys.
+	    The operating system provides a special capability type,
+	    referred to as a <em>start capability</em> (EROS), or an
+	    <em>entry port</em> (most others).  When this capability
+	    is invoked, the passed information is supplied to the
+	    program (as distinct from the process).
+	  </p>
+	  <p>
+	    What the program does with the supplied information is
+	    entirely up to the program.  Among other things, this
+	    allows programs to define new object types.  To the holder
+	    of the start capability, it appears that they hold a
+	    capability to a new object.
+	  </p>
+	  <p>
+	    In addition to a distinct capability type, a start
+	    capability typically includes some extra bits that are
+	    supplied to the program by the operating system when it is
+	    invoked.  This bits can be used to distinguish one object
+	    from another, or to distinguish between multiple services
+	    or service interface versions implemented by the same
+	    program.
+	  </p>
+	  <p>
+	    One tricky issue raised by user-defined objects is ``So
+	    what <em>is</em> an object?''  EROS takes the view that an
+	    object is something that has a well defined interface.
+	    While two capabilities can be compared for <em>identity</em>
+            (they are the same thing),
+	    there is no means to compare them for <em>equality</em>
+            (they do the same thing).
+	  </p>
+	  <h2>4.&nbsp;&nbsp;How Does <em>My</em> Program Get
+	    Capabilities?</h2>
+	  <p>
+	    The last question is the one that people generally seem to 
+	    be asking when they ask where capabilities come from.  The 
+	    answer is simple, but people seem to have a hard time
+	    figuring out how it translates into practice.
+	  </p>
+	  <p>
+	    In a capability system, a new program (we'll call it
+	    <em>new</em>) gets its capabilities in two ways:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		<em>New</em> receives an initial set of capabilities
+		when it is created.  These are supplied by
+		<em>new</em>'s creator (which is another program).
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		If another program receives a capability to
+		<em>new</em>, it can invoke <em>new</em> and pass it
+		additional capabilities if it desires.
+	      </p>
+	    </li>
+	  </ol>
+	  <h3>4.1&nbsp;&nbsp;Example: Modeling UNIX Authority</h3>
+	  <p>
+	    This may not seem like a lot of flexibility, so let's look 
+	    at how this could be used to implement the authorities
+	    that a UNIX program normally holds.  Since UNIX has no
+	    ability to transfer capabilities (or at least none that is 
+	    widely used), all of this authority comes from the initial 
+	    authorities.
+	  </p>
+	  <p>
+	    A UNIX program has the following authority:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		Access to a file system root (/), which is like a
+		capability to a directory object.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Access to a ``current working directory'', which is
+		also like a capability to a directory object.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The right to send signals to its children (a
+		capability set) and in some cases to members of its
+		process group and terminal group (also capability
+		sets).  Since a UNIX program does not have other
+		authorities over such programs, these sets must be
+		wrapped by ``signal manager'' objects, and the UNIX
+		program is given a capability to the signal manager.
+	      </p>
+	      <p>
+		Note that the UNIX emulator can add and remove things
+		from these sets to model the creation and destruction
+		of new processes.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Access to a source of storage from which page
+		allocations are satisfied and new processes are
+		created (a space bank).
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Access to the network subsystem.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A process holds file descriptors to open files, which
+		again are like capabilities
+		to file objects.
+	      </p>
+	    </li>
+	  </ul>
+	  <h2>5.&nbsp;&nbsp;How are Capabilities Stored?</h2>
+	  <p>
+	    Finally, we get to the last question, which is how
+	    capabilities are to be stored.  Usually, the real question 
+	    behind this question is: ``Where do capabilities go when
+	    the system is shut down, and how can I arrange to get them 
+	    back?''
+	  </p>
+	  <p>
+	    In a persistent system like EROS, processes do not go away
+	    until they exit voluntarily. There is no need to take
+	    special measures to get capabilities back: they are never
+	    lost in the first place.
+	  </p>
+	  <p>
+	    In a non-persistent system like Amoeba, some arrangement
+	    must be made to store capabilities in a permanent store.
+	    In non-persistent systems, this is usually accomplished
+	    with encrypted capabilities, which can be stored as normal 
+	    data.
+	  </p>
+	  <p>
+	    The main problem in non-persistent systems is making sure
+	    that the wrong people cannot then read the files and
+	    thereby get their hands on the capabilities.  In the end,
+	    non-persistent systems are forced to resort to some sort
+	    of access list based mechanism to protect the file system,
+	    which is insecure, for reasons described <a
+	    href="capintro.html#acl">here</a>.  This is why EROS is
+	    persistent.
+	  </p>
+	  <p>
+	    UNIX systems get around this problem by not letting you
+	    store capabilities at all.  Open file descriptors are
+	    simply lost when the system crashes; the corresponding
+	    files must be reopened by way of the file system.
+	  </p>
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</HTML>

@@ -1,0 +1,593 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0 Level 1//EN">
+<HTML>
+  <HEAD>
+    <TITLE>Getting and Building CapROS</TITLE>
+  </HEAD>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+	  <div class=nocss>
+	    <br class=nocss>&nbsp;
+	      <br class=nocss>&nbsp;
+	  </div>
+	  <center>
+	    <H1>Getting and Building CapROS</H1>
+	  </center>
+	  <h1>1. Obtaining CapROS</h1>
+	  <p>
+	    If you just want to have a
+	    look at the code, you can simply go to the 
+	    <a href="http://sourceforge.net/projects/capros/">
+	    Project page</a>
+            and click on "Develop" and then "Browse code".
+            SourceForge also has instructions for getting
+            anonymous access to CVS. 
+	  </p>
+	  <h1>2. Building CapROS</h1>
+	  <p>
+          The <b>host</b> system is the system on which you build CapROS
+          and do any development.
+          The <b>target</b> system is the system on which you run CapROS.
+	  <p>
+          These instructions apply when the host and target are both
+          the Intel IA32 (x86) architecture.
+          The target system could be the same computer as the host system
+          (rebooted to run CapROS),
+          or it could be a separate computer (possibly a virtual machine).
+	  <p>
+          A port also exists for the ARM architecture target; see
+          <a href="#ARMBuild">below</a>. 
+	  </p>
+          <h2>2.1. Package Requirements</h2>
+	  <p>
+            CapROS is built using Linux. If your system doesn't have the
+            following packages, you may need to obtain and install them. 
+          </p>
+          <h3>2.1.1. For Fedora</h3>
+            <ul>
+            <li>Some versions need transfig.
+            </ul>
+          <h3>2.1.2. For Debian Sarge</h3>
+            <ul>
+            <li>libgmp3-dev -- Multiprecision arithmetic library</li>
+            <li>binutils-dev -- for libbfd</li>
+            <li>gawk</li>
+            </ul>
+	  <h2>2.2. Obtaining the Cross Compilation Tools</h2>
+	  <p>
+            Even though the host and target machines both have the
+            Intel IA32 architecture, cross tools are necessary because
+            most tools have dependencies on the underlying operating system.
+            CapROS uses its own cross-compilation tools 
+            for stability.
+            We acknowledge and thank the
+            <a "http://www.coyotos.org/">Coyotos</a> project
+            for hosting these tools. 
+	  <p>
+            Tools are available for Fedora Core 10 (and earlier systems).
+            We hope to have tools for later systems soon. 
+            Some have had success building CapROS on Fedora Core 11. 
+      <h3>2.2.1 Setting up on Linux/YUM Systems</h3>
+      <p>
+	If you are running Fedora Core 11 or greater, you can add the YUM
+	repository to your <tt>yum</tt> and
+	<tt>up2date</tt> configurations by executing:
+      </p>
+      <pre>
+su -c 'rpm -Uvh http://dev.eros-os.com/YUM/coyotos/Fedora/11/Coyotos-Repository.noarch.rpm'
+</pre>
+      <p>
+	Older versions of Fedora Core would use:
+      </p>
+      <pre>
+su -c 'rpm -ivh http://www.coyotos.org/YUM/coyotos/6/i386/Coyotos-Repository-3.2-2.fc6.noarch.rpm'
+</pre>
+      <p>
+	You can then install the cross compilation
+	tools by running:
+      </p>
+      <pre>
+su -c 'yum install capros-i386-xenv'
+</pre>
+      <p>
+	And you can later update the cross compilation
+	tools by running:
+      </p>
+      <pre>
+su -c 'yum update capros-i386-xenv'
+</pre>
+      <p>
+        (If the above fails, see 
+        <a href="http://sourceforge.net/mailarchive/message.php?msg_name=1147834740.31996.95.camel%40mikado64.cs.jhu.edu">
+email of 5/16/06</a>.)
+      </p>
+      <p>
+	The <tt>capros-i386-xenv</tt> package is a
+	"virtual" package - it simply supplies the necessary
+	dependencies so that YUM will find all of the pieces you need.
+        All of the CapROS cross environment tools install into
+	the top-level directory <tt>/capros/</tt>.
+      </p>
+      <p>
+        For more information, 
+        refer to the 
+        <a href="http://www.coyotos.org/docs/build/build.html#1.3">
+        Coyotos build instructions</a>, substituting "capros" where
+        appropriate.
+      </p>
+      <h3>2.2.2 Setting up on Fedora Core 8 using the GUI</h3>
+	  <p>
+	    If you are running on Fedora Core 8, you can add the build tools
+	    to your automatic software update list with the following procedure.
+	  </p>
+	  <p>
+	    Under "Applications", open the "Add/Remove Software" and enter your
+	    root password when prompted.
+            (Fedora 10 has an tool under
+            System->Administration->Add/Remove Software, 
+            but it isn't capable of adding repositories.)
+	  </p>
+	  <p>
+	    Open up the "Edit" menu and select "Repositories".
+	  </p>
+	  Click the "Add" button to add the Coyotos repository
+	  </p>
+	  <p>
+	    Fill in the fields:
+	  </p>
+	  <pre>
+Name:         Coyotos RPMs
+Description:  Development tools for Coyotos/CapROS
+Location:     http://www.coyotos.org/YUM/coyotos/6/i386/
+	  </pre>
+	  <p>
+	    and click "OK".
+	  </p>
+	  <p>
+	    Close the Repository Manager.
+	  </p>
+	  <p>
+	    Select the "Search" tab, and enter "Coyotos-Repository" in
+	    the search.
+	    When the search completes, check the check box for:
+	  </p>
+	  <pre>
+Coyotos-Repository-3.2-2.fc6.noarch
+	  </pre>
+	  <p>
+	    Click "Apply".  Click "Continue" on the popup.
+	  </p>
+	  <p>
+	    Select the "Search" tab, and enter "capros-i386-xenv" in the search.
+	    When the search completes, check the check box for:
+	  </p>
+	  <pre>
+capros-i386-xenv - 0.1.6.4fc6.i386
+	  </pre>
+	  <p>
+	    Click "Apply".  Click "Continue" on the popup.
+      </p>
+      <h3>2.2.3 Setting up on Other UNIX's</h3>
+      <p>
+	If you are building on some other UNIX
+	derivative that does not support YUM, you may find
+	that nothing will do but to build the cross environment for
+	yourself. 
+        For instructions, go to the
+        <a href="http://www.coyotos.org/docs/build/build.html#1.4">
+        Coyotos build instructions</a> for guidance.
+        You may need to set COYOTOS_XENV to /capros/host and substitute
+        "capros" where appropriate elsewhere. 
+	  </p>
+	  <h2>2.3. Building CapROS</h2>
+	  <p>
+            Follow the instructions on SourceForge for accessing 
+            and downloading the CapROS CVS repository.
+            The projectname is capros, and the module name is eros
+            (we haven't yet changed the name of the module).
+            After setting CVSROOT appropriately, use the commands:
+	  <ul>
+<pre>
+cd <i>somewhere</i>
+cvs checkout -P eros
+</pre>
+	  </ul>
+	  </p>
+	  <p>
+            At the moment there is no tarball for the CapROS sources.
+            We will add this when the system becomes stable enough
+            for non-developers. 
+	  </p>
+	  <p>
+	    Now you can build CapROS by
+	  </p>
+	  <ul>
+<pre>
+cd <i>somewhere</i>/eros/src
+make
+</pre>
+	  </ul>
+          <p>
+          Some make targets that may be useful:
+          </p>
+          <ul>
+          <li>clean - remove all generated files
+          <li>distclean - clean, and also remove install directories under eros/
+          <li>update - get the latest version
+          </ul>
+	<h1>3. Running CapROS</h1>
+	  <h2>3.1. Supported Hardware</h2>
+	  <p>
+	    IA32 CapROS supports the following hardware (all
+	    trademarks belong to their respective owners):
+	  </p>
+	  <table>
+	    <tr valign="top">
+	      <td><strong>Processor</strong></td>
+	      <td>486, Pentium, and above, and compatible processors.
+                CapROS has been tested on a Pentium II, a Mobile AMD Athlon,
+                and Vmware. 
+		We have no way to test every processor.
+                If you have a problem with a particular processor,
+                we'll try, up to a point, to help get it working.
+                <p> For ARM, see section 4 below.
+		<p> CapROS does not yet fully support:
+                <ul>
+                  <li> Multiprocessor cores and boards. Only one processor
+                    will be used.
+                  <li> 64-bit addressing. All programs run in 32-bit mode.
+                </ul>
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>BIOS</strong></td>
+	      <td>We are not aware of any BIOS-specific dependencies.
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>Motherboard</strong></td>
+	      <td>We are not aware of specific dependencies.
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>RAM</strong></td>
+	      <td>CapROS should run on the smallest memory configurations
+                currently shipped. We do not yet support large RAM.
+                Any RAM over about 400 MB will be ignored.
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>USB</strong></td>
+	      <td>CapROS supports the EHCI standard via PCI.
+                This is the interface shipped with nearly all PCs
+                that support USB 2.0. 
+                OHCI is also supported. UCHI should not be hard to add.
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>Disk</strong></td>
+	      <td>CapROS supports USB disks that meet the Mass Storage Class
+                Specification. This includes most USB "thumb" drives.
+                <p>Note, the QA practice for the many manufacturers of thumb drives
+                seems to be "If it works with Windows, ship it." 
+                Some of these drives do not actually meet the specification.
+                The CapROS driver, which is derived from Linux,
+                includes hundreds of work-arounds for bugs in specific
+                models.
+                If your thumb drive doesn't work, try a different brand.
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>Video</strong></td>
+	      <td> Not yet supported.
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>Network</strong></td>
+              <td> The VIA Rhine network interface is supported via PCI.
+                High on our wish list of other interfaces to support
+                will be whatever's necessary for the popular
+                virtual machines.
+	      </td>
+	    </tr>
+	    <tr valign="top">
+	      <td><strong>Serial port</strong></td>
+              <td> CapROS supports the RS232 serial port that is standard
+                on most PCs. See below for configuring the serial port
+                as a console. 
+	      </td>
+	    </tr>
+	  </table>
+	  <h2>3.2. Target System Setup</h2>
+	  <h3>3.2.1. GRUB configuration</h3>
+	  <p>
+            The target system must have
+            <a href=http://www.gnu.org/software/grub/> GRUB</a>
+            installed, because CapROS is
+            loaded by GRUB using the Multiboot specification.
+	  <p>
+            The target system must have a boot partition
+            with a file system where GRUB will find the file to load.
+            Define CAPROS_BOOT_PARTITION as the name of this partition.
+            For example, if the target system is the same as the
+            host system:
+	  </p>
+	  <ul>
+<pre>
+export CAPROS_BOOT_PARTITION=/boot
+</pre>
+	  </ul>
+	  <p>
+            The CapROS file is copied to the target system using <tt>scp</tt>.
+            If the target system is a separate computer, you'll need to
+            boot Linux (or any system that responds to
+            <tt>scp</tt>) on that computer,
+            and you'll need to configure it to allow <tt>ssh</tt>
+            from the host computer.
+            CAPROS_BOOT_PARTITION can be any path acceptable to <tt>scp</tt>.
+            If the target system's host name is "target", you would define:
+	  </p>
+	  <ul>
+<pre>
+export CAPROS_BOOT_PARTITION=target:/boot
+</pre>
+	  </ul>
+	  <p>
+            To boot CapROS, boot the target computer, stopping the boot
+            when it comes to running GRUB. Type the
+            following commands to GRUB:
+	  </p>
+	  <ul>
+<pre>
+root (hd0,1)     # or the appropriate value for your boot partition
+kernel --type=multiboot /CapROS-kernimg
+</pre>
+	  </ul>
+	  <p>
+            You will probably want to add an item to your GRUB menu.lst file
+            with these commands. 
+	  </p>
+	  <h3>3.2.2. Console configuration</h3>
+	  <p>
+            Console output can go to the display console and/or to the
+            target system's serial port.
+            The default configuration is to send console output to the
+            display only.
+	  <p>
+            The display has the disadvantage that information you want
+            can scroll off the top of the screen. 
+            (Also, in the future when CapROS supports a windowing GUI
+            on the display, console output can't go there.)
+            If you want you can 
+            change the configuration so console output is always sent to the
+            serial port, and also to the display during kernel boot only.
+            Also, in this configuration, the kernel debugger takes input from 
+            the serial port instead of the target system's keyboard.
+            To do this, define the following in your environment:
+	  </p>
+	  <ul>
+<pre>
+export EROS_CONFIG=DEVEL
+</pre>
+	  </ul>
+	  <p>
+            To use the output on the serial port, you'll need to connect it
+            to the serial port of another computer, using a "null modem" cable.
+            A program such as minicom can then capture and display the output.
+            The serial configuration is 57,600 baud, 8-N-1.
+	  <h3>3.2.3. Network Configuration</h3>
+	  <p>
+            Network configuration means defining the IP address, mask,
+            gateway, and security certificate for your target CapROS system.
+            You only need to do this if you are using the IP network.
+            Because this information is specific to each system,
+            you should keep it in a place outside of the CapROS source tree.
+            The CapROS source tree includes only a sample configuration
+            which you should copy and modify.
+	  </p>
+	  <p>
+            Copy the sample configuration directory and files:
+	  </p>
+	  <ul>
+<pre>
+cp -r <i>somewhere</i>/eros/src/tutorials/config <i>myconfig</i>
+</pre>
+	  </ul>
+	  <p>
+            You need to define the environment variable EROS_ROOT:
+	  </p>
+	  <ul>
+<pre>
+export EROS_ROOT=<i>somewhere</i>/eros
+</pre>
+	  </ul>
+	  <p>
+            or you may simply define it in <i>myconfig</i>/Makefile.
+	  </p>
+	  <p>
+            Edit the file <i>myconfig</i>/eth.map to specify your
+            IP address, mask, and gateway address.
+	  </p>
+	  <p>
+            To use HTTPS, you need a security certificate and private key.
+            You can generate a self-signed certificate by typing the
+            following and answering a few questions:
+	  </p>
+	  <ul>
+<pre>
+cd <i>myconfig</i>
+make genkeys
+</pre>
+	  </ul>
+	  <p>
+            Then install the files by typing:
+	  </p>
+	  <ul>
+<pre>
+cd <i>myconfig</i>
+make install
+</pre>
+	  </ul>
+	  <h2>3.3. Running a non-persistent test program</h2>
+	  <p>
+            Make sure you rebuild CapROS after making any configuration changes.
+	  </p>
+	  <p>
+            To compile and load the test program into the target system:
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/tutorials/hello-large
+make np
+</pre>
+	  </ul>
+	  <p>
+            To run the test program, boot CapROS as described above.
+            You will see some messages as the kernel boots,
+            followed by the output of the test program.
+	  </p>
+	  <p>
+            Other test programs you can run can be found in other
+            directories under <tt>eros/src/tutorials</tt>
+            and <tt>eros/src/base/tests</tt>.
+	  </p>
+	  <h2>3.4. Running a persistent test program</h2>
+	  <h3>3.4.1. Disk setup</h3>
+	  <p> 
+            CapROS supports USB disks.
+            You must have a USB disk with a partition formatted for CapROS. 
+	    Use a disk utility such as
+	    <tt>fdisk</tt> to create a partition, and give it
+	    type 0x95.
+	  </p>
+	  <p>
+            We suggest that the partition size be several times the
+            size of your RAM (for the checkpoint log)
+            plus however much space you expect to need for application data.
+	  </p>
+	  <p>
+            Before using the CapROS partition for the first time,
+            you must format it. You do this on the host system
+            by defining the shell variable EROS_HD as the device name
+            for this partition. For example:
+	  </p>
+	  <ul>
+<pre>
+export EROS_HD=/dev/sdb1
+</pre>
+	  </ul>
+	  <p>
+            You can create your own volmap file to allocate the log
+            and other space. Use tutorials/volmap as a starting point.
+            Note that only the amount of space specified in the
+            volmap file will be used. Any additional space in the
+            partition will be ignored.
+	  </p>
+	  <p>
+            Then format the partition. You only need to do this
+            to the partition once.
+            This may take a while. 
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/tutorials/https/main
+make init.hd
+</pre>
+	  </ul>
+	  <h3>3.4.2. Running the Test Program</h3>
+	  <p>
+            Test programs that you can run can be found
+            under <tt>eros/src/tutorials</tt>
+            and <tt>eros/src/base/tests</tt>.
+            If the directory has a <tt>pimgmap</tt> file,
+            it is meant to be run in a persistent system,
+            otherwise it is to be run in a non-persistent system.
+            To build and load the test, type for example:
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/base/tests/func/http
+make p
+</pre>
+	  </ul>
+	  <p>
+            There is a web-key demonstration in
+            <tt>eros/src/tutorials/https</tt>.
+            Be sure to read and follow the README file in that directory.
+	  </p>
+	  <h1><a name="ARMBuild">4. Building for ARM</a></h1>
+	  <p>
+          CapROS can run on the ARMv4 architecture.
+          First, get the ARM cross-tools:
+          </p>
+<pre>
+su -c 'yum install capros-arm-xenv'
+</pre>
+          <p>
+          To build for ARM, you need to:
+	  </p>
+<pre>
+export EROS_TARGET=arm
+</pre>
+          <p>
+          You also need to set CAPROS_MACH to the board you are using.
+          edb9315 and edb9315a are currently supported. 
+	  </p>
+	  <p>
+          The system has been tested on a Cirrus EDB9315 development board,
+          which uses the Cirrus EP9315,
+          which is based on the ARM920T microprocessor.
+          </p><p>
+          To run on the EDB9315:
+          <ol><li>
+          Build the system for ARM.
+          </li><li>
+          Go to the directory containing the test case you want to run,
+          for example src/base/tests/perf/nc.
+          The kernel text, kernel data, and initial system state are loaded
+          into the system's memory
+          from three separate files in <tt>/tftpboot</tt>
+          (<tt>kerneltext</tt>, <tt>kerneldata</tt>, and <tt>imgdata</tt> respectively).
+          Build them:
+<pre>
+make np
+</pre>
+          </li><li>
+          Set up Redboot according to the instructions that came with
+          the EDB9315. To install tftp, you will need to:
+<pre>
+su -c 'yum install tftp-server'
+</pre>
+          and then use the application at System->Administration->Services
+          to enable tftp and restart xinetd. 
+          I also had to enable UDP port 69 in my firewall, and change the
+          SELinux setting to Permissive. 
+          </li><li>
+          Boot the EDB9315 to execute Redboot. 
+          Give Redboot the commands:
+<pre>
+load -v -r -b 0x00300000 imgdata
+load -v -r -b 0x00100000 kerneldata
+load -v -r -b 0x00200000 kerneltext
+go
+</pre>
+          kerneltext is loaded last because that sets the default start
+          address for the go command.
+          Consider using Redboot aliases for these commands.
+          </li></ol>
+	  </p>
+<table>
+<tr valign=top>
+  <td>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 2005-2011 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+  </BODY>
+</HTML>

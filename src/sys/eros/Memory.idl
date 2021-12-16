@@ -1,0 +1,32 @@
+package capros;
+
+/** Kernel interface to page and GPT keys.
+ *
+ */
+interface Memory extends key {
+  exception UnrepresentableGuard;
+
+  typedef unsigned long long addr_t;
+
+  /* Restrictions: */
+  const unsigned long opaque = 1;
+  const unsigned long weak = 2;
+  const unsigned long noCall = 4;
+  const unsigned long readOnly = 8;
+
+  /* Returns a key to the memory object with reduced permissions. */
+  Memory reduce(unsigned long restrictions);
+
+  /* Returns the guard of this key. */
+  addr_t getGuard();
+
+  /* Returns a key to the memory object with the specified guard.
+  guard & EROS_PAGE_MASK must be zero.
+  Due to storage constraints, all the one bits in guard
+  must be in 8 contiguous bits, else raises UnrepresentableGuard. */
+  capros.key makeGuarded(addr_t guard);
+
+  unsigned long getRestrictions();
+
+  void fault(unsigned long faultCode, unsigned <64> offset, key memObj);
+};

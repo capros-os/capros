@@ -1,0 +1,854 @@
+<html>
+<head>
+<title>A Programmer's View of EROS</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> This chapter provides a high-level view of the EROS system as seen
+by a programmer.  It does not attempt to be exhaustive; that will come
+later.  The purpose of this chapter is to give you a feel for the
+system before proceeding on to the details.
+<p> EROS is very different from systems like UNIX(tm) or Microsoft
+Windows(tm).  Newcomers who are familiar with these systems find EROS
+frustrating at first, because it violates their expectations of how an
+operating system <em>should</em> work.  We encourage you to try to set
+aside what you know for the moment and approach EROS as a clean slate.
+<h1>1 EROS Applications</h1>
+<p> In conventional operating systems, applications are usually built
+as a single large process.  Typically, the process will use a number
+of shared libraries, but a single program may be made up of hundreds
+of thousands of lines of code.  This style, which we refer to as
+<em>monolithic</em> programming, is necessary because processes are
+ephemeral.  If the machine is shut down, or unexpectedly halts, all
+processes are lost.  Recreating an application that is broken into
+many processes is complex, so usually the application is written as a
+single large program.
+<p> The monolithic programming approach suffers from several problems:
+<p>
+<ul>
+  <p>
+  <li> <em>Fault Isolation</em> - In a large program, it can be quite
+       difficult to find the source of a runtime error.  Often, the
+       fault manifests itself in a module completely unrelated to the
+       source of the problem.
+       <p>
+  <li> <em>Security</em> - In a non-persistent system, it is difficult
+       to authorize a user to run a program without authorizing them
+       to read the program code.  If the code is proprietary, this is
+       a problem.
+       <p>
+  <li> <em>OS Complexity</em> - The need to reconstruct processes from
+       some other source is how the whole notion of file systems came
+       into being.  This tends to force the operating system to
+       support a file system and/or some kind of human-readable naming
+       conventions.
+       <p>
+  <li> <em>Adaptability</em> - Making a change to a large program is
+       costly.  The entire program must be recompiled and retested,
+       which takes an amazing amount of time.
+       <p>
+  <li> <em>Specification Failure</em> - Because there are no enforced
+       boundaries and interfaces between components, there is a
+       tendancy for the code to drift away from the specification.
+       Similarly, testing conformance is difficult.
+       <p>
+  <li> <em>Authority Confusion</em> - Because a program's authorities
+       must be reconstructed every time the program is executed, ad
+       hoc security schemes are necessary.  The UNIX superuser bit and
+       the Win32 registry are examples of ad hoc security mechanisms.
+</ul>
+<p> The fault isolation problem is greatly reduced, and the other
+issues eliminated, if running programs are preserved across system
+shutdowns.  All objects in EROS, including processes, are
+<em>persistent</em>.  Periodically, the EROS system saves a consistent
+copy of the entire machine state to disk.  If power is interrupted,
+the system restarts from the most recently saved system image.
+<p> Persistent processes enable a whole new aproach to application
+design.  Instead of building shared libraries, common services in EROS
+are placed in seperate, persistent domains.  Because domains are
+persistent, there is no need to recreate them each time an application
+is started, which would be necessary in a non-persistent system.
+<p> Applications in EROS are typically constructed out of several
+independent processes, which we call <strong>domains</strong>.  Each
+domain performs a specific, well-defined function.  Each domain
+carries exactly the authority that it requires to perform its
+function, and no more.  Domains can have independent exception
+handling policies and recovery mechanisms.
+<p> While it is common to build several domains for a single
+application, the EROS system comes with a toolkit of useful domains.
+Some of these provide high-level facilities such as sorting and data
+management.  Others implement various supporting policies for such
+things as page fault handling.  Typically, an application designer
+will make use of several ``off the shelf'' domains in constructing an
+application.
+<p> These domains are more than just libraries.  In addition to code
+and data, each of these domains has the ability to remember
+information from one session to the next, and runs in it's own
+protected environment.  Services implemented using domains can run in
+parallel with the application they serve.  We refer to such protected,
+independent services as <em>active persistent agents</em>.  They are
+one of the keys to EROS's reliability.
+<p> Placing common services in seperate domains has several
+advantages:
+<p>
+<ul>
+  <p>
+  <li> The service runs in its own address space.  If it does fail the
+       remainder of the program is unaffected, and the guilty portion
+       of the system is easily identified.
+       <p>
+  <li> The service can be tested independently, because it's interface
+       is well defined and it's interaction with the rest of the
+       system is well understood.
+       <p>
+  <li> The service can be used by non-trusted clients.  It is possible
+       (and quite common) to give a user the ability to invoke a
+       domain without giving them the authority to access the code or
+       data in that domain.
+</ul>
+<p> The primary disadvantage to this approach is that invoking a
+domain is somewhat more expensive than performing a library call.
+<h2>1.1 A Pure Capability System</h2>
+<p> EROS domains - in fact, all EROS objects - are named by one or
+more secure <strong>capabilities</strong>.  A capability uniquely
+identifies some particular object in the system, and describes the
+operations that can be performed on that object using that capability.
+The capabilities held by a process determine both what objects can be
+accessed and what operations can be performed.  In EROS, there is no
+notion of ``opening'' an object to determine the user's authority.
+Holding a capability is a <em>necessary and sufficient</em> condition
+for object access.  Security is assured by never handing a capability
+to a user who should not have it.
+<p> Capabilities solve three difficult operating system problems:
+<p>
+<ul>
+  <p>
+  <li> They provide a single, unified mechanism for object naming at
+       all levels of the memory hierarchy.  In particular, the same
+       capability is used for both the in-memory and on-disk forms of
+       EROS objects.
+       <p>
+  <li> They provide a uniform mechanism for naming both hardware and
+       software resources.  Capabilities are used in EROS to name
+       devices, data pages, and callable processes.
+       <p>
+  <li> They provide an extremely simple and flexible mechanism for
+       access protection.  The principle of least privilege (programs
+       should have the privilege that they need, and no more) is
+       simpler to realize with capabilities than with access-control
+       based protection mechanisms.
+</ul>
+<p> In EROS, capabilities are the <em>only</em> way of obtaining
+access to objects.  Every domain has 16 capability registers, and can
+directly access the objects named by those capabilities.  The
+capabilities held by a domain determine both what objects can be
+accessed and what operations can be performed by that domain.
+<p> In practice, the term ``capability'' is cumbersome to say and a
+pain in the neck to type.  In EROS, capabilities are almost always
+referred to as <strong>keys</strong>.
+<h2>1.2 A Database Example</h2>
+<p> To give an example of the impact of active persistent agents,
+consider the problem of keeping a small database, such as a password
+file, that is used by a number of related programs.  In UNIX, this
+would be done using a library package called <em>dbm</em> (or these
+days, <em>ndbm</em>), as shown in Figure 1.1.  The dbm
+package constructs and maintains a keyed-index file.  Provided that
+all parties access the file using the dbm routines, all is well.
+<p>
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- UnixPwd.eps -->
+  <p> Figure 1.1: UNIX password file management
+</ul>
+<p> There are several problems with this approach:
+<p>
+<ul>
+  <p>
+  <li> The password file is visible in the file system, and accessible
+       to any program with sufficient authority.
+       <p>
+  <li> There is no way to <em>guarantee</em> that all programs which
+       access the file do so using the dbm package, which raises the
+       possibility that the file might become corrupted through no
+       fault of the dbm package.
+       <p>
+  <li> If a new, more efficient keyed-index file mechanism becomes
+       available, there is no way to introduce it without recompiling
+       and replacing all of the existing applications and rewriting
+       the existing data sets.
+       <p>
+  <li> Worse, there is no way to test the new version in a production
+       setting without disrupting the existing applications.
+       <p>
+  <li> The applications that access the file need special authorities,
+       in this case the superuser privilege.
+</ul>
+<p> In the EROS system, this problem is solved using a domain to
+manage the password data, as shown in Figure 1.2.
+Access to the data is possible only by invoking the domain, and the
+domain can only be invoked by holders of appropriate capabilities.
+The content of the password database is held within the memory of the
+keyed-index manager.  Since the password manager domain, and the
+capabilities that authorize access to it, are preserved across system
+restarts, there is no need for any sort of file, and no possibility
+that an unauthorized party will gain access to the data.  Further,
+there is no need for the programs to have any special privileges.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- ErosPwd.eps -->
+  <p> Figure 1.2: EROS password management
+</ul>
+<p> This approach is possible for two reasons:
+<p>
+<ul>
+  <p>
+  <li> Capabilities provide fine-grain access control, eliminating the
+       need for cumbersome blanket authorities.
+       <p>
+  <li> Processes do not die, so there is no need to place the
+       information (in this case the content of the password database)
+       in a publicly accessible location.
+</ul>
+<p> Two other benefits may not be obvious from the discussion.  First,
+there is no need to encrypt the passwords.  The content of the
+keyed-index manager is not readable by anyone else, so there is no
+concern about password cracking.  Second, and more important, the
+whole problem was solved without the need for writing any special
+software to deal with issues of security.  It is important to make
+sure that only authorized programs hold capabilities to the
+keyed-index manager, but no special programming was necessary within
+the keyed index manager or the applications to deal with privilege
+issues.
+<h2>1.3 The Confused Deputy</h2>
+<p> The password file problem is a useful example, because it is
+simple to describe and exposes a large number of potential flaws in
+the authority model of a system.  Ultimately, however, the <em>ad
+hoc</em> approaches to authority management provided by UNIX and
+Windows is adequate to solve these problems.  Here is a more difficult
+example.
+<p> Suppose you are testing a new product, and you need to obtain
+usage statistics.  The problem is that you do not want the user
+altering the usage statistics file.  In UNIX, the usual solution would
+be to make the program file for the application <em>setuid</em>,
+giving it the authority to create and manipulate a file that the user
+cannot.  Seems simple enough.
+<p> Suppose, however, that the program is a compiler, and allows the
+user to specify where a listing file should be written.  Our user,
+P. R.  Nicious, does not want her activities logged.  She discovers
+that the log file is stored in <code>/etc/logfile</code>, and directs
+the compiler to write its listing file to <code>/etc/logfile</code>
+rather than to her own directory.
+<p> What happens at this point is not at all pretty.  Depending on the
+programmer, there are several possibilities:
+<p>
+<ul>
+  <p>
+  <li> The compiler author was only concerned about creating the log
+       file, and did not stop to consider the perverse abuses possible
+       with this solution.  The listing file gets written to
+       <code>/etc/logfile</code>, probably intermingled with the
+       proper data.
+       <p>
+  <li> The compiler author <em>did</em> stop to consider pernicious
+       use, and bulletproofed the program before distributing it.  The
+       program carefully checks to verify that its logfile is not
+       compromised.  Now, however, H. Acker comes along and says to
+       write the listing to the system password file.  The log file is
+       protected, but the system is not.
+</ul>
+<p> On the face of it, the second case looks solvable, but it isn't.
+The next move is to check for any file in the <code>/etc</code>
+directory, but H. Acker will then abuse something else, such as
+<code>/bin/sh</code>.  After that, the next thing to try is to write
+the listing file to the same directory as the output file.  H. Acker
+will just send the output file to a suitably perverse place.  How
+about the same directory as the source code?  Better, but still not a
+solution.  The source code may be in an inappropriate location.
+Besides, doing this defeats the flexibility of being able to say where
+the listing should go, which is highly desirable.
+<p> So the operating system designer comes along and says: ``I'll make
+it possible for a program to have authorities, but arrange only to use
+them when it intends to.''  Basically, this distinguishes between a
+program's authorities, which are the rights that it has the ability to
+use, and its <em>effective</em> authorities, which are the rights that
+it is using at any given instant.  This is in fact the UNIX solution.
+While it narrows the window of vulnerability, it is extremely
+difficult to maintain correctly over time.  Eventually some maintainer
+who does not understand the full delicacy of a piece of code will
+introduce a security flaw.
+<p> You can see that we're on a slippery slope here.  Rather than
+arrive at a principled solution (impossible in the UNIX security
+model), we find ourselves engaged in an intellectual duel with all
+potential attackers.  It's wasted effort.
+<p> The problem arises because the program is operating under two
+incompatible authorities.  It is deputized to act under the user's
+authorities, which are necessary in order to write the output file,
+and simultaneously deputized to act under the developer's authorities,
+which are necessary to update the log file.  We say that such a
+program is a <em>confused deputy</em>.  While the ``effective
+authority'' mechanism does solve the problem, it is not maintainable.
+<p> The EROS approach is simply to install a capability in the program
+that allows it to write the information to a segment.  The segment is
+neither visible to nor accessable by the user, and there is no
+possibility that the user will contrive to write it inappropriately.
+In effect, the log file is a part of the compiler itself.  As with the
+solution to the password file problem, this solution is only possible
+because programs in EROS are persistent.
+<h1>2 The Object System</h1>
+<p> Before describing how EROS processes work, we need to switch gears
+for a moment to introduce the EROS object system.  At the most basic
+level are two simpler objects: pages and nodes.  All other objects in
+the EROS system are either directly implemented by the kernel or
+synthesized from pages and nodes.
+<h2>2.4 Numbers</h2>
+<p> A <strong>number</strong> is just what it sounds like.  Numbers
+are unsigned 80 bit integers.  In fact, the value of a number object
+is stored in the key itself, and no actual object is constructed.
+Number keys exist because it is occasionally useful to be able to
+store integer values in key slots.  Register values, for example, are
+often encoded as number keys.
+<h2>2.5 Pages</h2>
+<p> A <strong>page</strong> contains user data.  The size of a page
+depends on the hardware architecture, but in all current
+implementations is 4096 bytes.  A user who holds an appropriate key
+for a page can read and write the content of the page.  It is also
+possible to have a read-only key for a page.
+<p> In most systems, pages are ephemeral.  Unless their content is
+explicitly written to a file somewhere, it is lost when the machine
+shuts down.  Pages reside in main memory, and typically have no direct
+relationship to the unit of storage on the disk (sectors).
+<p> By contrast, EROS pages are persistent.  When we refer to a page
+in EROS, we are referring to a unit of <em>disk</em> storage.  The
+number of pages in the system depends on the amount of disk storage
+that is present and how it has been configured.  The EROS kernel uses
+main memory as a cache, transparently loading and removing pages from
+main memory as needed.
+<p> Pages have two associated types of keys.  A <strong>read-only page
+key</strong> allows the holder to read, but not write, the content of
+the named page.  A <strong>read-write page key</strong> allows the
+content to be both read and written.
+<h2>2.6 Nodes</h2>
+<p> Where a page holds a fixed amount of user data, a
+<strong>node</strong> holds 16 capabilities.  Unlike a page, users
+have no direct access to the capabilities contained in a node Because
+keys are the basic protection mechanism of the EROS system, it is
+important that users not be able to modify them.  A holder of a node
+key can copy a key from one slot to another in a node, or to some
+other node, but cannot directly manipulate the bits within the key.
+Nodes can not be mapped into a user address space or otherwise
+directly manipulated.
+<p> Like pages, a node is a unit of disk storage that is transparently
+cached in main memory on demand.  Every page and node in the system is
+uniquely identified by an <strong>object identifier</strong>, or OID.
+When a process invokes a capability for an object that is not in
+memory, the kernel transparently reads the object off of the disk.  As
+objects age, they are discarded from main memory.  Aside from a few
+bookkeeping tables kept by the kernel, all of main memory is used as a
+cache of the state on the disk.
+<p> Also like pages, nodes have both read-write and read-only keys.
+Nodes have an additional key type known as a <strong>sensory
+key</strong>.  Sensory keys were invented to allow the creator of a
+segment to ensure that the content reachable from a cannot be altered.
+If the creator hands out a read-only key to a node, the node cannot be
+altered, but any read-write keys that are in that node can be accessed
+and invoked.  A sensory key is like a read-only, but any keys that are
+read by way of a sensory key are downgraded to sensory status.  Thus,
+no key obtained directly or indirectly through a sensory key will
+allow an object to be modified.
+<p> Note that pages and nodes are not allocated by the EROS kernel.
+Initially all of the pages and nodes in the system are held by a
+process called the <strong>space bank</strong>.  Programs needing a
+page obtain one from the space bank.  Pages and nodes are transferred,
+but never created or destroyed.
+<h2>2.7 Segments</h2>
+<p> A <strong>segment</strong> provides addressable storage.  Segments
+are synthesized out of pages, which hold the actual data, and
+<strong>nodes</strong>, which hold capabilities that describe how
+these pages are organized.  The simplest kind of segment is simply a
+flat sequence of pages.  This sort of segment is commonly used in EROS
+where other systems would construct a file.
+<p> Segments are constructed in a tree-structured fashion.  Every node
+in the tree has up to 16 children, and the leaves of the tree are the
+pages holding the actual data.  An 18 page, contiguous segment is
+shown in Figure 1.3.  The maximum segment size supported
+by the current EROS implementation is 2<super>64</super> bytes.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- ContigSeg.eps -->
+  <p> Figure 1.3: An 18 page contiguous segment
+</ul>
+<p> A segment does not have to be fully populated.  Two programs
+running the same code might share a common subsegment and have
+different data pages, as shown in Figure 1.4.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- SharedSubSeg.eps -->
+  <p> Figure 1.4: Two segments with shared substructure
+</ul>
+<p> Every valid domain has installed in it a capability that names
+address space segment of that domain.  An address space segment is
+simply an ordinary segment that happens to be acting as the address
+space for a domain.  A typical address space segment has a large gap
+between the top of the heap and the bottom of the stack.
+<p> Two or more domains can share segments with common substructure,
+as shown in Figure 1.4, or can share a complete
+segment.  In the latter case, the domains can act as multiple threads
+on that segment.
+<p> As with nodes, there are both read-only and read-write segment
+keys.  Since a segment key does not enable the slots of the segment
+node to be examined, no sensory segment key is needed.
+<p> Readers who are familiar with memory management may notice a
+suspicious similarity between the segment structure and the structure
+of the hardware page tables.  The segment structure is in fact derived
+from the page table notion.
+<h3>2.7.1 Handling Segment Exceptions</h3>
+<p> While we will deal with exception handling in greater detail
+later, it is worth mentioning here that EROS distinguishes between
+<em>access</em> faults and <em>execution</em> faults.  Access faults
+occur when a domain attempts to read or write a segment.  Execution
+faults occur when the program executes an erroneous instruction.  Some
+segments have an associated exception handler, known as a
+<strong>segment keeper</strong>.
+<p> If a segment keeper is specified, access fault notifications are
+directed to the segment keeper rather than the domain keeper.  The
+EROS kernel encapsulates the fault information and sends a message to
+the segment keeper describing the nature of the access violation.
+Usually, the segment keeper will attempt to correct the problem and
+restart the faulting instruction.
+<p> In practice, it is quite common for many programs to share a
+common segment keeper.  Since a key to the faulting segment is passed
+to the keeper with each fault, a single keeper can service multiple
+segments.
+<p> The segment keeper mechanism is used in several ways.  First, it
+is used to implement dynamically expandable stacks and heaps.  When a
+program needs to grow either the stack or the heap, it makes a
+reference to an invalid page.  The fault is directed to the segment
+keeper, which acquires a new page on behalf of the program, plugs it
+in, and lets the program resume.
+<p> Access faults are also used to implement ``copy on write''
+semantics.  If two programs require access to the same initial
+information, but neither should see the alterations made by the other,
+a copy on write segment is created.  Read accesses are allowed to
+proceed, but write accesses cause an access fault.  The COW Segment
+Keeper resolves these faults by copying the read-only data into a new,
+modifiable page and resuming the process.
+<p> These two examples touch on an important side point: all
+allocation of storage in the EROS system is done by user level code.
+The kernel's job is simply to provide protected access to the existing
+resources.
+<h3>2.7.2 Page Faults</h3>
+<p> While access exceptions are passed to the segment keeper, <em>page
+faults</em> are not considered access exceptions.  EROS views main
+memory as a cache of the disk.  Access violations that indicate page
+faults are transparently handled by the kernel.
+<h2>2.8 Domains</h2>
+<p> A <strong>domain</strong> holds a set of registers for a program.
+In addition, it names the segment containing the program's code and
+data, the schedule that authorizes the domain to execute, and the
+authorities held by the domain.  Every domain contains
+<p>
+<ul>
+  <p>
+  <li> The data registers for the program, which depend on the
+       domain's processor architecture.
+       <p>
+  <li> A key to the domain's address space segment,
+       <p>
+  <li> A key to the domain's schedule,
+       <p>
+  <li> 16 Key Registers
+       <p>
+  <li> A start key for the domain's exception handler, which is known
+       as a <strong>domain keeper</strong>.
+</ul>
+<p> This storage is structured as a collection of three nodes, known
+as the <strong>domain root</strong>, <strong>general registers
+node</strong> and <strong>key registers node</strong>.  The key
+registers node simply holds 16 keys.  The general registers node
+contains the register values for the process, encoded as
+<strong>number keys</strong>.  The interesting part of a domain is the
+<strong>domain root</strong>.  Slots in the domain root are shown in
+Table 1.1.  Any slot not explicitly mentioned is
+either zero or used to hold register values that do not fit in the
+general registers node.
+<p>
+<ul>
+  <table width=90%>
+    <tr valign=top>
+      <th align=left>
+	Slot
+      </th>
+      <th align=left>
+	Purpose
+      </th>
+    </tr>
+    <tr valign=top>
+      <td>
+	1
+      </td>
+      <td>
+	Domain keeper start key
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	2
+      </td>
+      <td>
+	Address space segment
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	3
+      </td>
+      <td>
+	RESERVED for split I+D machines
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	4
+      </td>
+      <td>
+	Brand
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	5
+      </td>
+      <td>
+	Trap code
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	6
+      </td>
+      <td>
+	Message buffer page
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	14
+      </td>
+      <td>
+	General registers node
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	15
+      </td>
+      <td>
+	General keys node
+      </td>
+    </tr>
+  </table>
+  <strong>Table 1.1: Domain Root Slots</strong>
+</ul>
+<p> Some of these slots deserve further explanation.  The message
+buffer page and the brand are described later in the book.
+<p> There are several types of keys to domains.  A <strong>domain
+key</strong> is handed to the user who first creates the domain.  It
+allows the register set to be examined, the key registers to be
+accessed, and the address space segment, schedule, and message buffer
+page to be altered.  In addition, the state of the process within the
+domain can be altered using the domain key.
+<p> Most important, however, the domain key can be used to create a
+<strong>start key</strong> for the program in the domain.  When a
+program invokes a start key, it causes the domain named by the start
+key to begin execution.
+<h3>2.8.3 The Schedule</h3>
+<p> The schedule key indicates the minimum priority at which this
+domain will execute.  If the domain is called by a higher-priority
+domain, it inherits the priority of the caller to prevent priority
+inversion.  In order to run at all, however, a domain must have a
+proper schedule capability installed in it.
+<p> Future versions of EROS will provide hard real-time scheduling
+facilities, at which time Schedules will become real objects.
+<h3>2.8.4 Key Registers</h3>
+<p> Every domain has a node that holds its 16 key registers.
+Capabilities in EROS live in protected kernel space, and are directly
+accessable only to the kernel.  A process can copy a capability from a
+slot on one node to a slot in another (i.e. can request that the
+kernel perform the copy on its behalf), but can neither read nor write
+the key itself.  When invoking or passing a key, the process
+identifies the key by giving the index of the slot in the general keys
+node that contains the desired key.
+<p> In practice, few EROS domains need more than 16 keys.  If more are
+needed, the process can acquire additional nodes in which to store
+them.  This is equivalent to what happens with data registers on a
+RISC machine: values must be moved into the data registers before they
+can be operated on.
+<h3>2.8.5 The Domain Keeper</h3>
+<p> The domain keeper's job is to handle any execution faults that may
+occur while the domain is running.  If, for example the domain
+performs a divide by zero, the kernel sends a message to the domain
+keeper on behalf of the domain, indicating what happened.  The domain
+keeper either corrects the problem and restarts the domain, or
+performs whatever action is appropriate when the domain's state is
+unrecoverable.  As with segments, it is quite common for many domains
+to use the same keeper.
+<p> The net effect of the keeper design is that the kernel has no
+policy control over how exceptions are handled.  It's only job is to
+encapsulate the exception in a message.  The actual decision about
+what to do and how to do it is handled in user-level code.
+<h2>2.9 Other Objects</h2>
+<p> You have now seen essentially all of the EROS object system.
+Segments and domains are crafted out of nodes. Different capability
+types are used to keep track of the types of the objects.
+<p> In addition to the objects you have seen, devices and kernel
+services are controlled by capabilities.  We will defer a discussion
+of devices and kernel services for a later chapter.
+<h1>3 Structure of an EROS Process</h1>
+<p> Now that you have seen all of the pieces, let's look at how they
+are put together and get a notion of what exactly a EROS process is.
+A process is constructed out of three components: a segment, a
+schedule, and a domain, as shown in Figure 1.5.  The
+segment provides the executable code and data that is used by the
+process.  The domain contains the registers and authorities, and the
+schedule describes when and how the domain will run.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- CompleteDomain.eps -->
+  <p> Figure 1.5: A complete domain
+</ul>
+<p> As the program in the domain executes, code and data references
+are made into the address space segment.  Faults are reflected to
+either the segment or domain keepers, and the process can invoke keys
+by naming the key registers that hold them.
+<h2>3.10 Key Invocation and Messages</h2>
+<p> EROS objects are invoked by sending messages.  A message consists
+of a <em>request code</em>, up to one page of data, and up to four
+capabilities.  Everything except the data is passed in registers,
+making the message system very fast.  The fixed length of messages is
+crucial to the performance and reliability of the EROS kernel, as it
+guarantees that message passing can be implemented as an atomic
+operation.  If needed, larger amounts of data can be sent by passing a
+segment key in the message.
+<p> At any given moment, a domain exists in one of three states:
+<center>
+  <table width=90%>
+    <tr valign=top>
+      <td>
+	<strong>running</strong>
+      </td>
+      <td>
+	A running domain is currently executing code.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	<strong>waiting</strong>
+      </td>
+      <td>
+	A waiting domain has invoked a capability and is waiting for
+	the result.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	<strong>available</strong>
+      </td>
+      <td>
+	An available domain has returned to its last caller and is
+	ready to accept its next message.
+      </td>
+    </tr>
+  </table>
+</center>
+<p> Keys are invoked by performing a <strong>fork</strong>,
+<strong>call</strong>, or <strong>return</strong> operation.  The
+<em>fork</em> operation sends a message to the recipient, and leaves
+both caller and receiver running.  Unless the caller makes explicit
+provision for a response, the receiver has no way to reply.
+<p> The <em>call</em> operation causes the caller to block until the
+receiver has replied.  The kernel fabricates a <strong>resume
+key</strong> to the caller, and inserts it into the message as the
+fourth key argument.  A distinct resume key is generated for each call
+invocation.  Invoking any resume key for a given call causes all other
+resume keys for that call to be destroyed.  This ensures that there
+will be only one reply to a given call.
+<p> The <em>return</em> operation causes the sender to become
+available, and allows the recipient to resume execution.  The second
+and subsequent attempts to invoke a resume key cause the kernel to
+silently consume the message and place the sender in the available
+state.
+<p> These state transitions are summarized in
+Table 1.2.
+<ul>
+  <table width=90%>
+    <tr valign=top>
+      <th>
+      </th>
+      <th colspan=2>
+	Before
+      </th>
+      <th cols=2>
+	After
+      </th>
+    </tr>
+    <tr valign=top>
+      <th>
+	Type
+      </th>
+      <th colspan=2>
+	Sender
+      </th>
+      <th colspan=2>
+	Recipient
+      </th>
+      <th colspan=2>
+	Sender
+      </th>
+      <th colspan=2>
+	Recipient
+      </th>
+    </tr>
+    <tr>
+      <td> Call </td>
+      <td> Running </td>
+      <td> Available </td>
+      <td> Waiting </td>
+      <td> Running </td>
+    </tr>
+    <tr>
+      <td> Fork </td>
+      <td> Running </td>
+      <td> Available </td>
+      <td> Running </td>
+      <td> Running </td>
+    </tr>
+    <tr>
+      <td> Return </td>
+      <td> Running </td>
+      <td> Waiting </td>
+      <td> Available </td>
+      <td> Running </td>
+    </tr>
+  </table>
+    <strong>Table 1.2: Key invocation and domain states</strong>
+</ul>
+<h3>3.10.6 Message Buffering</h3>
+<p> Messages are not buffered by the kernel.  If the recipient is not
+<em>available</em> (call, fork) or <em>waiting</em> (return), the caller
+blocks until the recipient is in the appropriate state to accept the
+message.  This is contrary to the conventional practice in microkernel
+design.  There are several reasons that messages are not buffered:
+<p>
+<ul>
+  <p>
+  <li> EROS is intended to become a real-time system.  Message
+       queueing introduces a variety of scheduling complications that
+       are best avoided.
+       <p>
+  <li> Message queues raise some challenging design questions:
+       <p>
+       <ul>
+	 <p>
+	 <li> How does a debugger get access to the content of the
+	      message queue?
+	      <p>
+	 <li> What authority is required to do so?
+	      <p>
+	 <li> What operations, if any, can be performed on messages in
+	      a queue? Is it, for example, legal to delete a message
+	      in transit, and what would it mean to do so?
+	      <p>
+	 <li> How are message queue contents to be saved at checkpoint
+	      time?
+       </ul>
+       <p>
+  <li> Most of the messaging activity on the system is call/return.
+       Since the caller isn't going anywhere until the reply comes
+       back, there is no real benefit to copying the message into the
+       kernel.  Queuing the processes themselves achieves essentially
+       the same effect with no additional data copying, and removes
+       the need for explicit message priorities.
+</ul>
+<p> Each of these issues is, in our view, a compelling reason not to
+implement kernel-queued messages.  Ultimately, applications that
+require message queueing can implement it in a user-level domain.
+This approach has the added advantage that the user is in total
+control of the messaging policy.
+<h3>3.10.7 Kernel Keys</h3>
+<p> Since the kernel is not a domain, kernel keys behave slightly
+differently than domains.  A <em>call</em> to a kernel key generates a
+reply.  A <em>fork</em> to a kernel key will perform the operation for
+side effects (if any), but does not return to the caller.  A <em>
+return</em> to a kernel key will perform the operation for side effects
+and place the caller in the <em>available</em> state.
+<h1>4 Checkpoint, Migration, and Recovery</h1>
+<p> One of the keys to EROS is the checkpoint and recovery system.  As
+we have already described, every page and node in the system has an
+official home location on a disk, and modified objects are
+periodically written back to their home locations.
+<p> In fact, the implementation is a bit more complicated, because of
+the need for recovery.  Conceptually, EROS disk storage can be divided
+into two areas: object home locations and the checkpoint log.  As
+execution proceeds, dirty objects are appended to the checkpoint log.
+When space in the checkpoint log runs low, or the time comes to
+checkpoint, all dirty objects are forced out to the log (by paging)
+and a checkpoint is declared.  The resulting disk structure is shown
+in Figure 1.6.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- CkptLog.eps -->
+  <p> Figure 1.5: Disk regions in EROS
+</ul>
+<p> Whenever a new checkpoint is successfully flushed to disk, the
+migrator is started.  The migrator copies the objects contained in the
+checkpoint back to their official home locations, and then releases
+the associated space in the log.
+<p> When loading an object from disk, the EROS kernel first checks the
+checkpoint image(s) in the log starting with the most recent.  If the
+object is not found in the checkpoint log, it is retrieved from its
+home location.
+<p> The end result is that the system can fail at any time and is
+always able to recover.  On startup, the kernel scans the checkpoint
+log to find all of the completed checkpoint images.  It proceeds from
+the logical system image captured in the most recent completed
+checkpoint.  If necessary, it also restarts the migrator.
+<p> In practice, objects are written to the log asynchronously.
+Before an in-memory object is modified, EROS reserves space for it in
+the log.  The pager writes the objects to these locations as
+necessary, so by the time a checkpoint is declared the log is mostly
+populated.  When the time comes to take a checkpoint, all of the
+remaining dirty objects in memory are marked ``copy on write,'' and
+execution is allowed to proceed.  These ``copy on write'' objects are
+slowly flushed out to disk as execution continues.  When all of the
+dirty objects have been written to disk, the checkpoint area header is
+rewritten to indicate that a successful checkpoint has been taken.
+<p> This approach has two useful consequences:
+<p>
+<ul>
+  <p>
+  <li> Checkpoint is fast.  The system halts only long enough to mark
+       objects copy on write.  It does not wait for the actual I/O to
+       complete.
+       <p>
+  <li> Checkpoint has low space overhead.  Previous generations of
+       EROS used two fixed-size save areas and switched back and forth
+       between them.  Using a circular log cuts the required space to
+       support checkpoint in half.
+</ul>
+<p> In addition to the altered objects, each checkpoint image contains
+a list of the processes that were running at the time of the
+checkpoint.  When the system restarts, it locates the most recently
+completed checkpoint, reads the process list, and uses that list to
+resume execution.
+<p>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

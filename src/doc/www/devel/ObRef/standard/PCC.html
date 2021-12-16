@@ -1,0 +1,144 @@
+<html>
+<head>
+<title>EOR: PCC: Process Creator Creator</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>PCC: Process Creator Creator</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> PCC is the originator of all <a href="ProcessCreator.html">process
+  creator</a> objects in the EROS system.
+  It is one of the few "primordial" processes, in that it does not
+  originate with a factory.  PCC is discrete.  PCC does not run under
+  a high performance real-time scheduling authority.  PCC cannot be
+  destroyed.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       <em>AKT_PCC</em>:
+	       Key is a process creator creator key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Create a Process Creator</strong> (OC = 1)
+    <dd>
+	 <p> Creates a new process creator with a new brander,
+	 guaranteed to be unique.  This invocation is prompt if the
+	 passed space bank is prompt.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Request</strong>
+	     </td>
+	     <td align=right> SK0
+	     </td>
+	     <td> A key to an official space bank.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> SK1
+	     </td>
+	     <td> The schedule under which the produced process creator
+	       should run.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> RK0
+	     </td>
+	     <td> A start key to the new process creator if the
+	       operation succeeded, else a void key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The operation was successful.  RK0 is the only start key
+	       to the new process creator.  RK0 conveys destroy rights.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> SK0 is not an official space bank.  No action was taken.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> The required space could not be allocated.  All
+	       allocate space has been returned to the space bank.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Identify a Process Creator</strong> (OC = 2)
+    <dd> 
+	 <p> Given a start key, indicates whether the key is a start
+	 key to a process creator and whether that key has destroy rights.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> SK0
+	     </td>
+	     <td> A key that <em>may</em> name a process creator.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> SK0 is a process creator key conveying destroy rights.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>1</em>
+	     </td>
+	     <td> SK0 is a process creator key <em>without</em> destroy
+	       rights. 
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>-1</strong>
+	     </td>
+	     <td> SK0 is not a process creator key.
+	     </td>
+	   </tr>
+	 </table>
+    <dd>
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

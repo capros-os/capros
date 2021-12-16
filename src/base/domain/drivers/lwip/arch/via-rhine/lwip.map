@@ -1,0 +1,51 @@
+#ifndef __RHINE_MAP_
+#define __RHINE_MAP_
+/*
+ * Copyright (C) 2010, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+#include <drivers/dyndriver.map>
+#include <drivers/lwip/via-rhine/lwipCap.h>
+
+/*********************************************
+ * lwIP driver for via-rhine - lightweight Internet Protocol.
+ *********************************************/
+
+/* config/eth.map must define a number cap netConfig
+containing the network configuration.
+(If there is more than one network interface, they will use the same
+configuration.)
+For example: */
+#if 0
+#define fourByteVal(a,b,c,d) ((((a)*256+(b))*256+(c))*256+(d))
+netConfig = number(fourByteVal(192,168,0,38),	// IP address
+                   fourByteVal(255,255,255,0),	// mask
+                   fourByteVal(192,168,0,1) )	// gateway
+#endif
+#include <config/eth.map>
+
+// Constructor for use by PCI registry
+
+DYNDRIVER_CONSTRUCTOR(rhine, drivers/lwip/via-rhine/lwip, "rhine", 0)
+PROD_CONSTIT(rhine_c, , KC_NetConfig) = netConfig;
+PROD_CONSTIT(rhine_c, , KC_VOLSIZE) = volsize;
+#define rhine_cReq rhine_cRequestor
+#define NEED_PCI_DRIVER
+
+#endif

@@ -1,0 +1,176 @@
+<html>
+<head>
+  <title>CapROS Kernel Development Guide</title>
+</head>
+
+<BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table width=100%>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../capros.html"><em>CapROS home</em></a> 
+      <br>&nbsp;
+      <!--
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br>&nbsp;
+      -->
+      <br><b>TUTORIALS</b>
+      <!--
+      <br>&nbsp;
+      <br><a href="cross-env.html">Cross-Env</a>
+      -->
+      <br>&nbsp;
+      <br><a href="build-tut.html">Image Build</a>
+      <br>&nbsp;
+      <br><a href="Boot.html">Booting</a>
+      <br>&nbsp;
+      <br>&nbsp;
+      <br>&nbsp;
+      <br><b>REFERENCE</b>
+      <br>&nbsp;
+      <br><a href="kdb-ref.html">kdb</a>
+      <br>&nbsp;
+      <br><a href="lsvol-ref.html">lsvol</a>
+      <br>&nbsp;
+      <br><a href="mkimage-ref.html">mkimage</a>
+      <br>&nbsp;
+      <br><a href="mkvol-ref.html">mkvol</a>
+      <br>&nbsp;
+      <br><a href="npgen-ref.html">npgen</a>
+      <br>&nbsp;
+      <br><a href="setboot-ref.html">setboot</a>
+      <br>&nbsp;
+      <br><a href="setvol-ref.html">setvol</a>
+      <br>&nbsp;
+      <br><a href="sysgen-ref.html">sysgen</a>
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<h1 class=title>CapROS Kernel Development Guide</h1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <p>
+      CapROS development currently occurs under Linux.  The outcome of
+      this process is a disk image that can be booted on the target
+      machine, and from which (eventually) the CapROS system can be
+      installed.
+      </p>
+      <p>
+      This document collects a number of documents describing the
+      development environment and how to use it.  
+      <!--
+      Used in
+      conjunction with the <a href="../ObRef/Cover.html">EROS Object
+      Reference</a> and <a href="../ProgGuide/Cover.html">EROS
+      Programmer's Guide</a>, it should provide a strong start for
+      people interested in developing EROS-based systems.
+      <div class=nocss>
+	<br class=nocss>&nbsp;
+      </div>
+      -->
+      <h1 class=SecHdr>Tutorials</h1>
+      <ul>
+      <!--
+	<li>
+	     <p><a href="cross-env.html"><em>The
+	     Cross-Environment</em></a> Provides a guide to the EROS
+	     source tree and the Linux-hosted build
+	     environment.</p>
+	</li>
+      -->
+	<li>
+	     <p><a href="build-tut.html"><em>Building a System 
+	     Image</em></a> Describes the process for creating a
+	     bootable disk image containing CapROS.
+	     </p>
+	</li>
+	<li>
+	     <p><a href="Boot.html"><em>Booting CapROS
+	     </em></a> Describes the process for booting a CapROS system.
+	     </p>
+	</li>
+      </ul>
+      <h1 class=SecHdr>References</h1>
+      <ul>
+	<li>
+	     The <b>dbvol</b> utility is used for post-mortem debugging
+	     on an CapROS volume. (No documentation yet.)
+	     </p>
+	</li>
+	<li>
+	     <p><a href="kdb-ref.html">kdb Reference</a>
+	     Describes the kernel debugger. 
+	     </p>
+	</li>
+	<li>
+	     <p><a href="lsvol-ref.html">lsvol
+	     Reference</a> Describes the <b>lsvol</b> utility,
+	     which displays information about CapROS volumes.
+	     </p>
+	</li>
+	<li>
+	     <p><a href="mkimage-ref.html">mkimage
+	     Reference</a> Describes the <b>mkimagevol</b>
+	     utility and its input command language.
+	     </p>
+	</li>
+	<li>
+	     <p><a href="mkvol-ref.html">mkvol
+	     Reference</a> Describes the <b>mkvol</b> utility
+	     and the associated volume description files.
+	     </p>
+	</li>
+	<li>
+	     <p><a href="setboot-ref.html">setboot Reference</a>
+	     Describes the <b>setboot</b> utility, which displays
+             and alters the block table in the boot sector of a volume.
+	     </p>
+	</li>
+	<li>
+	     <p><a href="setvol-ref.html">setvol Reference</a>
+	     Describes the <b>setvol</b> utility, which provides
+	     several ways of revising an already constructed CapROS
+	     volume.
+	     </p>
+	</li>
+	<li>
+	     <p><a href="sysgen-ref.html">sysgen Reference</a> Describes the <b>sysgen</b> utility,
+	     which maps CapROS image files onto disk volumes.
+	     </p>
+	</li>
+      </ul>
+    </td>
+    <td width=5% valign=top>
+      &nbsp;
+    </td>
+  </tr>
+</table>
+      <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 1998 by Jonathan Shapiro,
+          2005, 2006, 2008 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+</body>
+</html>
+

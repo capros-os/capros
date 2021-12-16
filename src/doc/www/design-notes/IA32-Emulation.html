@@ -1,0 +1,1932 @@
+<html>
+  <head>
+    <title>IA-32 Emulation</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+	<tr valign="top">
+	  <td width="10%">&nbsp;</td>
+	  <td>
+	    <p>
+	      <img src="../img/construction.gif" align="left">
+	      (3/17/2002) If you have been tracking this design note,
+	      this is the first version that I sort of believe might
+	      be sound.
+	    </p>
+	    <br clear="left">
+	    <center>
+	      <h1>IA-32 Emulation</h1>
+	    </center>
+	    <p>
+	      This note describes some early thoughts on how to do
+	      complete IA-32 emulation to support foreign operating
+	      systems running as user-level applications. The approach
+	      requires kernel support, but allows the majority of the
+	      emulation to occur in user mode. Most of the mechanisms
+	      needed were already contemplated at one point or
+	      another. The major new introduction is support for segment
+	      tables and the impact of this on the assumptions of the
+	      underlying EROS kernel implementation.
+	    </p>
+	    <p>
+	      This note does not describe a general-purpose
+	      solution. Emulating an IA-32 machine on an arbitrary
+	      host clearly requires dynamic compilation. The objective
+	      here is to emulate and IA-32 machine on a host that
+	      directly supports the IA-32 user-mode instruction set.
+	    </p>
+	    <p>
+	      Some of what follows was crystalized by a long weekend
+	      session with Kevin Lawton (see: <a
+						 href="www.plex86.org">plex86</a>). I had initially hoped
+	      to borrow heavily in our implementation from
+	      plex86. Borrowing is certainly still possible, but it is
+	      now clear that the two pieces most likely to survive a
+	      port to EROS -- the interpreter and the JIT compiler --
+	      would require significant modification. While there is
+	      much in common between the strategy outlined here and the
+	      one taken by plex86, the details are quite different.
+	    </p>
+	    <p>
+	      While I wrote this without reference to Kevin's
+	      emulation writeup, his writeup of possible emulation
+	      techniques is excellent and strongly recommended. At the
+	      moment I am unable to find a working online link to
+	      it. If you have one, please let me know.
+	    </p>
+	    <h2>1. General Approach</h2>
+	    <p>
+	      The first thing to say about running x86 code is that
+	      the hardware is good at it and software isn't. Emulating
+	      the behavior of segmentation and paging with a pure
+	      software solution carries considerable overhead: 30 to
+	      40 instructions of JIT-generated code per memory-mode
+	      instruction. Of these instructions, most go to
+	      simulating the behavior of the page translation and
+	      segmentation logic.
+	    </p>
+	    <p>
+	      The good news is that we have an engine ready to hand
+	      that already knows how to do this: the IA-32
+	      (a.k.a. x86) chip.  This machine has been emulated
+	      commercially (VM/386 at IBM, VMWare, Connectix).  The
+	      bad news is that this chip <em>really</em> doesn't want
+	      to be virtualized in any simple way.
+	    </p>
+	    <p>
+	      Section 3 of the paper below considers the problems that
+	      arise when taking a virtual machine monitor approach to
+	      IA-32 virtualization (running supervisor code directly
+	      in user mode). All of these issues reappear when taking
+	      a hybrid approach (interpreting supervisor code). It's
+	      worth a read as background to this note.
+	    </p>
+	    <ul>
+		<p>
+		  John Scott Robin and Cynthia Irvine, ``Analysis of the
+		  Intel Pentium's Ability to Support a Secure Virtual
+		  Machine Monitor,'' <em>Proceedings of the 9th USENIX
+		    Security Symposium</em>, Denver, CO, August 2000,
+		  pp. 129--144.
+		</p>
+		<p>
+		  At the time of this writing, a copy of this paper
+		  could be found on the USENIX site <a
+						       href="http://www.usenix.org/publications/library/proceedings/sec2000/robin.html">here</a>.
+		</p>
+	    </ul>
+	    <h2>2. Emulating on EROS vs. Emulating on Linux</h2>
+	    <p>
+	      Emulating an IA-32 machine on EROS is a very different
+	      problem than emulating on Linux.
+	    </p>
+	    <p>
+	      Broadly, there are two challenges in using the hardware
+	      for user mode code:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  Supporting the paging and segmentation behavior,
+		  including the portions visible to the guest
+		  operating system.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Dealing with user-accessable instructions that
+		  expose the protection state of the machine in ways
+		  that might reveal the fact of emulation or
+		  compromise security.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      In <a href="www.plex86.org">plex86</a>, which emulates
+	      on a Linux host, paging and segmentation are handled by
+	      providing a kernel subsystem that builds a real page
+	      table (and, I am guessing, a shadow segment table) on
+	      the side and ``warping'' between the guest application
+	      and the host operating system. Plex86 then implements
+	      non-application code using a variety of interpretation
+	      techniques ranging from single-instruction
+	      interpretation to (eventually) JIT compilation. That is,
+	      plex86 implements a microkernel within a kernel.
+	    </p>
+	    <p>
+	      Unfortunately, the amount of code that plex86 places in
+	      the kernel to support this is considerable (including a
+	      JIT compiler), and would probably preclude assurance
+	      evaluation for EROS if we were to do that. I don't think
+	      we will need to, because EROS some advantages over Linux
+	      where emulation is concerned:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  The hardware paging system is directly exported. By
+		  manipulating EROS address space trees, it is
+		  possible to exactly simulate the behavior of the
+		  IA-32 paging system.  It simply isn't possible to
+		  fully emulate the paging semantics using the
+		  <em>mmap</em>(2) interface. Even ignoring
+		  considerations of performance, Kevin had no choice
+		  but to implement plex86 as part of the Linux kernel
+		  to get the semantics right.
+		</p>
+		<p>
+		  The primary challenge in paging emulation is getting
+		  the ``accessed'' bit right, which can be very costly
+		  to do in a shadow paging scheme. If there is a place
+		  where EROS will lose, this is it. The issues are
+		  discussed extensively in:
+		</p>
+		<ul>
+		    <p>
+		      Paul A. Karger, Mary Ellen Zurko, Douglas
+		      W. Bonin, Andrew H. Mason, and Clifford E. Kahn,
+		      ``A Retrospective on the {VAX} {VMM} Security
+		      Kernel,'' <em>IEEE Transactions on Software
+			Engineering</em>, IEEE, <b>17</b>(11), Nov 1991,
+		      pp. 1147-1165
+		    </p>
+		    <p>
+		      I am not aware of an online copy of this paper.
+		    </p>
+		</ul>
+	      </li>
+	      <li>
+		<p>
+		  The EROS fault handling path is much faster than
+		  Linux. It is therefore conceivable that we can get
+		  away with doing the interpretation in user
+		  land. Fundamentally, my belief is that the EROS
+		  context switch time is inherently faster than the
+		  Windows user/supervisor crossing time. So long as that
+		  is true, we should get away with doing all of this in
+		  user code <em>provided</em> that we can somehow beat
+		  the overhead of simulating segmentation and paging in
+		  the kernel.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  EROS does not enforce a 1:1 relationship between
+		  address spaces and processes. The emulator can build
+		  multiple address space trees (one per guest address
+		  space) and simply switch spaces as required -- this
+		  has exactly the effect of changing the master address
+		  space pointer register, but in a way that preserves
+		  the persistence properties of the EROS system.
+		</p>
+		<p>
+		  It is difficult to describe how much easier this
+		  makes things to someone who hasn't built or
+		  seriously studied a shadow paging system. For
+		  example, it completely eliminates the need for page
+		  pinning or other games within the host kernel that
+		  are needed to deal with the fact that the host
+		  kernel knows nothing about the emulator's page
+		  tables.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The EROS kernel can, if necessary, be moved ``out of
+		  the way.''
+		</p>
+		<p>
+		  One of the problems with emulation is that the IA-32
+		  requires the kernel to be mapped in the user address
+		  space. As a result, the host kernel and some portion
+		  of the guest space overlap. Invariably, they overlap
+		  where the guest kernel wants to live.
+		</p>
+		<p>
+		  This is especially painful when (a) the guest kernel
+		  is designed to live at the high end, and (b) it has
+		  been placed their by linking it using a high starting
+		  address. When this combination of things occurs, the
+		  guest OS cannot be relocated out of the way using
+		  segmentation. The native therefore OS has to
+		  move. Plex86 switches the entire address space, using
+		  a small trampoline to switch back when the guest
+		  environment faults.
+		</p>
+		<p>
+		  In 1991, Norm Hardy and I had a disagreement about
+		  whether the operating systems should, in principle,
+		  reside in the application address space. Norm came
+		  from the IBM 370 world, where the answer was
+		  self-evidently ``no and hell no.'' This was also
+		  feasible on the 88K. After a <em>lot</em> of work we
+		  figured out how to achieve the same effect with the
+		  x86. I've included a description below.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      If we have to, we can consider moving this code into the
+	      kerrnel <em>after</em> it is debugged.
+	    </p>
+	    <p>
+	      To make a long story short, it is possible (with
+	      considerable effort) to run emulated application (ring 3)
+	      code in an EROS process using the native hardware under a
+	      modest set of assumptions. This emulation is not exact,
+	      but it can be made good enough to fool most of the
+	      operating systems out there -- most notably Windows,
+	      Linux, and EROS. The key kernel requirements to support
+	      such execution are:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  Provide kernel support for the portion of segment
+		  semantics that are visible from ring 3 (application)
+		  code.
+		</p>
+		<p>
+		  Note that not all of this simulation needs to be
+		  fast. As long as we can transparently fault the
+		  process when it makes low-frequency inquiries, we can
+		  do a pretty minimal implementation. Also, some
+		  ``leaks'' in the illusion are tolerable in practice.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Implement the bouncing kernel tricks. In practice,
+		  this may end up being avoidable, as we can relocate a
+		  hostile guest kernel in the JIT compiler if needed.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      The balance of this note describes what problems we need
+	      to deal with, what the ring-3 visible semantics of
+	      segmentation actually are, how we can use the EROS
+	      paging logic to simulate the native paging logic, and
+	      (in abstract) how we will execute guest kernel code. It
+	      also discusses some miscellaneous virtualization issues
+	      surrounding visible system registers. The actual
+	      implementation of the guest code executive is left for
+	      another design note, as it is a topic unto itself.
+	    </p>
+	    <h2>3. Privileged, Sensitive, and Revealing
+	    Instructions (Ring 3)</h2>
+	    <p>
+	      In a hybrid design, we begin with the assumption that
+	      all code runs in ring 3. That is, all instructions are
+	      executed with non-supervisor access modes. As we will
+	      interpret supervisor instructions, we will consider
+	      those problems separately.
+	    </p>
+	    <p>
+	      <b>Privileged</b> instructions are those that modify the
+	      security state of the hardware.  The IA-32 does not
+	      permit ring-3 applications to perform privileged
+	      instructions directly. We can therefore discard this
+	      concern, though we will need to pay attention below to
+	      correct handling of simulated privilege level
+	      transitions.
+	    </p>
+	    <p>
+	      <b>Sensitive</b> instructions are those that
+	      <em>reveal</em> the security state of the machine. For
+	      example, the IA-32 EFLAGS register contains the
+	      ``current privilege level.''  Every instruction that
+	      sources this field is therefore sensitive. These include
+	      <b>PUSHF</b>, <b>POPF</b>, and a hoard of
+	      others. Fortunately, the answers are the same in ring 3
+	      pretty much regardless of operating system. While these
+	      instructions <em>do</em> reveal the state of the
+	      emulated machine, they reveal state that never changes
+	      in a fashion that is visible in ring 3.
+	    </p>
+	    <p>
+	      <b>Revealing</b> instructions are those that might
+	      disclose the fact of emulation to a kernel that is
+	      looking for it. There are quite a number of these, and
+	      the center primarily around segmentation and critical
+	      system tables. I believe that with careful management of
+	      a shadow segmentation scheme, these can be plugged well
+	      enough to fool the majority of operating systems out
+	      there.
+	    </p>
+	    <p>
+	      Section 4 discusses the revealing instructions and
+	      various strategies for minimizing revelation while
+	      preserving system-wide protection.
+	    </p>
+	    <h2>4. Segment Semantics Visible in Ring 3</h2>
+	    <p>
+	      In the following discussion, our goal is to deal with
+	      the revealing instructions.
+	    </p>
+	    <p>
+	      To determine what is needed to preserve the desired
+	      illusion, we first need to enumerate what a ring 3
+	      application can learn and which of these things are
+	      important. For a more detailed explanation of issues, see
+	      section 3.1 of the Robin and Irvine paper. A key issue in
+	      the following discussion: which things allow
+	      <em>detection</em> of emulation (which we can tolerate)
+	      vs. cause emulation to break.
+	    </p>
+	    <h3>4.1 Location of System Tables</h3>
+	    <p>
+	      Ring-3 can use the <b>SGDT</b>, <b>SLDT</b>, <b>SIDT</b>
+	      instructions to learn the virtual memory location of the
+	      global descriptor table, the local descriptor table, and
+	      the interrupt dispatch table, respectively. They also
+	      reveal the <em>size</em> of these tables.
+	    </p>
+	    <p>
+	      This is essentially useless information, and I don't know
+	      any application that has a reason to use these
+	      instructions from ring 3 unless it is checking to see if
+	      emulation is going on. I do not see emulation detection as
+	      a big issue unless it breaks something. Actually, it's a
+	      lousy strategy for detection, because the virtual
+	      addresses of all tables are likely to change from kernel
+	      version to kernel version as a result of recompilation.
+	    <p>
+	      The only way I can see that these values can be
+	      problematic is if the guest application later passes the
+	      discovered location back to the guest OS and a comparison
+	      of locations is made. This is a problem because we will
+	      almost certainly need to implement a shadow LDT/GDT, so
+	      the reported location will not match the location expected
+	      by the guest OS.
+	    </p>
+	    <p>
+	      Regrettably, these instructions directly reveal the
+	      content of protected system registers. There appears to be
+	      no straightforward way to prevent this
+	      revelation. Fortunately, applications don't actually
+	      execute these instructions.
+	    </p>
+	    <p>
+	      If this becomes an impediment, we can probably arrange
+	      to place the shadow GDT, LDT, and IDT at the same
+	      virtual address where the guest OS placed the
+	      original. I propose we defer this until it proves to be
+	      a probleem.
+	    </p>
+	    <h3>4.2 Exposure of Segment Table Content</h3>
+	    <p>
+	      Four instructions partially expose the values of a
+	      segment table entry. None of these instructions has
+	      security implications <em>per se</em> (i.e. it's safe to
+	      run them), but each reveals something to ring 3 code
+	      about the content of the segment table that an emulator
+	      might want to change:
+	    </p>
+	    <table>
+		<tr valign="top">
+		  <td><b>Instruction</b></td>
+		  <td><b>Action</b></td>
+		</tr>
+		<tr valign="top">
+		  <td>LAR</td>
+		  <td>
+		    <p>
+		      Loads the ``access rights'' field from a segment
+		      table entry.
+		    </p>
+		    <p>
+		      This reveals various permissions bits in any entry
+		      that is <em>visible</em> from ring 3. For example, a
+		      guest operating system might reveal a read-only to
+		      state shared between guest os and guest
+		      application. This is really a mapping of guest OS
+		      state into the guest application, and would need to
+		      be honored.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td>LSL</td>
+		  <td>
+		    <p>
+		      Loads the segment limit field.
+		    </p>
+		    <p>
+		      This reveals the length of the segment. If the
+		      segment is accessable to the application at all,
+		      revealing its length is relatively harmless. For
+		      emulation, however, it is unfortunate that this is
+		      done. It would be nice to be able to add two
+		      ``invisible'' entries to the GDT, for example,
+		      without revealing the length change. It turns out
+		      that we can do this. We will discuss how below.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td>VERR, VERRW</td>
+		  <td>
+		    <p>
+		      Verify for reading, writing.
+		    </p>
+		    <p>
+		      Reveals to the application whether a segment can be
+		      read (respectively: written).
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td>STR</td>
+		  <td>
+		    <p>
+		      Store task register.
+		    </p>
+		    <p>
+		      Reveals to the application the segment number
+		      (index) from which the task register was loaded.
+		    </p>
+		  </td>
+		</tr>
+	    </table>
+	    <p>
+	      As discussed in Robin and Irvine, these instructions
+	      present various problems for execution of supervisor
+	      code. However, that isn't the problem we are trying to
+	      solve, and for ring 3 code things are not so bad:
+	    </p>
+	    <h4>4.2.1 VERR, VERW</h4>
+	    <p>
+	      In ring 3, the <b>VERR</b>, <b>VERW</b> instructions
+	      reveal information only about segments that are accessable
+	      to ring 3 code anyway. That is, they are not sensitive
+	      <em>when invoked from ring 3</em>. A correct emulation
+	      must necessarily ensure that the verify instructions
+	      generate the same results as they do on the real
+	      machine.
+	    </p>
+	    <p>
+	      It is very inconvenient that these instructions do not
+	      trap when applied to invalid entries. The fact that they
+	      do not is a design failing in the IA-32 family that
+	      could be easily and compatibly
+	      corrected. <em>Because</em> they do not trap, it is
+	      necessary for the permissions fields and limits of the
+	      corresponding shadow segment table entries to match the
+	      entries in the original segment table.
+	    </p>
+	    <p>
+	      Fortunately, these instructions do not reveal the
+	      distinction between descriptor entries that are not
+	      present (beyond the descriptor table limit) and those
+	      that are not readable. <b>VERR</b>, <b>VERW</b>
+	      therefore cannot be used to detect the additional
+	      entries in the shadow descriptor table used for the EROS
+	      kernel descriptors.
+	    </p>
+	    <h4>4.2.2 LSL</h4>
+	    <p>
+	      There is a general issue with TSS, call gate, and task
+	      gate segments that needs to be addressed below. Here we
+	      consider only the implications of the <b>LSL</b>
+	      instruction in the unlikely case that a TSS segment is
+	      created with DPL=3 (no current operating systems do so).
+	    <p>
+	      The LSL instruction, when executed from ring 3, reveals
+	      the length of accessable segments plus TSS segments whose
+	      DPL value is 3. It is not our responsibility to stop the
+	      guest OS from revealing stupidity to the guest
+	      application. We need only be concerned about revealing
+	      information about the host OS TSS segments (if any).
+	    </p>
+	    <p>
+	      The EROS kernel uses a singleton master TSS with a DPL of
+	      0. Even if it used a DPL of 3, revealing the length of a
+	      statically created kernel structure does not create either
+	      a significant disclosure or a channel of communication. In
+	      effect, this behavior reveals a non-sensitive constant to
+	      the guest application.
+	    </p>
+	    <p>
+	      There <em>is</em> one potential revelation concerning the
+	      TSS limit: the guest OS may make use of the permissions
+	      bitmask and the differences between the size of the guest
+	      OS TSS and the size of the EROS OS TSS might reveal the
+	      fact of emulation hosting <em>if</em> the DPL of the guest
+	      OS TSS is set to 3 (i.e. if the guest OS author was a
+	      complete idiot). Revealing the fact of emulation may be a
+	      foregone conclusion in any case, but we do not need to
+	      reveal it <em>here</em>.
+	    </p>
+	    <p>
+	      Alternatively, note that the <b>LSS</b> instruction does
+	      <em>not</em> reveal the linear base address of the task
+	      segment. Therefore, the EROS kernel could resolve the
+	      problem by maintaining a dummy TSS region and using false
+	      TSS entries in the shadow descriptor table that point to
+	      this dummy TSS and reflect appropriate sizes.  This is the
+	      preferred resolution for reasons discussed below.
+	    </p>
+	    <p>
+	      Finally, note that all of this sillyness is required only
+	      to support idiot operating systems that set the DPL value
+	      to 3. We'll do it. Someday. A long time from now.
+	    </p>
+	    <h4>4.2.2 LAR</h4>
+	    <p>
+	      The <b>LAR</b> instruction raises many of the same issues
+	      as the <b>LSS</b> instruction. As with <b>LSS</b> it
+	      reveals information about code/data segments accessable
+	      from ring 3, but this is not sensitive. Like <b>LSS</b>,
+	      it reveals potentially sensitive information about TSS
+	      segments to ring 3 code. It also reveals information about
+	      call gates and task gates. As before, these are an issue
+	      only when the segment entry DPL value is DPL=3.
+	    </p>
+	    <p>
+	      The statements about TSS segments made under the
+	      discussion of <b>LSL</b> apply equally well to the
+	      <b>LAR</b> instruction. <b>LAR</b> reveals that a TSS
+	      segment exists and what access rights exist to it, but
+	      does not reveal anything about the nature of the process
+	      that will be invoked.
+	    </p>
+	    <h4>4.2.3 STR</h4>
+	    <p>
+	      The <b>STR</b> instruction reveals the identity of the
+	      descriptor table entry from which the current task was
+	      loaded. This instruction is not used by applications in
+	      most systems. The primary requirement to simulate this
+	      instruction's behavior correctly for ring 3 code is to
+	      ensure that any TSS entry in the shadow descriptor tables
+	      appears at the same location as the corresponding entry in
+	      the original descriptor table. This can be done without
+	      actually implementing multiple TSS segments in the
+	      operating system.
+	    </p>
+	    <h3>4.3 TSS, Task Gates, and Call Gates</h3>
+	    <p>
+	      For performance reasons, current IA-32 operating systems
+	      generally use a single, supervisor-only TSS and do not use
+	      task gates or call gates. In a nutshell, it's faster to
+	      simulate this behavior in software than to let this sorry
+	      excuse for a processor do the work. In such systems, no
+	      segment of these types will exist with DPL=3. Since we are
+	      only doing native execution of ring 3 code, the
+	      virtualization issues associated with simulating the
+	      behavior of these misfeatures disappears.
+	    </p>
+	    <h4>4.3.1 Call Gates</h4>
+	    <p>
+	      Call gates are nastily complicated, but not really that
+	      bad to manage. The ``solution'' is for the EROS kernel to
+	      provide a set of call-gate entry point in the kernel that
+	      accepts zero arguments (and therefore construct a uniform
+	      stack frame). Each call gate is directed to a unique
+	      kernel entry point that records the identity of the
+	      descriptor table selector used in the code. This selector
+	      is passed to the keeper of the guest application, which is
+	      the program performing the supervisor-mode
+	      emulation. Given access to the selector invoked, the
+	      emulator can use the original (non-shadow) descriptor
+	      table to work out what should be done.
+	    </p>
+	    <p>
+	      If it is absolutely essential to do so, the EROS kernel
+	      could also arrange to record the argument words and
+	      encapsulate these upward into the keeper invocation. This
+	      would penalize the normal capability invocation path, and
+	      I am therefore somewhat reluctant to do it. Efficient
+	      emulation is important, and this decision should therefore
+	      be dictated by performance measurement.
+	    </p>
+	    <h4><a name="TSS-Task-Gates">4.3.2 TSS, Task Gates</a></h4>
+	    <p>
+	      Fortunately, transfers via a jump or call to a TSS or task
+	      gate segment do not make provision for passing arguments
+	      or specifying an entry point. Further, while the privilege
+	      level necessary to <em>access</em> the task is revealed by
+	      various instructions, the privilege level at which the
+	      destination task actually executes thankfully is not. This
+	      means that the ``honey pot'' solution works: create a
+	      dedicated singleton TSS whose sole purpose is to be the
+	      destination of all emulated TSS and task gate
+	      transfers that immediately traps.
+	    </p>
+	    <p>
+	      The honey pot TSS is configured to proceed executing EROS
+	      kernel code. It immediately unwinds the task linkages (in
+	      order to become available for next time), switches back to
+	      the expected kernel TSS using the <b>LTR</b> instruction,
+	      marks the guest application as having trapped to the
+	      emulator, and resumes it, causing a fault into the keeper.
+	    </p>
+	    <h2>5. Shadow Paging</h2>
+	    <p>
+	      Because we want to make emulated programs persistent,
+	      and also because we want to minimize kernel impact, the
+	      EROS IA-32 emulator needs to use shadow paging
+	      techniques. These techniques are discussed extensively
+	      in the Karger paper. The best hardware support for this
+	      is the ``fault on first reference'' support in the
+	      Alpha; we will recreate a similar mechanism in software
+	      here.
+	    </p>
+	    <p>
+	      The guest OS is maintaining a set of tables that it
+	      believes are the real mapping tables. It informs the
+	      emulator about what mapping tables to use via the <b>MOV
+	      %CR3</b> instruction.
+	    </p>
+	    <p>
+	      The emulator provides a simulated physical address space
+	      that is implemented as an EROS address space. Initially,
+	      the guest OS runs from this space directly. Once
+	      protected mode is entered, the emulator switches the
+	      guest into a new, empty EROS address space. The guest OS
+	      remembers the relationship between every guest address
+	      space root pointer and its associated emulator address
+	      space (we will refine this below, but stick with this
+	      for now).
+	    </p>
+	    <p>
+	      As the protected-mode guest executes, it page faults in
+	      the new EROS space. As each page fault is incurred, the
+	      emulator proceeds as follows:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  It consults the guest OS mapping table to determine
+		  what the mapping and permissions should be.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  It constructs a corresponding mapping from the
+		  emulated virtual space to the emulated physical
+		  space.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  It marks the appropriate entries in the guest
+		  mapping tables "accessed", and possibly (if this was
+		  a write fault) "modified".
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  If it has not already done so, it makes not of the
+		  simulated physical page in which each traversed
+		  guest OS mapping table resides, and the emulator
+		  mapping tree to which that page frame corresponds.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  It makes the physical page corresponding to the
+		  guest OS mapping table read-only to the guest
+		  OS. This will be used to detect operations that
+		  require invalidations.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      This mechanism is regrettably complicated, and some
+	      tricks will be needed to avoid unnecessary invalidations
+	      (the majority of page table modifications are authority
+	      <em>upgrades</em>, which can usually be processed
+	      lazily. Still, the EROS mapping mechanism works plenty
+	      fast enough for EROS, and these tricks should be closer
+	      in performance to the purely in-memory form.
+	    </p>
+	    <h2>6. Use of Segmentation in the Emulator</h2>
+	    <p>
+	      As previously mentioned, the hardest parts of guest OS
+	      simulation are paging and segmentation. The shadow
+	      paging mechanism described above can be used to provide
+	      the desired paging simulation. Here we describe how to
+	      use the new segmentation mechanisms to support guest
+	      emulation.
+	    </p>
+	    <p>
+	      Since the guest OS is interpreted, we need to be
+	      concerned with four segments in any given instruction:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  The two segments (code, data) from which the
+		  interpreter executes.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The data segment through which the interpreted code
+		  references its data space -- this needs to be set
+		  with permissions and limit matching the expectations
+		  of the guest OS data segment.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  A segment used to bounds check code references when
+		  branches occur to verify that these fall within the
+		  legal range of the guest OS code segment.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      While the latter two need to enforce permissions as
+	      well, all of these checks can be performed using ring-3
+	      segments, significantly reducing the amount of code that
+	      the interpreter must generate.
+	    </p>
+	    <h2>8. Kernel Support in EROS</h2>
+	    <p>
+	      Supporting IA-32 emulation above requires several pieces
+	      of kernel support.
+	    </p>
+	    <h3>8.1 Relocatable Kernel</h3>
+	    <p>
+	      To fully support IA-32 emulation, the EROS kernel needs
+	      to be able to get out of the way. The problem is that
+	      the guest OS may require the ability to map things into
+	      the memory region that the EROS kernel thinks it
+	      owns. When this happens, EROS needs to move.
+	    </p>
+	    <p>
+	      In the current (3/16/2002) implementation, the virtual
+	      map as seen by the kernel looks like:
+	    </p>
+	    <center>
+<pre>
+0G                  3G      3.25G   4G
++-------------------+--------+--------+
+|    (large) user   | small  | kernel |
+|       space       | spaces | space  |
++-------------------+--------+--------+
+</pre>
+	    </center>
+	    <p>
+	      Conceptually, the kernel is link-edited to start at
+	      adress 0. In practice, the kernel is link-edited to
+	      start at 0x101000. The primary kernel page directory
+	      starts at 1 Mbyte (0x100000) and the kernel loads above
+	      that. The relocation of the kernel to 3.25 Gbytes is
+	      accomplished by altering the segment base address of the
+	      kernel segments. The kernel runs in a wrapping 4G
+	      segment, and therefore sees user addresses in the
+	      current address space starting at 1Gbyte.
+	    </p>
+	    <p>
+	      Within the kernel data structures, the kernel's current
+	      base address is known (sometimes implicitly) in several
+	      places:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  To compute the address map offset of small
+		  spaces. For kernel relocation purposes we should
+		  move the small spaces as a unit with the kernel.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  In all page directories, which contain mappings
+		  whose supervisor bit is set/clear according to the
+		  linear address offset of the kernel.
+	      </li>
+	      <li>
+		<p>
+		  In the kernel code and data segments that reside in
+		  the global descriptor table. Also, since the small
+		  spaces live at a fixed offset relative to the
+		  kernel, in the code and data segments corresponding
+		  to small segments.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  In the values stored in the <b>TSR</b>, <b>IDTR</b>,
+		  <b>GDTR</b> and <b>LDTR</b> registers.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  In the offset value that the kernel uses to compute
+		  the user-mode address corresponding to a given
+		  kernel address.
+		</p>
+		<p>
+		  <b>Note:</b> The use of this offset is going away
+		  shortly -- it was a bad idea to use a fixed
+		  computation in the first place. The EROS kernel used
+		  to assume that it could map all of physical memory
+		  within its own space and could therefore directly
+		  reference user pages. It will shortly abandon this
+		  assumption, and user pages will no longer (in
+		  general) be mapped into the kernel portion of the
+		  address space.
+		</p>
+		<p>
+		  As a short term fix this constant can easily be
+		  converted into a variable.
+		</p>
+	      </li>
+	    </ol>
+	    <h3>8.1.1 Step 1: Rotate Small Spaces to the End</h3>
+	    <p>
+	      Our first change will be to rotate small spaces to the
+	      end of the map and shrink the total amount of space
+	      allocated to the kernel. The kernel will now see user
+	      addresses starting at 0.5 Gbytes:
+	    </p>
+	    <center>
+<pre>
+0G                  3.5G     3.75G   4G
++-------------------+--------+--------+
+|    (large) user   | kernel | small  |
+|       space       | space  | spaces |
++-------------------+--------+--------+
+</pre>
+	    </center>
+	    <p>
+	      While small space segments will continue to need to be
+	      relocated whenever the kernel is relocated, their
+	      mappings are managed as kernel mappings. From this point
+	      forward we will treat the kernel region as a single unit
+	      in our discussions.
+	    </p>
+	    <h3>8.1.2 Step 2: Placement-Neutral Kernel Map</h3>
+	    <p>
+	      We will plan to be able to relocate the kernel to any of
+	      8 positions in the virtual map. I will refer to these as
+	      <em>kernel mapping zones</em> (KMZs). The general idea
+	      is that the zone currently owned by the kernel is
+	      protected by setting the supervisor bit in all
+	      corresponding mapping table entries. When the
+	      application faults in this region, the kernel will
+	      respond by stealing some other window from the
+	      application and rebuilding application mapping
+	      directories accordingly.
+	    </p>
+	    <p>
+	      Before the various segment registers and machine
+	      registers can be reloaded, the kernel must switch to a
+	      placement-neutral mapping. That is, a mapping in which
+	      both old and new locations are valid for kernel
+	      references. The EROS kernel already maintains a
+	      singleton kernel mapping table. The only change required
+	      is to duplicate the kernel mappings 8 times. I am
+	      tempted to refer to this as the demilitarized mapping,
+	      but let's leave well enough alone.
+	    </p>
+	    <p>
+	      The first step in switching zones is to change mapping
+	      tables to the KMZ-neutral table. In this table, all
+	      zones are valid.
+	    </p>
+	    <h3>8.1.2 Step 3: Zone Change</h3>
+	    <p>
+	      Once running from the neutral mapping table, the kernel
+	      rewrites the appropriate segment table entries in the
+	      GDT, disables interrupts (!) reloads the GDTR, IDTR, and
+	      (if needed) LDTR. It also rewrites the user base address
+	      offset pointer to an appropriate new offset.
+	    </p>
+	    <p>
+	      The kernel now reloads <b>CS</b>, <b>DS</b>, <b>ES</b>,
+	      <b>SS</b> from the global descriptor table (the kernel
+	      does not use other segment registers). The kernel is now
+	      running from the new window.
+	    </p>
+	    <p>
+	      Interrupts are now re-enabled, and execution now resumes
+	      with the current process.
+	    </p>
+	    <h3>8.1.2 Step 3: Tagged Page Directories</h3>
+	    <p>
+	      EROS page directories are already tagged according to
+	      whether they represent read-only or read-write
+	      directories. We will add to each directory a single-byte
+	      ``zone'' field describing the zone constraint under
+	      which it was constructed. Before executing any process,
+	      we need to check if it's current zone (which will be
+	      recorded in the context structure) matches the current
+	      kernel zone. If not, we will reset its current zone and
+	      force it to attempt to run out of the universal kernel
+	      page table. Running out of the kernel table (which has
+	      no valid user-mode mappings) is how processes normally
+	      bootstrap their mappings.
+	    </p>
+	    <p>
+	      Having arranged that the process will now attempt to
+	      relocate a valid page directory, we will modify the
+	      ``find page directory'' logic. The directory frame
+	      locator will locate the appropriate directory page just
+	      as it does now. If it finds a directory page whose zone
+	      field is non-current, it makes the following
+	      modifications to the directory:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  Marks all entries in the old zone to be simple,
+		  invalid entries.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Copies a valid set of entries for the new kernel
+		  zone into the appropriate portion of the page
+		  directory, overwriting whatever may already be
+		  present at that location.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      Alternatively, we can keep multiple versions of
+	      directories and let the ager kill them over time. My
+	      feeling is that it will be more efficient to kill the
+	      minimal number of mappings and let the EROS kernel
+	      rebuild the holes -- the kernel is already very good at
+	      this.
+	    </p>
+	    <p>
+	      We will also need to update the mapping invalidation
+	      (depend) logic so that it will not stomp on supervisor
+	      mappings.
+	    </p>
+	    <h3>8.1.3 Trailing Thoughts</h3>
+	    <p>
+	      Having written all of this up, I find that this really
+	      isn't as difficult as I expected. Perhaps we should
+	      reconsider the decision to leave it out and just make
+	      this a part of the normal kernel specification for
+	      IA-32. The kernel will move occasionally, but it will
+	      tend to stabilize in one location for long periods of
+	      time. More importantly, the behavior of small spaces
+	      will not be unduly disturbed.
+	    </p>
+	    <h3>8.2 Optional Small Spaces</h3>
+	    <p>
+	      Since emulated IA-32 environments potentially demand
+	      full access to the address space, it is not always
+	      possible to allow small address spaces within an
+	      emulated address space. Protection of small spaces
+	      relies on segmentation, which may conflict with guest
+	      usage. Small spaces therefore need to be optional.
+	    </p>
+	    <p>
+	      To support this, we need to add a mode bit in the
+	      context cache indicating whether a given context can
+	      support small spaces. This mode bit is set or cleared
+	      according to the descriptor table cache management logic
+	      -- it is not part of the persistent per-process
+	      state. Processes that do not permit small spaces always
+	      take the slower (full switch) context switch path, and
+	      require page directories to be tagged as
+	      having/not-having small space support.
+	    </p>
+	    <p>
+	      As a practical matter, there is no need for an
+	      additional tag. If the process is not using the standard
+	      GDT, it is unlikely to support small spaces anyway. I
+	      believe we should simplify things by simply refusing to
+	      put small spaces in non-native machines.
+	    </p>
+	    <h3>8.3 Local Descriptor Tables</h3>
+	    <p>
+	      The EROS kernel presently provides no support for
+	      manipulation of descriptor tables, and does not expose a
+	      local descriptor table for use by user-mode code. At
+	      present, all processes load their descriptors using
+	      well-known selectors in the singleton <em>global</em>
+	      descriptor table. To support emulation, we regrettably
+	      need to support the local descriptor table.
+	    </p>
+	    <p>
+	      The first step is to reserve a capability slot in the
+	      IA-32 process root specification to contain the local
+	      descriptor table annex capability. As a descriptor table
+	      can be up to 64 Kilobytes in length, the capability in
+	      this slot should be a node capability to a node
+	      containing page capabilities. If any of these
+	      constraints fails, the process will execute with a null
+	      local descriptor table. I am still thinking about where
+	      the descriptor table size should be recorded.
+	    </p>
+	    <p>
+	      The EROS kernel will keep a cache of local descriptor
+	      tables that is loaded from the per-process table if a
+	      per-process local descriptor table is in use. It will
+	      treat the local descriptor mechanism as a functional
+	      unit. This is conceptually similar to the way that the
+	      floating point unit is currently handled.
+	    </p>
+	    <p>
+	      Whenever an attempt is made to schedule a process that
+	      is using a local descriptor table, the EROS kernel will
+	      check to see if (a) there exists a local descriptor
+	      cache entry, and (b) it is up to date. If necessary, a
+	      descriptor cache entry will be allocated. If it is not
+	      up to date, entries will be copied from the per-process
+	      table.
+	    </p>
+	    <p>
+	      Descriptor copy can be defined to generate faults or to
+	      downgrade in place. I believe I prefer the downgrade in
+	      place design. The descriptor copy activity will
+	      downgrade all copied descriptors as follows:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  DPL<3 descriptors and invalid descriptors will be
+		  copied verbatim, as they cannot be accessed by the
+		  process in any case.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  If a DPL=3 segment is observed to collide (i.e. the
+		  addresses overlap) with the small space region, the
+		  process will be marked as ``does not have small
+		  spaces'' (see above). This may force a page
+		  directory reload to happen.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  TSS segments with DPL=3 will be rewritten to
+		  reference the kernel's ``honey pot'' TSS. As this
+		  references a kernel linear address, and the kernel
+		  is relocatable, descriptor table caches must be
+		  zoned much as page directories are zoned.
+		</p>
+		<p>
+		  The effect of invoking a TSS segment, either
+		  directly or via a task gate, will be to transfer
+		  control to the keeper of the process.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Call gates will be rewritten to invoke a kernel
+		  entry point that reflects them to the keeper for
+		  processing.
+		</p>
+		<ul>
+		  <li>
+		    <p>
+		      If possible, passed arguments will be
+		      forwarded. This seems unlikely at the moment,
+		      but may prove possible with some work.
+		    </p>
+		  </li>
+		  <li>
+		    <p>
+		      If we can safely avoid it, call gates to
+		      non-privileged targets in the same process will
+		      be copied verbatim.
+		    </p>
+		  </li>
+		</ul>
+	      </li>
+	    </ul>
+	    <p>
+	      There are two feasible designs for all this:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  We allow the per-process table to be memory mapped,
+		  forcibly mark the pages read-only when the local
+		  descriptor table cache entry is loaded, and
+		  invalidate the local descriptor table cache entry
+		  whenever a page in the per-process descriptor table
+		  is modified. This favors applications that do bulk
+		  modifications to descriptor tables.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  We implement a set of operations on the process
+		  capability that allow specific entries in the
+		  per-process table to be specified/modified.
+		</p>
+	      </li>
+	    </ol>
+	    <p>
+	      The two strategies are compatible, and could be
+	      implemented simultaneously. As the pages containing the
+	      per-process descriptor table might be aged out, we need
+	      to be able to deal with descriptor cache invalidation
+	      anyway.
+	    </p>
+	    <h3>8.4 Global Descriptor Table</h3>
+	    <p>
+	      Providing emulation support in the global descriptor
+	      table (GDT) is both necessary and tricky. Most modern
+	      operating systems run applications in flat mode, but
+	      place the historically required descriptor entries into
+	      the global descriptor table. While every operating
+	      system has entries that it uses for the kernel, there is
+	      no universal convention concerning what these entries
+	      are.
+	    </p>
+	    <p>
+	      While the GDT is normally thought of as ``one table, one
+	      machine,'' this is incorrect. It is actually ``one
+	      table, one operating system.'' In principle even this
+	      could change, though I don't know of any operating
+	      systems that reload this table once it has been loaded.
+	    </p>
+	    <p>
+	      Of course, EROS is no exception. The EROS kernel firmly
+	      believes that it owns the GDT, and relies on being able
+	      to use entries in it. These locations are in turn
+	      recorded in the interrupt descriptor table (IDT), the
+	      task switch segment (TSS), and sometimes the ``fast
+	      syscall'' segment register.  We can probably compile the
+	      kernel to choose values that are unlikely to get stepped
+	      on, but we need to be prepared to deal with the
+	      possibility that this might occur.
+	    </p>
+	    <h4>8.4.1 What ``Stepped On'' Means</h4>
+	    <p>
+	      The EROS kernel runs in ring 0, and all of the emulated
+	      code we want to run natively runs in ring 3. For
+	      purposes of finding a GDT slot for EROS kernel segments,
+	      this means that a GDT slot desired by some hosted
+	      operating system collides with an EROS slot only if it
+	      has DPL=3 and occupies the same slot index. The actual
+	      in-kernel descriptor table is only a shadow table, and
+	      the EROS kernel is free to reuse (dynamically) any slot
+	      with DPL<3 provided that it does not get caught doing
+	      so.
+	    </p>
+	    <p>
+	      Unfortunately, the EROS kernel cannot reuse a
+	      guest-controlled GDT to execute native EROS
+	      applications.  Doing so would expose segment values to
+	      native applications that they should not see. This means
+	      that when switching applications, the kernel must
+	      compare the inbound and outbound descriptor table cache
+	      indexes and conditionally reload the descriptor table.
+	    </p>
+	    <p>
+	      The best solution, if possible, would be to place the
+	      EROS desriptors <em>above</em> the guest descriptors in
+	      all tables, thereby preserving a common segment selector
+	      value for kernel segments across all tables. This will
+	      not avoid the need to switch tables, but it will
+	      minimize the frequency that other system-critical tables
+	      (such as the interrupt dispatch table) need to be
+	      rewritten to reflect new selectors.
+	    </p>
+	    <h4>8.4.2 Switching Kernel Selectors</h4>
+	    <p>
+	      When circumstances force us to switch kernel segment
+	      selectors, as when a user application demands a
+	      particular GDT slot, the kernel must move out of the way
+	      delicately:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  The kernel must locate a new, available position in
+		  all GDTs at which the implicated kernel segment
+		  description record can be stored.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The value of the current segment descriptor must be
+		  copied to the new location.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Selector values in the IDT and TSS must be
+		  selectively rewritten to reflect the new location.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The fast context switch selector must be updated if
+		  it is in use.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  If the clobbered selector is the current value of
+		  IDTR or TSR, those registers should be reloaded.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  If appropriate, the kernel must now contrive to reload
+		  one or more of <b>CS</b>, <b>DS</b>, <b>ES</b>, or
+		  <b>SS</b>.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The implicated entry can now be freed for use by the
+		  requesting application.
+		</p>
+	      </li>
+	    </ol>
+	    <p>
+	      Note that if the EROS kernel cannot identify a common
+	      set of selector locations that work across all possible
+	      GDTs, it must potentially perform this switch every time
+	      it switches into and out of an emulated process. One
+	      begins to anticipate that the context switch path is
+	      becoming both complicated and expensive.
+	    </p>
+	    <h3>8.5 Interrupt Descriptors</h3>
+	    <p>
+	      The interrupt descriptor table contains entries that are
+	      used in most modern operating systems to handle system
+	      calls. These descriptors must appear at the locations
+	      expected by the applications. In some cases this implies
+	      a need to reprogram the offboard interrupt controller
+	      hardware to move the actual hardware interrupts out of
+	      the way. This is a <em>complete mess</em>, and it is
+	      frought with peril in an SMP implementation as different
+	      processors come to disagree about the state of the
+	      interrupt machine.
+	    </p>
+	    <p>
+	      There is one pragmatic saving grace in the interrupt
+	      descriptor table, which is that the table is universally
+	      kept small by all operating systems. It contains entries
+	      for interrupts, exceptions, and one or two system call
+	      entry points. As a result, it is possible in practice
+	      for the emulator to store the <em>real</em> interrupt
+	      entry points in locations that do not conflict with the
+	      system call entry points. This largely recovers the SMP
+	      issue, though moving the descriptors is more than a
+	      little delicate.
+	    </p>
+	    <h3>8.5 Conclusions</h3>
+	    <p>
+	      Having enumerated some of the issues in an
+	      EROS-integrated design, I conclude that this design is
+	      infeasibly complex. While I believe that managing the
+	      descriptor cache in the fashion described is feasible,
+	      my guess is that doing what amounts to global register
+	      allocation across slots in these tables is far far too
+	      complicated to be got right. A different approach needs
+	      to be considered.
+	    </p>
+	    <h2>9. The M-Kernel Approach</h2>
+	    <p>
+	      The M-Kernel design is an alternative intended to reduce
+	      all of the preceding to a manageable amount of
+	      complexity. It is conceptually very similar to the
+	      technique proposed for plex86.
+	    </p>
+	    <p>
+	      In the M-kernel design, we introduce a first-class
+	      notion of hybrid virtual machine into the kernel. A
+	      hybrid virtual machine provides a full user-mode
+	      environment, including all necessary segment entries at
+	      the expected selector offsets in the usual tables.  The
+	      job of the M-kernel is to switch between these machines
+	      and encapsulate faults.
+	    </p>
+	    <h3>9.1 Content of an M-Machine</h3>
+	    <p>
+	      An M-Machine context consists of:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  A set of master system descriptor tables: GDT, IDT,
+		  optional LDT, and TSS. All of these are needed
+		  because all of these reside in the linear (virtual)
+		  address space, and the linear address space is going
+		  to change as we switch from M-machine to
+		  M-machine.
+		</p>
+		<p>
+		  It may prove possible to share the same TSS across
+		  all maps. If so, the supervisor stack segment
+		  selector and stack pointer in the TSS must be
+		  revised whenever we switch from one M-machine to the
+		  next, as these are used to perform the machine's
+		  context save when an M-machine traps.
+		</p>
+		<p>
+		  Depending on the detailed behavior of the software
+		  <b>INT</b> instruction, it may be possible to use a
+		  single IDT all of whose descriptors have DPL<3. This
+		  would catch interrupts and exceptions from the
+		  hardware, and would redirect all software <b>INT</b>
+		  instructions through the general protection fault
+		  vector. Alternatively, we might simply be able to
+		  generically decode all <em>possible</em> software
+		  <b>INT</b> instructions and report them as M-machine
+		  faults.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  A hardware page directory describing the
+		  currently-active address space.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  A set of system control registers -- this is a
+		  subset of <b>CR0</b>..<b>CR4</b>, but I haven't
+		  figured out which subset yet.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  There is an open question in my mind about whether
+		  the M-machine must also have a copy of the floating
+		  point state. I suspect that the M-machine itself
+		  need not deal with this, but that the monitor
+		  probably needs to.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  An M-machine may also need a preemptive context
+		  switch timer. Once again, I'm not sure if this is
+		  necessary. If it is, we may wish to use the
+		  performance monitor cycle counter registers rather
+		  than the motherboard clock timer.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  It may be desirable for an M-machine to directly
+		  simulate the hardware's programmable interval
+		  timer. Won't know until I get there.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      That is, each M-machine contains all of the necessary
+	      state to run ring-3 code completely transparently, to
+	      capture interrupts from the hardware (but not to handle
+	      them), and to load a memory map (but not to manage that
+	      map).
+	    </p>
+	    <p>
+	      Note that by giving each M-machine it's own GDT and IDT,
+	      it ceases to be necessary to have a common kernel
+	      segment selector across the machines.
+	    </p>
+	    <h3>9.2 Functions of the M-kernel</h3>
+	    <p>
+	      The M-kernel serves as a machine monitor between
+	      M-machines. We assume that M-machine zero (M0) is the
+	      ``controlling'' machine, and that for all other machines
+	      the behavior on fault, trap, or interrupt is to switch
+	      to M0, causing M0 to ``handle'' the fault in whatever
+	      fashion is appropriate. In effect, M0 runs that
+	      ``machine monitor'' and the M-kernel is a pico-kernel
+	      that handles the machine switch portion of the task. The
+	      code running in M0 can be a complete operating system,
+	      but it is assumed that this code is aware of the
+	      existence of the M-kernel.
+	    </p>
+	    <p>
+	      The M-kernel provides two functions: fault handling and
+	      machine dispatch.
+	    </p>
+	    <h4>9.2.1 Fault handling</h4>
+	    <p>
+	      When an M-machine faults, traps, or interrupts, the
+	      M-kernel proceeds as follows:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  It saves the unique identification of the fault,
+		  trap, or interrupt.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  It saves the integer register state of the machine
+		  to the supervisor stack recorded in the TSS (see
+		  trickery note below). This is essentially identical
+		  to conventional kernel entry context switch code,
+		  and we can directly lift the EROS code for this
+		  purpose, which is pretty good at it. That code can
+		  be found <a
+		  href="http://www.eros-os.org/eros-src/base/sys/arch/i486/kernel/interrupt.S#944">here</a>.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  If it is not already running in M0, it switches to
+		  M0. This involves a careful exchange of GDT, IDT,
+		  and control registers, and possibly a nullification
+		  of LDT.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  It invokes the machine dispatch entry point, passing
+		  the pointer (relative to the M0 virtual address
+		  space) to the faulted machine.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      It is the responsibility of the M0 machine to decide
+	      what to do about the fault. The above description is
+	      about as minimal
+	    </p>
+	    <h4>9.2.2 Machine Dispatch</h4>
+	    <p>
+	      Machine dispatch is essentially the inverse of fault
+	      handling. In M0, the machine dispatch entry point is an
+	      entry point into the supervisor-mode machine monitor. In
+	      all other machines it is an entry point that returns
+	      control to the user-mode application then resident in
+	      the relevant M-machine. This is exactly the code used
+	      by the eros kernel <a
+		  href="http://www.eros-os.org/eros-src/base/sys/arch/i486/kernel/interrupt.S#2427">here</a>.
+	    </p>
+	    <h4>9.3 Feasibility</h4>
+	    <p>
+	      The M-kernel can be built using only one page of
+	      state. This is desirable because it maximizes the
+	      likelihood that a shared page can be found accessable in
+	      all currently active M-machine address spaces. If the
+	      <em>address</em> of this single page can be shared
+	      across all M-machines, then the TSS can likewise be
+	      shared, which considerably simplifies the M-machine
+	      implementation. I shall call this common page address
+	      <b>Mva</b>.
+	    </p>
+	    <p>
+	      There are only two commonly used kernel mapping
+	      locations within the x86 virtual map. This leaves a
+	      large portion of the virtual address space for
+	      user-accessable virtual mappings, and the intersection
+	      of user-accessable mappings across all spaces is
+	      unlikely to be empty. The M-kernel page address can be
+	      stolen from any single page address within this
+	      intersection, and can be relocated as needed. While the
+	      resulting choice of <b>Mva</b> is likely to bounce
+	      around quite a bit at first, it will soon stabilize in a
+	      virtual page that is not used by any emulated system for
+	      long periods of time.
+	    </p>
+	    <p>
+	      The single page requirement is unquestionably feasible
+	      from a code size perspective.  For calibration purposes,
+	      all of these functions currently exist within the EROS
+	      <a
+	      href="http://www.eros-os.org/eros-src/base/sys/arch/i486/kernel/interrupt.S#944">trap
+	      handler assembly code</a>. That code also holds the
+	      capability invocation path (the M-kernel doesn't need
+	      this) and a boatload of trap debugging support. The
+	      whole fits in 2400 bytes, leaving plenty of room for a
+	      TSS structure (104 bytes). In fact, we can likely shrink
+	      that code by 800 bytes or so.
+	    </p>
+	    <p>
+	      In fact, the resulting design is remarkably similar to
+	      the current EROS trap handler design. At the risk of
+	      inventing new terms The M-kernel may be viewed as the
+	      context switching ``femtokernel'' that lives at the core
+	      of the EROS kernel, and also (for that matter) at the
+	      core of the L4 nucleus. To implement this, most of what
+	      will be needed is to <em>remove</em> code from the
+	      existing EROS unified trap/interrupt handler.
+	    </p>
+	    <h3>9.4 Fal-Tor-Pan (The Refusion)</h4>
+	    <p>
+	      So now we have an M-kernel and all of the mechanism to
+	      perform an Mswitch (a context switch between
+	      machines). This mechanism is very similar to a
+	      conventional context switch. How shall we integrate it
+	      back into a conventional operating system?
+	    </p>
+	    <p>
+	      One approach, which would be best for a non-persistent
+	      design, would be to run only a virtual machine monitor
+	      in M0 and run all operating systems in other machines. I
+	      have not looked, but this is probably what the VMware
+	      GSX product does. While the generic M-kernel could be
+	      used in this fashion, and somebody will probably do so
+	      someday, it isn't the best approach for EROS. For EROS,
+	      we would like to run the EROS kernel in M0 and preserve
+	      thereby all of the persistence management that EROS
+	      provides.
+	    </p>
+	    <p>
+	      Ideally, we would like in doing this to avoid any need
+	      to recopy the context structure that the M-machine has
+	      so carefully saved for us. Eliminating that copy is one
+	      of the basic wins in the current EROS
+	      implementation. That is, we would like to re-fuse the
+	      Mswitch logic described above with the context switch
+	      (Cswitch) logic of the M0 operating system. This is
+	      possible.
+	    </p>
+	    <h4>9.4.1 Using the Context Cache In-Place</h4>
+	    <p>
+	      Today, EROS maintains an array that serves as a
+	      ``context cache.'' This array is simply an array of
+	      augmented save areas.  If the revised EROS were to run
+	      only a small number of M-machine processes, we could
+	      play games with the M0 TSS stack pointer to use the
+	      existing context cache directly whenever running in
+	      M0. We would then pay a save area copyin/copyout penalty
+	      for other machines M-contexts.
+	    </p>
+	    <p>
+	      This solution involves minimal change to the existing
+	      kernel, and is therefore potentially a good one. I am
+	      concerned that it creates a somewhat irregular data
+	      structure management discipline (M0 behaves differently
+	      from M&gt;0, and may therefore be prone to maintenance
+	      failure.
+	    </p>
+	    <h4>9.4.2 Redesign Context Cache as M-Cache</h4>
+	    <p>
+	      If we can get the M-kernel code small enough (which we
+	      probably can), a cleaner solution would be to
+	      restructure the existing context cache as an array of
+	      M-machine pages. Each M-machine page now contains a copy
+	      of the M-kernel code and a TSS at the front, followed by
+	      as many context cache entries (save areas) as will
+	      fit. Every application address space maps it's
+	      containing M-machine page with supervisor permissions at
+	      virtual address <b>Mva</b>. We augment every M-machine
+	      (conceptually) with a logical machine ID, and skip
+	      switching the GDT, IDT, LDT if the M-machine ID being
+	      initiated is the same as the current one. This bypass
+	      can be done in a single branch instruction, and results
+	      in a clean unification between M-machines and the
+	      contexts of the native operating system.
+	    </p>
+	    <p>
+	      We will need an M-cache for non-EROS processes anyway.
+	      In effect, what I am proposing is that <em>every</em>
+	      EROS process logically runs in its own hybrid virtual
+	      machine, and optimizing the usual case in which that
+	      virtual machine is in fact M0 and the kernel is the M0
+	      supervisor.
+	    </p>
+	    <p>
+	      The amortized cost of this restructuring will probably
+	      work out to be a marginal 300 bytes per context cache
+	      entry. If we conclude this is excessive, we can revert
+	      to the two cache design strategy. I just hate to carry
+	      the extra complexity if we can avoid it.
+	    </p>
+	    <h3>9.4 Managing the Various Hardware Tables</h3>
+	    <p>
+	      In the proposed M-kernel
+	    </p>
+	    <h2>10. Responsibilities of M0</h2>
+	    <p>
+	      At this point we have the core context switcher of a
+	      hybrid VMM, but not the supporting code to manage the
+	      various tables that the x86 requires. In the following
+	      discussion I talk about each of these tables and it's
+	      associated management requirements.
+	    </p>
+	    <h3>10.1 Global and Local Descriptor Tables</h3>
+	    <p>
+	      The root of all evil on the x86 is the Global Descriptor
+	      Table. In order for the selector values selected by
+	      different emulated operating systems to look right, it
+	      is necessary that each M-machine have a separate global
+	      descriptor table. This table need not -- indeed must not
+	      -- be shared across M-machines, but certain of its
+	      entries must satisfy constraints.
+	    </p>
+	    <p>
+	      It is the responsibility of M0 to ensure that at all
+	      times only legal entries appear in the GDT associated
+	      with M<sub>x</sub>. This can be accomplished through
+	      page fault handlers or through an explicit M0 kernel
+	      interface that permits manipulation of simulated GDTs.
+	    </p>
+	    <p>
+	      The global descriptor table for each machine M<em>x</em>
+	      must be accessable to the M0 machine so the M0 machine
+	      can implement descriptor table updates on behalf of the
+	      supervisor machine simulator. This table is mapped into
+	      the M0 kernel virtual address space. It must also be
+	      mapped into the M<sub>x</sub> address space in supervisor
+	      mode. The M<sub>x</sub> address for this mapping can be
+	      specified by the machine simulator. The M0 kernel will
+	      map the table into both the M<sub>x</sub> space and
+	      somewhere in the M0 kernel virtual space.
+	    </p>
+	    <p>
+	      Reloading the GDT on the way in to an M-machine (we
+	      shouldn't ever need to save it) costs approximately 6
+	      cycles.
+	    </p>
+	    <p>
+	      The local descriptor table is managed in essentially the
+	      same way and under the same constraints. While the
+	      processor has two different master registers for these
+	      two tables, the two tables have identical security
+	      behavior for our purposes.
+	    </p>
+	    <h4>10.1.1 GDT Safety Constraints</h4>
+	    <p>
+	      It is the responsibility of M0 to ensure that whenever a
+	      machine M<sub>x</sub> executes, it's associated GDT
+	      meets the following constraints:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  All IDT entries point to the singleton true IDT
+		  rather than the requested one.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  All TSS entries point to the M-kernel page's TSS
+		  virtual address.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  All call gates refer to the M-kernel call gate trap
+		  location.
+		</p>
+	      </li>
+	    </ul>
+	    <h4><a name="GDTR-fidelity">10.1.2 GDTR Fidelity</a></h4>
+	    <p>
+	      For the moment, I propose to try to get away without it,
+	      but if necessary the M<sub>x</sub> descriptor table can
+	      be mapped in such a way that:
+	    </p>
+	    <ul>
+		(M0.addr <b>mod</b> pagesize) == M<sub>x</sub>
+		<b>mod</b> pagesize)
+	    </ul>
+	    <p>
+	      This would eliminate any possibility that the guest
+	      application will learn of emulation by examining the LTR
+	      value.
+	    </p>
+	    <h3>10.2 Interrupt Dispatch Table</h3>
+	    <p>
+	      The interrupt descriptor table (IDT) needs to be kept on
+	      a per-machine basis, but thankfully doesn't need to be
+	      updated in a complex way to deal with per-machine
+	      interrupt handling policy. In fact, the only reason that
+	      it needs to be per-machine is that the code segment
+	      selector stored in each interrupt descriptor is a
+	      selector into the GDT, and the GDT is specific to each
+	      M-machine (what a <em>nuisance</em>).
+	    </p>
+	    <p>
+	      Aside from dealing with the GDT selector problem, the
+	      content of the interrupt dispatch table should not depend
+	      on which M-machine we are running. Here is why I think
+	      we will get away with this:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  Most of the vector numbers (the exceptions) are
+		  dictated by the hardware.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The hardware interrupt lines, properly programmed,
+		  do not collide with these.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The handler code can be successfully unified with
+		  the general kernel trap handler (see the EROS code
+		  for an example.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The register save area is part of the M-kernel page.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  By setting DPL<3 on all <b>IDT</b> vector entries, we can
+		  ensure that software <b>INT</b> instructions will
+		  trap via the general protection fault in a
+		  decodable way. Clearly we would not want to deal
+		  with the pre-reserved overflow and breakpoint traps
+		  this way, but for all other cases it's a
+		  <em>fine</em> solution.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      As with most of the supporting data structures, the
+	      IA-32 keeps the virtual address of this table stored in
+	      the <b>IDTR</b> register. The table itself can be
+	      switched around underneath the hardware so long as
+	      interrupts are disabled at the time and the virtual
+	      address and length remain unchanged.
+	    </p>
+	    <p>
+	      If we find ourselves required to faithfully simulate the
+	      user-mode <b>SIDT</b> instruction (which reveals the
+	      selector and linear address of the table), we can handle
+	      that similar to the handling of <b>SGDT</b> (see the <a
+	      href="#GDTR-fidelity">GDTR fildelity</a> section).
+	    </p>
+	    <h3>10.3 Task Structure</h3>
+	    <p>
+	      A key supporting structure in the x86 firmament is the
+	      task structure, which is named by the Task Structure
+	      Register <b>TSR</b>. The <b>LTSR</b> instruction loads
+	      an entry from the global descriptor table, but once
+	      loaded the <b>TSR</b> register value only changes as the
+	      result of a task switch. We will address that momentarily.
+	    </p>
+	    <p>
+	      Note that the hardware recalls the <em>location</em> of
+	      the task structure, but does not cache information from
+	      the structure. The location of the structure is a linear
+	      (virtual) address, and as a result the actual structure
+	      can safely be swapped out from under the hardware
+	      without reloading <b>LTR</b> as long as two conditions
+	      are met:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  No references to the table are occuring at the
+		  time. This can be ensured by disabling interrupts.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The virtual address of the <em>new</em> task
+		  structure matches the virtual address of the
+		  <em>old</em> task structure.
+		</p>
+	      </li>
+	    </ol>
+	    <p>
+	      The easiest way to ensure this is to place the task
+	      structure (a) on the same page as the M-kernel code, or
+	      (b) on a similarly universally mapped page.
+	    </p>
+	    <h3>10.3 Mapping Tables</h3>
+	    <p>
+	      M0 is of course responsible for all page resource
+	      allocation associated with emulation. Beyond this, M0 is
+	      responsible for keeping track of the <b>Mva</b> address
+	      and ensuring that (a) it does not collide with any M0
+	      kernel address, and (b) it does not collide with any
+	      user mode accessable virtual address. The latter is the
+	      main subject of discussion here. If we choose to use a
+	      separate TSS page, identical constraints apply to that
+	      page.
+	    </p>
+	    <p>
+	      To identify a suitable <b>Mva</b>, the M0 kernel first
+	      picks a suitable virtual page address within the M0 user
+	      address region. It then probes every known address space
+	      tree, clobbering the associated PTE in each space with a
+	      supervisor-only PTE naming the M-kernel page. It also
+	      records the selected <b>Mva</b> in order to cope with
+	      later page faults.
+	    </p>
+	    <p>
+	      When a user-mode page fault occurs that references the
+	      <b>Mva</b> address, the M0 kernel must choose a new
+	      <b>Mva</b> location before servicing the page
+	      fault. Whenever a new <b>Mva</b> address is chosen, the
+	      <b>TSR</b> and <b>IDTR</b> registers must be reloaded,
+	      the ring 0 stack pointer in every M-kernel page must be
+	      adjusted, and the <b>GDT</b> code and data segment bases
+	      corresponding to the M-kernel code page for each
+	      M-machine must be revised. Because each M-machine uses a
+	      different <b>GDT</b> and a different selector for it's
+	      kernel code, this update may occur at a distinct
+	      location in each M-machine. The selector identity should
+	      appear at a well-known location within the associated
+	      M-machine's descriptive page to simplify updates.
+	    </p>
+	    <p>
+	      Much of this can be done lazily in the EROS
+	      implementation by the following scheme:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  Store in each M-machine's descriptor page its belief
+		  about the current <b>Mva</b> value. Check this value
+		  when switching to a new M-machine, and if it does
+		  not match, update the M-machine accordingly.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Store in the frame header for every mapping frame
+		  the <b>Mva</b> that was active at the time that
+		  mapping frame was created. Use lazy invalidate
+		  propagation to ensure that the associated page table
+		  entry is invalidated before the mapping frame is
+		  allowed to be active.
+		</p>
+		<p>
+		  A similar lazy invalidation scheme is already
+		  proposed for EROS fast snapshot checkpoint. It
+		  should be possible to unify the two mechanisms in
+		  the EROS kernel.
+		</p>
+	      </li>
+	    </ul>
+	    <h3>10.4 Summarizing the M-Machine State</h3>
+	    <p>
+	      Under the preceding discussion, the per-machine M-kernel
+	      page must hold:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  Some miscellaneous fields (~64 bytes)
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  A task segment (104 bytes).
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  A minimal IDT (~128 bytes each).
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Approximately 1500 bytes of code.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  At least one save area (~108 bytes each).
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      Separate from the M-page, the M0 kernel must maintain a
+	      descriptor table cache for <b>GDT</b> and <b>LDT</b>
+	      descriptor tables, and arrange for entries to be mapped
+	      in the supervisor region of the target M-machine's
+	      address space.
+	    </p>
+	    <hr> <em>Copyright 2002 by Jonathan
+	      Shapiro.  All rights reserved.  For terms of
+	      redistribution, see the <a
+	      href="../legal/license/GPL.html">GNU General Public
+	      License</a></em>
+	  </td>
+	  <td width="10%">&nbsp;</td>
+	</tr>
+    </table>
+  </body>
+</html>

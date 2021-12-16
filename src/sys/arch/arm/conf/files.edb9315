@@ -1,0 +1,61 @@
+#
+# Copyright (C) 2006, 2007, 2008 Strawberry Development Group.
+#
+# This file is part of the CapROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+# W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
+
+file("arch/arm/kernel/asm.S")
+file("arch/arm/kernel/exception.S")
+file("arch/arm/kernel/GrubEmul.c")
+file("arch/arm/kernel/HardClock.c")
+file("arch/arm/kernel/machDelay.S")
+file("arch/arm/kernel/IdleThread.c")
+file("arch/arm/kernel/Interrupt.c")
+file("arch/arm/kernel/InvokeArm.c")
+file("arch/arm/kernel/KernelVars.c")
+file("arch/arm/kernel/Machine.c")
+file("arch/arm/kernel/Mapping.c")
+file("arch/arm/kernel/ProcessKeyArm.c")
+file("arch/arm/kernel/mk_SysTrace.c")
+file("arch/arm/kernel/mk_DevicePrivs.c")
+file("arch/arm/kernel/PageFault.c")
+file("arch/arm/kernel/PhysMem.c")
+file("arch/arm/kernel/Process.c")
+file("arch/arm/kernel/setjmp.S")
+#file("arch/arm/kernel/mainTemp.c") ##temporary
+#file("arch/arm/kernel/onewire.c") ##temporary
+#file("arch/arm/kernel/invmon.c") ##temporary
+
+#
+# Machine-specific debugger object files:
+#
+file("arch/arm/kernel/db_interface.c", ddb)
+
+# Capability invocation stub for self-invocation by kernel processes:
+file("arch/arm/capstubs/call.S")
+
+# This one is unconditionally included so that we can show status on
+# the way up:
+file("arch/arm/kernel/ConsoleStream.c")
+file("arch/arm/kernel/SerialStream.c", output_on_tty0)
+
+file("arch/arm/mach-$(CAPROS_MACH)/mach-rtc.c")
+
+include("../../../files.common")

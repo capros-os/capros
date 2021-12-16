@@ -1,0 +1,12 @@
+package capros.timer;
+
+interface timer_client extends capros.key {
+
+/**
+ * This is the interface a client of the timer must implement in order
+ * to receive the signal that the interval expired. 
+ */
+  void wakeup();
+
+};
+

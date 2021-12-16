@@ -1,0 +1,16 @@
+package capros.winsys;
+
+interface session_creator extends capros.key raises (NoSessionAvailable) {
+
+  exception NoSessionAvailable;
+
+  /** New session
+   *
+   * Request a new session key.  The new session will inherit the
+   * trust of the session creator.  
+   *
+   */
+  capros.key new_session(capros.key bank);
+
+  capros.key constrained_creator(unsigned long window_id);
+};

@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2006-2008, 2010, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +19,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <assert.h>
 #include <stdlib.h>
@@ -306,8 +311,14 @@ compute_value(Symbol *s)
 void
 output_c_type_trailer(Symbol *s, FILE *out, int indent)
 {
-  while (s->cls == sc_symRef)
-    s = s->value;
+  s = symbol_ResolveRef(s);
+
+  /* If this symbol is a typedef, we put out the typedef name
+     as its type name, so don't expose the underlying type. */
+
+  if (s->cls != sc_typedef) {
+    s = symbol_ResolveType(s);
+  }
 
 #if 0
   /* FIX: This seems wrong to me. If it is truly a variable length
@@ -468,7 +479,7 @@ output_c_type(Symbol *s, FILE *out, int indent)
 	break;
       case lt_bool:
 	{
-	  fprintf(out, "bool_t");
+	  fprintf(out, "bool");
 	  break;
 	}
       case lt_void:
@@ -518,6 +529,19 @@ output_c_type(Symbol *s, FILE *out, int indent)
     fprintf(out, "%s", symbol_QualifiedName(s,'_'));
     break;
   }
+}
+
+static void
+print_typedef(Symbol *s, FILE *out, int indent)
+{
+  print_asmifdef(out);
+  do_indent(out, indent);
+  fprintf(out, "typedef ");
+  output_c_type(s->type, out, indent);
+  fprintf(out, " %s", symbol_QualifiedName(s,'_'));
+  output_c_type_trailer(s->type, out, 0);
+  fprintf(out, ";\n");
+  print_asmendif(out);
 }
 
 static void
@@ -586,13 +610,7 @@ symdump(Symbol *s, FILE *out, int indent)
 
       fprintf(out, "\n");
 
-      print_asmifdef(out);
-
-      do_indent(out, indent);
-      fprintf(out, "typedef unsigned long %s;\n",
-	      symbol_QualifiedName(s,'_'));
-
-      print_asmendif(out);
+      print_typedef(s, out, indent);
 
       for(i = 0; i < vec_len(s->children); i++)
 	symdump(symvec_fetch(s->children,i), out, indent + 2);
@@ -624,7 +642,7 @@ symdump(Symbol *s, FILE *out, int indent)
     {
       unsigned long sig = symbol_CodedName(s);
 
-      fprintf(out, "#define RC_%s _ASM_U(0x%x)\n",
+      fprintf(out, "#define RC_%s 0x%x\n",
 	      symbol_QualifiedName(s,'_'),
 	      sig);
 
@@ -673,7 +691,7 @@ symdump(Symbol *s, FILE *out, int indent)
 
       fprintf(out, "\n");
 
-      fprintf(out, "#define IKT_%s _ASM_U(0x%x)\n\n",
+      fprintf(out, "#define IKT_%s 0x%x\n\n",
 	      symbol_QualifiedName(s,'_'),
 	      sig);
 
@@ -694,7 +712,7 @@ symdump(Symbol *s, FILE *out, int indent)
 		    ((s->ifDepth << 24) | opr_ndx++));
 	  }
 	  else {
-	    fprintf(out, "\n#define OC_%s _ASM_U(0x%x)\n",
+	    fprintf(out, "\n#define OC_%s 0x%x\n",
 		    symbol_QualifiedName(child,'_'),
 		    ((s->ifDepth << 24) | opr_ndx++));
 	  }
@@ -721,15 +739,7 @@ symdump(Symbol *s, FILE *out, int indent)
 
   case sc_typedef:
     {
-      print_asmifdef(out);
-      do_indent(out, indent);
-      fprintf(out, "typedef ");
-      output_c_type(s->type, out, indent);
-      fputc(' ', out);
-      fprintf(out, "%s", symbol_QualifiedName(s,'_'));
-      output_c_type_trailer(s->type, out, 0);
-      fprintf(out, ";\n");
-      print_asmendif(out);
+      print_typedef(s, out, indent);
       break;
     }
 
@@ -969,9 +979,9 @@ output_c_hdr(Symbol *s)
 
   ptrvec_sort_using(vec, symbol_SortByQualifiedName);
 
-  /* Header guards were missing.  I've added them here */
-  fprintf(out, "#ifndef __%s_h__\n", s->name);
-  fprintf(out, "#define __%s_h__\n", s->name);
+  /* Header guard: */
+  fprintf(out, "#ifndef __%s_h__\n", symbol_QualifiedName(s, '_'));
+  fprintf(out, "#define __%s_h__\n", symbol_QualifiedName(s, '_'));
 
   /* 
    * We need target.h for long long to work, however, I'm not certain this

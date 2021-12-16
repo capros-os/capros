@@ -1,0 +1,25 @@
+package capros;
+
+/** Interface for character streams.
+ */
+interface Stream extends key {
+  /** Write ASCII characters to stream. 
+   *
+   * Write /len/ bytes to the stream from the string s. Returns the
+   * number of bytes successfully written.*/
+
+  void write(char c);
+  /* unsigned long write(unsigned long len, string s); */
+
+  /** Read ASCII characters from stream. 
+   *
+   * Read up to /len/ bytes from the stream into the buffer pointed to
+   * by s. Return the number of bytes successfully written.*/
+  /* unsigned long read(unsigned long len, out string s); */
+  char read();
+
+  typedef buffer<char,4096> iobuf;
+
+  void nread(out iobuf s);
+  void nwrite(iobuf s);
+};

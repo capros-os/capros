@@ -1,0 +1,307 @@
+<html>
+<head>
+<title>Dependency Tracking in the EROS Kernel</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <H1>Dependency Tracking in the EROS Kernel</H1>
+</center>
+<p> There are two sorts of dependencies that the EROS kernel needs to
+keep track of:
+<ul>
+  <li> 
+       <p> Relationships between objects and the prepared keys to
+       those objects.
+  <li> 
+       <p> Relationships between the segment structure described in
+       nodes and keys and the hardware mapping entries built from
+       those structures.
+</ul>
+<H2>1. Prepared Key Dependencies</H2>
+<p> In the interest of efficiency, EROS capabilities make use of a
+pointer swizzling technique.  When a key first comes off the disk, it
+is said to be <em>unprepared</em>.  An unprepared key contains an
+allocation, object identifier, and a few other fields:
+<p> 
+<center>
+  <img src="UnpreparedKey.gif">
+</center>
+<h3>1.1. Preparing a Key</h3>
+<p> The first time that an unprepared key is used, the key is
+<em>prepared</em>.  Preparing a key involves several steps:
+<ol>
+  <li> If not already in core, the object named by the key is faulted
+       into memory.
+  <li> If no object table entry exists for the object, one is allocated.
+  <li> The key is converted to prepared form.
+</ol>
+<p> A prepared key points to the object table entry, which in turn
+points to the object:
+<center>
+  <img src="PreparedKey.gif">
+</center>
+<p> By using an indirection table design, the IPC path can usually
+copy keys without regard to whether they are valid, so no memory
+reference is required to anything other than the key itself in order
+to copy a key.  This proves to give a significant improvement in IPC
+times.
+<p> To handle object rescind and object frame reuse, EROS reserves
+somewhere between 10% and 15% more object table entries than there are
+object frames in core.
+<ul> 
+  <p> <em>Design Note:</em> It is unclear how many extra indirection
+  table entries are needed.  It may be that as low as 1% would work
+  fine in most cases.
+  <p> An indirection table entry is allocated under the following
+  circumstances:
+  <p> 
+  <ul>
+    <li> An object is rescinded.
+    <li> A key to a previously unreferenced object is prepared.
+  </ul>
+  <p> The rescind operation need not be terribly efficient.  The key
+  prepare case, however, is complicated by the checkpoint mechanism.
+  <p> When a checkpoint occurs, approximately 25% of the objects in
+  memory will prove to be dirty.  Mapping entries to these objects
+  will be rendered read-only, and the objects will be marked as
+  hazarded by checkpoint (which prevents mutation).
+  <p> When a process then attempts to mutate one of these objects, a
+  copy-on-write operation will occur.  This causes the object table
+  entry to be updated to point to the new version of the object, at
+  which point execution can proceed.
+  <p> The major source of overrun, then, is due to the interval
+  between time an old, clean, free object is replaced by a newly
+  loaded object and the time the scavenger releases the object table
+  entry for that old object.  Contrary to what you might expect, the
+  number of entries required is a function of the incoming object
+  fault rate rather than the pageout rate.
+  <p> Note, however, that a complete scavenge of memory can be done
+  every 1000 object faults or so without terribly significant
+  overhead.
+</ul>
+<h3>1.2. Removing an Object from Memory</h3>
+<p> When an object (a <strong>page</strong> or <strong>node</strong>)
+is removed from memory, there may exist prepared keys to it.  The keys
+are invalidated by invalidating the object table entry:
+<center>
+  <img src="StalePreparedKey.gif">
+</center>
+<p> A stale OT entry can be detected by the fact that the least
+significant bit of the pointer field is 1 (all <em>valid</em> pointers
+are word pointers).  If bit 0 of this field is 1, then bit 1 indicates
+whether the object was removed or rescinded, and bit 2 is used by the
+OT scavenger.
+<p> As nodes are forced out to disk, the keys in them are deprepared.
+If a prepared key is found to point to a stale OT entry at deprepare
+time, what happens depends on whether the object was removed or
+rescinded:
+<ul>
+  <li> If the object was removed, the key is deprepared back to it's
+       original form using the OID value stored in the OT entry.
+       <p>
+  <li> If the object was rescinded, the key is deprepared to the null
+       key.
+       <p> 
+</ul>
+<p> Both object removal and object rescind are low frequency events.
+Unreferenced OT entries are returned to the free OT pool by an OT
+scavenger.
+<h4>Hazards</h4>
+<p> The removal strategy depends on being able to locate all
+dependencies on the object being removed.  For pages, page dependency
+tables are maintained that are described below.  For nodes, the
+dependencies on the node are completely embodied in the dependencies
+on the key slots, and a key slot dependency table is used.
+<h3>1.3. Call and Allocation Counts</h3>
+<p> One design problem in single-level-store capability systems is the
+problem of invalidating stale capabilities when objects are allocated
+to new users.  EROS uses a 48-bit allocation count to accomplish
+this.  Both the object and the key contain a 48 bit number indicating
+the number of times the object has been reallocated.  If these numbers
+do not match, the key is invalid.
+<p> Objects are not reallocated very often, so the allocation count
+value is not unduly threatened by overflow.
+<p> The EROS system guarantees that every <strong>call</strong>
+operation will receive at most one <strong>return</strong>.  This is
+accomplished by keeping a count of the number of calls a domain has
+performed, and placing in each resume key the count associated with
+the corresponding call.  If the resume key count does not match the
+domain's current call count, the resume key is invalid.  Because the
+call count must be incremented with each invocation, call counts
+<em>are</em> threatened by overflow.  We have therefore chosen a 48
+bit allocation count.
+<p> A 48-bit count is large enough for the next two decades.  Assuming
+a 32 cycle round-trip invocation time (an implausibly small number),
+such a counter takes 2<sup>53</sup> cycles to roll over.  On a machine
+with a <em>femto</em>second (2<sup>-15</sup>) clock, this works out
+something over 8 <em>thousand</em> years.  While it's conceivable that
+a single system image might run that long, we feel reasonably
+confident that we can scavenge the persistent store every 2 thousand
+years without noticable overhead.
+<p> This calculation, of course, makes the optimistic assumption that
+memory references will take only 1 cycle.
+<h3>1.4. Alternative Designs</h3>
+<p> In KeyKOS, all prepared keys to an object are kept on a circularly
+linked list.  If the object is removed, this circularly linked list
+can be walked to deprepare all of the keys. While simple and elegant, this
+design suffers from two limitations:
+<ul>
+  <li> 
+       The list update tends to imply a cache miss per prepared
+       key in the key invocation (IPC) path.  While the key being sent
+       is likely to be in the cache, it's neighbor in the linked list
+       is not.  This causes a cache miss on essentially every prepared
+       key copy, and accounts for nearly 50% of the invocation time.
+       <p> 
+  <li>
+       The linked list imposes 25% space overhead on all in-memory
+       keys (whether or not they are prepared), because space for the
+       linked list pointer must be present in each key.  In addition
+       to the issue of space, it is inconvenient for in-memory keys to
+       be a different size than on-disk keys.
+       <p> 
+</ul>
+<p> Because of these issues, EROS has abandoned the key chain approach.
+
+<H2>2. Mapping Entry Dependencies</H2>
+<p> EROS constructs memory segments as a tree of nodes and pages.
+Whenever a mapping entry needs to be built (discovered when a page
+fault occurs), the segment tree is traversed from top to bottom to
+build the needed entry.  At each layer in the segment tree we traverse
+through some slot in a segment node.  Four actions may force us to
+invalidate existing mapping entries:
+<ol>
+  <li> A key in one of the slots we traversed may be altered.  All
+       mapping entries predicated on the old value of the key must
+       be marked invalid.
+       <p>
+  <li> An node named by one of those keys may be removed from memory.
+       All mapping entries dependent on that object's presence must be
+       marked invalid.
+       <p>
+  <li> An page named by one of those keys may be removed from memory.
+       In this case, there is at least one mapping entry that directly
+       references the page that must be marked invalid.
+       <p>
+  <li> A page frame that is acting as a mapping table may be
+       reclaimed, in which case page table entries that reference it
+       must be marked invalid.
+</ol>
+In KeyKOS, the Key chain enabled cases (2) and (3) to be reduced to
+case (1).  KeyKOS preserved a mapping from key slot addresses to
+mapping entries.  Before an object was removed, all Keys to that
+object were unprepared, which guarantees that all of the associated
+mapping entries were invalidated.  To handle case (4), KeyKOS simply
+added an extra entry in the depend table based on the mapping table
+address.
+<p> Because it does not maintain a Key chain, EROS must adopt a
+different solution.
+<H3>2.1. Managing Slot and Node Dependencies</H3>
+<p> In principle, key slot dependencies can be captured in three ways:
+<ol type=A>
+  <li> By tracking dependencies between the <em>key slots</em> and the
+       generated mapping entries, <em>or</em>
+       <p> 
+  <li> By tracking dependencies between the <em>containing node
+       slot</em> for each key and the mapping entries generated by
+       that node.
+       <p> 
+  <li> By tracking dependencies between the <em>object slots</em>
+       (nodes and pages) pointed to by the keys and generated mapping
+       entries.
+       <p> 
+</ol>
+<p> Options (A) and (B) are equivalent if the mappings are discarded
+in a way that takes into account which slot was altered.  Option (B)
+has two advantages: it slightly simplifies Node removal and is
+somewhat more compact.  I had initially hoped to adopt this approach
+in EROS, but it proved much harder to code than I had expected.
+Basically, it's easier to consolidate entries of the form (Key *,
+PTE*) than it is to consolidate node entries.
+<p> Every time we traverse a key slot, we add a depend entry for that
+key slot which names the mapping entry we were in the process of
+building when the traversal occured.  If a slot in that node is later
+altered, we invalidate all of the mappings shadowed by that slot.
+<p> On machines implementing tree-structured mapping, it is usually
+possible to consolidate multiple entries for the same key.  If two
+different mapping entries in the same tree page were generated by the
+same key slot, we can usually assume that all of the intervening
+mappings were also generated by that key.  There are perverse mappings
+under which this is not true, but the impact on these mappings is that
+they will get invalidated more often if they are changed.  We accept
+this performance impact in the interest of efficiency.
+<p> Given all of this, the data structure used to capture the key slot
+dependency information takes up 2 words on a 32-bit architecture:
+<pre>
+struct KeyDependEntry {
+  PTE      *start;        // First entry to zap
+  Word     pteCount : 12; // Number of entries
+  Word     slotTag : 20   // hash of key address
+};
+</pre>
+<p> This assumes a 1024 set depend entry cache, and takes advantage of
+the fact that key addresses are word aligned.
+<H4>Dependencies for Hash-Structured Hardware Mapping</H4> 
+<p> Machines implementing hash-structured mapping do not readily lend
+themselves to the entry consolidations available under tree-structured
+mapping schemes.  Two tricks can be used to achieve a similar effect,
+and these tricks interact to mutual benefit.
+<p> First, hash table entries are allocated in chunks of 8 adjacent
+virtual pages. This gives them some locality of reference, which
+enables a degree of consolidation in segment nodes of smaller degree.
+Key slots of larger degree must be captured using a different
+structure:
+<pre>
+struct NodeDependEntry {
+  uva_t      startAddr; // First entry to zap
+  uva_t      endAddr;   // First entry to zap
+  asid_t     asid;      // Address space
+  Key        *node;     // Node address
+};
+</pre>
+<p> The range of virtual addresses is used to walk the hash structure
+by hand.
+<H3>2.2. Managing Page and Mapping Table Dependencies</H3>
+<p> To solve parts (3) and (4) of the dependency mapping problem, we
+could adopt the solution that KeyKOS used for mapping table pages to
+handle user pages as well -- just add the address of the page frame
+into the depend table with a back pointer for each mapping table
+entry.  While this would work, it requires 4 words of overhead for
+every page mapping (which is most of the in-core pages) where roughly
+1.25 will do the job.  The l2span field would always contain 0 in such
+cases, and the mapping table entry itself contains the address of the
+page frame.  Given this, we instead use a smaller structure:
+<pre>
+struct PageDependEntry {
+  PTE  *entry;         // Entry to invalidate
+};
+</pre>
+<p> Note that this structure is pretty much independent of the mapping
+architecture.  While the mapping entry layout varies from machine to
+machine, the notion that there is one per page appears relatively
+universal.
+<H3>2.3. Multiset Cache Rather than Hash Table</H3>
+<p> Rather than adopt the KeyKOS hash table design, we decided to go
+for a multiset cache style of table management.  We expect that the
+size distribution will turn out to have a low standard deviation,
+which makes the next pointer unprofitable.  In addition, Shapiro's
+experiences with TLB modeling strongly suggest that the outlier cases
+can be handled with a fully associative overflow cache.
+<h2>3. Domain Root Dependencies</h2>
+<p> Nodes that act as General Registers, Key Registers, or Domain
+Roots have a special relationship under the domain contract.  If any
+of the components of a domain is removed from memory, the domain must
+be deprepared.  This problem is unrelated to the issues mentioned
+above, but is included here so that this note will cover all of the
+dependency management issues.
+<p> The domain contract problem is straightforward: the nodes in a
+domain are prepared and deprepared as a group, and the two auxiliary
+nodes contain pointers to the root node.  This means that if any of
+the three is removed, the others can be found and deprepared at the
+appropriate time.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

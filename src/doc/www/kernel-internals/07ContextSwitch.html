@@ -1,0 +1,133 @@
+<html>
+<head>
+<title>Context Switching</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> Having described the domain structure and the domain cache
+structure, we can now turn our attention to context switching.  While
+our description is given with regard to the i486 architecture, the
+basic approach described here is suitable for almost any
+microprocessor.
+<h1>1 The Active Thread</h1>
+<p> At any given instant, there is exactly at most one active thread
+in the system per processor.  If no other threads are runnable, the
+kernel executes an idle loop until one is ready to run.  The currently
+active thread is identified by the <code>ActiveThread</code> pointer,
+which points to an entry in the thread table.
+[<a href="#fn7-1">note</a>]
+<p> The context
+of an active thread is cached in the domain cache, and cannot be
+decached without forcing the thread to be descheduled.
+<p> When a thread is in the kernel, the kernel keeps track of two
+thread pointers.  The <code>ActiveThread</code> pointer identifies the
+thread that is currently running in the kernel.  The
+<code>NextThread</code> pointer identifies the thread that we will be
+returning to.
+<p> Unless the active thread stalls or performs a message send, the
+normal expectation when a thread enters the kernel is that control
+will return to the process that invoked the kernel.  When a thread
+enters the kernel, <code>NextThread</code> is therefore initially set
+to the value of <code>ActiveThread</code>.
+<p> The active thread can become deactivated (thereby losing the
+processor) for one of three reasons.  In order of increasing
+frequency, these are:
+<p>
+<ul>
+  <p>
+  <li> The thread is destroyed by the destruction of its containing
+       domain.
+       <p>
+  <li> The scheduling quanta timer goes off, forcing a the scheduler
+       to be invoked.
+       <p>
+  <li> The thread invokes a key that causes it to become stalled.
+</ul>
+<p> In any of these cases, <code>NextThread</code> is set to zero, and
+the scheduler is invoked before exiting the kernel.
+<h2>1.1 Stalling the Active Thread</h2>
+<p> Conceptually, a key invocation either completes successfully or
+stalls just before the invocation actually occurs.  The EROS kernel is
+careful to maintain this constraint, because only a very limited
+amount of per-process state can safely be preserved within the kernel.
+<p> In practice, of course, the key invocation proceeds into the
+kernel checking various conditions, and either makes it all the way to
+completion or discovers that some requirement cannot be met.  As an
+example, consider the algorithm for preparing a key, which is outlined
+in Figure 7.1.  All of the paths that involve
+bringing the object into memory cause the requesting process to go to
+sleep.
+<ul>
+  <em>
+  <pre>
+if (key is prepared)
+  validate memory allocation count
+  return success
+
+object = search hashtable for (key.oid,key.obType)
+if (object)
+  prepare key
+  return success
+
+bring object into memory somehow
+  </pre>
+  </em>
+  <p> <strong>Figure 7.1: Preparing a key</strong>
+</ul>
+\begin{figure}[htb] \begin{center} \leavevmode
+ \end{center} \caption{Preparing a key} <a
+name="fig:KeyPrepAlgorithm"> \end{figure}
+<p> If the object needs to be brought in to memory, the thread will
+end up invoking <code>Thread::SleepOn()</code> and then calling
+<code>Resched()</code> (see below).
+<h1>2 Invoking the Scheduler</h1>
+<p> While running in the kernel, any thread can voluntarily relinquish
+the processor by calling <code>Resched()</code>.  Conceptually, it
+would always be correct to call <code>Resched()</code> from within the
+<code>Thread::SleepOn()</code> routine. It is occasionally useful to allow
+the thread to continue performing kernel operations before
+relinquishing the processor, so the two calls are performed
+separately.  It is expected that a thread in the kernel will call
+<code>Resched()</code> shortly after performing any action that puts
+it to sleep.  <em>It is an error</em> if the kernel code manages to
+return to user level with the active thread asleep.
+<p> To detect this possibility, <code>Thread::SleepOn()</code> sets
+the <code>NextThread</code> pointer to 0 when the active thread places itself
+on a sleep queue.  Eventually, the thread will make it's way back up
+the stack to the point at which it entered the kernel, where the value
+of <code>ActiveThread</code> will be tested and the scheduler will be
+invoked to determine who should run next.
+<p> While it is not visible from the code, calls to
+<code>Resched()</code> do not return.  A thread that calls
+<code>Resched()</code> is taking the final step in voluntarily
+relinquishing the processor.  <code>Resched()</code> performs the
+following actions:
+<p>
+<ol>
+  <p>
+  <li> It releases any locks that the thread may hold in the kernel.
+       <p>
+  <li> It identifies the thread that should be run next, changes the
+       value of <code>ActiveThread</code> and <code>NextThread</code>
+       to point to this thread.  and attempts to prepare the thread.
+       <p>
+  <li> If <code>NextThread</code> is now zero (which means the prepare
+       failed), return to step 2.
+       <p>
+  <li> If performs a <code>longjump</code> directly to the place in
+       the kernel just before where it returns to the new thread.
+</ol>
+<p> Following this, the kernel simply returns to the current thread,
+which has just been altered by <code>Resched()</code>.
+<p>
+<h1>Notes</h1>
+<fn id=fn7-1>
+<p> 
+This approach
+will need to change in the multiprocessor implementation.
+</fn>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

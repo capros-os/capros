@@ -1,0 +1,573 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+  <HEAD>
+    <TITLE>Comparing ACLs and Capabilities</TITLE>
+    <meta name=linknotify content=all>
+    <meta name=author content="Jonathan Shapiro">
+    <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+  </HEAD>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <center>
+	    <h1><a name="top">Comparing ACLs and
+		Capabilities</a></h1> 
+	    <div>
+	      &nbsp;
+	    </div>
+	  </center>
+	  <p>
+	    Two topics come up repeatedly on the EROS mailing
+	    lists:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		How are capabilities and access control lists
+		different?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Is one better than the other? If so, why?
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    They come up so frequently because people use these
+	    questions as a way to sharpen their understanding of the
+	    issues.
+	  </p>
+	  <p>
+	    One thing that I learned in my own attempts to answer
+	    these questions is that the arguments are actually quite
+	    complex, and that the first mistake is to oversimplify
+	    them when you are trying to get a handle on them. You can
+	    simplify the explanation later; first be sure what it is
+	    you are trying to explain.
+	  </p>
+	  <p>
+	    Since it's very easy to miss important details, this note
+	    tries to give my current answer to the  first question.
+	    It describes how capabilities and access control
+	    lists actually work <em>in practice</em>, and therefore
+	    how they differ. It may tell you
+	    more then you feel you wish to know, but it is as accurate
+	    as I can make it without appealing to mathematics.
+	  </p>
+	  <p>
+	    I clearly have an opinion on the second question, or I
+	    wouldn't have built EROS. This note tries not to be
+	    partisan, because it is better to understand the basis of
+	    the discussion before debating the merits of the outcome.
+	  </p>
+	  <h1>1. Access Control Lists</h1> 
+	  <p>
+	    An ACL system has at least
+	    five namespaces whose relationships need to be considered:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		The namespace of file names: /tmp/foo
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The namespace of unique object identifiers: (dev 22,
+		inode 36, type file) 
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The namespace of user identities (uid 52476)
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		For each object type (file, disk, terminal, ...), the
+		namespace of operations that object can perform.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The namespace of process identifiers (process 719)
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    In an access list system, it is assumed that there are two
+	    global mappings:
+	  </p>
+	  <ul>
+	    <tt>principal: process identity -> user identity</tt><br>
+	    <tt>fs_lookup: file name -> object identity</tt>
+	  </ul>
+	  <p>
+	    That is, every process has an assigned user identity
+	    and every file name can be translated into a unique object
+	    identifier. Hanging off of every unique object is a
+	    further mapping:
+	  </p>
+	  <ul>
+	    <tt>acl: (object identity, user identity) -> operation(s)</tt>
+	  </ul>
+	  <p>
+	    Given a process <b>proc</b> that wishes to perform an
+	    operation <b>op</b> on an object <b>object</b>, the
+	    protection mechanism in an access list system is to test
+	    the following predicate: 
+	  </p>
+	  <ul>
+	    <tt>op in acl(object, principal(p))</tt>
+	  </ul>
+	  <p>
+	    In the special case of the "open" call, this test is
+	    modified to be:
+	  </p>
+	  <ul>
+	    <tt>op in acl(fs_lookup(filename), principal(p))</tt>
+	  </ul>
+	  <h1>2. Capability Systems</h1> 
+	  <p>
+	    A capability system has at least
+	    four namespaces whose relationships need to be considered:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		The namespace of unique object identifiers: (dev 22,
+		inode 36, type file) 
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		For each object type (file, disk, terminal, ...), the
+		namespace of operations that object can perform.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The namespace of process identifiers (process 719)
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The namespace of capabilities (object 10, operation
+		set S)
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    In a capability system, it is assumed that there is one
+	    local mapping for each process
+	  </p>
+	  <ul>
+	    <tt>cap: (process identity, index) -> capability</tt>
+	  </ul>
+	  <p>
+	    That is, every process has a list of capabilities. Each
+	    capability names an object and also names a set of legal
+	    operations on that object.
+	  </p>
+	  <p>
+	    There are also two "accessor" functions:
+	  </p>
+	  <ul>
+	    <tt>obj: capability -> object identity</tt><br>
+	    <tt>ops: capability -> operations</tt>
+	  </ul>
+	  <p>
+	    Given a process <b>proc</b> that wishes to perform an
+	    operation <b>op</b> on an object <b>object</b>, the
+	    process must first possess a capability naming that
+	    object. That is, it must possess a capability at some
+	    index <b>i</b> such that
+	  </p>
+	  <ul>
+	    <tt>object == obj(caps(p,i))</tt>
+	  </ul>
+	  <p>
+	    To perform an operation, the process names the "index"
+	    <b>i</b> of that capability to be invoked from the
+	    per-process list. The protection mechanism in a capability
+	    system is to test the following predicate:
+	  </p>
+	  <ul>
+	    <tt>op in ops(caps(p,i))</tt>
+	  </ul>
+	  <p>
+	    Capability systems typically do not have a distinguished
+	    "open" call.
+	  </p>
+	  <h1>3. Some Differences</h1>
+	  <p>
+	    <em>This section is incomplete.</em>
+	  </p>
+	  <p>
+	    Simply comparing the predicates shows that there is a
+	    significant difference between the two systems:
+	  </p>
+	  <ul>
+	    <table>
+	      <tr valign=top align=left>
+		<th>ACL:</th>
+		<td>
+		  <tt>op in acl(object, principal(p))</tt>
+		</td>
+	      </tr>
+	      <tr valign=top aligh=left>
+		<th>Capability:</th>
+		<td>
+		  <tt>op in ops(caps(p,i))</tt>
+		</td>
+	      </tr>
+	    </table>
+	  </ul>
+	  <p>
+	    An obvious difference is that the capability model
+	    makes no reference to any notion of "principal".
+	  </p>
+          <p>
+            Another obvious difference is that the capability model
+            has a parameter "<tt>i</tt>". This allows the process to specify
+            <em>which</em> authority it wants to exercise, which is why
+            only the capability model can solve the
+            <a href="http://www.cap-lore.com/CapTheory/ConfusedDeputy.html">
+            confused deputy problem</a>.
+          </p>
+	  <h2>Access Rights and Persistence</h2>
+	  <p>
+	    What happens when the computer
+	    shuts down and all of the processes disappear?
+	  </p>
+	  <p>
+	    In an access control list system, this is not a problem,
+	    because the login sessions disappear too. The user
+	    identity for a process is derived from who starts it,
+	    which is in turn derived from the login
+	    session. There is no need to record permissions on a
+	    per-process basis.
+	  </p>
+	  <p>
+	    In a capability system, there is a definite
+	    problem. Solutions vary. Some systems provide a means to
+	    "pickle" a process or associate an initial capability list
+	    with each login. EROS makes all processes persistent.
+	  </p>
+	  <h2>Least Privilege</h2>
+	  <p>
+	    Capability systems allow a finer grain of protection. Each
+	    process has an exactly specified set of access rights. In
+	    contrast, access control list systems are coarser: every
+	    process executed by "fred" has the same rights. If you
+	    could always trust your programs, the coarser protection
+	    is fine. In an era where computer viruses are front page
+	    news, it is clearly necessary to be able to run some
+	    programs with finer restrictions than others.
+	  </p>
+	  <h2>Revocation</h2>
+	  <p>
+	    In an access control list, you can remove a user from the
+	    list, and that user can no longer gain access to the
+	    object. In a capability system, there is no equivalent
+	    operation.  This is (arguably) a problem. Users come and
+	    go on projects, and you'ld like to be able to remove them
+	    when they should no longer have access to the project
+	    data.  There are mechanisms to manage this in capability
+	    systems, but they are cumbersome.
+	  </p>
+	  <h2>Rights Transfer</h2>
+	  <p>
+	    In general, an access control list does not (in theory)
+	    allow rights transfer. If "fred" obtains access to an
+	    object, he cannot give this access to "mary" by
+	    transferring the object descriptor after the object has
+	    been opened. I say "in theory" because fred can still
+	    proxy for mary.
+	  </p>
+	  <p>
+	    In a capability system, capabilities can be
+	    transferred. If a process running on behalf of fred can
+	    speak to a process running on behalf of mary, then
+	    capabilities may be transferred between the two
+	    processes. This can be useful: it allows you to hand a
+	    capability to a particular document to an editor. It can
+	    also be dangerous: if the program you are running is
+	    malicious, it can leak your authority.
+	  </p>
+	  <h1>4. The Equivalence Fallacy</h1>
+	  <p>
+	    There is an old claim that started appearing very early in
+	    papers on protection. The claim is:
+	  </p>
+	  <ul>
+	    Capabilities and access control lists are equivalent. They
+	    are simply two different ways to look at a Lampson access
+	    matrix. Any protection state that can be captured with one
+	    can be captured with the other.
+	  </ul>
+	  <p>
+	    People who have heard of capabilities almost universally
+	    believe this claim. Unfortunately, the claim is untrue.
+	    Worse, it obscures understanding of protection. 
+	  </p>
+	  <p>
+	    By way of debunking it, let me first explain what is meant
+	    by this statement. Then let's look at why it is incorrect.
+	  </p>
+	  <h2>The Lampson Access Matrix</h2>
+	  <p>
+	    The Lampson access matrix provides a way to look at the
+	    protection state of a system. It describes the access
+	    rights of the system at some instant in time. Each subject
+	    (a subject is always a process) in the system has a row in
+	    the table and each object (which can be either a process
+	    or an object) has a column. The entries in the table
+	    describe what access rights subject S has on object O:
+	  </p>
+	  <center>
+	    <table>
+	      <tr valign=top>
+		<td></td>
+		<th>
+		  O1
+		</th>
+		<th>
+		  O2
+		</th>
+		<th>
+		  O3
+		</th>
+	      </tr>
+	      <tr valign=top>
+		<th>S1</th>
+		<td>
+		  r
+		</td>
+		<td>
+		  r,w
+		</td>
+		<td>
+		  x
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<th>S2</th>
+		<td>
+		  
+		</td>
+		<td>
+		  r
+		</td>
+		<td>
+		  r,w
+		</td>
+	      </tr>
+	    </table>
+	  </center>
+	  <p>
+	    The idea behind the claim is that if you look at a
+	    <em>row</em> of the access matrix, you are looking at a
+	    capability,
+	    and if you look at a 
+	    <em>column</em> of the access matrix, you are looking at
+	    an access control list entry:
+	  </p>
+	  </p>
+	  <center>
+	    <table>
+	      <tr valign=top>
+		<td></td>
+		<th>
+		  O1
+		</th>
+		<th>
+		  O2
+		</th>
+		<th>
+		  O3
+		</th>
+		<td>
+		</td>
+		<td></td>
+		<th>
+		  O1
+		</th>
+		<th bgcolor="#d00000">
+		  O2
+		</th>
+		<th>
+		  O3
+		</th>
+	      </tr>
+	      <tr valign=top>
+		<th  bgcolor=cyan>S1</th>
+		<td  bgcolor=cyan>
+		  r
+		</td>
+		<td  bgcolor=cyan>
+		  r,w
+		</td>
+		<td  bgcolor=cyan>
+		  x
+		</td>
+		<td>
+		</td>
+		<th>S1</th>
+		<td>
+		  r
+		</td>
+		<td bgcolor="#d00000">
+		  r,w
+		</td>
+		<td>
+		  x
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<th>S2</th>
+		<td>
+		</td>
+		<td>
+		  r
+		</td>
+		<td>
+		  r,w
+		</td>
+		<td>
+		</td>
+		<th>S2</th>
+		<td>
+		</td>
+		<td bgcolor="#d00000">
+		  r
+		</td>
+		<td>
+		  r,w
+		</td>
+	      </tr>
+	    </table>
+	  </center>
+	  <p>
+	    Unfortunately, this is wrong.
+	  </p>
+	  <h2>A Problem of Terminology</h2>
+	  <p>
+	    In the early security literature there was some sloppy use
+	    of the term "subject." In some papers the term "subject"
+	    was used to mean "process" while in others it was used to
+	    mean "principal" (i.e. a user). If we take subject to mean
+	    "principal", then the red column is not a capability;
+	    capabilities do not have anything to do with
+	    principals. If we take subject to mean "process" then the
+	    cyan row is not an access control list. ACLs do not refer
+	    to processes.
+	  </p>
+	  <p>
+	    I have pointed this out to theorists who work on formal
+	    verification, and I have seen some good ones wave their
+	    hands and say "That's not a problem -- just expand all the
+	    processes, discard the notion of user, and it all works
+	    just fine, and the two models both fit in the matrix."
+	  </p>
+	  <p>
+	    This is true in some mathematical sense.  The problem is
+	    that after you do this you haven't got access control
+	    lists any more. Access control lists are specified in
+	    terms of users, not processes. One can argue (and I do)
+	    that specifying things in terms of processes is the right
+	    thing to do, but once you do this expansion you have lost
+	    a level of indirection that was crucial in understanding
+	    how access control lists work. There are useful properties
+	    you can prove about a system with all processes expanded
+	    that are not true if the user identity indirection is
+	    retained. It all depends on what operations are permitted,
+	    which brings me to the second, more serious problem:
+	  </p>
+	  <h2>A Problem of Evolution</h2>
+	  <p>
+	    While the terminology problem is fatal, there is a more
+	    subtle and more damaging error in the claim: it is a
+	    static view of a dynamic system.
+	  </p>
+	  <p>
+	    If you freeze a computer system in mid-execution, you can
+	    draw an access matrix that describes it's current
+	    protection state, and you can ask if that state is
+	    okay. This is a very useful thing to be able to do.
+	    In practice, however, we aren't so much interested in what
+	    the instantaneous state of a system is as in how that
+	    state can evolve.
+	  </p>
+	  <p>
+	    At a very high level of abstraction, proofs about security
+	    mechanisms all work the same way:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		First you define what a "safe" state is. That is, you
+		specify what it means for the policy to be enforced.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Second you establish an initial, "safe"
+		condition. This is done by setting up the initial
+		access matrix that you want. Since you are in control
+		of how the access matrix is initialized, you
+		<em>should</em> be able to establish just about any
+		condition you would like.
+	      </p>
+	      <p>
+		The operative word is "should". In some protection
+		systems, however, there are constraints on what can
+		legally be placed in the matrix. A classical access
+		control list system, for example, requires that every
+		process owned by the same subject must have the same
+		permissions. This means that if P1 and P2 are both
+		owned by S1, their rows must be identical.
+	      </p>
+	      <p>
+		Unfortunately, it turns out that this is a fairly
+		damaging restriction. It can make setting up the
+		desired initial conditions extremely difficult
+		(sometimes impossible), and it can make the
+		verification of security policies mathematically
+		undecidable -- which means you can't prove the
+		security policy.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Third, you specify what the rules are for how the
+		system operates. What are the steps that the machine
+		will perform? How does each step affect the access
+		matrix (if at all)?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Finally, you prove that if you start from the
+		specified initial condition, and you take a sequence
+		of steps, you always end up in a "safe"
+		state. Actually, you have to show that this is true
+		for all possible sequences of steps.
+	      </p>
+	    </li>
+	  </ol>
+	  <hr>
+	    <p>
+	      <em>Copyright 2000 by Jonathan Shapiro.  All rights reserved.
+		For terms of redistribution, see the 
+		<a href="../legal/license/GPL.html">GNU General Public License</a></em> 
+	    </p>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</HTML>

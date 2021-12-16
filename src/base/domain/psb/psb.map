@@ -1,0 +1,65 @@
+/* -*- Mode: c -*- */
+#ifndef __PSB_MAP_
+#define __PSB_MAP_
+
+/*
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+BOOT_DOMCRE(psb);
+
+psb_prog = small program LIBDIR "psb";
+psb_space = psb_prog with page at 0x1f000; 
+psb_space = psb_prog with page at 0x1d000; 
+
+// The nplinkee thread:
+psb2_proc = new process;
+psb2_proc space = psb_space;
+psb2_proc pc = symbol LIBDIR "psb" nplinkee_main;
+psb2_proc sp = 0x1e000;
+psb2_proc schedule = sched(8);
+psb2_proc symtab = number("psb");
+psb2_proc key reg KR_CREATOR = psb_proccre;
+psb2_proc key reg KR_SELF = psb2_proc;
+psb2_proc key reg KR_BANK = primebank;
+psb2_proc key reg KR_SCHED = sched(8);
+psb2_proc key reg KR_APP(0) = misc Console;
+sb_nplinkee = start psb2_proc 0;
+run psb2_proc;
+
+// The main thread:
+psb_proc = new process;
+psb_proc space = psb_space;
+psb_proc pc = symbol LIBDIR "psb" _start;
+psb_proc schedule = sched(8);
+psb_proc symtab = number("psb");
+psb_proc key reg KR_CREATOR = psb_proccre;
+psb_proc key reg KR_SELF = psb_proc;
+psb_proc key reg KR_BANK = primebank;
+psb_proc key reg KR_SCHED = sched(8);
+psb_proc key reg KR_APP(0) = misc Console;
+psb_proc key reg KR_APP(3) = start psb2_proc 1;
+psb = start psb_proc 0;
+run psb_proc;
+
+#endif

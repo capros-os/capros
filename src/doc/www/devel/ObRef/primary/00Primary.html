@@ -1,0 +1,57 @@
+<html>
+<head>
+<title>EOR: Primary Objects</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=SectionHeader align=center>
+<h1>EROS Object Reference</h1>
+<h1>Primary Objects</h1>
+<h3>Research Edition, Release 0.1</h3>
+<em>D R A F T</em>
+</div>
+[<em><a href="../Cover.html">Return to Top</a></em>]
+<hr>
+<p> This section describes the primary objects implemented by the EROS
+system.  Most objects and services, including programs, are
+constructed out of primary objects.
+<p> Primary objects are those objects that are represented as
+<strong>Nodes</strong> and <strong>pages</strong>.  These objects are
+stateful, and are directly implemented by the EROS kernel.  Their
+content is saved to the disk by the checkpoint mechanism.  
+<p> In addition, this section includes a description of the
+<strong>number</strong> object, an object whose entire state is
+contained within the key itself.
+<p> Each object type has a dedicated reference page:
+<center>
+  <strong>
+  <table width=90%>
+    <tr valign=top>
+      <td><a href="Process.html">Process</a></td>
+    </tr>
+    <tr valign=top>
+      <td><a href="Node.html">Node</a></td>
+    </tr>
+    <tr valign=top>
+      <td><a href="Number.html">Number</a></td>
+    </tr>
+    <tr valign=top>
+      <td><a href="Page.html">Page</a></td>
+    </tr>
+    <tr valign=top>
+      <td><a href="SchedClass.html">SchedClass</a></td>
+    </tr>
+    <tr valign=top>
+      <td><a href="AddressSpace.html">Address Space</a></td>
+    </tr>
+  </table>
+  </strong>
+</center>
+<p> Primary objects are rescindable; the space bank carries
+sufficient authority to invalidate existing primary object keys.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

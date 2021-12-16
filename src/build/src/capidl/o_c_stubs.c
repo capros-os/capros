@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2008, 2009, 2011, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +19,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <assert.h>
 #include <stdlib.h>
@@ -91,6 +96,7 @@ can_registerize(Symbol *s, unsigned nReg)
       case lt_unsigned:
       case lt_char:
       case lt_bool:
+      case lt_float:
 	{
 	  /* Integral types are aligned to their size. Floating types
 	     are aligned to their size, not to exceed 64 bits. If we
@@ -169,8 +175,17 @@ emit_deregisterize(FILE *out, Symbol *child, int indent, unsigned regCount)
 
   {
     do_indent(out, indent);
-    fprintf(out, "if (%s) *%s = msg.rcv_w%d;\n", 
-	    child->name, child->name, regCount);
+    fprintf(out, "if (%s) *%s = ",
+	    child->name, child->name);
+    if (child->type->v.lty == lt_float) {
+      fprintf(out, "*(");
+      output_c_type(child->type, out, 0);
+      fprintf(out, " *)&msg.rcv_w%d;\n", 
+    	      regCount);
+    } else {
+      fprintf(out, "msg.rcv_w%d;\n", 
+    	      regCount);
+    }
 
     bitsInput += REGISTER_BITS;
     regCount++;
@@ -503,18 +518,19 @@ emit_send_string(PtrVec *symVec, FILE *out, int indent)
   if (vec_len(symVec) == 1 &&
       symbol_IsDirectSerializable(symvec_fetch(symVec,0)->type)) {
     Symbol *s0 = symvec_fetch(symVec, 0);
+    Symbol * s0BaseType = symbol_ResolveType(s0->type);
 
     do_indent(out, indent);
     fprintf(out, "/* Using direct method */\n");
 
-    if (symbol_IsVarSequenceType(s0->type)) {
+    if (symbol_IsVarSequenceType(s0BaseType)) {
       do_indent(out, indent);
       fprintf(out, "msg.snd_len = %s_len * sizeof(",
 	      symvec_fetch(symVec,0)->name);
       output_c_type(s0->type, out, 0);
       fprintf(out, ");\n");
     }
-    else if (symbol_IsFixSequenceType(s0->type)) {
+    else if (symbol_IsFixSequenceType(s0BaseType)) {
       do_indent(out, indent);
       fprintf(out, "msg.snd_len = sizeof(%s);\n", s0->name);
     }
@@ -888,6 +904,23 @@ c_if_needs_message_string(Symbol *s, SymClass sc)
 }
 #endif
 
+static unsigned rcv_capcount;
+static void
+loadRcvCap(FILE * out, int indent, const char * name)
+{
+  if (rcv_capcount >= 4)
+    diag_fatal(1, "Too many capabilities received\n");
+
+  do_indent(out, indent + 2);
+  if (rcv_capcount == 3)	// RESUME_SLOT
+    fprintf(out, "msg.rcv_rsmkey = %s;\n", 
+	    name);
+  else
+    fprintf(out, "msg.rcv_key%d = %s;\n", 
+	    rcv_capcount, name);
+  rcv_capcount++;
+}
+
 static void
 output_client_stub(FILE *out, Symbol *s, int indent)
 {
@@ -898,7 +931,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   PtrVec *rcvString = extract_string_arguments(s, sc_outformal);
 
   unsigned snd_capcount = 0;
-  unsigned rcv_capcount = 0;
+  rcv_capcount = 0;
   unsigned snd_regcount = FIRST_REG;
   unsigned rcv_regcount = FIRST_REG;
 
@@ -1078,12 +1111,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     Symbol *child = symvec_fetch(rcvRegs,i);
 
     if (symbol_IsInterface(child->type)) {
-      if (rcv_capcount >= 3)
-	diag_fatal(1, "Too many capabilities transmitted\n");
-
-      do_indent(out, indent + 2);
-      fprintf(out, "msg.rcv_key%d = %s;\n", 
-	      rcv_capcount++, child->name);
+      loadRcvCap(out, indent, child->name);
     }
     else if ((needRegs = can_registerize(child->type, rcv_regcount))) {
       /* do nothing -- handled through registerization below */
@@ -1094,12 +1122,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   /* If the return type is a capability type, convert it to an out
      parameter at the end of the parameter list */
   if (symbol_IsInterface(s->type)) {
-    if (rcv_capcount >= 3)
-      diag_fatal(1, "Too many capabilities transmitted\n");
-
-    do_indent(out, indent + 2);
-    fprintf(out, "msg.rcv_key%d = %s;\n", 
-		 rcv_capcount++, "_resultCap");
+    loadRcvCap(out, indent, "_resultCap");
   }
 
   emit_send_string(sndString, out, indent+2);
@@ -1280,6 +1303,7 @@ output_server_dispatch(FILE *out, Symbol *s, int indent)
 }
 #endif
 
+#if 0
 static void
 output_server_dispatch(FILE *out, Symbol *s, int indent)
 {
@@ -1329,7 +1353,6 @@ output_server_dispatch(FILE *out, Symbol *s, int indent)
   }
 }
 
-#if 0
 static void
 output_interface_dispatch(FILE *out, Symbol *s, int indent)
 {
@@ -1354,7 +1377,7 @@ output_interface_dispatch(FILE *out, Symbol *s, int indent)
   fprintf(out, "{\n");
 
   do_indent(out, indent+8);
-  fprintf(out, "pMsg->snd_code = RC_eros_key_UnknownRequest;\n");
+  fprintf(out, "pMsg->snd_code = RC_capros_key_UnknownRequest;\n");
 
   do_indent(out, indent+8);
   fprintf(out, "break;\n");
@@ -1565,6 +1588,7 @@ symdump(Symbol *s, FILE *out, int indent)
       break;
     }
   case sc_package:
+  case sc_scope:
   case sc_enum:
     {
       unsigned i;
@@ -1667,9 +1691,11 @@ output_c_stubs(Symbol *s)
 
   path_smkdir(target);
 
+#if 0	// This crashes if s->cls == sc_scope.
   if (symbol_IsFixedSerializable(s) == false)
     diag_fatal(1, "Type \"%s\" is not serializable in bounded space\n", 
 		symbol_QualifiedName(s,'.'));
+#endif
 
   preamble = buffer_create();
 

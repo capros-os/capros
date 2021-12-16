@@ -1,7 +1,9 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
+# Copyright (C) 2007-2010, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,27 +18,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
 
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
-default: world
-
-
-# DIRS are ordered:
-# build must be made before others. base and doc can be in either order.
-# Nothing depends on legal.
-DIRS=legal sys base doc tutorial
-DIRS+=uncompleted dionysix
-DIRS+=tcp-ip muir-ip muir-tcp
-CLEANDIRS=build $(DIRS) webpp
-
-STALE_DIRS=xenv examples
-
-UPDATE_DIRS=$(DIRS) xenv examples
-
-TARDIRS=$(DIRS)
+default: packages
 
 EROS_SRC=.
+
+# DIRS are ordered.
+IDIRS=sys build base $(CAPROS_LOCALDIR)
+LDIRS=build base $(CAPROS_LOCALDIR)
+PDIRS=$(IDIRS) legal doc tutorials
+
+TARDIRS=$(PDIRS)
+
 include $(EROS_SRC)/build/make/pkgrules.mk
 
 distclean: targdir-clean clean
@@ -44,45 +41,44 @@ distclean: targdir-clean clean
 targdir-clean:
 	-rm -rf $(EROS_ROOT)/include $(EROS_ROOT)/lib $(EROS_ROOT)/idl
 	-rm -rf $(EROS_ROOT)/domain $(EROS_ROOT)/doc
-	-rm -rf $(EROS_ROOT)/cross $(EROS_ROOT)/host
+	-rm -rf $(EROS_ROOT)/host
 
-ifeq "$(NEED_CROSS_BOOTSTRAP)" "yes"
-cross-bootstrap:
-	$(MAKE) -C base/ccs PACKAGE=base $(MAKERULES) cross-bootstrap
-endif
+IDL_STUB_DIR=$(EROS_SRC)/base/lib/idlstub/$(BUILDDIR)
 
-packages:
-	$(MAKE) interfaces
+# Building proceeds in 4 steps:
+# 1. Recurse over the source tree gathering .idl and .h files. 
+# 2. Build IDL headers and stubs. 
+# 3. Recurse over the source tree building libraries.
+# 4. Recurse over the source tree building the rest of the files.
+packages: idl-list
+	$(INSTALL) -d $(IDL_STUB_DIR)
+	$(MAKE) $(IDL_STUB_DIR)/idlbuilt IDL_FILE_LIST="`cat $(IDL_DIR)/filelistflat`"
 	$(MAKE) libs
 	$(MAKE) install
 
-build-pkg:
-	$(MAKE) -C build PACKAGE=build $(MAKERULES) package
+.PHONY: idl-list
+idl-list: interfaces
+	$(INSTALL) -d $(IDL_DIR)/tmp
+	find $(IDL_DIR) -name '*.idl' > $(IDL_DIR)/tmp/filelist
+	# Put the list all on one line.
+	echo `cat $(IDL_DIR)/tmp/filelist` > $(IDL_DIR)/tmp/filelistflat
+	# Copy filelistflat to permanent location if it has changed.
+	$(INSTALL) -m 0644 $(IDL_DIR)/tmp/filelistflat $(IDL_DIR)
 
-# The following do not use the generic recurse target because we do not
-# want them to recurse deeply -- only to one level. Also, we need to 
-# re-set the PACKAGE variable for each of them.
-interfaces: build-pkg
-interfaces: RECURSE_TARGET=interfaces
-interfaces: subdirs
-interfaces: idl-headers
-
-idl-headers:
-	$(CAPIDL) -D $(EROS_ROOT)/include/idl.tmp -l c-header `find $(EROS_ROOT)/idl -name '*.idl'`
-	$(INSTALL) -d $(EROS_ROOT)/include
+# Rebuild IDL if any of the .idl files has changed,
+# or if the set of files has changed.
+$(IDL_STUB_DIR)/idlbuilt: $(IDL_FILE_LIST) $(IDL_DIR)/filelistflat
+	# Create headers.
+	$(CAPIDL) -D $(EROS_ROOT)/include/idl.tmp -l c-header $(IDL_FILE_LIST)
 	$(INSTALL) -d $(EROS_ROOT)/include/idl
 	build/bin/dirsync $(EROS_ROOT)/include/idl.tmp $(EROS_ROOT)/include/idl
-	$(INSTALL) -d $(EROS_ROOT)/host/include
 	$(INSTALL) -d $(EROS_ROOT)/host/include/idl
 	build/bin/dirsync $(EROS_ROOT)/include/idl.tmp $(EROS_ROOT)/host/include/idl
 	-rm -rf $(EROS_ROOT)/include/idl.tmp
-
-libs: build-pkg
-libs: RECURSE_TARGET=libs
-libs: subdirs
-
-# The install target recurses deeply in any case.
-install: build-pkg
+	# Create stubs.
+	rm -f $(IDL_STUB_DIR)/*.c
+	$(CAPIDL) -D $(IDL_STUB_DIR) -l c-stubs $(IDL_FILE_LIST)
+	echo > $@
 
 tar:	clean
 	-rm -f eros.tar eros.tar.gz eros.tgz
@@ -98,13 +94,5 @@ ifeq "$(NEED_CROSS_BOOTSTRAP)" "yes"
 endif
 	$(MAKE) world
 
-# Following is a very temporary target placed here by shap until I
-# can get the test cases cleaned up enough to move this down into
-# the test directory where it belongs
-regress:
-	$(MAKE) -C tutorial/hello-large clean vmware
-	$(MAKE) -C tutorial/hello-large clean
-	$(MAKE) -C tutorial/triv-keeper clean vmware
-	$(MAKE) -C tutorial/triv-keeper clean
-	$(MAKE) -C base/tests/func/constructor_test clean vmware
-	$(MAKE) -C base/tests/func/constructor_test clean
+update:
+	cvs update -dP

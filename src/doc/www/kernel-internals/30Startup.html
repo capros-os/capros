@@ -1,0 +1,205 @@
+<html>
+<title>System Startup</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> This chapter describes the system startup procedure for the EROS
+system...
+<h1>1 System Bootstrap</h1>
+<h1>2 Loading the Kernel</h1>
+<h1>3 Kernel Initialization</h1>
+<h1>4 Autoconfiguration</h1>
+<h1>5 Volume Discovery</h1>
+<h1>6 Allocating Memory</h1>
+<p> When EROS starts up, it performs some machine initialization and
+then divides memory into a few distinct areas:
+<p>
+<center>
+  <table width=90%>
+    <tr valign=top>
+      <th align=left>
+	Area
+      </th>
+      <th align=left>
+	Space Used
+      </th>
+    </tr>
+    <tr valign=top>
+      <td>
+	Kernel Code
+      </td>
+      <td>
+	50 Kbytes
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Kernel Data
+      </td>
+      <td>
+	12 Kbytes
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Kernel Stack
+      </td>
+      <td>
+	8 Kbytes
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Interrupt Stack
+      </td>
+      <td>
+	8 Kbytes
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Driver private storage
+      </td>
+      <td>
+	32 Kbytes
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Thread List (2 copies)
+      </td>
+      <td>
+	8 Kbytes
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Domain Cache
+      </td>
+      <td>
+	64 Kbytes
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Checkpoint log directories
+      </td>
+      <td>
+	48 Kbytes
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Page cache
+      </td>
+      <td>
+	92.5% of remaining space 
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Node cache
+      </td>
+      <td>
+	7.5% of remaining space 
+      </td>
+    </tr>
+  </table>
+    <p> <strong>Main memory layout</strong>
+</center>
+<p> The amount of storage allocated by drivers depends on the drivers
+themselves, but the remaining areas are fixed size independent of the
+machine's available memory.  After drivers have had a chance to
+reserve working storage, the kernel then reserves space for the
+process list, the domain cache, and the checkpoint log directories.
+All remaining storage is used for pages and nodes.  The end result is
+that a machine with 8 megabytes (2048 pages) of physical memory holds
+1726 pages of user data and 1752 nodes.
+<p> If you check the arithmetic, you will find that it doesn't add up.
+A node takes up 208 bytes, so adding up all the pieces mentioned so
+far, we would get:
+<p>
+<center>
+  <table width=90%>
+    <tr valign=top>
+      <th align=left>
+	Area
+      </th>
+      <th align=left>
+	Space Used
+      </th>
+    </tr>
+    <tr valign=top>
+      <td>
+	Kernel reserved
+      </td>
+      <td>
+	182 pages
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Page cache
+      </td>
+      <td>
+	1726 pages
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	Node cache
+      </td>
+      <td>
+	88 pages
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>
+	<strong>Total</strong>
+      </td>
+      <td>
+	1996 pages
+      </td>
+    </tr>
+  </table>
+</center>
+<p> What happened to the missing 52 pages?
+<p> Pages and nodes both carry a certain amount of associated
+overhead.  This information is kept in a 48 byte structure known as
+the <strong>object header</strong>.  Every page and node has an
+associated object header.  Because the hardware requires pages to
+begin at page boundaries in physical memory, the object headers for
+page frames are kept in a separate, parallel structure known as the
+<strong>core table</strong>.  The object header for a node is simply
+concatenated onto the node itself, so the size of a node is really 256
+bytes.
+<p> Because the EROS kernel creates memory mapping structures that
+depend on the content of node slots, it is necessary to keep track of
+the dependencies.  This is done in another structure known as the
+<strong>depend table</strong>.  Empirically, we have found that things
+work best if there are two depend table entries per node.  Each depend
+table entry requires 12 bytes of storage.
+<p> Also because of the page allignment constraints, the computation
+isn't performed quite as the table seems to indicate.  From the
+original 2048 pages, the kernel reserved storage is removed, leaving
+1866 pages available.  92.5% of this, or 1726 pages, is then allocated
+to the page cache, leaving 140 pages of remaining storage.  This
+remaining storage is allocated bytewise.
+<p> 140 pages is 573,440 bytes.  The core table is allocated first.
+It requires 48 bytes for each page in the page cache, or 82,848 bytes.
+Each node takes up 256 bytes for the node proper, plus an additional
+24 bytes for the associated depend entries.  The remaining 490,592
+bytes is therefore divided by 280 to determine how many nodes the
+system will contain, giving 1752.  The nodes are allocated from this
+space, leaving 42,008 bytes of available storage to be used by the
+depend table (1750 entries).
+<p> If this all sounds complicated now, imagine how much fun it was to
+puzzle it out the first time through!  Aside from getting the
+arithmetic right, the computation itself is fairly straightforward.
+<h1>7 Loading the Thread List</h1>
+<h1>8 Starting Execution</h1>
+<p>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,266 @@
+<html>
+<head>
+  <TITLE>Building a CapROS System Image</TITLE>
+</head>
+<BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../capros.html"><em>CapROS home</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Kernel Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title>Building a CapROS System Image</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <p>
+        When a CapROS system is 
+        <a href="Boot.html">booted</a>,
+        the kernel image and system image are loaded.
+        This document describes the system image:
+        what it contains and how it is constructed.
+        Note, a "system image" is <em>not</em> the same as
+        the file produced by <a href="mkimage-ref.html">mkimage</a>.
+      </p>
+      <p>
+        A system image consists of either:
+      </p>
+      <ul>
+      <li>
+        one <em>preload image</em> containing all the non-persistent objects, or
+      <li>
+        two contigous preload images,
+        the first containing all the non-persistent objects,
+        and the second containing all the initial persistent objects
+        of a big bang. This form is used when a big bang is being set up
+        by preloading the persistent objects into RAM.
+      </ul>
+      <h1>Preload Image</h1>
+      <p>
+        A <em>preload image</em> defines a contiguous range of OIDs,
+        and a set of objects in that range to be preloaded.
+        The range of OIDs is divided into five consecutive regions:
+        nodes, nonzero pages, zero pages, submaps, and unallocated frames.
+        These regions are described in detail below.
+      </p>
+      <p>
+        The first frame of a preload image contains only a structure
+        called NPObjectsDescriptor
+        that defines the starting OID and information about the OID regions.
+        It also tells whether there are one or two preload images,
+        and it defines the OID of the IPL process,
+        the one non-persistent process to be run at boot time.
+        This structure is defined in the file sys/disk/NPODescr.h.
+      </p>
+      <p>
+        A preload image is produced by running
+        <a href="npgen-ref.html">npgen</a>,
+        which takes a mkimage file as input.
+      </p>
+      <h2>Node Frames</h2>
+      <p>
+        Nodes that were allocated in the mkimage file
+        are grouped into node frames and placed in the preload image
+        following the first frame (the one containing the 
+        NPObjectsDescriptor structure).
+        They are assigned OIDs from the first OID of the range.
+      </p>
+      <h2>Nonzero Page Frames</h2>
+      <p>
+        Nonzero pages that were allocated in the mkimage file
+        are placed in the preload image following the node frames.
+        They are assigned OIDs following the node frames.
+      </p>
+      <h2>Zero Page Frames</h2>
+      <p>
+        Zero pages that were allocated in the mkimage file
+        are assigned OIDs following the nonzero page frames.
+        They are not stored in the preload image.
+      </p>
+      <h2>Submap Frames</h2>
+      <p>
+        Each preload image can have one prime spacebank that allocates
+        the objects in the corresponding OID range.
+        Allocating space requires a bit map, which itself takes space.
+        To manage this recursive problem, the spacebank calculates the
+        amount of space that it will require, and reserves
+        this region of OIDs for that space.
+      </p>
+      <h2>Unallocated Frames</h2>
+      <p>
+        All the remaining frames in the OID range are unallocated
+        and are not stored in the preload image.
+      </p>
+      <h1>Special Objects</h1>
+      <p>
+         Mkimage recognizes two objects for special purposes.
+      </p>
+      <h2>Volsize Node</h2>
+      <p>
+        This node is called volsize for historical reasons.
+        The following slots of volsize are used.
+        These slots are described in more detail
+        in the file sys/disk/NPODescr.h.
+      </p>
+      <h3>Slots 0 and 1</h3>
+      <p>
+        These slots hold a number cap containing the number of
+        nodes and pages, respectively, allocated by mkimage in this range.
+        If additional object types are defined,
+        slots after 1 will be used for them.
+      </p>
+      <h3>Slot volsize_range</h3>
+      <p>
+        This slot holds a Range capability for the range of OIDs
+        described by this preload image.
+        The spacebank uses this to determine the number of frames in the range.
+      </p>
+      <h3>Slot volsize_nplinkCap</h3>
+      <p>
+        In the persistent volsize node,
+        this slot contains a start capability to the nplink process,
+        which receives non-persistent caps at boot time.
+      </p>
+      <h3>Slot volsize_pvolsize</h3>
+      <p>
+        In the non-persistent volsize node,
+        this slot contains a node capability to 
+        the persistent volsize node.
+        This allows the non-persistent world to access the persistent world,
+        in particular the nplink process.
+        The persistent volsize node has a fixed well-known OID.
+      </p>
+      <h2>Threadlist Node</h2>
+      <p>
+        This node is the root of the "threadlist", the list of processes
+        in this OID range to be run.
+      </p>
+      <h1>CapROS Volume Structure</h1>
+      <p>This probably belongs elsewhere.</p>
+      <P> A CapROS volume is a logical disk.  On an EROS-formatted floppy,
+      the volume spans the entire disk.  On hard disks things are a bit more
+      complicated.  Typically, the system firmware is designed to allow
+      multiple independent operating systems to be loaded onto a single
+      disk.  The disk is divided into non-overlapping regions, typically
+      called <STRONG>partitions</STRONG>, and each operating system acts for
+      the most part as if its partition was a single disk.  CapROS is no
+      different; it views its partition as a single volume, and largely
+      ignores the rest of the disk.
+      <P> Every CapROS volume has up to 64 non-overlapping areas.  To avoid
+      collision with firmware terminology, we use the term
+      <STRONG>division</STRONG>.  Divisions come in several types:
+      <ul>
+	<table>
+	  <tr>
+	    <td>
+	      Unused
+	    </td>
+	    <td>
+	      Empty. Placeholder for unallocated space.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      Boot
+	    </td>
+	    <td>
+	      Contains the system-dependent boot code.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      DivTbl
+	    </td>
+	    <td>
+	      A table describing the division layout.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      Kernel
+	    </td>
+	    <td>
+	      The kernel's code.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      Spare
+	    </td>
+	    <td>
+	      Division containing spare sectors.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      Log
+	    </td>
+	    <td>
+	      A swap area.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      Object
+	    </td>
+	    <td>
+	      Holds CapROS Pages and Nodes.
+	    </td>
+	  </tr>
+	</table>
+      </ul>
+      <P> Every volume has exactly one boot division at sector 0.  Every
+      volume has <EM>at most one</EM> kernel division.
+      <P> Every disk technology that we know about reserves sector 0 of a
+      partition as the "boot sector."  The CapROS boot sector is defined by the
+      VolHdr structure. It contains the following, among other things:
+      <ul>
+        <li>A unique system identifier (iplSysId). All the volumes
+        in a single CapROS system
+        will have the same system identifier.
+        If the computer has volumes for more than one independent CapROS system,
+        the iplSysId distinguishes them. Only volumes matching the iplSysId
+        of the booted volume will be mounted.
+        <li>The location of the primary (and optional secondary) division
+        tables.
+      </ul>
+      <P> The division table describes, for each division, the type, the
+      starting sector, and the ending sector.
+      If the division is an Object or Log division, the division table
+      also contains the starting OID or SwapLoc of the division.
+    </td>
+    <td valign=top width=5%>&nbsp;</td>
+  </tr>
+</table>
+      <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 1998 by Jonathan Shapiro,
+          Portions copyright 2000 by Charles Landau.
+          Copyright 2005, 2008 by Strawberry Development Group.
+          All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,30 @@
+package capros;
+
+/* The Non-Persistent Internet Protocol capability.
+   This implements the interface to a given host IP address. */
+interface NPIP extends key {
+
+  const IPDefs.portNumber LocalPortAny = 0;
+
+  /** connect - Create a connection ("active open").
+  Specify the remote ipaddr and port.
+  A local port number will be selected.
+  May raise IPDefs.Refused or IPDefs.Aborted.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  */
+  TCPSocket connect(IPDefs.ipv4Address ipaddr, IPDefs.portNumber port);
+
+  /** listen - Reserve a local port for listening.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  Raises IPDefs.Already if the port is already reserved.
+  */
+  TCPListenSocket listen(IPDefs.portNumber localPort);
+
+  /** createUDPPort - Create a UDP socket.
+  Specify the local port for receiving. Specify LocalPortAny to have
+  a port assigned.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  Raises IPDefs.Already if the port is already reserved.
+  */
+  UDPPort createUDPPort(IPDefs.portNumber localPort);
+};

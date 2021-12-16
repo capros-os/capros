@@ -1,0 +1,811 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+  <head>
+    <title>EROS: A Platform for Reliable Applications</title>
+    <meta name=linknotify content=all>
+    <meta name=author content="Jonathan Shapiro">
+    <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <center>
+	    <h1>EROS: A Platform for Reliable Applications</h1>
+	    <p>
+	      <i>Jonathan S. Shapiro</i> 
+<!-- 	      <br> Shibui Systems, Inc. -->
+	    </p>
+	  </center>
+	  <h1>1. Introduction</h1>
+	  <p>
+	    It is almost never the hardware.
+	  </p>
+	  <p>
+	    Software, on the other hand, is both a frequent source of
+	    failures <em>and</em> a frequent source of data
+	    corruption.  This week's miscomputed result may be a
+	    parameter in next week's flight control system.  Data
+	    corruption of this sort is hard to find and difficult to
+	    recover from.  Using current development disciplines and
+	    current operating environments, it is also extremely
+	    costly to prevent.
+	  </p>
+	  <p>
+	    The basic sources of software errors are complexity and
+	    mistakes.  Tools and disciplines exist to reduce both, but
+	    cannot eliminate them completely.  High-availability
+	    applications present a further complication: the need to
+	    design for updates and upgrades without downtime.  In the
+	    final analysis, <em>the software is complex because the
+	    problem is complex</em>. What is needed, then, is a way to
+	    make complex software engineerable.
+	  </p>
+	  <p>
+	    EROS is a platform for building engineerable software
+	    systems.  It has been designed from the ground up with
+	    three objectives:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		<b>Simplification</b> in building large systems,
+		eliminating as many diversionary requirements as
+		possible.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		<b>Containment</b>, allowing the inevitable software
+		failures to be caught and recovered from.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		<b>Security</b>, enabling applications to safely
+		expose sensitive information in a controlled way.
+		EROS provides mechanisms to control not just
+		<em>what</em> information the client obtains, but
+		<em>how</em>.
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    It is also one of the fastest systems currently available
+	    from any provider.
+	  </p>
+	  <h1>2. The Need for Boundaries</h1>
+	  <p>
+	    <img src="monolithic-app.gif" align=right>
+	    Current application development approaches are
+	    <em>monolithic</em>.  A sizable group of engineers
+	    develops a large number of functional components to
+	    address various parts of the requirements.  These parts
+	    are then assembled into a single, large application.
+	  </p>
+	  <p>
+	    This approach has a number of intrinsic flaws:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		Too much responsibility is assigned to a single point
+		of failure -- the application.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		There is no means to stop one component from damaging
+		another.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Handling of exceptional cases is difficult to isolate
+		from handling of common, time-critical cases.  This
+		negatively impacts both performance and correctness.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Interfaces between components are not precisely
+		defined.  This impacts both maintainability and
+		testability.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		In the absence of enforcement, the boundaries between
+		components become fuzzy as evolution and maintenance
+		take their toll on the design.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Components cannot be replaced individually.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The security of the application is all or nothing.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+	        Ancillary operations such as file management, startup,
+	        shutdown, and configuration handling divert attention
+	        from the application itself.  If a mechanism existed
+	        to ensure that the program never exited, the need for
+	        this functionality is sharply reduced.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    An error by a single wayward programmer (malicious or not)
+	    can therefore cause the entirety of the system to fail in
+	    the field.
+	  </p>
+	  <p>
+	    Problems that appear in the field are often the result of
+	    a small error in one system propagating into another.
+	    These include both errors in computation (such as the one
+	    that caused the Arianne satellite launch self-destruct a
+	    few years ago) and errors in pointer handling (which are
+	    truly difficult to pin down).
+	  </p>
+	  <p>
+	    To catch these errors, <em>boundaries</em> are needed.
+	    Boundaries between functionally distinct components,
+	    boundaries between independent units of failure,
+	    boundaries for security, and boundaries between common and
+	    exceptional cases.  Only if these boundaries exist can the
+	    components be separately tested, upgraded, restarted, and
+	    fault-comtained.
+	  </p>
+	  <p>
+	    EROS provides an application development platform that
+	    allows the boundaries to be imposed, maintained, and
+	    verified, without compromising performance.  The key
+	    enabling technologies for building such applications are
+	    persistence, capabilities, and a fast mechanism for
+	    crossing protection boundaries.
+	  </p>
+	  <h1>3. Decomposing the Application</h1>
+	  <p>
+	    Boundaries can be introduced by decomposing the
+	    application into independent components, each surrounded
+	    by a protection boundary.
+	  </p>
+	  <p>
+	    <img src="eros-app.gif" align=right>
+	    By dividing the functionality of the application into
+	    separate components (right), the performance and
+	    reliability of the system is improved.  Each component can
+	    concentrate on a particular, well-defined task, and
+	    different components can run in parallel on multiprocessor
+	    systems.  Components that run more often, such as
+	    time-critical tasks and common-case computations, are
+	    easily replicated.  Every component runs independent of
+	    the others, and communicates only through well-specified
+	    interfaces.
+	  </p>
+	  <p>
+	    A common objection to decomposed designs is that crossing
+	    process boundaries is expensive. Breaking a system into
+	    many processes should therefore make the system slower.
+	    While this is true, our experience shows that the overhead
+	    is balanced by the simplification in the components
+	    themselves.  In a complex system, eliminating the need for
+	    explicit concurrency management alone makes up for the
+	    extra process overheads.  In the end, we find that the
+	    applications are often faster when structured this way
+	    than they were in the monolithic design, and significantly
+	    more reliable.  As we will see below, there are other
+	    benefits to component-oriented design.
+	  </p>
+	  <p>
+	    Persistence (discussed below) is a key enabling technology
+	    for building applications in this way.  When an
+	    application is made up of hundreds of protected
+	    components, it is not feasible to reconstruct these
+	    components each time the system restarts.  EROS's
+	    persistence technology transparently preserves these
+	    relationships across system restarts.
+	  </p>
+	  <h1>4. A Platform for Reliable Applications</h1>
+	  <p>
+	    A platform for reliable applications must support several
+	    practices:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		It must facilitate the construction of systems out of
+		secure, protected components.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		It must provide a means to give components the
+		authority they need to do their tasks, and
+		<em>only</em> that authority.
+		At the same time, it must allow components
+		to be built out of smaller components, which requires
+		access delegation.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		It must provide a high-performance mechanism for
+		communication between these components.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    EROS supports these practices through persistence,
+	    capabilities, and exceptionally fast protection boundary
+	    crossing.
+	  </p>
+	  <h2>4.1 Persistence</h2>
+	  <p>
+	    The first key technology in EROS is <b>persistence</b>.
+	    Every five minutes, the complete state of an EROS system
+	    is saved.  If you trip over the power cord and restart the 
+	    system, all of your programs will be restored.
+	  </p>
+	  <p>
+	    In most operating systems, applications die when the
+	    system crashes.  Any information that the application has
+	    not explicitly saved is lost.  As a result,
+	    high-availability applications spend a great deal of their
+	    code dealing with restarting the application after a
+	    failure and making sure that all of the necessary
+	    information has been written down in the correct order.
+	    The UNIX system, for example, can take anywhere from 2
+	    minutes to several hours performing recovery after a
+	    crash, depending on how many disks are attached to the
+	    machine.
+	  </p>
+	  <p>
+	    As complex as restarting one process is, restarting tens
+	    or hundreds of processes and getting them all
+	    communicating is much more difficult.  Because of this,
+	    applications are not commonly divided into protected
+	    components.  The underlying operating system technology
+	    does not facilitate the creation and enforcement of these
+	    boundaries.
+	  </p>
+	  <h3>4.1.1 Checkpointing</h3>
+	  <p>
+	    In EROS, programs do not die until they are told to.  Once
+	    an application is started, it will continue to run until
+	    it is dismantled -- even across system crashes.  Equally
+	    important, if 2 or 3 or more processes are communicating,
+	    they all come back from a crash with the same view of the
+	    world -- there is no need to re-establish consistency.
+	  </p>
+	  <p>
+	    This is accomplished through a technique called
+	    <em>checkpointing</em>.  Every so often, EROS halts
+	    everything that is happening and arranges to write down
+	    the entire state of every process on the machine.  The
+	    checkpoint creates a consistent snapshot of everything
+	    that is going on and then writes this shapshot down.  The
+	    snapshot process is efficient; taking a snapshot requires
+	    100ms every 5 minutes in the current system, and this will be
+	    lowered in future versions.  Once the snapshot has been
+	    taken, applications continue execution while the operating
+	    system writes the snapshot down.
+	  </p>
+	  <p>
+	    For applications that require more frequent stabilization,
+	    such as databases, EROS provides a <em>journaling</em>
+	    mechanism that allows data to be saved more frequently.
+	  </p>
+	  <p>
+	    Because checkpointing creates a consistent snapshot,
+	    system recovery is fast.  When the power cord is
+	    reinserted in the outlet, EROS is up and running in 30
+	    seconds or less, with all applications intact.
+	  </p>
+	  <h3>4.1.2 Implications of Checkpointing</h3>
+	  <p>
+	    Checkpointing means that many applications do not need to
+	    write data down to a file.  Because the application does
+	    not die, there is no need to store the information
+	    someplace else.  
+	  </p>
+	  <p>
+	    Because all processes are checkpointed at the same time,
+	    and are restored with a consistent idea of what is going
+	    on, it is possible to build systems involving many
+	    processes.  In EROS, an application such as an editor may
+	    have four or five associated ``helper'' processes.  These
+	    helper processes are usually shared by a number of other
+	    programs, and spend most of their time idle.
+	  </p>
+	  <h3>4.1.3 Performance</h3>
+	  <p>
+	    Checkpointing also gets better performance out of your
+	    disk drive.  Because the checkpoint mechanism moves data
+	    in bulk, the disk is able to accomplish more work as the
+	    disk arm moves over the drive.  To put that in numbers,
+	    disk writes in EROS are several times faster than they are 
+	    in Windows or UNIX.
+	  </p>
+	  <h2>4.2 Capabilities</h2>
+	  <p>
+	    The second key technology in EROS is <b>capabilities</b>,
+	    which provide the basic security and access control
+	    mechanism of the system.
+	  </p>
+	  <p>
+	    A capability is a protected token that lets the
+	    holder perform certain specific operations on a particular 
+	    object.  
+	    If, for example, you possess a read-only capability to a
+	    password database manager, you can check if a
+	    user-supplied password is correct, but you cannot add new
+	    users to the system.
+	  </p>
+	  <p>
+	    Possession of a capability is a necessary <em>and
+	    sufficient</em> condition for doing those operations on
+	    that object.  If you have the capability, you can do what
+	    it authorizes you to do on some object.  If you do not
+	    have an appropriate capability, you cannot even tell if
+	    that object exists.  If one component cannot access
+	    another component, it cannot influence that component (for
+	    good <em>or</em> for ill).  This means that faults cannot
+	    propagate from one component to another if the components
+	    are properly isolated.
+	  </p>
+	  <p>
+	    In EROS, processes hold capabilities on behalf of their
+	    users.  Contrast this with the situation in UNIX and
+	    Microsoft Windows.  Every program has the authority to go
+	    to the file system and attempt to create, remove, open,
+	    read, and write the files that exist there.  Protection is
+	    based on the identity of the user running the program,
+	    rather than on what the program has been authorized to
+	    do.
+	  </p>
+	  <p>
+	    Think of it this way: you wouldn't hand your credit card
+	    to an irresponsible teenager; it's more responsibility
+	    than the teenager can handle.  For exactly the same
+	    reasons, you shouldn't hand all of your access rights to a
+	    process.  EROS lets you delegate authority in specific,
+	    controlled increments.  UNIX and Microsoft Windows do
+	    not.
+	  </p>
+	  <p>
+	    Furthermore, capability systems let you hand out access
+	    while imposing <em>controls</em> on that access.  This
+	    enables the software designer to ensure information
+	    <em>integrity</em> as well as information
+	    <em>security</em>.
+	  </p>
+	  <p>
+	    Let's look at some examples.
+	  </p>
+	  <h3>4.2.1 Access Control And Integrity Checks</h3>
+	  <p>
+	    Suppose you have a valuable database that you do not want
+	    me to copy.  You have sold me the right to run some fixed
+	    number of queries on this database, and you want to make
+	    sure that I won't run more than that without paying you
+	    more money.  In order to run queries, I must have access
+	    to the database.
+	  </p>
+	  <p>
+	    <img src="mediator.gif" align=right>
+	    In conventional systems, this problem is hard to solve.
+	    In a capability system, it is trivial (right).  You simply
+	    interpose a mediator between me and the database engine.
+	    The mediator maintains a counter, and when the count has
+	    been exhausted it refuses to process more queries.
+	  </p>
+	  <p>
+	    In this picture, the mediator has access to the database,
+	    but the user does not.  Because the user does not have
+	    access to the program or data of the mediator, they cannot 
+	    compromise security.  Your interests are protected by
+	    virtue of the fact that you control what the mediator
+	    does, and can therefore trust it.
+	  </p>
+	  <p>
+	    In addition to access control, mediators can provide
+	    integrity checks to make sure that the queries make
+	    sense (verifying, for example, that all fields are
+	    properly filled out and that all necessary preconditions
+	    have been met).
+	  </p>
+	  <p>
+	    With care, it is possible to inject a mediator module into
+	    a client/server interaction <em>after the fact</em>.  The
+	    server is temporarily halted and a new process is built to
+	    act as the server.  The old server process (to which the
+	    clients hold capabilities) is now made to run the mediator
+	    program, and to call the old server when the queries are
+	    acceptable.  This can be accomplished with no client
+	    realizing that it has happened, provided that sufficient
+	    access to the server is retained by some managing program.
+	  </p>
+	  <h3>4.2.2 Confinement</h3>
+	  <p>
+	    Suppose instead that the <em>client</em> has the valuable
+	    database, and you have invented some essential algorithm
+	    that they need to run.  You do not wish them to see the
+	    code for the algorithm, and they do not wish to disclose
+	    the database to you.  How are you to collaborate?
+	  </p>
+	  <p>
+	    If the algorithm can be placed in a box so that it cannot
+	    talk to you, the client can safely hand it their data.
+	    You, on the other hand, are protected by the fact that the
+	    client cannot examine the code or access rights of your
+	    application (just like in the mediator case above).  The
+	    problem is to have some agent you trust who will certify
+	    to the client that your program is ``safe.''
+	  </p>
+	  <p>
+	    This is <em>impossible</em> to accomplish in a
+	    conventional system, but fairly simple in a capability
+	    design.  The trusted party is known as a
+	    <b>constructor</b> (right).  <img src="constructor.gif"
+	    align=right> The constructor is a system-provided program
+	    that knows how to start programs.  You first install your
+	    program in a constructor object, telling it all of the
+	    capabilities that the program will directly use.  You hand
+	    this newly populated constructor to the client.
+	  </p>
+	  <p>
+	    The client now asks the constructor ``If I run this
+	    program, is it safe?'' (1).  Based on the capabilities
+	    that your program holds, the constructor is able to say
+	    ``yes'' or ``no.''  The client can then decide whether or
+	    not to run your program.  If so, it requests that a
+	    new copy of the program be fabricated (2).  The
+	    constructor fabricates a copy (3), and returns a
+	    capability to it to the client.  After this, the client and the
+	    application can communicate freely (4).
+	  </p>
+	  <h3>4.2.3 Non-Privileged Administration</h3>
+	  <p>
+	    Account administration is an ongoing problem in large
+	    organizations.  On the one hand, it should be easy to
+	    create accounts for new employees.  On the other, it is
+	    highly desirable to limit the damage that can be done by
+	    any single person.
+	  </p>
+	  <p>
+	    Suppose, for example, that we wish to allow any manager to 
+	    create a new account for their direct reports, and allow
+	    anyone in their management chain to lock the account
+	    (prohibiting logins) in an emergency.  Also, if two
+	    consecutive people in the management tree agree, the
+	    account should be easily deleted.  Finally, there are a
+	    small number of people who should be able to do tasks by
+	    fiat.
+	  </p>
+	  <p>
+	    In a capability system, implementing such a policy is not
+	    difficult.  It can be accomplished by placing a mediator
+	    in front of the standard password management process, and
+	    giving most managers access to the mediator.  Those
+	    managers who are authorized to fire people summarily are
+	    <em>in addition</em> given access to the real password
+	    manager.  The reason this access is in addition is to
+	    prevent mistakes -- if the upper level manager can operate
+	    normally in the carefully checked environment, there is
+	    less risk that they will do something irrevocable that
+	    would have been possible using the more powerful tool
+	    (such as deleting the wrong account).
+	  </p>
+	  <h2>4.3 Crossing Protection Boundaries</h2>
+	  <p>
+	    The EROS approach to reliability divides applications into
+	    many protected components.  Each component provides a
+	    well-defined function, and each completely embodies some
+	    piece of functionality. If the performance of an
+	    algorithm is critical, it is implemented entirely within a
+	    single protected component.
+	  </p>
+	  <p>
+	    The end result is that while protection boundaries must be
+	    crossed in a decomposed application, they are not crossed
+	    in the performance-critical portions of the code.  Based
+	    on experience with a number of applications ranging from
+	    database systems to network protocol processing, we have
+	    determined that the protected call operation should be
+	    within a factor of 10 of the cost of procedure calls.
+	    This is the point where most component oriented designs
+	    fail.
+	  </p>
+	  <p>
+	    On Pentium family processors, EROS's current protected
+	    call mechanism takes 2.45 microseconds, or roughly 294
+	    cycles, as compared to 25 to 35 cycles for a typical
+	    procedure call (including argument handling).  This is
+	    more than fast enough to allow applications to be
+	    decomposed successfully.  Work that is currently in
+	    progress will further reduce this to roughly 170 cycles on
+	    the Pentium family.
+	  </p>
+	  <p>
+	    Of this 294 cycles, Over 100 cycles are spent dealing with
+	    issues that are peculiar to the Intel architecture.  A
+	    RISC implementation would therefore provide protected
+	    transfers in the 70 to 160 cycle range.
+	  </p>
+	  <p>
+	    Previous component systems have had protected crossing
+	    mechanisms that are 100 to 1000 times slower than EROS.
+	    Because this cost may be applied in several places in an
+	    application, its impact is hard to assess without building
+	    the application in the new style.  Beyond raw speed, two
+	    factors reduce the performance impact of protection
+	    boundary crossing in EROS still further:
+	  </p>
+	  <ul>
+	    <li>
+	      <p> 
+		Every EROS component is a mutual exclusion zone,
+		which eliminates the need for slow, complex, and error 
+		prone locking disciplines in many cases.
+	      </p>
+	    </li>
+	    <li>
+	      <p> 
+		Dividing the application into multiple pieces
+		facilitates parallel processing -- even in primarily
+		serial applications.  Further, it makes it easier to
+		identify and tune the critical components of the
+		application.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    EROS performance is discussed in quantitative terms below.
+	  </p>
+	  <h1>5. Solutions for Large Systems</h1>
+	  <p>
+	    Having introduced some of the key technologies in EROS, we 
+	    now turn to how these technologies are applied.  What good 
+	    are they, and how do they help build reliable systems.
+	  </p>
+	  <h1>5.1 Making Unit Tests Cost-Effective</h1>
+	  <p>
+	    Unit testing is the practice of testing each component in
+	    isolation before combining it with the other components in
+	    a system.  Using current engineering disciplines and
+	    operating environments, unit testing is expensive -- so
+	    much so that many application developers have abandoned
+	    the practice altogether.  There are basically two reasons
+	    for this:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		Module specifications are not enforcable.  Modern
+		programming languages leave the data structures and
+		internal functions of a module exposed to other
+		modules, and whatever is exposed will be used by
+		someone in a hurry.  These seemingly innocent
+		cross-dependencies become an ongoing nightmare for
+		testing.  They ensure that test suites rapidly become
+		outdated.
+	      </p>
+	      <p>
+		The EROS component design exposes nothing but the
+		specified interfaces, which prevents this problem.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Unit boundaries are not preserved when the modules
+		are combined into a final application.  Once combined,
+		the modules no longer operate in isolation, and tests
+		based on an assumption of isolation are therefore
+		weakened.
+	      </p>
+	      <p>
+		Suppose that for every module you manage to locate 95%
+		of the bugs that will occur in the first 6 months in
+		the field.  After assembling 20 or 30 modules into an
+		application, you will certainly see a failure in at
+		least one module in the first six months.  The failure
+		will be subtle -- if not, your unit tests will have
+		found it.  Worse, it is highly likely to involve
+		interactions that cross module boundaries.  Such
+		interactions, by definition, cannot be caught by unit
+		testing.
+	      </p>
+	      <p>
+		The EROS component approach preserves protection
+		boundaries between modules in the final application.
+		These boundaries will not stop the errors from
+		occuring, but they do enable them to be caught earlier
+		and ensure that cross-module effects cannot occur.
+		This substantially reduces the likelihood of
+		data-corrupting errors.
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    When an EROS component breaks, the state of the component
+	    can be preserved for later inspection, making it much
+	    easier to determine what went wrong.
+	  </p>
+	  <h1>5.2 Field-Replaceable Software Units</h1>
+	  <p>
+	    A basic idea in the EROS approach to reliable platforms is
+	    <em>field replaceable software units</em>.  You have
+	    delivered a system into the field and are preparing to
+	    deploy a performance or functional enhancement.  Many
+	    modules will be replaced, but there are limits to how much 
+	    testing is cost effective.  How can you be sure you are
+	    ready?
+	  </p>
+	  <p>
+	    <img src="frsu.gif" align=right> With EROS's
+	    field-replaceable software units (FRSU), you can actually
+	    deploy the new software into the field and test it there
+	    <em>without</em> breaking a single client application.
+	    The figure at right shows an application with the current
+	    and new component running simultaneously.  The
+	    verification module makes all requests of <em>both</em>
+	    the current and the new version of the component.  If the
+	    answers disagree, the verifier records this fact and the
+	    request that caused the discrepancy.
+	  </p>
+	  <p>
+	    The verifier is completely generic.  While it is possible
+	    to build verifiers that will permit certain differences in 
+	    the output, or will allow more sophisticated comparison,
+	    the basic verification mechanism does not need to be
+	    customized to any particular component.  The client is
+	    unaware that a verifier has been inserted, and will see
+	    the answers that it is expecting, because they are
+	    provided by the original component.
+	  </p>
+	  <p>
+	    The advantage to this mechanism is that the new component
+	    can be tested <em>in situ</em>, where input arrives that
+	    has nothing to do with cleanly designed and considered
+	    test cases.  The verifier therefore serves as the last and 
+	    least costly means of testing the behavior of a component
+	    in the field, and simultaneously provides the feedback
+	    necessary to update the test suite.
+	  </p>
+	  <h1>6. The Cost of Protection</h1>
+	  <p>
+	    Obviously, the protection and reliability features that
+	    EROS provides are valuable.  But what do they cost?  How
+	    much impact does this approach have on the software design 
+	    process, and what is the performance cost of the
+	    protection that EROS provides?
+	  </p>
+	  <h2>6.1 POSIX Compatibility</h2>
+	  <p>
+	    EROS is not a POSIX-compliant system, and many potential
+	    customers are concerned about what this means for
+	    portability and compatibility.  If an application is built 
+	    to run on EROS, how much of it will need to be thrown away 
+	    to go to some other environment?
+	  </p>
+	  <p>
+	    No matter which environment you go to, POSIX compatibility
+	    is not available.  No current reliable or real-time system
+	    provider provides a POSIX-compatible environment.  QNX,
+	    Lynx, and other real-time system providers provide
+	    POSIX-compatible development environments (as EROS will),
+	    but <em>the real-time environment is not POSIX
+	    compatible.</em> Tandem, similarly, provides a
+	    POSIX-compliant application environment, but applications
+	    running in this environment do not get the benefits of
+	    their reliable application technologies.
+	  </p>
+	  <p>
+	    As software
+	    engineers, our observation is that the difficulty in
+	    porting an application usually lies in two areas:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		The application itself is not well modularized, with
+		the result that its operating system dependencies are
+		not well-isolated.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The resource and support requirements of the
+		applications are therefore unclear, and are difficult
+		to extract after the fact.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    Differences in the underlying operating system are
+	    generally <em>not</em> the basic source of difficulty in
+	    porting.
+	  </p>
+	  <p>
+	    We have found that the EROS component design style results
+	    in a natural, well-structured, manageably complex
+	    application.  This ensures that the application is well
+	    modularized, and that the system and resource dependencies
+	    are easily identified.  Applications written for EROS are
+	    therefore relatively easy to port to other environments,
+	    and continue to benefit from their EROS origins in terms
+	    of ongoing reliability and maintainability.
+	  </p>
+	  <p>
+	    This means that <em>the risk associated with porting an
+	    application to EROS is small.</em> In the worst event, the
+	    application comes out with a better and more modular
+	    architecture that can be leveraged on existing platforms.
+<!-- 	    Shibui's consulting engineers are experienced with both -->
+<!-- 	    EROS and other systems, and can help guide the development -->
+<!-- 	    process so as to minimize the risk of porting to EROS. -->
+	  </p>
+	  <h2>6.2 Performance Impact</h2>
+	  <p>
+	    EROS applications are generally <em>faster</em> than their
+	    non-component counterparts.  In addition, they are more
+	    predictable, which makes them more readily able to adapt
+	    to changes in application load.
+	  </p>
+	  <p>
+	    Measurements of the EROS interprocess communication
+	    mechanisms show that it is nearly 10 times faster than the
+	    fastest interprocess communications mechanisms available
+	    on UNIX or Windows-NT.  Microsoft, we note, has been
+	    unable to make protected components work efficiently, and
+	    for practical purposes has abandoned them in favor of
+	    in-process controls.
+	  </p>
+	  <p>
+	    KeyKOS, the predecessor to EROS, supported a
+	    binary-compatible UNIX environment that ran just as fast
+	    as the native UNIX on the same platform.  This environment 
+	    was the result of a quick six month port, and had not yet
+	    been tuned.
+	  </p>
+	  <p>
+	    On the System/370, the KeyKOS database facilities
+	    outperformed both IMS and DB/2.  In fact, the first
+	    commercial deployment of the KeyKOS system was for online
+	    processing of VISA transactions, in which application the
+	    system demonstrated a 3 year mean time to failure in the
+	    field.
+	  </p>
+	  <p>
+	    EROS is a new system, and there is not yet a great deal of
+	    experience with this implementation in the field.  What we
+	    know is this: it is faster than KeyKOS, which was faster
+	    and more reliable than anything else.
+	  </p>
+	  <h1>7. Summary</h1>
+	  <p>
+	    EROS provides a rich environment for constructing secure,
+	    reliable applications.  It's unique features enable it to
+	    support large, field-engineerable applications without
+	    compromising either overall performance or responsiveness.
+	  </p>
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+	</td>
+	<td width="5%">&nbsp;</td>
+      </tr>
+    </table>
+  </body>
+</html>

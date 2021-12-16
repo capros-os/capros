@@ -1,0 +1,35 @@
+package capros.arch.i386;
+
+/** Kernel interface to i386 system control function.
+ *
+ */
+interface SysTrace extends capros.SysTrace {
+  unsigned long enum mode {
+    cycles   = 0, /* cycles executed */
+    instrs   = 1, /* instrs executed */
+    DTLB     = 2, /* data TLB misses (r+w) */
+    ITLB     = 3, /* instr TLB misses (r) */
+    Dmiss    = 4, /* data cache misses */
+    Imiss    = 5, /* instr cache misses */
+    Dwrtbk   = 6, /* data cache misses */
+    Dfetch   = 7, /* data fetches */
+    Ifetch   = 8, /* instr fetches */
+    branches = 9, /* branches */
+    brTaken  = 10, /* taken branches */
+
+    NUM_MODE = 11
+  };
+
+  struct info {
+    mode traceMode;
+    unsigned long long cycles;
+    unsigned long long count0;
+    unsigned long long count1;
+  };
+
+  void startCounter(mode m);
+  void reportCounter(out info traceInfo);
+  void stopCounter();
+  void stopCounterVerbose();
+  unsigned long long getCycle();
+};

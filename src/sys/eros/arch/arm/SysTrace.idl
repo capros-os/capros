@@ -1,0 +1,7 @@
+package capros.arch.arm;
+
+/** Kernel interface to ARM system control functions.
+ *
+ */
+interface SysTrace extends capros.SysTrace {
+};

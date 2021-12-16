@@ -1,0 +1,421 @@
+/* -*- indented-text -*-  */
+/*
+ * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006-2010, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*
+ * This file is processed by:
+ * - GenPseudoRegs.awk to produce
+ *         eros/arch/(EROS_TARGET)/pseudoregs.h
+ *         which defines pseudoregs_t
+ * - GenTraceRegs.awk to produce
+ *         eros/arch/(EROS_TARGET)/traceregs.h
+ *         which defines traceregs_t (trace regs aren't yet used)
+ * - GenProcOffsets.awk to produce
+ *         sys/arch/(EROS_TARGET)/BUILD/(EROS_CONFIG)/process_asm_offsets.h
+ *         which defines some offsets in the Process and savearea_t structures
+ *         for assembly code
+ * - GenSaveArea.awk to produce
+ *         sys/arch/(EROS_TARGET)/BUILD/(EROS_CONFIG)/gen.SaveArea.h
+ *         which defines savearea_t and floatsavearea_t (and some masks).
+ * - GenRegMove.awk to produce
+ *         sys/arch/(EROS_TARGET)/include/gen.REGMOVE.h
+ *         which defines macros to move fixed and floating registers
+ *         between the process's nodes and the Process structure
+ * - GenArchDescrip.awk to produce
+ *         base/host/lib/erosimg/BUILD/(EROS_CONFIG)/gen.RegisterDescriptions.c
+
+ * This file is no longer processed by:
+ * - GenFixRegs.awk to produce
+ *	   eros/arch/(EROS_TARGET)/fixregs.h
+ *         which defined fixregs_t (and some masks)
+ * - GenFloatRegs.awk to produce
+ *         eros/arch/(EROS_TARGET)/floatregs.h
+ *         which defined floatregs_t (and some masks)
+ *
+ * The most important entries are /opaque/, /proc/, /fix/, /fpu/,
+ * which define the fields in the Process structure, and generate
+ * macros used in the assembly code to reference these fields:
+ *
+ * base   name
+ *    Defines a new "base" offset. For all symbols whose offset is
+ *    greater than this base, assembler offset macros will be
+ *    generated. Thus,
+ *
+ *        base fx
+ *        fix  mumble
+ *        base other
+ *        proc mutter
+ *
+ *    will generate offset macros
+ *
+ *        #define fx_mumble  <offset>
+ *        #define fx_mutter  <offset>
+ *        #define other_mutter  <offset>
+ *
+ * opaque name type
+ *    defines a field which is not referenced in assembler code, but
+ *    whose offset must be considered in generating assembly offsets
+ * proc name endian type
+ *    defines a field used in assembler code. (endian is not used.)
+ * fix ...
+ *    defines a field in savearea_t
+ * fpu ...
+ *    defines a field in floatsavearea_t
+ * gen ...
+ *    defines a field used in assembler code, and also in
+ *    ArchDescrip and RegMove.
+ */
+
+/*
+ * Register layout for the x86. This file describes, in one place:
+ *
+ *  - The layout of the x86 trap frame used by EROS
+ *  - The layout and content of the savearea_t structure
+ *  - The positions of all fields in the Process structure that
+ *    might need to be referenced from assembly language.
+ *  - The layout and content of the floatregs{} structure
+ *  - The locations (node, slot, offset) where the values listed above
+ *    are saved in a domain (if the value is saved)
+ *  - Miscellaneous useful bitfield positions that should to be
+ *    included the generated gen.SaveArea.h or floatregs.h files
+ *
+ * The kernel exports non-privileged state to userland via two
+ * structures called savearea_t, floatsavearea_t, and pseudoregs_t.
+ * The x86
+ * does not allow us to just use these structures directly to describe
+ * the trap frame as seen by the kernel. For example the Error and
+ * Exception codes get dumped out by the processor in an inconvenient
+ * place between some of the fixregs, and these hardware-generated
+ * fields are not directly saved into the process state (though
+ * FaultCode and FaultInfo save them in decoded form).
+ *
+ * As a result of this misfortune, the LAYOUT file needs to define
+ * overlapping structures. Machine-specific structures referenced by
+ * the Process.h header are bracketed by begin/end statements. The
+ * LAYOUT file needs to define SaveArea and FloatSaveArea.
+ * Otherwise, entries take the form:
+ *
+ *    <class> name <other info>
+ *
+ * where <class> is one of /opaque/, /proc/, /fix/, /fpu/, /alias/,
+ * /base/, /misc/.
+ *
+ * Fields marked by /proc/ and /opaque/ are fields that appear
+ * directly in the Process structure (i.e. are not part of the
+ * machine-specific data structures). These must not appear within a
+ * begin/end bracketing. Opaque fields are not referenced from
+ * assembly code.
+ *
+ * Fields marked by /fix/ are included in the savearea_t structure.
+ * Fields marked by /fpu/ are included in the floatsavearea_t structure.
+ * FIX and FPU fields appear in their respective structures in the
+ * same order that they are listed here.
+ *
+ * Structures used within the kernel to reference machine-specific
+ * data are bracketed by begin/end statements, as in:
+ *
+ *    begin trapframe
+ *     fix  var1
+ *     misc var2
+ *    end   trapframe
+ *
+ * Two types are described for each entry: the type as it appears in
+ * the kernel data structure (first) followed by the type as it
+ * appears in the externalized data structure (if any).
+ *
+ * We now describe initialization and moving the values to/from the
+ * domain separately.
+ */
+
+/* arch identifies the architecture for the erosimg library, and also
+   the architecture-specific register names corresponding to PC and SP
+   for the Registers structure. 
+
+   REMINDER: The architecture name is quoted because this file is
+   preprocessed and the preprocessor will #define the architecture
+   name to 1 on most architectures. */
+arch "i486" EIP ESP
+
+keysize 16
+
+/*
+ * mask values generate bitfield extraction macros into gen.SaveArea.h
+ *
+ * mask reg  field      bit   bitlen
+*/
+mask EFLAGS Carry      0     1
+mask EFLAGS Parity     3     1
+mask EFLAGS AuxCarry   4     1
+mask EFLAGS Zero       6     1
+mask EFLAGS Sign       7     1
+mask EFLAGS Trap       8     1
+mask EFLAGS Interrupt  9     1
+mask EFLAGS Direction  10    1    
+mask EFLAGS Overflow   11    1
+mask EFLAGS IOPL       12    2
+mask EFLAGS Nested     14    1
+mask EFLAGS Resume     16    1
+mask EFLAGS Virt8086   17    1
+mask EFLAGS AlignCheck 18    1
+
+
+base    PR
+
+/* Preamble: stuff in the Process structure that precedes the SaveArea 
+ * structure declaration. */
+
+opaque  uint8_t    *          obType
+opaque  uint8_t    *          objAge
+opaque  uint16_t   *          userPin
+proc	KEYRING    *          keyRing
+proc	SLEEPQ     *          stallQ
+proc	uint32_t   *          procRoot
+proc	uint8_t    *          kernelFlags
+opaque	uint8_t    *          isUserContext
+opaque	uint8_t    *          hazards
+gen	uint8_t    uint8_t    runState
+gen	uint8_t    uint8_t    processFlags
+proc	uint32_t   *          readyQ
+proc	uint32_t   *          curActivity
+
+proc	uint32_t   *          MappingTable
+proc	uint32_t   *          cpuStack
+
+#ifdef OPTION_SMALL_SPACES
+/*
+ * Following may not actually be present, but if present they appear 
+ * at this offset:
+ */
+proc	uint32_t   *          limit
+proc	uint32_t   *          bias
+proc	uint32_t   *          smallPTE
+#endif
+
+BEGIN SaveArea
+
+alias	uint32_t   *          FIXREGS
+base  FX
+alias	uint32_t   *          PUSHA
+
+fix	uint32_t   uint32_t   EDI
+fix	uint32_t   uint32_t   ESI
+fix	uint32_t   uint32_t   EBP
+misc	uint32_t   *          ExceptAddr
+fix	uint32_t   uint32_t   EBX
+fix	uint32_t   uint32_t   EDX
+fix	uint32_t   uint32_t   ECX
+fix	uint32_t   uint32_t   EAX
+misc	uint32_t   *          ExceptNo
+misc	uint32_t   *          Error
+fix	uint32_t   uint32_t   EIP
+fix	uint32_t   uint16_t   CS
+fix	uint32_t   uint32_t   EFLAGS
+fix	uint32_t   uint32_t   ESP
+fix	uint32_t   uint16_t   SS
+
+alias	uint32_t   *          INTR_SP
+
+fix	uint32_t   uint16_t   ES
+fix	uint32_t   uint16_t   DS
+fix	uint32_t   uint16_t   FS
+fix	uint32_t   uint16_t   GS
+
+alias	uint32_t   *          V86_INTR_SP
+
+SKIP fix	uint32_t   uint32_t   invType
+SKIP fix	uint32_t   uint32_t   invKey
+SKIP fix	uint32_t   uint32_t   sndLen
+SKIP fix	uint32_t   uint32_t   sndPtr
+SKIP fix	uint32_t   uint32_t   sndKeys
+SKIP fix	uint32_t   uint32_t   rcvKeys
+
+END SaveArea
+
+
+BEGIN PseudoRegs
+
+pfix	uint32_t   uint32_t   invType
+pfix	uint32_t   uint32_t   invKey
+pfix	uint32_t   uint32_t   sndLen
+pfix	uint32_t   uint32_t   sndPtr
+pfix	uint32_t   uint32_t   sndKeys
+pfix	uint32_t   uint32_t   rcvKeys
+
+END   PseudoRegs
+
+
+BEGIN TraceRegs
+
+tfix	uint64_t   uint64_t   trCycles
+
+END   PseudoRegs
+
+
+proc    KEYREGS    *          keyregs
+
+/* Following are "generic" fixRegs that are present in all
+   architectures under these names. It is not at all clear that these
+   should appear in the fixRegs structure. Note that these are treated
+   as read-only fields. The SetFixRegs() operation does not store new
+   values in these fields. */
+gen	uint32_t   uint32_t   faultCode
+gen	uint32_t   uint32_t   faultInfo
+
+/* 
+ * The order of appearance for these values is dictated by the layout 
+ * of the hardware floating point save area.  The state established
+ * here is identical to that established by the FNINIT instruction,
+ * with the exception that the FDS/FCS registers are set to the
+ * appropriate segment selectors.
+ */
+
+BEGIN FloatSaveArea
+
+fpu  	uint32_t   uint16_t   f_ctrl
+fpu  	uint32_t   uint16_t   f_status
+fpu  	uint32_t   uint16_t   f_tag
+fpu  	uint32_t   uint32_t   f_ip
+fpu  	uint16_t   uint16_t   f_cs
+fpu  	uint16_t   uint16_t   f_opcode
+fpu  	uint32_t   uint32_t   f_dp
+fpu  	uint32_t   uint16_t   f_ds
+
+fpu  	uint80_t   uint80_t   f_r0
+fpu  	uint80_t   uint80_t   f_r1
+fpu  	uint80_t   uint80_t   f_r2
+fpu  	uint80_t   uint80_t   f_r3
+fpu  	uint80_t   uint80_t   f_r4
+fpu  	uint80_t   uint80_t   f_r5
+fpu  	uint80_t   uint80_t   f_r6
+fpu  	uint80_t   uint80_t   f_r7
+
+END FloatSaveArea
+
+
+
+
+/* How to initialize the various registers:
+*
+ * Initially, I thought it sufficient to characterize the architecture
+ * as big endian or little endian and have done.  This doesn't work.
+ * Even on little endian architectures, there are registers such as
+ * floating point registers whose values may are most naturally
+ * expressed in big-endian style.  We therefore describe the
+ * endianness of all registers individually. Note, for example, that
+ * floating point values are generally big endian on otherwise little
+ * endian machines (as is true here).
+ *
+ * The real reason we need to know the endian attributes of the
+ * register is so that the cross tools can correctly initialize the
+ * register value from the string -- in the LTL case, we may need to
+ * do byte-reversal. We use a string for the init-value representation
+ * because this avoids the need to do a union type in the ArchDescript
+ * structure in the cross library.
+ *
+ * Some processors (notably MIPS R5000) can actually switch between
+ * little and big endian as part of the context switch logic, but on
+ * these processors the interpretation of supervisor mode registers
+ * remains unchanged. We don't currently have a good way to handle
+ * that, as we have no way to describe processes on a per-process
+ * basis. My inclination in such processors is always to store the
+ * domain form canonically (in the form suitable to the kernel), and
+ * then report it to user-land inquiries according to the byte order
+ * of the inquirer.
+ */
+
+        name         endian  node   slot  offset	init-value */
+
+load	EDI	     LTL     root   12    4		"0x0"
+load	ESI	     LTL     root   10    4		"0x0"
+load	EBP	     LTL     root   11    8		"0x0"
+load	EBX	     LTL     root   11    4		"0x0"
+load	EDX	     LTL     root   10    0		"0x0"
+load	ECX	     LTL     root   12    0		"0x0"
+load	EAX	     LTL     root   11    0		"0x0"
+/* The program counter must go in root slot 9 offset 0.
+    See ProcPCandSP in disk/Node.h. */
+load	EIP	     LTL     root   9     0		"0x0"
+load	CS	     LTL     root   13    4		"0x23"
+load	EFLAGS       LTL     root   13    0		"0x0200"
+/* The stack pointer must go in root slot 9 offset 8.
+    See ProcPCandSP in disk/Node.h. */
+load	ESP	     LTL     root   9     8		"0x0"
+load	SS	     LTL     root   13    6		"0x2b"
+
+load	ES	     LTL     root   12    10		"0x2b"
+load	DS	     LTL     root   12    8		"0x2b"
+load	FS	     LTL     root   10    8		"0x2b"
+load	GS	     LTL     root   10    10		"0x33"
+
+load	invType	     LTL     root   14    0		"0x0"
+load	invKey	     LTL     root   14    4		"0x0"
+load	sndLen	     LTL     root   14    8		"0x0"
+load	sndPtr       LTL     root   15    0		"0x0"
+load	sndKeys	     LTL     root   15    4		"0x0"
+load	rcvKeys      LTL     root   15    8		"0x0"
+
+load    faultCode    LTL     root   8     0		"0x0"
+load    faultInfo    LTL     root   8     4		"0x0"
+load	runState     LTL     root   8     8		"0x0"
+// See also proc_runStateField().
+load	processFlags LTL     root   8     9		"0x0"
+
+load  	f_ctrl	     LTL     root   25    10      	"0x37f"
+load  	f_status     LTL     root   25    8		"0x0"
+load 	f_tag	     LTL     root   25    6		"0xffff"
+load 	f_ip	     LTL     root   26    0		"0x0"
+load 	f_cs	     LTL     root   26    4		"0x23"
+load 	f_opcode     LTL     root   26    6		"0x0"
+load 	f_dp	     LTL     root   25    0		"0x0"
+load 	f_ds	     LTL     root   25    4		"0x2b"
+
+
+load 	f_r0	     BIG     root   17    0		"0x0"
+load 	f_r1	     BIG     root   18    0		"0x0"
+load 	f_r2	     BIG     root   19    0		"0x0"
+load 	f_r3	     BIG     root   20    0		"0x0"
+load 	f_r4	     BIG     root   21    0		"0x0"
+load 	f_r5	     BIG     root   22    0		"0x0"
+load 	f_r6	     BIG     root   23    0		"0x0"
+load 	f_r7	     BIG     root   24    0		"0x0"
+
+/* Entries for the TraceRegisters */
+load 	trCycles     LTL     root   27    0		"0x0"
+
+fpmask FPSTATUS EXCEPTIONS   0     6
+fpmask FPSTATUS Invalid      0     1
+fpmask FPSTATUS Denormal     1     1
+fpmask FPSTATUS ZeroDivide   2     1
+fpmask FPSTATUS Overflow     3     1
+fpmask FPSTATUS Underflow    4     1
+fpmask FPSTATUS Precision    5     1
+fpmask FPSTATUS StackFault   6     1
+fpmask FPSTATUS ErrorSummary 7     1
+fpmask FPSTATUS C0           8     1
+fpmask FPSTATUS C1           9     1
+fpmask FPSTATUS C2           10    1
+fpmask FPSTATUS Top          11    3
+fpmask FPSTATUS C3           14    1
+fpmask FPSTATUS Busy         15    1

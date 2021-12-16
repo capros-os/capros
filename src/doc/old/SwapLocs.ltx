@@ -1,0 +1,159 @@
+\documentstyle[twoside]{article}
+
+\def\widedescriptionlabel#1{\bf #1 \hfill  \hspace\labelsep}
+\parindent=0pt
+\parskip=4pt
+\setlength{\topmargin}{-0.75in}
+\setlength{\textheight}{9in}
+\setlength{\oddsidemargin}{.25in}
+\setlength{\evensidemargin}{-.25in}
+\setlength{\textwidth}{6.5in}
+\input{psfig}
+
+\begin{document}
+
+\title{{\large Swap Area Management in EROS}}
+\author{Jonathan S. Shapiro\\
+  {\tt shap@aurora.cis.upenn.edu}}
+\date{January 16, 1994}
+\maketitle
+
+I went through several designs for the swap areas before settling on
+the current design.  It's a multitiered problem, which is made to look
+harder than it needs to be by the need to support multiple divisions
+in a single swap area.
+
+A swap area is a logically contiguous space of disk page frames.  The
+content of these page frames may be either Pages or Node Pots.  We
+refer to page frames in the swap area as Swap Locations, or SwapLocs.
+
+\section{The Directory}
+
+Unlike home locations, object CDA's do not map sequentially onto
+SwapLocs. As a result some form of directory mechanism is needed to
+perform the mapping from CDA's to SwapLocs.  Under normal
+circumstances this directory is kept in core.  After a system outage,
+we need to be able to reload the directory from someplace.  Therefore,
+the directory itself must be copied to persistent store during the
+checkpoint operation.
+
+An obvious solution would be to have a disk division (or division
+pair) that held the directory.  There are two reasons not to do this:
+
+\begin{itemize}
+\item The size of the swap area can vary over the life of the system,
+  and this approach would mean that at some point we would be limited
+  by the size of the reserved directory area rather than the amount of
+  available swap space.
+\item For a given number of swap area pages, the worst case size of
+  the directory is much larger than the typical case.  We want the
+  size to be able to be usage-sensitive.
+\end{itemize}
+
+This suggests checkpointing the directory itself to the swap area.
+Conceptually, the directory may be thought of as growing from one end
+of the swap area and the actual data from the other.  If the
+checkpoint header contains the location and size of the directory, we
+can reread the directory just fine.
+
+The process list, locked page list, and locked node list can also be
+saved to the swap area.  Since these are fixed size, we store them by
+allocating space at the start of the swap area, and put their
+locations and sizes into the checkpoint header.
+
+\section{The SwapLoc Map}
+
+The design outlined above is fine, and if we didn't care about
+flexibility that would be the end of matters.  However, we would like
+several additional properties:
+
+\begin{itemize}
+\item We would like the ability to add swap space incrementally as the
+  system grows.  The design above isn't quite strong enough to handle
+  this.
+\item We want to be able to survive the loss of any single swap
+  division.
+\end{itemize}
+
+Adding a swap division to a running system should be a simple
+operation.  The problem is that we now need a mapping from SwapLocs
+onto the actual division/offset that contains the page.  The question
+is how to maintain this mapping, and how to recover it from the swap
+divisions after an unscheduled outage.
+
+The solution is to keep an in-core table that maps from SwapLocs to
+(Division, Frame Number) pairs.  The tricky part is how to save this
+table in such a way that we can reconstruct the logical contiguity of
+the swap area from the individual swap divisions.  After a lot of
+thought, I finally figured out how to do this, and then kicked myself
+for not seeing it in the first place.
+
+What we need is a map that, for every page in a particular swap
+division, identifies the SwapLoc that is associated with that page.
+Then, when we first load the system, we can walk through all of the
+swap areas and reconstruct the mapping from SwapLocs to (Division,
+Frame) pairs.
+
+The map can be very simple, as it needs to hold only 1 Word per swap
+area page.  In many cases, the map will fit in its entirety into the
+Checkpoint page.  If the swap area is too big for this, the overflow
+can go onto subsequent pages.  Notice that the SwapLoc map for a given
+swap division contains only the SwapLoc mappings *for that division*,
+which means that the table size is fixed and known at the time the
+swap division is created.
+
+\section{Revising the Checkpoint Page}
+
+To accomodate the new design, we revise the checkpoint header.  The
+new checkpoint header contains:
+
+\begin{itemize}
+\item Size, in Words, of the checkpoint area header.
+\item The checkpoint number
+\item The status word, indicating whether migration is needed.
+\item Miscellaneous information
+\item The starting and ending SwapLoc of the Directory
+\item The starting and ending SwapLoc of the Process List
+\item The starting and ending SwapLoc of the Locked Page List
+\item The starting and ending SwapLoc of the Locked Node List
+
+{\em Above information is the same in all swap divisions.}
+\item SwapLoc Map, one entry per page in this swap division.
+\end{itemize}
+
+The number of pages in the division can be obtained from the division
+table.  The number of leading pages occupied by the SwapLoc Map can be
+computed from the total number of pages in the division and the size
+of the checkpoint header.
+
+\section{System Startup}
+
+Under the revised mechanism, system startup proceeds as follows:
+
+\begin{enumerate}
+\item Add all of the divisions you can find, including swap divisions.
+\item For each swap division, add it's SwapLoc Map entries to the
+  in-core SwapLoc map.
+\item Identify which checkpoint area holds the most recent complete
+  checkpoint. We will read the process list, etc. from this area.
+
+  If either checkpoint area claims to need migration, it is the most
+  recent valid area.
+
+  If neither checkpoint area claims to need migration the one with the
+  HIGHEST checkpoint number is the valid one (we don't rewrite the
+  checkpoint number until we have checkpointed successfully).
+\item Whichever checkpoint is the last completed checkpoint, the other
+  one's in-core SwapLoc map and Directory should be zapped - it's an
+  empty area.
+\item Read in the Process List, Locked Page List, And Locked Node List
+  from the last completed checkpoint.
+\item Run down these lists, faulting in the root Node for each process
+  and all appropriate locked objects.
+\item Set a process running.
+\end{enumerate}
+
+
+
+
+\end{document}

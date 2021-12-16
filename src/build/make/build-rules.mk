@@ -1,7 +1,9 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
+# Copyright (C) 2005-2010, Strawberry Development Group
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,26 +18,31 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 ifndef MAKEVARS_LOADED
 include $(EROS_SRC)/build/make/makevars.mk
 endif
 
 # The following variables depend on things set in the makefile:
-GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) $(DEF)
-GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(OPTIM) $(GPLUS_OPTIM) $(INC) $(DEF)
+GCCFLAGS=$(CFLAGS) $(GCC_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) -DCAPROS_MACH_$(CAPROS_MACH) $(DEF)
+GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(GPLUS_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
+MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"$(CAPROS_DOMAIN)/\" -DCAPROS_LOCALDIR=$(CAPROS_LOCALDIR) -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include $(LINUXINC)
 
-DEP_SEDHACK=sed 's,^[^:]*:[:]*,'$@' '$(BUILDDIR)/'&,g'
+# __ASSEMBLER__ gets defined automatically, but Linux requires:
+ASMFLAGS=-D__ASSEMBLY__
 
-C_DEP=@$(GCC) $(GCCFLAGS) $(GCCWARN) -E -M $< | $(DEP_SEDHACK) > $@
-CXX_DEP=@$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -E -M $< | $(DEP_SEDHACK) > $@
-ASM_DEP=@$(GCC) $(GCCFLAGS) -E -M $< | $(DEP_SEDHACK) > $@
-MOPS_DEP=$(GCC) $(GCCFLAGS) $(MOPSWARN) -S $< -o $@
+C_DEP=@$(GCC) $(GCCFLAGS) $(GCCWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
+CXX_DEP=@$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
+ASM_DEP=@$(GCC) $(GCCFLAGS) $(ASMFLAGS) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
+#MOPS_DEP=$(GCC) $(GCCFLAGS) $(MOPSWARN) -S $< -o $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@))
 
 C_BUILD=$(GCC) $(GCCFLAGS) $(GCCWARN) -c $< -o $@
 CXX_BUILD=$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -c $< -o $@
-ASM_BUILD=$(GCC) $(GCCFLAGS) -c $< -o $@
+ASM_BUILD=$(GCC) $(GCCFLAGS) $(ASMFLAGS) -c $< -o $@
 MOPS_BUILD=$(GCC) -B$(MOPS)/rc/ $(GCCFLAGS) $(MOPSWARN) -S $< -o $@
 
 $(BUILDDIR):
@@ -52,25 +59,8 @@ $(BUILDDIR):
 ######################################################################
 
 ifeq "$(wildcard $(BUILDDIR))" ""
-DEPEND: $(BUILDDIR)
 MAKE_BUILDDIR=$(BUILDDIR)
 endif
-
-
-$(BUILDDIR)/.%.m: %.S $(MAKE_BUILDDIR)
-	$(ASM_DEP) #$(GPLUS) $(GCCFLAGS) -E -M $< | $(DEP_SEDHACK) > $@
-
-$(BUILDDIR)/.%.m: %.s $(MAKE_BUILDDIR)
-	@echo "Please rewrite .s file as .S file"
-
-$(BUILDDIR)/.%.m: %.c $(MAKE_BUILDDIR)
-	$(C_DEP) # $(GCC) $(GCCFLAGS) -E -M $< | $(DEP_SEDHACK) > $@
-
-$(BUILDDIR)/.%.cfg.m: %.c $(MAKE_BUILDDIR)
-	$(MOPS_DEP) # $(GCC) $(GCCFLAGS) -E -M $< | $(DEP_SEDHACK) > $@
-
-$(BUILDDIR)/.%.m: %.cxx $(MAKE_BUILDDIR)
-	$(CXX_DEP) #$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -E -M $< | $(DEP_SEDHACK) > $@
 
 #
 # Object construction rules
@@ -78,15 +68,19 @@ $(BUILDDIR)/.%.m: %.cxx $(MAKE_BUILDDIR)
 
 $(BUILDDIR)/%.o: %.S $(MAKE_BUILDDIR)
 	$(ASM_BUILD) 
+	$(ASM_DEP)
 
 $(BUILDDIR)/%.o: %.c $(MAKE_BUILDDIR)
 	$(C_BUILD) 
+	$(C_DEP) 
 
 $(BUILDDIR)/%.cfg: %.c $(MAKE_BUILDDIR)
 	$(MOPS_BUILD) 
+	$(MOPS_DEP)
 
 $(BUILDDIR)/%.o: %.cxx $(MAKE_BUILDDIR)
 	$(CXX_BUILD) 
+	$(CXX_DEP)
 
 
 # Rules to process XML files to produce HTML:
@@ -146,15 +140,8 @@ ifneq ($(ASM_ETAGFILES),)
 endif
 endif
 
-# The following hack fixes up directory dependencies, and ALSO ensures
-# that the .m files will be rebuilt when appropriate:
-#DEPEND: $(patsubst %.o,$(BUILDDIR)/%.m,$(OBJECTS)) 
-DEPEND: $(addprefix $(BUILDDIR)/,$(patsubst %.o,.%.m,$(notdir $(OBJECTS))))
-DEPEND: $(addprefix $(BUILDDIR)/,$(patsubst %.xml,.%.xml.m,$(wildcard *.xml)))
-
-# When we are building, we need to generate dependencies
-install: DEPEND
-
+# Imagemap files may have lines defining constructor constituents.
+# This makes a C header file defining the constituent slot numbers.
 $(BUILDDIR)/constituents.h: $(IMGMAP) $(MAKE_BUILDDIR)
 	@grep 'CONSTIT(' $(IMGMAP) | \
 		grep -v '#define' | \
@@ -162,6 +149,6 @@ $(BUILDDIR)/constituents.h: $(IMGMAP) $(MAKE_BUILDDIR)
 		sed 's/^[^,]*, */#define /' | \
 		sed 's/)[^)]*$$//' | \
 		sed 's/,/ /' > $@
-	echo "Making $@"
+	@echo "Making $@"
 
 BUILDRULES_LOADED=1

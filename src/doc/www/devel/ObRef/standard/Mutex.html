@@ -1,0 +1,125 @@
+<html>
+<head>
+<title>EOR: Mutex</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>Mutex</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3> 
+  <p> The <strong>Mutex</strong> object provides a mechanism for
+  coordination over shared resources by providing a mechanism for
+  mutual exclusion.  An actor (a process) that wishes to posess
+  exclusive access to a resource first invokes the mutex object.  On
+  return, the actor "owns" the mutex object, and holds a "relinquish"
+  key to the mutex.  When the actor has completed it's operations, it
+  calls the relinquish key to allow other actors to proceed.
+  <p> It should be emphasized that the exclusion applies only to those
+  processes that make use of the mutex object voluntarily.  The mutex
+  object provides no mechanism for mutual exclusion among
+  non-cooperating users.
+  <p> A mutex object has two keys: the <strong>mutex request
+  key</strong>, which is long lived, and the <strong>mutex release
+  key</strong>, which lasts for the duration of a single exclusion.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.  Note that checking
+	 the alleged key type of a <strong>mutex relinquish
+	 key</strong> has the side effect of releasing the mutex.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       0x020000:
+	       Key is a mutex request key.
+	       <p>
+	       0x020001:
+	       Key is a mutex relinquish key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Request Mutex</strong> (OC = 1)
+    <dd>
+	 <p> Requests ownership of a mutex object.  This operation may
+	 be performed on either a mutex request key or a mutex
+	 relinquish key, though it isn't terribly clever to ask for a
+	 mutex you already hold.
+	 <p> Returns a mutex relinquish key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RK3</strong>
+	     </td>
+	     <td>
+	       The mutex relinquish key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       Mutex ownership granted.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Release Mutex</strong> (OC = 2)
+    <dd>
+	 <p> Releases ownership of a mutex object, allowing the mutex
+	 to be granted to another requester.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       Mutex released.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       KT+3
+	     </td>
+	     <td>
+	       Key is not a mutex release key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

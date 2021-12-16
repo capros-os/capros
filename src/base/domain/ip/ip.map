@@ -1,0 +1,78 @@
+/* -*- Mode: c -*- */
+#ifndef __IP_MAP_
+#define __IP_MAP_
+
+/*
+ * Copyright (C) 2008-2010, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*********************************************************
+ * Persistent IP program.
+ *********************************************************/
+
+BOOT_DOMCRE(ip);
+
+ip_prog = small program LIBDIR "ip";
+ip_space = ip_prog with page at 0x1f000; 
+ip_space = ip_prog with page at 0x1d000; 
+
+// The nplinkee thread:
+ip2_proc = new process;
+ip2_proc space = ip_space;
+ip2_proc pc = symbol LIBDIR "ip" nplinkee_main;
+ip2_proc sp = 0x1e000;
+ip2_proc schedule = sched(8);
+ip2_proc symtab = number("ip");
+ip2_proc key reg KR_CREATOR = ip_proccre;
+ip2_proc key reg KR_SELF = ip2_proc;
+ip2_proc key reg KR_BANK = primebank;
+ip2_proc key reg KR_SCHED = sched(8);
+ip2_proc key reg KR_APP(0) = misc Console;
+ip_nplinkee = start ip2_proc 0;
+run ip2_proc;
+
+// The main thread:
+ip_proc = new process;
+ip_proc space = ip_space;
+ip_proc pc = symbol LIBDIR "ip" _start;
+ip_proc schedule = sched(8);
+ip_proc symtab = number("ip");
+ip_proc key reg KR_CREATOR = ip_proccre;
+ip_proc key reg KR_SELF = ip_proc;
+ip_proc key reg KR_BANK = primebank;
+ip_proc key reg KR_SCHED = sched(8);
+ip_proc key reg KR_APP(0) = misc Console;
+ip_proc key reg KR_APP(2) = start ip2_proc 1;
+ip = start ip_proc 0;
+run ip_proc;
+
+#define TCPPort(name, num) \
+name##F = new forwarder; \
+name##F[30] = number(num); \
+name##F target = start ip_proc 2; /* keyInfo_TCPPortNum */ \
+name = name##F as sendWord opaque forwarder key;
+
+// For use in constructing IP addresses:
+#define fourByteVal(a,b,c,d) ((((a)*256+(b))*256+(c))*256+(d))
+
+#endif

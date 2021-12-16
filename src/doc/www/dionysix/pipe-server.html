@@ -1,0 +1,45 @@
+<HTML>
+<HEAD>
+<TITLE>Pipe Server</TITLE>
+</HEAD>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+</center>
+<p> <IMG src="../img/construction.gif" align=left> Just getting started.
+<div class=KeyName>
+  [<em><a href="00Dionysix.html">Dionysix Design Notes</a></em>]
+  <div align=right>
+    <H2>Dionysix Reference</H2>
+    <H2>Dp server</H2>
+  </div>
+  <h2>Pipes</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3> 
+  <p>
+
+Pipes are implemented on a single-threaded, non-blocking <A HREF= 
+"http://www.cis.upenn.edu:80/~eros/dionysix/00Dionysix.html">dp server</A> 
+using buffered streams. <!-- insert url when available -->  
+<p>
+A constant number of pipes is available on the server. A <b> MAXNUMBER </b> of pipes is defined by the server, and enough memory is allocated by the server for the maximum number of pipes (pipe size is constant), twice the number of I/O buffers and three times the number of objects. Each pipe consists of a pipe object and one or more  writer objects and one or more reader objects and their associated I/O streams. in practice, there is never more than one reader on a single pipe. There is no dynamic allocation -- if the server runs out of pipe objects or reader/writer objects no more pipes can be created (<em>Note: it is not possible to run out of pipe objects before running out of reader/writer objects</em>).
+<p>
+When <b> pipe </b> is called, the pipe server calls <b> Tattatch </b> on object <em> pipecid </em>. Then <b> Tclone </b> <em> pipecid pipehd </em> and <b> Tclone </b> <em> pipecid pipetl </em> are called, creating reader and writer ends of the pipe object. <b> Twalk </b> is used to identify the ends of the pipe and <b> Topen </b> accesses them for reading and writing. Additional readers and writers can also be created through <b> Tclone </b>. If there are no more pipes available the server will return an <b> Rerror </b>.
+<p>
+The server accepts <b> Tread</b>, <b> Twrite</b>, <b> Tabort</b>, and <b> Tremove</b> requests on open pipes. When a <b> Tread</b> request comes in, 
+ 
+<p>
+<hr>
+<address>
+<a href="http://www.seas.upenn.edu/~austern/easy.html">Elizabeth Austern</a>
+</address>
+<!-- hhmts start -->
+<!-- hhmts end -->
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

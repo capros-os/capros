@@ -1,0 +1,227 @@
+<html>
+<head>
+<title>Dionysix: Buffered Request Streams</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="00Dionysix.html">Dionysix Design Notes</a></em>]
+  <div align=right>
+    <H2>Dionysix Reference</H2>
+    <H2>Dp server</H2>
+  </div>
+  <h2>Buffered Request Streams</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3> 
+  <p>
+
+<h4>Introduction</h4>
+The set of functions and strucutres that make up the
+Buffered Request Streams library provide a means to perform blocking
+I/O using a single-threaded, non-blocking <A HREF="NameSpaces.html">dp
+server</A>.  
+<p>
+Server objects which utilize Buffered Request
+Streams do not guarantee that reads and writes will complete
+immediately.
+Reads and writes on these objects will complete eventually;
+notification is normally sent to the client by means of an <B>IoWait</B>
+invocation.
+ <P>
+
+<h4>Requirements</h4>
+Dp Servers that implement blocking I/O need a way to accept and buffer
+<B>Tread</B> and <B>Twrite</B> commands.  The server itself must promptly return
+to fufill other requests.  In other words, the server cannot wait while trying
+to satisfy a <B>Tread</B> on, say, an empty pipe.  Instead, the server needs to buffer
+the Tread until it can be satisfied.
+ <P>
+Furthermore, blocking I/O servers need a way to remove buffered
+requests according to their <b>tag</b>.  Therefore, while an object
+in the server maintains a continuous "stream" of data, it
+must also keep track of which data is associated with which request.
+<p>
+Finally, the server must work with a fixed buffer area -- that is,
+no memory can be dynamically allocated during server operation.
+<p>
+
+<h4>Implementation</h4>
+The primary structure in this library is the <CODE>buf_stream</CODE>,
+which implements a doubly-linked list of buffers, each containing
+<B>Tread</B> or <B>Twrite</B> requests, depending on the type of
+<CODE>buf_stream</CODE>.  Requests can be 
+<OL>
+<LI> <B>appended</B> to a buf_stream,
+
+<LI> fufilled by a data <B>xfer</B> between a two buf_streams, or
+
+<LI> <B>removed</B> from a buf_stream at any time prior to being fufilled. 
+</OL>
+
+Buf_streams guarantee that requests will be fufilled in the order
+in which they were sent.  Also guaranteed is an <B>R-</B>response 
+(Rread, Rwrite, Rerror) for each Tread or Twrite removed from a buf_stream, 
+unless it is removed by a Tflush, in which case no response is sent.
+ <P>
+Internally, each <CODE>buf_stream</CODE> takes buffers from the doubly-linked circular
+global buffer list as needed, and relinquishes them as requests
+are completed.  Hence, the number of request buffers is not dependent
+on the number of buffered request streams.  Instead, the number of
+request
+buffers is #defined by <code>REQ_BUFS</code> in <code>srvr-params.h</code>.
+
+<p>
+
+The typical server configuration (Fig. 1) has two buf_streams, 
+one containing <B>Twrite</B>
+requests and the other containing <B>Tread</B> requests. 
+ <P>
+
+  <center>
+<IMG SRC="bufstream.gif">
+<br>Fig 1: Two streams in a pipe server or an IP server.
+  </center>
+ <P>
+
+
+Whenever a Tread or Twrite request is sent to the server, it should
+be added to the buf_stream using <B>AppendReadRequest</B> or
+<B>AppendWriteRequest</B>.  
+
+After any <B>Append-</B> function call, the server should attempt a 
+to satisfy some of the requests pending in its buf_streams
+by performing an <B>Xfer</B> command.  Tabort requests should 
+utitlize the <B>RemoveRequest</B> function.
+
+  <hr>
+  <h3>Functions</h3>
+  <dl>
+
+    <dt> <strong>InitGlobalBufs</strong> ()
+    <dd> 
+	 <p> Initialize a the global buffer list.  Must be called
+	     before any of the buffered request streams functions are used.<p>
+
+    <dt> <strong>InitBufStream</strong> (buf_stream *st)
+    <dd> 
+	 <p> Initialize a buf_stream.<p>
+
+
+    <dt> <strong>AppendWriteRequest</strong> (buf_stream *st, Word session, HalfWord tag, 
+			 HalfWord cid, HalfWord count, Byte *buffer)
+    <dd> 
+	 <p> Append a Twrite onto a buf_stream.  Sends Rerror if there is
+		no room left in the buffer.
+	Note that there is no mechanism for <i>offset</i>.
+<p>
+
+    <dt> <strong>AppendReadRequest</strong> (buf_stream *st, Word session, HalfWord tag, 
+			 HalfWord cid, HalfWord count)
+    <dd> 
+	 <p> Append a Tread onto a buf_stream.  Sends Rerror if there is
+		no room left in the buffer.	Note that there is no mechanism for <i>offset</i>.<p>
+
+
+
+    <dt> <strong>RemoveRequest</strong> (Word session, HalfWord tag, HalfWord how)
+    <dd> 
+	 <p> Search through all buf_streams for Twrite or Tread requests
+	     matching <B>tag</B>.  Removes the requests from their 
+	     associated buf_streams and sends Rread, Rwrite, or 
+	     no response in accordance with <B>how</B>:
+<PRE>
+
+#define BUF_ABORT	0	/* how parameter of RemoveRequest*/
+#define BUF_FLUSH	1	/* how parameter of RemoveRequest*/
+
+</PRE>
+<p>
+
+	     Note that the buf_stream is not specified in this function.
+	     All buf_streams are searched for requests (there should
+	     be no more than one) matching <B>session</B> and <B>tag</B>.
+ <P>
+	     Internally, a hash table is used to locate requests
+	     quickly by their tag.
+ <P>
+
+    <dt> Halfword <strong>BytesPending</strong> (buf_stream *st)
+    <dd> 
+	 <p> Return the number of bytes available for Xfer in a 
+	     read or write stream.<p>
+
+
+    <dt> <strong>XferStrStr</strong> (buf_stream *st_write, buf_stream *st_read, HalfWord count)
+    <dd> 
+	 <p> Transfer <B>count</B> bytes of data from a write stream
+	     to a read stream.  Sends Rread upon completing each 
+	     Tread in the read buf_stream.  <p>
+
+
+    <dt> <strong>XferStrBuf</strong> (buf_stream *st_write, Byte *buffer, HalfWord count)
+    <dd> 
+	 <p> Transfer <B>count</B> bytes of data from a write stream
+	     to <B>buffer</B>.  The size of the buffer is not checked
+             before copying data into it.<p>
+
+
+    <dt> <strong>XferBufStr</strong> (buf_stream *st_read, Byte *buffer, HalfWord count)
+    <dd> 
+	 <p> Transfer <B>count</B> bytes of data from <B>buf</B>
+	     to a read stream.  Sends Rread upon completing each 
+	     Tread in the read buf_stream.  <p>
+
+</dl>
+
+
+  <hr>
+  <h3>How to use this library in your server code</h3>
+
+<OL>
+
+<LI> Check <code>#DEFINES</code> in <code>srvr-params.h</code>
+
+<PRE>
+/* Size of each request buffer for blocking i/o */
+
+#define REQ_BUFSZ 4096
+
+/* Number of global request buffers */
+
+#define REQ_BUFS 128
+
+</PRE>
+
+
+<LI> Include srvr_buf.h in the server code
+<LI> Declare your streams in the server code.  For example, in a pipe
+server we might see:
+<PRE>
+
+buf_stream my_test_pipe_stream[2];
+
+</PRE>
+
+Where my_test_pipe_stream[0] would be used as the Tread stream
+and my_test_pipe_stream[1] would be used as the Twrite stream.
+
+</OL>
+
+
+<p> 
+<hr>
+<address>
+<a href="http://www.seas.upenn.edu/~berrym/home.html">Mike Berry &lt;berrym@eros-os.org&gt;</a>
+</address>
+<!-- hhmts start -->
+<!-- hhmts end -->
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

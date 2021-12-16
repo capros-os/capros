@@ -1,0 +1,873 @@
+<html>
+  <head>
+    <title>EOR: Introduction</title>
+  </head>
+
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+    vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class=nocss>
+	    <br class=nocss>&nbsp;
+	      <br class=nocss>&nbsp;
+	  </div>
+	  <div class=SectionHeader align=center>
+	    <h1>EROS Object Reference</h1>
+	    <h1>Introduction</h1>
+	    <h3>Research Edition, Release 0.2</h3>
+	    <em>D R A F T</em>
+	  </div>
+	  [<em><a href="Cover.html">Return to Top</a></em>]
+	  <hr>
+	    <p>
+	      The EROS system is made up of a number of objects that
+	      are interconnected to construct a complete, working
+	      system.  This document provides a reference for all of
+	      the objects that are supplied with the EROS system.  For
+	      each object, the manual provides a specification of the
+	      object's interface(s), a description of the behavior and
+	      use of each interface, and (where applicable) cross
+	      references to related objects and/or documents.
+	    </p>
+	    <p>
+	      An object interface is exercised by invoking an
+	      appropriate <strong>key</strong>. The key names the
+	      service provider, a particular interface to that
+	      service, and the authority conveyed by the key.
+	    </p>
+	    <p>
+	      For organizational purposes, this manual divides EROS
+	      objects into four categories:
+	    </p>
+	    <ul>
+	      <table width=85%>
+		<tr valign=top>
+		  <td>
+		    <strong>Primary Objects</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Primary objects are stateful objects that are
+		      directly implemented by the EROS kernel.  Their
+		      content is saved to the disk by the checkpoint
+		      mechanism.  Most objects and services, including
+		      programs, are constructed out of primary
+		      objects.
+		    </p>
+		    <p>
+		      Primary objects are rescindable; the space bank
+		      carries sufficient authority to invalidate
+		      existing primary object keys.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Kernel Objects</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Kernel objects provide interfaces to the EROS
+		      kernel itself.  These objects are stateless, and
+		      generally fall into one of two categories:
+		    </p>
+		    <ul>
+		      <li>
+			<p>
+			  Services that require direct access to the
+			  representation of a key, such as the
+			  <strong>discrim</strong> key.
+			</p>
+		      </li>
+		      <li> 
+			<p>
+			  Services that interact with or control the
+			  single level store implementation, such as
+			  the <strong>checkpoint</strong> key.
+			</p>
+		      </li>
+		    </ul>
+		    <p>
+		      Kernel objects are not rescindable.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Device Objects</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Device objects are the embodiment of
+		      machine-specific hardware devices.  Unlike other
+		      EROS keys, not all device keys retain their
+		      validity across system restarts.  Terminal keys,
+		      for example, are rescinded automatically as part
+		      of the restart process.
+		    </p>
+		    <p> 
+		      Device keys are not individually rescindable.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Standard Processes</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Standard processes are those objects included
+		      with the system that are <em>not</em>
+		      implemented by the EROS kernel, but are
+		      necessary or useful in the operation of the
+		      system.  Standard processes include the
+		      <strong>process creator, </strong> the
+		      <strong>escrow agent agent</strong>, the
+		      <strong>space bank</strong>, processes
+		      implementing various policies for address space
+		      and process exceptions, and the like.
+		    </p>
+		    <p>
+		      Standard processes are constructed from primary
+		      objects, and can be rescinded by rescinding
+		      those objects.
+		    </p>
+		  </td>
+		</tr>
+	      </table>
+	    </ul>
+	    <p>
+	      Some keys are more sensitive than others.  Keys whose
+	      misuse can compromise the security of the system in
+	      whole or in part are identified in this manual with the
+	      label <kbd>TCB</kbd>:
+	    </p>
+	    <ul>
+	      <strong>Range (TCB)</strong>
+	    </ul>
+	    <p>
+	      Such keys should not be held by processes that are outside of the
+	      Trusted Computing Base.
+	    </p>
+	    <p>
+	      Other keys do not impact system security, but their
+	      availability is restricted for reasons of performance or
+	      administrative control. Such keys are said to be
+	      <em>closely held</em>, and are identified with the label
+	      <kbd>Restricted</kbd>:
+	    </p>
+	    <ul>
+	      <strong>Checkpoint(Restricted)</strong>
+	    </ul>
+	    <p>
+	      Certain keys are <em>closely held</em>, meaning that
+	      they are used only by system processes that are part of
+	      the trusted computing base.  Generally, these keys
+	      provide access to kernel services that are not
+	      appropriate for general use.  In the manual, such keys
+	      are identified by the letters <kbd>TCB</kbd>.
+	    </p>
+	    <h2>1. Invocation</h2>
+	    <p>
+	      Object interfaces are exercised by invoking the
+	      corresponding keys.  There are several types of
+	      invocations, and every invocation follows a standard
+	      message structure.
+	    </p>
+	    <h3>1.1. Invocation Types</h3>
+	    <p>
+	      EROS provides three types of invocations: <strong>call</strong>,
+	      <strong>return</strong>, and <strong>fork</strong>:
+	    </p>
+	    <center>
+	      <table width=85%>
+		<tr valign=top>
+		  <th align=left>
+		    Invocation
+		  </th>
+		  <th align=left>
+		    Description
+		  </th>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>call</strong>
+		  </td>
+		  <td>
+		    <p>
+		      The <strong>call</strong> invocation is used to
+		      invoke a service and wait for a reply.  Every
+		      call receives at most one reply (there is no
+		      guarantee that the recipient replies at all).
+		      When a key is invoked by the call operation, the
+		      kernel fabricates a <strong>resume key</strong>
+		      that is unique to that call, and places the
+		      caller in the <em>waiting</em> state.  The
+		      caller will resume when its resume key is
+		      invoked.
+		    </p>
+		    <p>
+		      While a call operation is usually performed on a
+		      start key, this is not required.  Calls on
+		      resume keys can be used to perform co-routine
+		      style invocations.
+		    </p>
+		  </td>
+		</tr>
+		<tr>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>return</strong>
+		  </td>
+		  <td>
+		    <p>
+		      The <strong>return</strong> invocation is used
+		      to respond to a call.  The returning process
+		      is placed in the <em>available</em> state,
+		      making it available for subsequent calls.  When
+		      the process is next invoked, execution will pick
+		      up just after the return instruction.
+		    </p>
+		    <p>
+		      An important fine point is that the returning
+		      process need not be returning to its most recent
+		      caller.  It is sometimes useful to hold on to a
+		      resume key for later use and service some other
+		      caller first.
+		    </p>
+		    <p>
+		      In addition, the return operation need not be
+		      performed on a resume key.  A process can
+		      forward a message to a downstream process by
+		      returning to the downstream process and passing
+		      the content of the received message.
+		    </p>
+		    <p>
+		      Because returning on a resume key is by far the
+		      most frequent case, and because the resume key
+		      type check is significant from a security
+		      perspective (invocations of resume keys never
+		      block) in most cases, the return invocation
+		      checks whether the invoked key is a resume
+		      key. It is possible to perform a return on other
+		      key types by using the <strong>npreturn</strong>
+		      invocation. The <strong>npreturn</strong>
+		      invocation is identical to the
+		      <strong>return</strong> invocation with the
+		      exception that it does not check the key
+		      type. An <strong>npreturn</strong> operation can
+		      therefore block indefinitely (for example, an
+		      <strong>npreturn</strong> on a start key to a
+		      non-available domain).
+		    </p>
+		  </td>
+		</tr>
+		<tr>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>fork</strong>
+		  </td>
+		  <td>
+		    <p>
+		      The <strong>fork</strong> invocation is used to
+		      send a message to a recipient without waiting
+		      for a reply.  Both the invoking and the
+		      receiving process are in the running state.
+		    </p>
+		    <p>
+		      Unlike call and return operations, the fork
+		      operation does not return any information to the
+		      invoker.  As a result, the "response" portions
+		      of the message structure are unused.
+		    </p>
+		  </td>
+		</tr>
+	      </table>
+	    </center>
+	    <h3>1.2. Invocation Content</h3> 
+	    <p>
+	      Every invocation involves several pieces of information.
+	      On most architectures, everything but the data buffer is
+	      kept in machine registers.  On more constrained
+	      architectures such as the Intel family, some of this
+	      information may be obtained indirectly from a message
+	      descriptor buffer.  The mapping of the logical calling
+	      convention onto specific registers is architecture
+	      specific.
+	    </p>
+	    <center>
+	      <table width=85%>
+		<tr valign=top>
+		  <td>
+		    <strong>Send R0..R3</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Send registers 0 through 3.
+		    </p>
+		    <p>
+		      <em>Description</em> Every invocation passes
+		      four registers from the caller to the recipient.
+		      It is the responsibility of the application to
+		      zero these registers prior to performing an
+		      invocation if their contents should not be
+		      transmitted.
+		    </p>
+		    <p>
+		      <em>Usage Convention</em> The first of these
+		      registers (SR0) is used to hold the
+		      <strong>order code</strong> or <strong>result
+		      code</strong>.  The order code identifies the
+		      operation to be performed by the service that
+		      the capability names.  The result code describes
+		      the outcome of the operation.
+		    </p>
+		    <p>
+		      In a <strong>call</strong> or
+		      <strong>fork</strong> invocation, this field is
+		      usually used to indicate the order code.  In a
+		      <strong>return</strong> invocation, this field is
+		      used to describe the result code.  Note that
+		      other combinations of call, return, and fork may
+		      find it convenient to make other uses of this
+		      field, as in the case of request forwarding.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Receive R0..R3</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Receive registers 0 through 3.
+		    </p>
+		    <p>
+		      <em>Description</em> Every invocation passes
+		      four registers from the caller to the recipient.
+		      The recipient receives these four registers into
+		      the receive registers.  On most architectures,
+		      the send and receive registers are identical;
+		      the transmitted registers are overwritten by the
+		      invocation's completion.
+		    </p>
+		    <p>
+		      It is the responsibility of the application to
+		      save and restore these registers around the
+		      invocation if their values should not be
+		      overwritten.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Send String</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Up to 65536 bytes of data can be sent with each
+		      invocation.  This portion of the message is
+		      optional. The sent data is not interpreted by
+		      the message transport.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Send Length</strong>
+		  </td>
+		  <td>
+		    The length of the transmitted string.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Receive String</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Up to 65536 bytes of data can be received with
+		      each invocation. If the invocation is a
+		      <strong>call</strong>, the received string will
+		      be the one passed during the invocation of the
+		      corresponding resume key.  If the invocation is
+		      a <strong>return</strong>, the received string
+		      will be the one passed by the next start key
+		      invocation.  If the invocation is a
+		      <strong>fork</strong>, no data will be received.
+		    </p>
+		  </td>
+		</tr>
+		<tr>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Receive Length</strong>
+		  </td>
+		  <td>
+		    <p>
+		      The length of the receive string buffer.  This
+		      field is overwritten with the actual number of
+		      bytes received.
+		    </p>
+		  </td>
+		</tr>
+		<tr>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>SK0...SK3</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Every invocation transmits exactly 4 keys.  The
+		      SK0 through SK3 fields name the key registers
+		      from which the keys should be transmitted.  Not
+		      all messages require 4 key arguments; a <a
+		      href="kernel/Void.html"><strong>void
+		      key</strong></a> can be passed in unused
+		      argument slots.
+		    </p>
+		    <p>
+		      In a call invocation, the K3 slot is overwritten
+		      by the kernel with a <strong>resume key</strong>
+		      to the invoking process.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>RK0...RK3</strong>
+		  </td>
+		  <td>
+		    <p>
+		      Call and return invocations receive exactly 4
+		      keys.  RK0 through RK3 name the registers into
+		      which the keys should be received. Undesired
+		      arguments should be directed to key slot 0,
+		      which is defined to hold the <a
+		      href="kernel/Void.html"><strong>void
+		      key</strong></a> at all times.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Key Info</strong>
+		  </td>
+		  <td>
+		    <p>
+		      The <strong>key info</strong> field is filled in
+		      by the kernel with each invocation.  If the
+		      invoked key is a start key, the key info field
+		      will be populated with the value of the key info
+		      field of that start key.
+		    </p>
+		    <p>
+		      Use of distinct key info values allows a single
+		      process to implement multiple interfaces that
+		      convey different services or different access
+		      right.  Since this field is populated by the
+		      kernel, the receiving process may assume that
+		      the key info field is unforgeable.
+		    </p>
+		    <p>
+		      If the invoked key is not a start key, the key
+		      info field will be zero.
+		    </p>
+		  </td>
+		</tr>
+	      </table>
+	    </center>
+	    <h3>1.3. Common Operations</h3>
+	    <p>
+	      Some operations are so universal that it is useful to
+	      have a convention for how these operations are
+	      requested.  These conventions are not enforced by EROS,
+	      but it is a rare object that does not observe them.  By
+	      convention, these operations are numbered relative to a
+	      standard value for the <strong>Alleged Key Type</strong>
+	      operation, <strong>KT</strong>.  The standard KT value
+	      is the smallest number available under a two's
+	      complement interpretation of the machine's natural word
+	      size.  On a 32-bit architecture, this value is
+	      -2,147,483,648, or 0x8000000.
+	    </p>
+	    <table>
+	      <tr valign=top>
+		<th align=left>
+		  Mnemonic
+		</th>
+		<th align=left>
+		  Request
+		</th>
+		<th align=left>
+		  Meaning
+		</th>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>OC_KeyType</em>
+		</td>
+		<td>
+		  KT
+		</td>
+		<td>
+		  <p>
+		    <em>Return alleged key type</em> The alleged key
+		    type returned depends on the key, and identifies
+		    the service that the key alleges to perform.  The
+		    value is "alleged" because the result is returned
+		    by the object itself, which can therefore issue
+		    any answer it pleases.  By convention, certain
+		    alleged key type values are reserved for the
+		    primary objects.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>OC_Destroy</em>
+		</td>
+		<td>
+		  KT+1
+		</td>
+		<td>
+		  <p>
+		    <em>Destroy</em> This operation is used to ask an
+		    object to self destruct when one is done using it.
+		    An editor object, for example, can be sent the
+		    destroy request when the editing session is done.
+		  </p>
+		  <p>
+		    The destroy order is simply a convenience.  There
+		    are other mechanisms to ensure that objects that
+		    are broken or malicious can be forcibly destroyed.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	    <h3>1.4. Common Return Values</h3>
+	    <p>
+	      As with operations, certain operation results are common
+	      enough to warrant the assignment of conventional values:
+	    </p>
+	    <table>
+	      <tr valign=top>
+		<th align=left>
+		  Mnemonic
+		</th>
+		<th align=left>
+		  Value
+		</th>
+		<th align=left>
+		  Meaning
+		</th>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>RC_OK</em>
+		</td>
+		<td>
+		  0
+		</td>
+		<td>
+		  <p>
+		    Operation completed successfully.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>RC_Void</em>
+		</td>
+		<td>
+		  KT+1
+		</td>
+		<td>
+		  <p>
+		    Void key.  Also returned when a rescinded key or a
+		    key to a malformed process is invoked.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>RC_UnknownRequest</em>
+		</td>
+		<td>
+		  KT+2
+		</td>
+		<td>
+		  <p>
+		    Unknown request.  Object does not support the given
+		    order code.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>RC_RequestError</em>
+		</td>
+		<td>
+		  KT+3
+		</td>
+		<td>
+		  <p>
+		    Request error.  Indicates that the arguments passed
+		    with the request were inappropriate or
+		    insufficient.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>RC_NoAccess</em>
+		</td>
+		<td>
+		  KT+4
+		</td>
+		<td>
+		  <p>
+		    Access Violation.  An attempt has been made to store
+		    into a read-only object.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>RC_NotPersistent</em>
+		</td>
+		<td>
+		  KT+7
+		</td>
+		<td>
+		  <p>
+		    A request was made on a kernel key that is not
+		    available in this implementation of the kernel
+		    because the kernel has been compiled without
+		    support for persistence. Generally this means that
+		    the application is running on an embedded version
+		    of the EROS system.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	    <h2>2. Documentation Conventions</h2>
+	    <p>
+	      Each object description begins with the object's name,
+	      and an optional TCB qualifier identifying closely held
+	      objects.  This is followed by a description of the
+	      object's function:
+	    </p>
+	    <ul>
+	      <h2>Range (TCB)</h2>
+	      <p>
+		A Range key conveys authority to a specific range of
+		pages or nodes, and allows the holder to fabricate or
+		rescind keys to objects within that range...
+	      </p>
+	    </ul>
+	    <p>
+	      The overview description is followed by descriptions of
+	      the individual operations supported by the object:
+	    </p>
+	    <ul>
+	      <h3>GetObjectKey (oc=1)</h3>
+	      <p>
+		The GetObjectKey operation creates a new object key
+		for an object within the range named by this range
+		key.  The desired object is specified as an offset
+		relative to the start of the range.
+	      </p>
+	      <table>
+		<tr valign=top>
+		  <td>
+		    <strong>Request</strong>
+		  </td>
+		  <td>
+		    data
+		  </td>
+		  <td>
+		    [W] relative oid
+		  </td>
+		</tr>
+		<tr valign=top>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>Reply</strong>
+		  </td>
+		  <td>
+		    RK0
+		  </td>
+		  <td>
+		    new page key
+		  </td>
+		</tr>
+		<tr valign=top>
+		</tr>
+		<tr valign=top>
+		  <td rowspan=2>
+		    <strong>Results</strong>
+		  </td>
+		  <td>
+		    <em>RC_OK</em>
+		  </td>
+		  <td>
+		    Operation completed successfully.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    1
+		  </td>
+		  <td>
+		    <p>
+		      <em>Range error</em>.  Requested page offset is
+		      beyond the number of pages spanned by the page
+		      range key.
+		    </p>
+		  </td>
+		</tr>
+	      </table>
+	    </ul>
+	    <p>
+	      This example describes a service that accepts a one-word
+	      argument as data and returns a key in slot 0 of the
+	      returned message.  The operation has two possible
+	      outcomes: success or range error.
+	    </p>
+	    <p>
+	      Several parts of both the request and the reply message
+	      are ommitted from the description.  Keys 0 through 3 of
+	      the request message are unused by this operation.  The
+	      return values in Keys 1 through 3 are undefined, and no
+	      data is returned.
+	    </p>
+	    <p>
+	      In general, it is good practice to specify <a
+	      href="kernel/Void.html"><strong>void key</strong></a>s
+	      for unused key arguments.  This ensures that the
+	      recipient does not gain access to authorities that it
+	      shouldn't.  In addition, existing orders may be extended
+	      in the future to interpret these slots, and planning
+	      ahead by sending void keys in unused slots will prevent
+	      incompatibility.  The interface glue layer provided for
+	      C and C++ does this automatically.
+	    </p>
+	    <h3>2.1. Data Field Interpretation</h3>
+	    <p>
+	      While the data portion of the message is not interpreted
+	      by the message transport, the reference manual specifies
+	      the expected argument types for each invocation.  The
+	      type of each argument is indicated by a preceding letter
+	      within square braces, which may be one of the following:
+	    </p>
+	    <center>
+	      <table width=85%>
+		<tr valign=top>
+		  <th align=left>
+		    Letter
+		  </th>
+		  <th align=left>
+		    Meaning
+		  </th>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    B
+		  </td>
+		  <td>
+		    A single byte value
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    H
+		  </td>
+		  <td>
+		    A two byte value (halfword)
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    W
+		  </td>
+		  <td>
+		    A four byte value (word)
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    I
+		  </td>
+		  <td>
+		    A signed, four byte value (integer)
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    L
+		  </td>
+		  <td>
+		    An eight byte value (longword)
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    N
+		  </td>
+		  <td>
+		    <p>
+		      A 96 bit value (a bignum), used to describe an
+		      address space offset.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    S
+		  </td>
+		  <td>
+		    A string of ascii characters
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    U
+		  </td>
+		  <td>
+		    A string of UNICODE characters
+		  </td>
+		</tr>
+	      </table>
+	    </center>
+	    <p>
+	      Where an argument consists of a fixed length sequence of
+	      items of like type, the type specifier may include an
+	      optional colon followed by a count, as in
+	      <kbd>[W:4]</kbd>. Where an argument consists of a
+	      variable length sequence of items of like type, the type
+	      specifier is followed by an asterisk, as in
+	      <kbd>[S*]</kbd>.
+	    </p>
+	    <hr>
+	      <em>Copyright 1998, 2001, 2002 by Jonathan Shapiro.
+                  Copyright 2009 by Strawberry Development Group.
+                  All rights reserved.  For terms of redistribution, see the
+		<a href="../../legal/license/GPL.html">GNU General
+		  Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</html>

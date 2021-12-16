@@ -1,0 +1,43 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+
+/*
+ * null call domain test case.  Times how fast we can invoke the null
+ * key.
+ */
+arch i486;
+
+directed_yield = new process;
+directed_yield.seg = program segment "directed_yield";
+directed_yield.pc = symbol "directed_yield" _start;
+directed_yield.seg = directed_yield.seg with page at 0x20000; /* for stack */
+
+directed_yield pc = directed_yield.pc;
+directed_yield sp = 0x21000;
+directed_yield space = directed_yield.seg;
+directed_yield schedule = sched(8);	/* normal */
+
+directed_yield key reg 9 = misc Sleep;
+directed_yield key reg 10 = misc Console;
+directed_yield key reg 11 = misc SysTrace;
+
+run directed_yield;

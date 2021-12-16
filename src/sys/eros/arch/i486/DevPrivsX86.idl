@@ -1,0 +1,24 @@
+package capros.arch.i386;
+
+/** X86 version of DevPrivs object.
+ *
+ */
+interface DevPrivsX86 extends capros.DevPrivs64 {
+  unsigned byte enum VendorCode {
+    Intel     = 0,
+    Cyrix,
+    AMD,
+    UMC,
+    Centaur   = 5,
+    Transmeta = 7,
+    NSC,
+    Unknown = 255
+  };
+
+  struct CPUInfo {
+    unsigned byte family;
+    unsigned byte vendorCode;
+  };
+
+  CPUInfo getCPUInfo();
+};

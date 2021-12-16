@@ -1,0 +1,45 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="18cm" height="4cm" version="1.1"
+  xmlns="http://www.w3.org/2000/svg">
+  <rect x="0cm" y="1cm" width="18cm" height="2cm"
+        fill="none" stroke="black" />
+  <rect x="0cm" y="1cm" width="2cm" height="1cm"
+        fill="none" stroke="black" />
+  <rect x="0cm" y="2cm" width="3cm" height="1cm"
+        fill="none" stroke="black" />
+  <rect x="6cm" y="1cm" width="3cm" height="2cm"
+        fill="none" stroke="black" />
+  <rect x="12cm" y="1cm" width="3cm" height="2cm"
+        fill="none" stroke="black" />
+  <text x="0.2cm" y="1cm">
+     <tspan x="0.2cm" dy="20">Free</tspan>
+  </text>
+  <text x="0.2cm" y="1cm">
+     <tspan x="0.2cm" dy="60">Reserved</tspan>
+  </text>
+  <text x="3.2cm" y="1cm">
+     <tspan x="3.2cm" dy="30">Retired</tspan>
+     <tspan x="3.2cm" dy="20">Generations</tspan>
+  </text>
+  <text x="6.2cm" y="1cm">
+     <tspan x="6.2cm" dy="20">Migrated</tspan>
+     <tspan x="6.2cm" dy="20">not Retired</tspan>
+     <tspan x="6.2cm" dy="20">Generations</tspan>
+  </text>
+  <text x="9.2cm" y="1cm">
+     <tspan x="9.2cm" dy="20">Other</tspan>
+     <tspan x="9.2cm" dy="20">Unmigrated</tspan>
+     <tspan x="9.2cm" dy="20">Generations</tspan>
+  </text>
+  <text x="12.2cm" y="1cm">
+     <tspan x="12.2cm" dy="30">Restart</tspan>
+     <tspan x="12.2cm" dy="20">Generation</tspan>
+  </text>
+  <text x="15.2cm" y="1cm">
+     <tspan x="15.2cm" dy="30">Working</tspan>
+     <tspan x="15.2cm" dy="20">Area</tspan>
+  </text>
+</svg>
+

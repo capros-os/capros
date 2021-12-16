@@ -1,0 +1,76 @@
+\documentstyle{article}
+\parindent=0pt
+\parskip=4pt
+
+\begin{document}
+
+\title{Disk Scheduling in EROS}
+\author{
+Jonathan S. Shapiro\\
+{\tt shap@aurora.cis.upenn.edu}\\
+\\
+Norman Hardy\\
+{\tt norm@netcom.com}}
+\date{December 29, 1993}
+\bibliographystyle{plain}
+\maketitle
+\begin{abstract}
+The requirements for real-time and reliable system design have some
+interesting cross connections.  In this paper we consider the problem
+of managing shadowed block I/O in a real time system.  In particular, we
+address the issue of maintaining a real-time guarantee in the face of
+underlying media deterioration.
+\end{abstract}
+
+
+\section{Introduction}
+EROS is a pure capability system closely derived from KeyKos.
+\cite{kk:nano,kk:osr}  It presents a secure single-level store with
+real-time guarantees to all processes, and provides for failure
+restart and reliability.\cite{kk:ckpt}
+
+As part of the reliability design, EROS provides OS support qfor
+shadowed disk regions.  Such disk regions are served by two (or more)
+independent disk devices, either of which may respond to a read
+request for that region.  While shadowing reduces a significant source
+of system failures, it significantly complexifies handling of read
+faults.
+
+Simultaneously, the EROS system provides access time guarantees for
+high priority page I/O.  The convolution of these features imposes
+an interesting requirement on the disk subsystem.
+
+
+\begin{thebibliography}{99}
+\bibitem{kk:nano}
+Bomberger et. al.
+{\em The KeyKOS Nanokernel Architecture},
+Proceedings of the USENIX Workshop on Micro-kernels and Other Kernel
+Architectures,
+USENIX Association,
+April, 1992,
+pp. 95--112.
+
+\bibitem{kk:osr}
+Hardy, Norman,
+{\em The KeyKOS Architecture}
+Operating Systems Review,
+October, 1985,
+pp. 8--25.
+
+\bibitem{kk:ckpt}
+Landau, Charles R.
+{\em The Checkpoint Mechanism in KeyKOS}
+Proceedings of the Second International Workshop on Object Orientation
+in Operating Systems, 
+IEEE,
+September, 1992,
+pp. 86--91.
+
+\end{thebibliography}
+
+\end{document}
+
+
+
+

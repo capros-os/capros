@@ -1,0 +1,59 @@
+/* -*-C-*- */
+/*
+ * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <primebank.map>
+#include <pcc.map>
+#include <ipltool.map>
+
+/************************************
+ *
+ * Set up proccre_test:
+ *
+ ************************************/
+
+proccre_test = new process;
+proccre_test.seg = small program BUILDDIR "proccre_test";
+proccre_test.seg = proccre_test.seg with page at 0x1f000;
+proccre_test.pc = symbol BUILDDIR "proccre_test" _start;
+proccre_test pc = proccre_test.pc;
+proccre_test space = proccre_test.seg;
+proccre_test schedule = sched(8);   /* normal */
+
+test_constit = new node;
+test_constit[0] = misc Console;
+test_constit[1] = misc KeyBits;
+test_constit[2] = pcc;		/* pcc start */
+test_constit[3] = symbol BUILDDIR "hello" _start; /* pc for hello program */
+hello.space = small program BUILDDIR "hello";
+hello.space = hello.space with page at 0x1f000;
+test_constit[4] = hello.space; /* addr space for hello program */
+
+proccre_test key reg KR_CONSTIT = test_constit;
+proccre_test key reg KR_SELF = proccre_test;
+proccre_test key reg KR_BANK = primebank;
+proccre_test key reg KR_SCHED = sched(8); /* normal */
+
+run proccre_test;

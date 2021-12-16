@@ -1,0 +1,328 @@
+<html>
+<title>Preface</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<h1 align=right>Preface</h1>
+<p> So here it is 1995, and we are undertaking to build yet another
+operating system.  Surely by now this is a mature field, and the
+construction of new operating systems for general use is largely a
+wasted effort?
+<p> While we could offer a suitably long-winded and dull
+justification, it may be simpler to offer an observation made by
+Elliott Organick in 1983:
+<p>
+<blockquote>
+  <p> The failure to solve the general protection problem by prior
+  architectures (descriptor based or not) has had serious
+  consequences.  It has meant, for example, that system software
+  modules must be set apart and explicitly protected from application
+  programs; the former cannot be permitted to <em>trust</em> the
+  integrity of in-bound pointer arguments such as descriptors.  This
+  dispartiy has, in turn, made it imptactical and unsage to permit
+  users the freedom to substitute their own versions of selected
+  modules.  A frequent consequence has been that much software within
+  a system tends to be relegated to a small number of very large
+  (monolithic) <em>protection domains</em>.  This consequence, in
+  turn, leads to high software maintenance costs.
+  <p align=right>- Elliott I. Organick <br>
+
+  <p align=right><em>A Programmer's View of the Intel 432 System</em>
+</blockquote>
+<p>
+<!--  Organick's comments are novel only for being so clearly stated.
+Protection wasn't a new problem then, and it remains essentially
+unsolved in today's computing systems. -->
+<p> While a great number of operating systems have been built over the
+years, the field remains immature.  We know a great deal, for example,
+about ways to get high performance out of disk drives.  Though most of
+what we know has not shown up in mainstream implementations yet, we
+know quite a lot about how to do fast networking.  We even know a fair
+bit about process scheduling.
+<p> For all of that, there is a lot that we do <em>not</em> yet have a
+good handle on in the OS field:
+<p>
+<ul>
+  <p>
+  <li> <em>Graceful degradation</em> - When the going gets tough,
+       today's operating systems either crash or kill user programs.
+       This reflects some basic flaws in their underlying design.
+       <p>
+  <li> <em>Reliability</em> - Today's systems are embarassingly
+       unreliable.  A top of the line UNIX server, carefully
+       administered, may continue running for as long as one month
+       between crashes.  Failure times for other mainstream operating
+       systems are comparable.
+       <p>
+  <li> <em>Security</em> - We have invested a great deal of effort
+       into the so-called ``Orange Book'' security levels, which are
+       concerned with access prevention.  The real-world goal is not
+       to prevent all access to a system, but to provide carefully
+       controlled access in a hostile environment.  This is a much
+       harder problem, and today's systems really aren't designed for
+       it.
+       <p>
+  <li> <em>Mechanism v/s policy</em> - Because many resource
+       management policies have been implemented in privileged code,
+       we lack the ability to experiment with alternative policies.
+</ul>
+<p> This book describes EROS, the Extremely Reliable Operating System.
+It provides an introduction to the system architecture as seen by the
+programmer, and describes the kernel that supports this architecture.
+The book describes the kernel in considerable detail, and is intended
+to be read with the kernel sources at hand.  It is concerned not only
+with describing <em>what</em> the kernel is doing, but <em>why</em>.
+Some of the things we have chosen <em>not</em> to do are as important
+as the things we have done, and where we are able to identify such
+choices we have tried to do so.  In at least one case, we have
+implemented an algorithm that is well known to have theoretically
+better alternatives.  In practice, we found that the better
+alternatives weren't really better.
+<p> In constructing EROS, we are trying to build a system that will
+let us get a better handle on these issues, as well as on the issues
+like distribution and scalability.
+<p> EROS is highly scalable.  A stripped-down version is small enough
+for embedded control and handheld applications, while the full
+implementation can handle systems with many terrabytes of disk space.
+<H1>The Kernel</h1>
+<p> EROS is built as a small microkernel.  The microkernel provides a
+small set of system services, including message passing, object and
+capability management, process scheduling, checkpointing, and a small
+number of kernel services.  In addition, it includes drivers for disks
+and a few selected devices.  The kernel is the only portion of the
+system that runs with supervisor priviledge.
+<p> The system is quite small.  Them microkernel itself takes up
+between 45 and 60 kilobytes of code, depending on the processor and
+compiler used.  When running, the entire system footprint is less than
+8% of the machine's available memory.  Almost all of this space goes
+to tables that are used to keep track of the status of each page of
+system memory.
+<p> The small size of the EROS kernel is deceptive.  The system is
+fast and extremely powerful.  Our benchmarks indicate that it's
+performance competes very favorably with Windows and UNIX.  This is a
+major jump in microkernel performance.  While microkernels have always
+promised to deliver high performance, few have actually delivered on
+this promise.
+<p> While small, the EROS system provides some rather unusual
+facilities.  A periodic checkpoint mechanism ensures that if the
+system fails, no more than a few minutes of work is lost.  On restart,
+all applications pick up pretty much where they left off.  It is
+possible to host other operating systems on top of EROS.  The EROS
+development environment is an example of such a system.  In addition,
+we are buildling binary compatible UNIX and Windows subsystems.
+<H1>A Pure Capability Architecture</h1>
+<p> Every object in the EROS system, including processes, has a unique
+internal name.  Access to objects is through <em>capabilities</em>,
+which combine an object's name with an authority.  The holder of a
+read-only capability for a particular page of memory, for example, can
+read but not write that page.  To write the page, a read-write
+capability would be required.
+<p> Capabilities are the <em>only</em> way to gain access to an
+object.  If a program does not posess a capability for an object, it
+cannot access the object.  Posession of a capability is a
+<em>necessary and sufficient</em> condition for accessing the object.
+As a result, the system is extremely secure.  Security is maintained
+by making sure that capabilities are never handed to inappropriate
+users.  It is extremely difficult to attack such a system with
+software viruses.
+<p> The use of capabilities leads to several simplifications of the
+kernel.  The EROS kernel knows nothing of users, groups, and
+authorization, and cares less.  There is no need for a hierarchy of
+privileges as found in other systems, and no need for the kernel to
+support them.
+<H1>A Persistent System</h1>
+<p> Objects in EROS are persistent.  Once allocated, an object will
+continue to exist until it is explicitly deconstructed.  Previous
+systems have provided persistence for data objects, such as pages and
+segments (files).  EROS provides persistence for processes as well.
+Once created, an EROS process continues to execute forever -- even
+across system shutdowns.
+<p> Because processes are persistent, EROS is ideal for building
+highly reliable applications.  Applications can be divided into
+components that run as individual processes.  These components are
+protected from each other, and can be tested in isolation.  The impact
+of this is staggering.  Suppose you have a million line UNIX program,
+and some routine somewhere has managed to corrupt a pointer.  With all
+of the tracking tools available today, such bugs are very hard to
+locate.  The problem usually shows up in some completely unrelated
+code, and is isolated only with tremendous difficulty.  In EROS
+applications, the components tend to run as seperate programs, and are
+unable to corrupt each other.  This makes it much easier to find the
+guilty party.
+<p> To support this style of application construction, EROS provides
+an extremely fast interprocess communication facility. This facility
+is the most heavily exercised portion of the kernel, and went through
+several redesigns before we were finally satisfied with it.
+<p> Persistence also means that there is no need for a
+kernel-supported file system.  The basic purpose of a file system is
+to provide a name space that persists across system shutdowns.  Since
+processes do not go away when the system is shut down, this
+functionality is not required by the kernel.  Name spaces are
+implemented outside the kernel, and are completely independent of
+system security.
+<H1>Audience</h1>
+<p> This book is ultimately intended to have several audiences.  In
+chronological order (from earliest readers to latest):
+<p>
+<ul>
+  <p>
+  <li> Myself, as a design check.
+       <p>
+  <li> Members of the EROS research group at the University of
+       Pennsylvania, who are working on both kernel and domain-level
+       programming.
+       <p>
+  <li> Early users who will undoubtedly be kernel developers in their
+       own right.
+       <p>
+  <li> Researchers who are interested in the design basis for this
+       system.
+       <p>
+  <li> Students who wish to learn about reliable software
+       construction, or are interested in EROS in connection with a
+       course in operating systems.
+       <p>
+  <li> Technical readers, who have learned of EROS and want to know
+       something of how it is put together.
+</ul>
+<p> This book is <em>not</em> designed as a primary textbook for an
+operating systems course.  It would be an excellent choice for a
+laboratory course, or for a practically-oriented course if
+supplemented by a more abstract textbook.  The decision not to make
+this a textbook was deliberate, and is probably worth explaining.
+<p> In mid-1995, Mitch Marcus, Ken Church, and I were comparing notes
+on incoming hires.  Over a period of several years, we had noticed
+that young computer scientists are less and less able to write real
+programs.  Mitch was finding this true at the graduate student level,
+Ken at the industrial research level, and I in commercial development.
+We found this puzzling, and started trying to figure out what was
+going on.  After a while, we realized that all of the good computer
+programmers we know have something in common: they have all read and
+learned from the works of others.  There really isn't any substitute
+for reading good source code to learn how to program.  Fewer and fewer
+students have any opportunity to do this, and it shows.
+<p> Back in the 1970's, John Lyons wrote a book providing a
+line-by-line annotated discussion of the UNIX v6 source code.  The
+book violated AT\&amp;T's copyright and trade secret agreement, and
+was quickly withdrawn, but an entire generation of programmers made
+photocopies and learned from this book and the accompanying source
+code.  Unfortunately, the UNIX source code has always been licensed in
+ways that prevent an operating systems course from teaching it.
+EROS's licensing terms are somewhat less onerous.
+<p> At the risk of arrogance, EROS is an example of good code.  The
+architecture of the system is clear and simple, and the implementation
+is straightforward and well documented.  In addition, it is small
+enough for a single person to learn.
+<H1>Organization of the Book</h1>
+<p> This book is organized in several parts.  Part I provides an
+overview of the EROS architecture.  The EROS system is conceptually
+different from most current operating systems, and the overview will
+help to bring the new reader up to speed on the EROS view of things.
+In particular, this part provides a clear description of the EROS
+process model and object model, which is a necessary precursor to
+deciding if the operating system is correct.  In addition, Part I
+introduces the guiding principles that have influenced the system
+design, and clearly describes the objectives of the EROS
+implementation.
+<p> Part II turns to the implementation of the kernel itself.  It
+describes the structure of the EROS kernel, and examines the
+implementation in careful detail.  We describe the key algorithms and
+subsystems in the kernel, including discussion of possible alternative
+implementations.
+<p> Part III describes the basic system services that are provided
+with the EROS system.  A great deal of key functionality is
+implemented outside of the kernel.  Though these services run outside
+of the kernel, they are every bit as critical as the kernel services.
+No description of the system would be complete without them.
+<p> Part IV describes the EROS development environment.  The EROS
+development environment is a full POSIX-compliant environment hosted
+on top of the EROS system.
+<p> One problem with describing microkernels is that they are fairly
+machine dependent.  Because it is the most readily available platform,
+this book describes the Intel version of the EROS system.  Throughout,
+we have tried to be explicit about identifying those aspects of the
+presentation that are a result of the Intel processor.  If possible, I
+hope to include a description of a second implementation as well.
+<H1>A Note on the Code Samples</h1>
+<p> Where including the code for a routine or a structure declaration
+from the EROS kernel helps to illustrate a point, we have inserted the
+code in the book.  Often, such structures and routines must handle
+lots of details in addition to the key points being illustrated, and
+where this is true we have elided the portions that distract from the
+point at hand.  Where the purpose and implementation of a routine
+should be fairly obvious from context, we have ommitted the routine
+from the book altogether. For example, the <code>ThreadLink</code>
+structure, which first appears in Figure~\ref{fig:ThreadClass},
+includes the declaration of the <code>ThreadLink::Unlink()</code>
+routine, though the source code does not appear anywhere in the book.
+<p> As always, the place to look to get an exhaustive view of the
+details is the source code.  The complete source code for the
+uniprocessor EROS kernel can be found online in a variety of
+locations, or can be obtained from the publishers.
+<H1>About the Author</h1>
+<p> Jonathan Shapiro's early career started in programming
+environments and languages.  He was one of the earliest users and
+authors on the C++ programming language, and was the original
+architect of the Silicon Graphics CASE product line, most notably
+their debugger.  In more recent years, he has been involved in
+microprocessor architecture and operating system design, with
+particular emphasis on reliability and real-time facilities.  He first
+started working on EROS in 1992.
+<p> <em>The above paragraph is strictly a placeholder.</em>
+<H1>Acknowledgements</h1>
+<p> Quite a number of people deserve thanks and acknowledgement for
+this work.
+<p> <strong>Norm Hardy</strong> was the architect of KeyKOS, a near
+predecessor to EROS, and spent a large amount of time discussing both
+the KeyKOS and the EROS architecture with me.  <strong>Bill
+Frantz</strong> and <strong>Charlie Landau</strong>, also from the
+original KeyKOS team, have participated in various EROS and KeyKOS
+discussions as well.
+<p> <strong>Bryan Ford</strong> of the University of Utah has also put
+forward a lot of useful suggestions.  Bryan is the principle force
+behind Mach version 4, and has done extensive work on fast IPC.  His
+thoughts and suggestions at various points were pivotal, and his
+experience with the Intel architecture was extremely helpful in
+building the first implementation.
+<p> <strong>Dave Farber</strong> and <strong>Jonathan Smith</strong>
+of the University of Pennsylvania provided feedback and suggestions
+over several years.  The final implementation of EROS happened as part
+of my thesis work, and Dave and Jonathan were my advisors on that
+path.  In addition, they have been remarkably tolerant of my
+occasional diversions.
+<p> <strong>Charles Smith</strong> of Filoli Information Systems
+provided an odd sort of moral support.  Though he often claimed that
+he couldn't figure out why I thought <em>I</em> should be doing this,
+he simultaneously maintained that building EROS was a good idea and
+should be pursued.
+<p>
+<!--  <h1>1 Some History</h1> -->
+<p>
+<!-- <p>
+Capability architectures have been out of favor since the early '70s.
+The earliest multitasking systems were almost all capability systems,
+usually implemented in special hardware.  These early systems
+struggled with a variety of performance problems.  When MULTICS
+arrived in the early '70s, the best minds in the field were seduced
+away from the earlier approaches.  All of today's major operating
+systems, including UNIX, MVS, VMS, and Windows, can trace their
+ancestry back to MULTICS.  In the rush to create them, capability
+architectures were largely forgotten.
+<p> In spite of this, there are some compelling advantages to
+capability systems, and after several years tentative interest in them
+began to emerge again.  Intel invested a great deal of effort and
+money in the creation of a machine called the 432, which was a
+capability architecture.  The 432 was a huge failure, and it is
+probably fair to say that it singlehandedly destroyed the credibility
+of capability systems for the next 10 years.
+<p> EROS attempts to correct these design errors.
+<p> EROS continues to implement a few policies within the kernel, but
+only where there is a principled and compelling reason to do so.  All
+other policy control is implemented by user code. -->
+<p>
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

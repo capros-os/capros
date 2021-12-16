@@ -1,0 +1,150 @@
+package capros;
+
+/** Kernel interface to object ranges.
+ *
+ * The Range interface provides the primitive means for the allocation
+ * and deallocation of page and node keys.
+ */
+interface Range extends key raises(RangeErr, NotMounted, IoErr) {
+  exception RangeErr;
+  exception NotMounted;
+  exception IoErr;
+
+  typedef unsigned long long off_t;
+  typedef unsigned long count_t;
+
+  /* Object types returned by identify: */
+  typedef unsigned byte obType;
+  const obType otPage = 0;
+  const obType otNode = 1;
+  const obType otNumBaseTypes = 2;	// the above are the base types
+  const obType otForwarder = 2;
+  const obType otGPT = 3;
+  const obType otNUM_TYPES = 4;
+  const obType otNone = 255;
+
+  /** Query a range.
+   *
+   * Reports the length of a given range.
+   */
+  unsigned long long /* should be off_t, but CapIDL has a bug */ query();
+
+  /** Identify an object.
+   *
+   * Determines whether an object originated from a give range, and if
+   * so, at what offset relative to the start of the range.
+     Raises RangeErr if key is not a Page, Node, Forwarder, or GPT key,
+     or it is opaque, or the object is not in this range.
+   */
+  void identify(capros.key key, out obType type, 
+    out unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
+
+  /** Rescind an object.
+   *
+   * Rescinds the passed key if and only if it is a read-write key to
+   * an object that was allocated from this range.
+   * Also resets the state of the object to a null state
+   * (zero data, void capabilities).
+
+     Raises RangeErr if key is not a Page, Node, Forwarder, or GPT key,
+     or it is opaque, or the object is not in this range.
+   */
+  void rescind(capros.key key);
+
+  /** Create a capability to an object.
+   *
+   * type specifies the type of capability to create.
+   * offset specifies the offset within this range of the OID of the object.
+   * The offset must fall withing the bounds of this range,
+   * otherwise RangeErr is raised.
+   *
+   * If the object's frame is not of the requested type,
+   * the method returns a Void capability,
+   * and returns the current base type of the frame in currentBaseType.
+   *
+   * Otherwise, the method returns a capability to the specified object,
+   * and returns otNone in currentBaseType.
+   *
+   * If the range is dismounted or otherwise unavailable,
+   * this operation will throw the /RangeErr/ exception.
+   */
+  capros.key getCap(obType type,
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    out obType currentBaseType);
+
+  /** Create a capability to an object (blocking).
+   *
+   * This method is the same as getCap, except that
+   * if the range is dismounted or otherwise unavailable,
+   * this operation will block until the range becomes available.
+   */
+  capros.key waitCap(obType type,
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    out obType currentBaseType);
+
+  /** Compare two ranges for overlap or relative position.
+   *
+   * On return:
+   *
+   * if the ranges do not overlap:
+   *   /how/ is 0.
+   * if start(/krCmpRange/) &gt; start(this):
+   *   /how/ is 1 and /offset/ = /krCmpRange/'s start relative to 
+   *   the start of /this/
+   * if start(/krCmpRange/) == start(this):
+   *   /how/ is 2 and /offset/ = 0
+   * if start(/krCmpRange/) &lt; start(this):
+   *   /how/ is 3 and /offset/ = /this/'s start relative to
+   *   the start of /krCmpRange/
+   */
+
+  void compare(capros.Range krCmpRange, out unsigned long how,
+    out unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
+
+  /** Report next populated subrange.
+   *
+   * Returns the offset and length of the next subrange for which
+   * backing objects actually exist, starting the search at offset
+   * /startOffset/ of the passed range key.
+   */
+  void nextSubrange(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ startOffset, 
+    out unsigned long long /* should be off_t */ offset,
+    out unsigned long len);
+
+  /** Create a range key for a subrange of this range.
+   *
+   * Returns a range key for a subrange of the current range,
+   * begininng at /offset/ and extending for /len/ OIDs.
+   */
+  capros.Range makeSubrange(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    unsigned long len);
+
+  /** Get counts.
+   *
+   * offset specifies the OID of an object relative to this range.
+   * The offset must be within this range, otherwise RangeErr is raised.
+   * Returns the allocation count of the object.
+   * If the object has a call count, the maximum of the allocation count
+   * and call count is returned.
+   */
+  void getFrameCounts(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    out count_t allocationCount);
+
+  /** Retype a frame.
+   *
+   * offset specifies the OID of a frame relative to this range.
+   * The offset within frame must be zero, otherwise RangeErr is raised.
+   * The offset must be withing this range, otherwise RangeErr is raised.
+   * oldType is the current base type of the frame.
+   * newType is the base type that the frame will be changed to.
+   * allocationCount specifies the allocation count (and
+   * call count, for nodes) for the new object(s) in the frame.
+   */
+  void retypeFrame(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    obType oldBaseType, obType newBaseType,
+    count_t allocationCount);
+};

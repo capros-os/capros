@@ -1,0 +1,56 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, The EROS Group, LLC.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/* Test image for constructor/metaconstructor. */
+#define DEBUG
+
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <ipltool.map>
+
+/********************************************************
+ * Actual test case
+ ********************************************************/
+
+contest = new process with constituents;
+
+contest pc = symbol BUILDDIR "constructor_test" _start;
+contest space = small program BUILDDIR "constructor_test";
+contest schedule = sched(8);	/* normal */
+
+CONSTIT(contest, KC_METACON, 0) = metacon;
+CONSTIT(contest, KC_OSTREAM, 1) = misc Console;
+CONSTIT(contest, KC_HELLO_SEG, 2) = small program BUILDDIR "hello";
+CONSTIT(contest, KC_HELLO_PC, 3) = symbol BUILDDIR "hello" _start;
+
+/* contest registers: */
+contest key reg KR_SELF = contest;
+contest key reg KR_BANK = primebank;
+contest key reg KR_SCHED = sched(8);
+
+run contest;

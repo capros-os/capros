@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+  <HEAD>
+    <TITLE>Miscellaneous Essays</TITLE>
+    <meta name=linknotify content=all>
+    <meta name=author content="Jonathan Shapiro">
+    <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+  </HEAD>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+	vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class=nocss>
+	    <br class=nocss>&nbsp;
+	    <br class=nocss>&nbsp;
+	  </div>
+	  <center>
+	    <H1>Essays on Capabilities and Security</H1>
+	  </center>
+	  <!-- IMG src="../img/cupid1.gif" align=left -->
+	  <IMG src="../img/construction.gif" align=left>
+	    <P>
+	      I've begun a set of small, introductory essays on
+	      various aspects of the EROS design.  These notes are
+	      intended to be more explanatory than the <a
+	      href="../design-notes/00DesignNotes.html">design
+	      notes</a>.
+	    </p>
+	    <p>
+	      Norm Hardy has also written a number of essays, which
+	      you can find <a
+	      href="http://www.cap-lore.com/index.html">here</a>.
+	      Norm's tend more toward pondering of serious issues in
+	      capability systems and security, while these notes tend
+	      to be more introductory in nature.
+	    </p>
+	    <H1>Introductory Material</h1>
+	    <p>
+	      These essays are intended for a beginning audience.
+	      Their purpose is to define terms or explain concepts so
+	      that people can join the discussion on capability
+	      security and capability systems.
+	    </p>
+	    <ul>
+	      <li> 
+		<p>
+		  <a href="capintro.html">What <i>is</i> a Capability,
+		    Anyway?</a>
+		</p>
+		<p>
+		  Provides a layman's introduction to capabilities,
+		  describing what they are, what they do, and why they
+		  result in better security than today's computer
+		  systems.
+		</p>
+	      </li>
+	      <li> 
+		<p>
+		  <a href="wherefrom.html">Where Capabilities Come
+		    From</a>
+		</p>
+		<p>
+		  One source of confusion about capability systems is
+		  where capabilities come from. How does my program
+		  get one?  Where does the system get them from?  This
+		  note tries to answer such questions.
+		</p>
+	      </li>
+	      <li>
+		<p> 
+		  <a href="reliability/paper.html">EROS: A Platform
+		    for Reliable Applications</a>
+		</p>
+		<p>
+		  Describes why EROS provides a better platform for
+		  building reliable applications than POSIX-based
+		  systems.  Identifies some of the reasons that
+		  EROS-based applications tend to be both more
+		  reliable and more testable than their POSIX
+		  equivalents.
+		</p>
+	      </li>
+	    </ul>
+	    <H1>Notes on Specific Issues</h1>
+	    <p>
+	      These essays address some specific topics about the
+	      design of the EROS system, often with an eye toward
+	      explaining why EROS is structured in a particular way.
+	      My hope is that documenting these thoughts will make it
+	      easier to translate these ideas to other systems, or
+	      make it clear why such translation is difficult.
+	    </p>
+	    <ul>
+	      <li> 
+		<p>
+		  <a href="Persistence.html">Persistence</a>
+		</p>
+		<p>
+		  Explains why EROS uses transparent checkpointing as
+		  its basic approach to persistence, and what issues
+		  are raised by this choice.  This note also discusses
+		  some of the implications of this choice for the
+		  structure of the operating system, which may be
+		  helpful to people contemplating persistence designs
+		  for other systems.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  <a href="ACLSvCaps.html">Comparing ACLs and Capabiliies</a>
+		</p>
+		<p>
+		  Many people seem to think that capabilities and
+		  access control lists are simply two ways of looking
+		  at the same thing. They are not. This note 
+		  provides a description of how capabilities and
+		  access control lists actually work, and why the two
+		  are <em>not</em> equivalent.
+		</p>
+	      </li>
+	    </ul>
+	    <H1>Other Sources of Interest</h1>
+	    <ul>
+	      <li> 
+		<p>
+		  <a
+		    href="http://www.MediaCity.com/~norm/CapTheory/ProtInf/index.html">The
+		    Protection of Information in Computer Systems</a>
+		</p>
+		<p>
+		  One of the classic papers on the entire subject of
+		  protection.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Electronic Communities has a well-written <a
+		  href="http://www.skyhunter.com/marcs/capabilityIntro/index.html">Introduction
+		  to Capability Based Security</a>.
+		</p>
+	      </li>
+	    </ul>
+	    <hr>
+	      <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+		redistribution, see the 
+		<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</html>

@@ -1,0 +1,15 @@
+package capros;
+
+interface NPLink extends key 
+{
+  /* A non-persistent device driver calls RegisterNPCap when it has
+  a new capability to make available. */
+  void RegisterNPCap(key NPCap, key.type NPCapType, unsigned long subType);
+};
+
+interface NPLinkee extends key
+{
+  /* NPLink calls a persistent program with this operation
+  to grant it a cap to a non-persistent device driver that has come to exist. */
+  void registerNPCap(key NPCap, key.type NPCapType, unsigned long subType);
+};

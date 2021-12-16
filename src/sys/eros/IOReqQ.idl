@@ -1,0 +1,76 @@
+package capros;
+
+/** Kernel interface to I/O Request Queues.
+ *
+ * The IOReqQ is the interface between the disk paging software and the kernel.
+ */
+interface IOReqQ extends key {
+  exception waitingDisabled;
+
+  unsigned short enum RequestType {
+    readRangeLoc,
+    writeRangeLoc,
+    synchronizeCache	// write any cached data to nonvolatile media
+  };
+
+  /** Register a range to this IOReqQ.
+   */
+  void registerOIDRange(unsigned long long
+         /* should be Range.off_t, but CapIDL has a bug */ startOID,
+         unsigned long long /* should be Range.off_t */ endOID,
+         unsigned long opaque);
+  void registerLIDRange(unsigned long long
+         /* should be Range.off_t, but CapIDL has a bug */ startLID,
+         unsigned long long /* should be Range.off_t */ endLID,
+         unsigned long opaque);
+
+  /** Disable waiting.
+   */
+  void disableWaiting();
+  void enableWaiting();
+
+  /** Complete a request.
+
+   Signal the completion of the IORequest with the specified requestID
+   value.
+
+   errno is 0 if the request completed successfully.
+
+   "Completed successfully" means that the buffer is no longer needed,
+   but does not mean that data written has reached a nonvolatile medium.
+   */
+  void completeRequest(unsigned long requestID,
+                       unsigned long errno);
+};
+
+interface IOReqQ32 extends IOReqQ {
+
+  struct IORequest {
+    unsigned long long rangeStartOID;
+    unsigned long rangeOpaque;
+    unsigned long long rangeLoc;	/* page number in this range */
+    DMA32.DMAAddress bufferDMAAddr;
+    IOReqQ.RequestType requestType;
+    unsigned long requestID;
+  };
+
+  /** Wait for a request.
+   */
+  IORequest waitForRequest() /* raises(waitingDisabled) */ ;
+};
+
+interface IOReqQ64 extends IOReqQ {
+
+  struct IORequest {
+    unsigned long long rangeStartOID;
+    unsigned long rangeOpaque;
+    unsigned long long rangeLoc;	/* page number in this range */
+    DMA64.DMAAddress bufferDMAAddr;
+    IOReqQ.RequestType requestType;
+    unsigned long requestID;
+  };
+
+  /** Wait for a request.
+   */
+  IORequest waitForRequest() /* raises(waitingDisabled) */ ;
+};

@@ -1,0 +1,205 @@
+# -*- makefile-mode -*-
+#
+# Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2006-2008, 2010, Strawberry Development Group.
+#
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
+
+# The use of install rather than package is intentional -- building
+# down inside a kernel directory is standalone, and should only build
+# the kernel.
+default: install
+
+EROS_SRC=../../../../..
+CROSS_BUILD=yes
+
+include $(EROS_SRC)/build/make/makevars.mk
+BUILDDIR=.
+
+# KERNENTRY must match the value of KERNPBASE in 
+# eros/target-asm-i486.h
+KERNENTRY=0x00100000
+
+TOP=$(EROS_SRC)/sys
+
+%config
+
+# Some debugging/tracing/analysis options. These are now obsolete.
+#
+#  Pentium:  -DSINGLE_PIPE	 make processor use only one pipe
+#  Pentium:  -DNO_LARGE_PAGES	 do not use Pentium large page optimizations
+#  Pentium:  -DNO_GLOBAL_PAGES	 do not use P-II/PPro global page optimizations
+#  Pentium:  -DALLOW_USER_RDTSC	 permit RDTSR instruction from user level
+#  Any:      -DWRITE_THROUGH	 make all pages write-through
+#  Any:      -DSTRESS_TEST       runs things in ways designed to break things
+
+# Some legacy compilation options:
+#  -DSUPPORT_386    support obsolete processors
+#
+
+# We use deep inlining in a bunch of places because we know they are
+# only called from one location.
+EMUL_486=-DNO_LARGE_PAGES -DWRITE_THROUGH -DSINGLE_PIPE
+
+OPTIM= -g -O2 -march=i486 $(EROS_GCC_OPTIM) # $(PACK_OPTIM)
+
+INC=-include kernel-config.h -I$(EROS_ROOT)/include -I../.. -I$(TOP) -I.
+
+DEF+=-DNCPU=1
+DEF+=-D__KERNEL__ -DTRACE=$(TRACE) #
+
+#DEF+=$(EMUL_486)
+DEF += $(EROS_TEST_DEFS)
+
+##################################################
+# Following are all debugging options of one
+# sort or another:
+##################################################
+
+#DEF+= -DDBG_CLEAN
+# set the following to 2 to do it after every interrupt
+#DEF+= -DDBG_WILD_PTR=1
+# Following is sometimes also helpful:
+#DEF += -DNO_LARGE_PAGES
+
+#DEF+= -DDOMAIN_TRACING
+
+%optvar
+
+# If the configuration wants MOPS, but we don't actually have
+# a mops installation locally, don't build the MOPS files.
+ifeq "$(OPT_MOPS)" "1"
+ifeq "$(MOPS)" ""
+OPT_MOPS=0
+endif
+endif
+
+OPTIM += $(EROS_GCC_KERNEL_ALIGN)
+
+# %targets
+
+TARGETS=$(CONFIG).eros.o
+
+ifeq "$(OPT_DDB)" "1"
+TARGETS += $(CONFIG).eros.debug.o
+else
+OPTIM += -fomit-frame-pointer
+endif
+
+ifeq "$(OPT_MOPS)" "1"
+TARGETS += $(CONFIG).eros.cfg
+endif
+
+OPTIM += -fno-builtin
+
+CLEANLIST=fd.image boot.image symnames.s image.* # libkey.a
+CLEANLIST += process_asm_offsets.h machine
+
+LINK=$(GCC) -nostdlib -Wl,-static,-N,-Ttext,$(KERNENTRY)
+LIBS=-lgcc -lc
+
+%options
+
+# DEF += $(OPTIONS)	# Options get defined in the generated kernel-config.h.
+
+$(BUILDDIR)/interrupt.o: process_asm_offsets.h
+$(BUILDDIR)/.interrupt.m: process_asm_offsets.h
+
+%objects
+
+CLEANLIST += $(CFGFILES)
+
+include $(EROS_SRC)/build/make/makerules.mk
+
+$(BUILDDIR)/lostart.o: ../../kernel/lostart.S
+	   $(ASM_BUILD)
+
+NODEBUG_OBJECTS=DebuggerStubs.o
+DEBUG_OBJECTS=Debugger.o symnames.o
+
+$(BUILDDIR)/DebuggerStubs.o: ../../kernel/DebuggerStubs.c
+	   $(C_BUILD)
+$(BUILDDIR)/Debugger.o: ../../kernel/Debugger.c
+	   $(C_BUILD)
+
+$(BUILDDIR)/process_asm_offsets.h: ../../LAYOUT $(TOP)/scripts/GenProcOffsets.awk
+	$(EROS_CPP) -I$(TOP) $(DEF) -include kernel-config.h ../../LAYOUT | \
+	$(GAWK) -f $(TOP)/scripts/GenProcOffsets.awk > $@
+
+$(BUILDDIR)/gen.SaveArea.h: ../../LAYOUT $(TOP)/scripts/GenSaveArea.awk
+	$(EROS_CPP) -I$(TOP) $(DEF) -include kernel-config.h ../../LAYOUT | \
+	$(GAWK) -f $(TOP)/scripts/GenSaveArea.awk > $@
+
+$(BUILDDIR)/gen.REGMOVE.h: ../../LAYOUT $(TOP)/scripts/GenRegMove.awk
+	$(EROS_CPP) -I$(TOP) ../../LAYOUT | \
+	$(GAWK) -f $(TOP)/scripts/GenRegMove.awk > $@
+
+# The following is a false dependency. It exists for the purpose of
+# getting the .h file generated so that the dependency's will get
+# generated correctly.
+$(OBJECTS): $(BUILDDIR)/gen.SaveArea.h $(BUILDDIR)/gen.REGMOVE.h
+./.*.m: $(BUILDDIR)/gen.SaveArea.h $(BUILDDIR)/gen.REGMOVE.h
+
+all:	$(TARGETS)
+
+install: all
+	$(INSTALL) -d $(CAPROS_DOMAIN)/image
+	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)/image/
+
+.FORCE:
+
+$(CONFIG).eros.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS)
+	$(LINK) --library-path==/usr/lib -r -o $@ \
+		 lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS)
+	#$(SIZE) $(CONFIG).eros
+
+$(CONFIG).eros.debug.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS)
+	$(LINK) --library-path==/usr/lib -r -o $@ \
+		lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS)
+	echo "Look in <test>/BUILDDIR/syms." > syms
+	$(OBJDUMP) --disassemble $@ > disassembled ## debug
+	#$(SIZE) $(CONFIG).eros.o
+	#$(SIZE) $(CONFIG).eros.debug.o
+
+ifeq "$(OPT_MOPS)" "1"
+$(CONFIG).eros.cfg: $(CFGFILES)
+	java -Xmx1024M -cp :$(MOPS)/src/class:$(MOPS)/lib/java-getopt-1.0.9.jar CfgMerge -o $@ $(CFGFILES)
+endif
+
+#libkey.a: $(LIBKEY_OBJECTS)
+#	$(AR) -crv libkey.a $(LIBKEY_OBJECTS)
+#	$(RANLIB) libkey.a
+
+#
+# This way of obtaining symnames.s is quite slow. I should undoubtedly
+# replace the awk script with a C program.  Time, however, is short at 
+# the moment.
+$(BUILDDIR)/symnames.s: $(CONFIG).eros.o $(TOP)/scripts/symtab.awk
+	$(OBJDUMP) --syms --stabs $(CONFIG).eros.o | $(GAWK) -f $(TOP)/scripts/symtab.awk > $@
+
+$(BUILDDIR)/symnames.o: $(BUILDDIR)/symnames.s
+	$(ASM_BUILD)
+
+
+%depend
+
+-include ./.*.m

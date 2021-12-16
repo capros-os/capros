@@ -1,0 +1,67 @@
+#ifndef USBREGISTRY_MAP
+#define USBREGISTRY_MAP
+/*
+ * Copyright (C) 2008, 2010, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/* Include any of these *before* this file:
+   #include <drivers/usbstor.map>
+   #include <drivers/ds2490.map>
+*/
+
+/*********************************************
+ * USB Registry
+ *********************************************/
+
+usbregSnode = new node;
+#ifdef usbstor_cReq
+usbregSnode[0] = usbstor_cReq;
+#endif
+#ifdef ds2490_cReq
+usbregSnode[1] = ds2490_cReq;
+#endif
+
+BOOT_CONSTRUCTOR(usbreg_c, usbreg);
+PROD_SPACE(usbreg_c) = small program LIBDIR "drivers/usbregistry";
+PROD_PC(usbreg_c) = symbol LIBDIR "drivers/usbregistry" _start;
+PROD_CONSTIT(usbreg_c, KC_OSTREAM, 0) = misc Console;
+PROD_CONSTIT(usbreg_c, KC_RequestorSnode, 1) = usbregSnode;
+
+#if 0
+usbregistry.space = small program LIBDIR "drivers/usbregistry";
+
+usbregistry.space = usbregistry.space with page at 0x1f000;
+usbregistryProc = new process;
+usbregistryProc pc = symbol LIBDIR "drivers/usbregistry" _start;
+usbregistryProc space = usbregistry.space;
+usbregistryProc schedule = sched(8);
+usbregistryProc symtab = number("usbregistry");
+
+usbregistryProc key reg KR_BANK = primebank;
+usbregistryProc key reg KR_SCHED = sched(8);
+usbregistryProc key reg KR_APP(0) = usbhcdKey;
+usbregistryProc key reg KR_APP(1) = misc Console;
+usbregistryProc key reg KR_APP(2) = usbregSnode;
+
+run usbregistryProc;
+#endif
+#endif // USBREGISTRY_MAP

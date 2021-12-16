@@ -1,0 +1,57 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/* Test image for constructor/metaconstructor. */
+#define DEBUG
+
+arch i486
+
+/********************************************************
+ * Actual test case
+ ********************************************************/
+
+lat_rngkey = new process;
+
+lat_rngkey.seg = program segment "lat_rngkey";
+lat_rngkey.pc = symbol "lat_rngkey" _start;
+lat_rngkey.seg = lat_rngkey.seg with page at 0xf000;
+
+lat_rngkey pc = lat_rngkey.pc;
+lat_rngkey space = lat_rngkey.seg;
+lat_rngkey schedule = sched(8);	/* normal */
+/* lat_rngkey brand = start pcc 65535; */
+
+/* lat_rngkey registers: */
+lat_rngkey key reg 2 = lat_rngkey;
+lat_rngkey key reg 3 = sched(8);
+lat_rngkey key reg 5 = misc Console;
+lat_rngkey key reg 6 = misc SysTrace;
+lat_rngkey key reg 7 = range(0x100000 : 0x17fc00)
+
+/* print domain lat_rngkey.dom */
+hide lat_rngkey.seg;
+hide lat_rngkey.pc;
+
+run lat_rngkey;
+
+
+print directory

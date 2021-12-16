@@ -1,0 +1,22 @@
+package window_system;
+
+interface eventmgr extends capros.key {
+
+  /** Queue keyboard data
+   *
+   * Send a raw key scancode to the event manager.
+   *
+   */
+  void key_data(capros.key eventmgr, short scancode);
+
+  /** Queue mouse data
+   *
+   * Send mouse data to event manager where the data comprises a
+   * button mask, indicating which of the mouse buttons are depressed,
+   * and an x-y delta representing the distance the mouse has
+   * travelled since the last update.
+   *
+   */
+  void mouse_data(capros.key eventmgr, short mask, short xmotion, short ymotion);
+};
+

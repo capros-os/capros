@@ -1,0 +1,4 @@
+AddDescription "CROSS LIB MAKEFILE" eros-src/cross/lib/Makefile
+AddDescription "image/volume builder" eros-src/cross/lib/erosimg
+AddDescription "disk volume objects" eros-src/cross/lib/disk
+AddDescription "volume compression" eros-src/cross/lib/zlib

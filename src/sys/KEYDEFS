@@ -1,0 +1,92 @@
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/* This file is processed by GenKeyTypes.awk to produce eros/StdKeyType.h.
+   That file is used to produce the dispatch table in kern_Invoke.c. */
+primary	Start
+bindto Start Gate
+primary	Resume	/* last gate key */
+bindto Resume Gate
+primary	Process	/* last process key */
+primary Forwarder
+primary	Node
+primary	GPT /* last node key */
+primary	Page /* last object key (i.e. things from the disk) */
+primary	Number
+akt Number 0x106a7e8f
+
+primary	Sched
+primary	Range       /* Representable base=64 bits, count=32 bits */
+akt Range 0x44d11b1a  /* Transitional */
+
+primary	PrimeRange  /* Full range, not elegantly subdivisible */
+noakt   PrimeRange
+bindto  PrimeRange Range
+
+primary	PhysRange   /* Physical page range, not elegantly subdivisible */
+noakt   PhysRange
+bindto  PhysRange Range
+
+/* Misc keys begin here. */
+
+primary	Void
+
+primary	KeyBits
+akt KeyBits 0xdc007fec
+primary	Discrim
+akt Discrim 0x5a789281
+
+primary	ProcessTool
+akt ProcessTool 0x98ef205c
+
+primary	Checkpoint
+primary MigratorTool
+
+primary	Sleep
+akt Sleep 0x332142e3
+
+primary	Console
+
+primary	SchedCreator
+
+primary	SysTrace
+akt SysTrace 0xc484c078
+
+primary	DevicePrivs
+primary IORQ
+primary RTC
+
+/* Following needs to go away, but only after I figure out how the kernel
+   debugger should be wired to avoid it. It might turn out that this
+   device really should be primitive when a kernel debugger is
+   present. */
+primary	Keyboard
+
+domain	PCC
+domain	MetaConstructor
+domain	DomCre
+
+/* This is wrong: each type of constructor should have its own type. */
+domain	ConstructorRequestor

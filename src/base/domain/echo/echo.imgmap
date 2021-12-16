@@ -1,0 +1,62 @@
+#
+# Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+
+#
+# Set up a prototype echo domain:
+#
+domain echo
+program segment echo = echo
+echo.dom pc = echo.pc
+
+echo.seg add page 0x10000
+
+echo.dom space = echo.seg
+
+# set up a valid schedule key:
+echo.dom priority = sched(8)   # normal
+
+# set up a valid DS value:
+echo.dom root slot 6 |= number(0x002b 00000000 00000000)
+
+# set up a valid ES value:
+echo.dom root slot 7 |= number(0x002b 00000000 00000000)
+
+# set up a valid SS value:
+echo.dom root slot 8 |= number(0x002b 00000000 00000000)
+
+# set up a valid CS value:
+echo.dom root slot 9 |= number(0x0023 00000000 00000000)
+
+# set up a valid FS value:
+echo.dom root slot 10 |= number(0x002b 00000000 00000000)
+
+# set up a good GS value:
+echo.dom root slot 11 |= number(0x002b 00000000 00000000)
+
+# set up a valid EFLAGS value:
+echo.dom root slot 10 |= number(0x0000 00000000 00000200)
+
+# set up the initial entry entry block:
+# echo.dom root slot 6  |= number (0x0000 0010000 1000fedc)
+
+echo.dom accepts string at 0x10000 length 0x1000
+echo.dom accepts keys 12 13 14 15
+print domain echo.dom

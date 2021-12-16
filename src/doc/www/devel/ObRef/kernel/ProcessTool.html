@@ -1,0 +1,391 @@
+<html>
+<head>
+<title>EOR: ProcessTool</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Kernel Objects</H2>
+  </div>
+  <h2>ProcessTool</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> The process tool conveys the authority to fabricate processes from
+  nodes, and to verify the provenance of start keys from various other
+  objects.  The process tool is a closely restricted key.
+  <p> 
+  <hr>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       0x100000A:
+	       Key is a process tool.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Make Process Key</strong> (OC = 0)
+    <dd> 
+	 <p> Takes a node key and fabricates a process key (see the <a
+         href="../primary/Process.html">process</a> 
+	 page) with that
+	 node as the process root.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       SK0
+	     </td>
+	     <td> A node key </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       RK0
+	     </td>
+	     <td> A process key
+               if the operation is successful, a 
+               void key otherwise.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>
+	       Passed key is not a node key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Identify Gate Key</strong> (OC = 1)
+    <dd> 
+	 <p> Takes a gate key (start, resume, or fault key) and brand
+	 key.  Checks if the passed brand key matches the brand key in
+	 slot DR4 of the process named by the gate key (see the <a
+         href="../primary/Process.html">process</a> 
+	 page).  If so, returns a
+	 node key to the process root and provides an indication of the
+	 key type in the result code.  Otherwise returns a
+         <a href="../kernel/Void.html">void key</a>.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       SK0
+	     </td>
+	     <td> A start key </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       SK1
+	     </td>
+	     <td> A brand key.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       RK0
+	     </td>
+	     <td>
+               A node key to the process root of the
+	       process named by the start key if the operation is
+	       successful. A void key otherwise.
+             </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td>
+               0: brand did not match.
+               <p> 1: gate key was a start key.
+               <p> 2: gate key was a resume key.
+             </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <strong>R2</strong>
+	     </td>
+	     <td>
+               Key Info field if gate key, else zero.
+               If the
+               gate key is a resume key, the key info field may be
+               either zero or one:
+               <ul>
+                  0: Normal resume capability.
+                  <p> 1: fault capability.
+               </ul>
+             </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       RC_OK
+	     </td>
+	     <td> 
+                Operation completed successfully.
+             </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td> 
+                Inappropriate keys passed.
+             </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Identify Process Key</strong> (OC = 2)
+    <dd> 
+	 <p> Takes a process key and brand key.  Checks if the passed
+	 brand key matches the brand key in slot DR4 (see the <a
+	 href="../primary/Process.html">process</a> page) of the process
+	 named by the process key.  If so, returns a node key to the
+	 process root. Otherwise returns a
+         <a href="../kernel/Void.html">void key</a>.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       SK0
+	     </td>
+	     <td> A process key </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       SK1
+	     </td>
+	     <td> A brand key.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       RK0
+	     </td>
+	     <td>
+               A node key to the process root of the process named by
+	       the start key. If the brand did not match,
+	       Returned key is a void key.
+             </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <b>R1</b>
+	     </td>
+	     <td> 
+                0: brand did not match. Returned key is void key.
+                <p>1: brand matched. Returned key is a node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>
+	       Passed key is not a node key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Identify Segment With Gate Key for Keeper</strong> (OC = 3)
+    <dd> 
+	 <p> Takes a segment (or node) key and brand key.  Checks if
+	 the passed brand key matches the brand key in slot DR4 (see
+	 the <a href="../primary/Process.html">process</a> page) of the
+	 segment's <em>keeper</em>.  If so, returns a node key to the
+	 segment named by the segment key. Otherwise returns a
+         <a href="../kernel/Void.html">void key</a>.
+	 The no-call bit of the segment must be off.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       SK0
+	     </td>
+	     <td> A segment key to a segment whose keeper slot
+	       contains a gate key to the process identified by the
+	       brand.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       SK1
+	     </td>
+	     <td> A brand key.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       RK0
+	     </td>
+	     <td> A node key to the node named by the segment
+	       key.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td>
+               0: brand did not match.
+               <p> 1: gate key was a start key.
+               <p> 2: gate key was a resume key.
+             </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <strong>R2</strong>
+	     </td>
+	     <td>
+               Key Info field if gate key, else zero.
+               If the
+               gate key is a resume key, the key info field may be
+               either zero or one:
+               <ul>
+                  0: Normal resume capability.
+                  <p> 1: fault capability.
+               </ul>
+             </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>
+	       Passed key is not a node key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Compare Process Origins</strong> (OC = 4)
+    <dd> 
+	 <p> Takes two keys to process (start, resume, or process).
+	 Checks if the brand slots of the two processes contain the same
+	 brand.  Returns result (equal/not equal) in R0.  Note that
+         the processes named by the passed keys need not be
+         well-formed for the test to succeed.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       SK0
+	     </td>
+	     <td> A process or gate key </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       SK1
+	     </td>
+	     <td> A process or gate key </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <b>R1</b>
+	     </td>
+	     <td>
+	       0: brands did not match
+	       <p>1: brands matched
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>
+	       Passed keys were not process keys.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

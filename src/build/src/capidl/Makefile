@@ -1,7 +1,9 @@
 #
 # Copyright (C) 2001, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2007, 2010, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,10 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
 
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
-default: install
+default: interfaces
 
 EROS_SRC=../../..
 
@@ -28,11 +32,7 @@ BUILDDIR=BUILD/$(EROS_TARGET)
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/capidl
-CLEANLIST=idl.c idl.h idl.output idl.c.h idl.c.output
-CLEANLIST+= lex.c y.tab.c
-CLEANLIST+= prescan.c
-CLEANLIST+= applib/*~
-#OPTIM=-O
+CLEANLIST= ../../bin/capidl
 OPTIM=-g
 
 LIBAPP_OBJECTS = $(BUILDDIR)/Intern.o
@@ -73,8 +73,6 @@ VPATH=.:applib
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-all: $(TARGETS)
-
 $(BUILDDIR)/libapp.a: $(LIBAPP_OBJECTS)
 	ar -crv $(BUILDDIR)/libapp.a $(LIBAPP_OBJECTS)
 
@@ -84,40 +82,33 @@ $(BUILDDIR)/libapp.a: $(LIBAPP_OBJECTS)
 $(BUILDDIR)/capidl: $(CAPIDL_OBJECTS) $(LIBS)
 	$(GPLUS) $(GPLUSFLAGS) -o $@ $(CAPIDL_OBJECTS) $(XENV_LIBDIR) $(LIBS) $(OTHER_LIBS)
 
-$(BUILDDIR)/.idl.m: $(BUILDDIR)/idl.c
-	$(C_DEP)
-
-$(BUILDDIR)/.lex.m: $(BUILDDIR)/lex.c
-	$(C_DEP)
-
-$(BUILDDIR)/.prescan.m: $(BUILDDIR)/prescan.c
-	$(C_DEP)
-
 $(BUILDDIR)/idl.o: $(BUILDDIR)/idl.c
 	$(C_BUILD) 
+	$(C_DEP)
 
-$(BUILDDIR)/lex.o: $(BUILDDIR)/lex.c $(BUILDDIR)/idl.h
-	$(C_BUILD) 
+$(BUILDDIR)/lex.o: lex.c $(BUILDDIR)/idl.h
+# Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
+	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
+	$(C_DEP)
 
-$(BUILDDIR)/prescan.o: $(BUILDDIR)/prescan.c
-	$(C_BUILD) 
+$(BUILDDIR)/prescan.o: prescan.c
+# Can't use $(C_BUILD) because it has -Werror and prescan.c generates warnings.
+	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
+	$(C_DEP)
 
 $(BUILDDIR)/idl.c $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR);bison -v -d -y ../../idl.y)
 	(cd $(BUILDDIR); mv y.tab.c idl.c)
 	(cd $(BUILDDIR); mv y.tab.h idl.h)
 
-$(BUILDDIR)/prescan.o: $(BUILDDIR)/prescan.c
+# The following worked in Fedora Core 6 but not FC8:
+#$(BUILDDIR)/prescan.c: prescan.l $(MAKE_BUILDDIR)
+#	flex -d -o$@ prescan.l
+#
+#$(BUILDDIR)/lex.c: lex.l
+#	flex -d -o$@ lex.l
 
-$(BUILDDIR)/prescan.c: prescan.l $(MAKE_BUILDDIR)
-	flex -d -o$@ prescan.l
-
-lex.o: lex.c $(BUILDDIR)/idl.hxx
-
-$(BUILDDIR)/lex.c: lex.l
-	flex -d -o$@ lex.l
-
-install: all
+interfaces: $(TARGETS)
 	$(INSTALL) -m 755 $(TARGETS) ../../bin
 
 -include $(BUILDDIR)/.*.m

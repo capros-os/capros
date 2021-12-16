@@ -1,0 +1,388 @@
+<html>
+  <head>
+    <title>Revised^2 IPC Design</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign="top">
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <center>
+	    <h1>Revised<sup>2</sup> IPC Design</h1>
+	  </center>
+	  <p>
+	    This note describes the third iteration of the EROS IPC
+	    interface, which incorporates a design for scatter/gather
+	    implementation.
+	  </p>
+	  <h2>1. Motivation</h2>
+	  <p>
+	    The first round of serious benchmarking for EROS included a file
+	    emulation benchmark.  These measurements were done without a
+	    fast IPC implementation.  In spite of this, file emulation
+	    proved to be the <em>only</em> benchmark on which the EROS
+	    performance was disappointing, but bulk data organization
+	    remains a vital operation, and some analysis leads me to be
+	    concerned that similar problems will arise in the networking
+	    implementation as well:
+	  </p>
+	  <table>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><b>Benchmark</b></td>
+	      <td><b>Linux (kernel 2.0.34)</b></td>
+	      <td><b>EROS (Slow IPC)</b></td>
+	      <td><b>Notes</b></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td>Create 0 Kbyte file</td>
+	      <td>74.00 us</td>
+	      <td>91.84 us</td>
+	      <td>This is mostly due to the cost of the unoptimized IPC
+		implementation</td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td nowrap>Create 10 Kbyte file</td>
+	      <td>105.00 us</td>
+	      <td>250.50 us</td>
+	      <td>Due to combination of slow IPC and lack of
+		scatter/gather.</td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	  </table>
+	  <p>
+	    The file system implementation must perform a <em>bcopy</em>
+	    operation internally to move the data from the receive buffer to
+	    its final resting place.  To learn the cost of varous
+	    operations, I turned off the internal bcopy and also the
+	    internal logic to determine the destination of the bcopy
+	    (i.e. the indirection block traversal).  This let me get a
+	    breakdown on the timings for various file sizes.  At 10k, the
+	    breakdown was:
+	  </p>
+	  <table>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><b>Basic IPC cost</b></td>
+	      <td><b>Indirection block processing</b></td>
+	      <td><b>Extra bcopy</b></td>
+	      <td><b>Total</b></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td>137.86 us</td>
+	      <td>34.38 us</td>
+	      <td>75.76 us</td>
+	      <td>249.00 us</td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	  </table>
+	  <p>
+	    The marginal bcopy translates into memory bandwidth of 135
+	    Mbytes/sec, which is close enough to L1 in-cache bandwidth
+	    that we can conclude the <em>bcopy</em> isn't broken.
+	    This also suggests that if the implementation does
+	    absolutely <em>nothing</em> else, we still can't afford to
+	    move the data twice (once across the boundary, once to
+	    final location) if matching Linux is even a goal.  Setting 
+	    aside the merits of Linux, an awful lot of programs out
+	    there manipulate files, so it's worthwhile for this to go 
+	    fast.
+	  </p>
+	  <p>
+	    All of which pretty well dictates a scatter/gather IPC
+	    implementation.
+	  </p>
+	  <p>
+	    Side observation: the need for a file-like abstraction
+	    doesn't go away just because EROS is persistent.  There
+	    remains still a need for an interchange format.  Database
+	    programs probably get off the hook, but most applications
+	    do not.
+	  </p>
+	  <h2>2. Interface Revision for Scatter/Gather</h2>
+	  <p>
+	    While I plan to rearrange the x86 IPC layout again, the
+	    basic interface isn't changed in a major way by
+	    introducing scatter gather.  The common case is still a
+	    contiguous buffer -- especially on the sender side -- and
+	    it makes sense to avoid validating an indirection
+	    descriptor block when none is necessary.
+	  </p>
+	  <h3>Revised Interface</h3>
+	  <p>
+	    In the IPCv2 specification, the <code>rcv len</code> and
+	    <code>snd len</code> fields of the IPC descriptor are
+	    limited to maximum values of 65536.  The payload must be
+	    bounded to ensure that all of the data will stay in memory 
+	    at once, and in practical terms it's not useful to make it 
+	    much larger than this.  At 64k transfer sizes the limiting 
+	    factor is the data cache, and at anything much above 32k
+	    it's cost-acceptable for the programs to set up a shared
+	    memory buffer.
+	  </p>
+	  <p>
+	    Given all of which, I plan to redefine the <code>rcv
+	    len</code>, <code>rcv ptr</code>, <code>snd len</code>,
+	    and <code>snd ptr</code> fields as follows:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		On entry, positive values of <code>rcv len</code> and
+		<code>snd len</code> will continue to describe a
+		contiguous region of transmitted (received) data.  In
+		this case, the <code>rcv ptr</code> and <code>snd
+		ptr</code> fields point to the data exactly as they do
+		now.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		On entry, <em>negative</em> values of <code>rcv
+		len</code> and <code>snd len</code> indicate that the
+		<code>rcv data</code> (respectively: <code>snd
+		data</code>) pointers point to scatter (gather)
+		descriptor block, and that the absolute value of the
+		<code>rcv len</code> or <code>snd len</code> value is
+		the <em>number of bytes</em> in the scatter (gather)
+		descriptor block.  If the length given is not a
+		multiple of the descriptor size, the last descriptor
+		will not be used.  At most 64 descriptors can be
+		included in the scatter/gather descriptor block.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		On exit, <code>rcv len</code> will continue to hold
+		the total number of bytes transferred.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    In the short term, I may choose to implement the
+	    scatter/gather logic only in the slow (i.e. general) IPC
+	    path.  If you're using this logic at all you're almost
+	    certainly dominated by transfer cost, so optimizing the
+	    associated context switch seems a bit silly.
+	  </p>
+	  <h3>Scatter/Gather Descriptors</h3>
+	  <p>
+	    The scatter (gather) descriptor blocks  consist of
+	    (length, pointer) pairs:
+	  </p>
+	  <ul>
+	    <pre>
++-----------------+  offset 0
+| length in bytes |
++-----------------+  offset 4
+| pointer to data |
++-----------------+  offset 8
+| length in bytes |
++-----------------+  offset 12
+| pointer to data |
++-----------------+
+     ...
+	    </pre>
+	  </ul>
+	  <p>
+	    To limit the number of pages that must be in memory for
+	    the IPC to proceed, the total number of descriptor pairs
+	    may not excede 32.  This is substantially too large for
+	    comfort, as it allows up to 128 pages to be implicated on
+	    each side of a transfer.  On the other hand, it appears to
+	    be necessary in support of certain applications.
+	  </p>
+	  <p>
+	    Regardless of the lengths specified in the scatter/gather
+	    descriptor blocks, no more than 65536 bytes will be
+	    transferred in a single IPC operation.
+	  </p>
+	  <p>
+	    It is the responsibility of the recipient to ensure that 
+	    the receive scatter descriptor, if any, does not overlap
+	    the receive buffer areas.  If the scatter descriptor
+	    overlaps any of the specified receive areas, <em>no</em>
+	    bytes will be received, and the recipient will recieve an
+	    <code>FC_ParmLack</code> fault code.
+	  </p>
+	  <h2>3. Incidental Modifications: x86 Family</h2>
+	  <p>
+	    In the IPCv2 specification, I changed the interface
+	    specification so that several of the IPC parameters were
+	    passed on the stack.  In doing so, I failed to take
+	    advantage of a number of opportunities that this
+	    presents.
+	  </p>
+	  <p>
+	    Fast IPC aside, the practice in EROS has proven to be that
+	    real capability invocations use stub procedures.  On the
+	    x86, for lack of registers, these procedures build an
+	    on-stack data structure describing the IPC.  This
+	    structure is in turn passed to the IPC assembly stub
+	    routine, which selectively loads some of the values into
+	    memory.  Once into the kernel, values are lifted off of
+	    the stack and placed in pseudo-registers.
+	  </p>
+	  <p>
+	    For receive-related parameters, the pseudo-registers are
+	    necessary and appropriate, as it is desirable to avoid
+	    revalidating the IPC block every time a recipient is
+	    invoked.  For send-related parameters, the
+	    pseudo-registers are well and truly silly; either the IPC
+	    will fail and be restarted, or it will proceed and these
+	    parameters will become dead values.  The send descriptor
+	    block must be validated in any case, so we might as well
+	    take these parameters from their original locations on the 
+	    stack.
+	  </p>
+	  <p>
+	    Given which, I now plan to reconcentrate the send-side
+	    parameters on the stack and lift them directly from
+	    there.  The revised IPC register layout on the x86 is as
+	    follows:
+	  </p>
+	  <table>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td colspan=2 align=center width="40%"><b>Old IPC Interface</b></td>
+	      <td colspan=2 align=center width="40%"><b>New IPC Interface</b></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><b>Parameter</b></td>
+	      <td><b>Old location</b></td>
+	      <td><b>Parameter</b></td>
+	      <td><b>New location</b></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>r0</code></td>
+	      <td><code>%eax</code></td>
+	      <td><code>r0</code></td>
+	      <td><code>%eax</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>r1</code></td>
+	      <td><code>%ebx</code></td>
+	      <td><code>r1</code></td>
+	      <td><code>%ebx</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>r2</code></td>
+	      <td><code>%ecx</code></td>
+	      <td><code>r2</code></td>
+	      <td><code>%ecx</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>r3</code></td>
+	      <td><code>%edx</code></td>
+	      <td><code>r3</code></td>
+	      <td><code>%edx</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>rcv ptr</code></td>
+	      <td><code>12(%esp)</code></td>
+	      <td><code>inv type</code></td>
+	      <td><code>(%ebp)</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>snd len</code></td>
+	      <td><code>8(%esp)</code></td>
+	      <td><code>invoked key</code></td>
+	      <td><code>4(%ebp)</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>snd ptr</code></td>
+	      <td><code>4(%esp)</code></td>
+	      <td><code>snd len</code></td>
+	      <td><code>8(%ebp)</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>inv type</code></td>
+	      <td><code>(%esp)</code></td>
+	      <td><code>snd ptr</code></td>
+	      <td><code>12(%ebp)</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>rcv keys</code></td>
+	      <td><code>%ebp (lo)</code></td>
+	      <td><code>snd keys</code></td>
+	      <td><code>16(%ebp)</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>snd keys</code></td>
+	      <td><code>%esi</code></td>
+	      <td><code>rcv len</code> (in/out)</td>
+	      <td><code>%esi</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>key info</code></td>
+	      <td><code>%esi</code></td>
+	      <td><code>rcv ptr</code> (in)</td>
+	      <td><code>%edi</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>invoked key</code></td>
+	      <td><code>%ebp</code></td>
+	      <td><code>rcv keys</code></td>
+	      <td><code>28(%ebp) [rcvKeys]</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	    <tr valign="top">
+	      <td width="10%">&nbsp;</td>
+	      <td><code>rcv len</code> (in/out)</td>
+	      <td><code>%edi</code></td>
+	      <td><code>key info</code> (out)</td>
+	      <td><code>%edi</code></td>
+	      <td width="10%">&nbsp;</td>
+	    </tr>
+	  </table>
+	  <p>
+	    The layout shown here has the additional advantage that it does
+	    not clobber %ebp, which is useful in speeding up the IPC path.
+	  </p>
+	  <p>
+	    An incidental benefit to this layout is that it allows me
+	    to realign the send/receive key fields on byte boundaries,
+	    making them a good bit easier to validate and extract.
+	  </p>
+	  <hr>
+	  <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+	      redistribution, see the 
+	  <a href="../legal/license/GPL.html">GNU General Public License</a></em>
+	  </td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </body>
+</html>

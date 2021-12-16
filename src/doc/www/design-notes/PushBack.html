@@ -1,0 +1,248 @@
+<html>
+  <head>
+    <title>The PushBack Mechanism</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <center>
+	    <h1>The PushBack Mechanism</h1>
+	  </center>
+	  <p>
+	    This note describes a mechanism for forcing a client to
+	    re-issue an invocation to a server. The mechanism allows a
+            server to examine a client request, decided that it should
+            not be processed eagerly, and place the client on a
+            blocked in-kernel queue that can be released when the
+            server chooses to release it. A particularly useful
+            property of this design is that it allows the service to
+            use the scheduling and queueing mechanisms of the kernel
+            directly rather than introducing a service-level
+            scheduling policy that is both opaque to and ignorant of
+            requestor priorities.
+	  </p>
+	  <h2>1. Problem Statement</h2>
+	  <p>
+	    In the current EROS system, multiplexed services
+	    (i.e. services that handle multiple clients) are
+	    frequently required to interleave client-requested
+	    operations. Client A may make a request that cannot yet be
+	    satisfied. Client B's request <em>can</em> be serviced
+	    immediately, and therefore should not be delayed by A.
+	  </p>
+	  <p>
+	    In the current system, this is accomplished by storing the
+	    resume key to client A, returning to Void, and later
+	    performing a SEND when it is time to respond to A. This
+	    approach has several difficulties:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		It requires the service to allocate storage for the
+		resume keys. This can present a denial of resource
+		issue.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		It means that the service is effectively running a
+		second level scheduler, and that this scheduler is
+		potentially not behaving in a fashion consistent with
+		the kernel scheduler. This is a particular issue for
+		multithreaded/multipriority services.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    This design note describes a mechanism that resolves both
+	    issues by allowing a service to cause a requestor to
+	    ``call back later.'' The essential insight is that causing
+	    a client to resend exactly the data that it sent before
+	    does not disclose new information to the service, and is
+	    therefore safe.
+	  </p>
+	  <h1>2. Background</h1>
+	  <p>
+	    A resume key is usually thought of as a continuation that
+	    names the instruction <em>following</em> the trap
+	    instruction of the corresponding CALL. In this view, the
+	    trap instruction is thought of as a single ``unit of
+	    operation,'' and during the call, the calling is halted at
+	    the interstice between that trap instruction and the
+	    following instruction.
+	  </p>
+	  <p>
+	    This understanding isn't quite right. The actual CALL
+	    implementation is broken into <em>three</em> units of
+	    operation:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		In phase one, a rendevous attempt is made with the
+		invokee process, and the invocation arguments are
+		transferred. This phase can fault recoverably at
+		various stages, and if so, it is rolled back and
+		restarted after the fault is resolved. [Note this
+		implies that the invokee may observe phantom data from
+		incompleted invocations if it is multithreaded.] After
+		the invoking argument transfer succeeds, phase two
+		begins.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		In phase two, the PC of the invoker is advanced and
+		the invoker moves to the <em>waiting</em> state.
+		During this phase, the invokee moves to the
+		<em>running</em> state.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		At some later time (when the invocation of the resume
+		key occurs), the reply arguments are accepted, the
+		CALLing process enters the <em>running</em> state, and
+		it resumes execution.
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    Charlie Landau and I have together proposed that phase one
+	    could be subdivided to support long strings. The
+	    ``pushback'' observation is that phase 2 can safely be
+	    rolled back as well at the request of the server. That is,
+	    at any time <em>after</em> phase two, the invokee can
+	    safely back the invoker PC up to point at the trap
+	    instruction, causing the invocation to be restarted.
+	  </p>
+	  <p>
+	    The security implications of this are as follows:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		A service is now entitled to cause a client to perform
+		additional work at client expense (the retry). This
+		has real-time implications, which is a requirements
+		specification issue, but it is not a security issue.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		If the invocation arrived via a wrapper object, the
+		server is in a position to re-point the wrapper object
+		(by changing its keeper). This is functionally no
+		different than forwarding the request directly. 
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		``Through'' services -- services that forward requests
+		while dropping out of the call chain by performing a
+		RETURN to a downstream service forwarding a resume key
+		to the original caller, must be prepared for the
+		possibility that a request will be replayed. To our
+		knowledge, the need for such ``through'' services is
+		subsumed by the new mechanism.
+	      </p>
+	    </li>
+	  </ul>
+	  <h1>3. The Mechanism</h1>
+	  <p>
+	    The pushback mechanism has two parts: a mechanism to force
+	    the request to be retried and a mechanism to queue the
+	    requestor. As we do not (for now) want this mechanism to
+	    become ubiquitous, the current proposal is to introduce a
+	    new, miscellaneous key type, <b>misc(PushBack)</b> that is
+	    used to push back a request. One of the arguments to the
+	    pushback operation is clearly the resume key. The
+	    essential design question is: what should the other be?
+	  </p>
+	  <p>
+	    The second key to the PushBack operation should be some
+	    form of node key. There would appear to be two ``natural''
+	    choices for this key:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		Introduce a new state bit in the wrapper node format
+		key, <b>WrapperStallQ</b>, and use a wrapper key as
+		the second argument.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Introduce a new node key type, <b>StallQueue</b>, and
+		a new in-kernel ``preparation type'' for nodes.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    Functionally, the two are interchangeable. When a process
+	    invokes a <b>StallQueue</b> object, or equivalently, a
+	    wrapper node whose <b>WrapperStallQ</b> bit is set, the
+	    effect is similar to the what happens when the process
+	    invokes a start key to a non-available domain: the process
+	    is left in the running state, and is placed on the stall
+	    queue associated with the wrapper/stall! node. Given this,
+	    I'm going to proceed with the wrapper-based approach.
+	  </p>
+	  <p>
+	    The kernel stall queue associated with the wrapper node is
+	    explicitly awakened when the stall queue node is
+	    deprepared from a segment node back into an ordinary
+	    node. This is done under the following conditions:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		The ageing mechanism is gearing up to remove the node
+		from memory.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Some slot in the node is modified by means of a node
+		key swap operation.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    Note that node stall queues are aliased, so actions on
+	    nodes unrelated to the particular wrapper node may (with
+	    low likelihood) cause the stalled processes to
+	    awaken. This means that services using the PushBack
+	    mechanism must treat it as a ``no later than''
+	    guarantee. It is guaranteed that changing the format key
+	    of the wrapper node will awaken all processes currently
+	    stalled on that node, and consequently, that all stalled
+	    processes will then reissue their respective
+	    invocations. However, it is possible that the
+	    re-invocations will occur sooner due to actions taken by
+	    the kernel independent of the service.
+	  </p>
+	  <p>
+	    In the current kernel design, there is no practical means
+	    to eliminate the ``restart on removal'' behavior, but it
+	    would probably be feasible to queue the clients
+	    specifically on a singleton node rather than on an aliased
+	    queue if aliasing proves in practice to be burdensome.
+	  </p>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+    <hr>
+    <em>Copyright 2002 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public License</a></em>
+	</td width="10%">&nbsp;</td>
+      </tr valign=top>
+    </table>
+</body>
+</html>

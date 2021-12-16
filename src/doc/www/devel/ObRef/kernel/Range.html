@@ -1,0 +1,395 @@
+<html>
+<head>
+<title>EOR: Range</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Kernel Objects</H2>
+  </div>
+  <h2>Range</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> The <strong>Range</strong> key conveys the authority to create
+  and rescind node, and page keys.  They are
+  the essential authority used by space banks.  Each key controls a
+  particular range of objects.
+<!--   <p> Range keys come in two types: a key that controls a range of -->
+<!--   pages is known as a <strong>page range key</strong>, and a key that -->
+<!--   controls a range of nodes is a <strong>node range key</strong>.  In -->
+<!--   the description that follows, the term <em>strong key</em> refers to -->
+<!--   either a read-write page key or a node key, according to the type of -->
+<!--   the range. -->
+  <p> The range key is not rescindable.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       <em>AKT_Range</em>:
+	       Key is a range key
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Query Range</strong> (OC = 1)
+    <dd>
+	 <p> Obtain the maximum offset controlled by the range key.
+	 <p> 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right><strong>L</strong></td>
+	     <td>The offset of the last object the range key can create.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.  The returned offset is the offset of the
+	       object within the range.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>An inappropriate number of bytes were passed (must be
+	       either 4 or 8 bytes).
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <a name="identify"><strong>Identify</strong> (OC = 2)
+    <dd>
+	 <p> Determine whether an object is contained in the given
+	 range.
+	 <p> 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>SK0</td>
+	     <td>The key to be examined.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right><strong>R1</strong></td>
+	     <td>Indicates the base type of the object named by this
+	       capability. Value is meaningless unless result code is
+	       <b>RC_OK</b>.
+	       <table>
+		 <tr valign=top>
+		   <td><b>Value</b></td>
+		   <td><b>Meaning</b></td>
+		 </tr>
+		 <tr valign=top>
+		   <td>1</td>
+		   <td>Object is a page</td>
+		 </tr>
+		 <tr valign=top>
+		   <td>2</td>
+		   <td>Object is a capability page</td>
+		 </tr>
+		 <tr valign=top>
+		   <td>3</td>
+		   <td>Object is a node</td>
+		 </tr>
+	     </table></td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>R2</strong></td>
+	     <td>The low-order portion of the value to be passed to
+	       <strong>Get Object</strong> to fabricate a strong key
+	       to the object designated by this key, or 0.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>R3</strong></td>
+	     <td>The high-order portion of the value to be passed to
+	       <strong>Get Object</strong> to fabricate a strong key
+	       to the object designated by this key, or 0.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.  The returned offset is the offset of the
+	       object within the range.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       1
+	     </td>
+	     <td> Key was not within the range.  The returned offset
+	       value is zero.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Rescind</strong> (OC = 3)
+    <dd>
+	 <p> Rescind all outstanding keys associated with the passed
+	 object.
+	 <p> <em>Note:</em> The rescind operation requires a
+	 read-write key to the object.  If necessary, the holder of
+	 the range key can obtain such a key by first using the
+	 <a href="#identify"><strong>Identify</strong></a> operation,
+	 constructing a new key, and rescinding that key.
+	 <p> 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>SK0</td>
+	     <td>The key to be rescinded.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td> Success.  All outstanding keys to the object are now
+               <a href="../kernel/Void.html"><strong>void key</strong></a>s.
+	       If the passed key was to an object
+	       occupied by a thread, the associated thread is
+	       destroyed as well.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       1
+	     </td>
+	     <td> Key was not within the range.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>The passed key was read not a strong page or node
+	     key</td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Get Object</strong> (OC = 4)
+    <dt> <strong>Wait for Object</strong> (OC = 5)
+    <dd>
+	 <p>
+	 Returns a strong key to the Nth object in Fth frame in the
+	 range.
+	 <p>
+	 If the requested object type does not correspond to the type
+	 of the objects currently residing in the designated frame,
+	 all objects in that frame are rescinded before the new object
+	 is created.  For example: if the objects presently in frame 2
+	 are node objects and a page capability is fabricated within
+	 this frame, all of the nodes within the frame will be
+	 rescinded before the new key is returned.
+	 <p>
+	 If the object is not mounted and <strong>Wait for
+	 Object</strong> is used, wait until the required range has
+	 been mounted.  If the object is not mounted, and <strong>Get
+	 Object</strong> is used, returns an error.
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right><strong>L</strong></td>
+	     <td>The value of (F * OBJECTS_PER_FRAME) + N, where F is
+	       a frame within this range, and N is the number of the
+	       object within the frame to which a key should be
+	       fabricated.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>R1</strong></td>
+	     <td>Indicates the type of the object to be created:
+	       <table>
+		 <tr valign=top>
+		   <td><b>Value</b></td>
+		   <td><b>Meaning</b></td>
+		 </tr>
+		 <tr valign=top>
+		   <td>1</td>
+		   <td>Fabricate a page</td>
+		 </tr>
+		 <tr valign=top>
+		   <td>2</td>
+		   <td>Fabricate a capability page</td>
+		 </tr>
+		 <tr valign=top>
+		   <td>3</td>
+		   <td>Fabricate a node</td>
+		 </tr>
+	     </table></td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>RK0</td>
+	     <td>A strong key to the Nth object in the range.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=5>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       1
+	     </td>
+	     <td>
+	       Value passed did not correspond to a valid object,
+	       either because F was greater than the number of frames
+	       covered by this range key or N was too large for the
+	       object type requested.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       2
+	     </td>
+	     <td> The object is not mounted (<strong>Get
+	       Object</strong> only).
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       3
+	     </td>
+	     <td>
+	       There was an unrecoverable I/O error fetching the Nth
+	       object.  Object is effectively dead.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>An inappropriate number of bytes were passed (must be
+	       either 4 or 8 bytes).
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Compare Ranges</strong> (OC = 6)
+    <dd>
+	 <p> Compares two ranges for overlap.  If the two ranges
+	 overlap, returns the offset at which the overlap occurs.
+	 The offset reported, if any is computed as follows:
+	 <p>
+	 <ul>
+	   if (SK0.start &gt; IK.start)
+	   <ul>
+	     offset = SK0.start - IK.start;
+	   </ul>
+	   else
+	   <ul>
+	     offset = IK.start - SK0.start;
+	   </ul>
+	 </ul>
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right><strong>SK0</strong></td>
+	     <td>A range key.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=4>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right><strong>R1</strong></td>
+	     <td>0 if the ranges do not overlap.
+	     <p>1 if SK0 overlaps the invoked key (IK) from above.
+	       That is,
+	       <ul>
+	       (SK0.start &gt;= IK.start <strong>AND</strong> SK0.start
+	       &lt; IK.end)
+	       </ul>
+	       <p>
+	       2 if the two ranges have the same starting value.
+	       <p>
+	       3 if SK0
+	       overlaps the invoked key (IK) from above.  That is,
+	       <ul>
+	       (SK0.start &lt; IK.start <strong>AND</strong> SK0.end
+	       &gt; IK.start)
+	       </ul>
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>R2</strong></td>
+	     <td>The low-order portion of the offset at which the
+	       overlap occurs, or zero.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>R3</strong></td>
+	     <td>The high-order portion of the offset at which the
+	       overlap occurs, or zero.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td> Operation completed successfully.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

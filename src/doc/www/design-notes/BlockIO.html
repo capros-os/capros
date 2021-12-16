@@ -1,0 +1,145 @@
+<html>
+<head>
+<title>The EROS Block I/O Subsystem</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <h1>The EROS Block I/O Subsystem</h1>
+</center>
+<p> This note describes the design of the EROS block I/O subsystem.
+Block (and eventually network) I/O in EROS differ from I/O on other
+devices in that the I/O may be initiated by either the kernel or by a
+key invocation.  Block I/O is particularly challenging because the
+single-level store must have a fairly tight relationship with the disk
+subsystem. Things are further complicated by the fact that some
+devices on a block controller may be user accessable, while others are
+accessable only to the kernel.
+<h2>Ranges, Partitions, and Controllers</h2>
+<p> EROS treats disk partitions as volumes. These volumes can be
+either EROS volumes or non-EROS volumes.  EROS volumes can be accessed
+only by the kernel or the holder of a suitable disk device
+key. Because disk devices can be rearranged while the system is shut
+down, disk device and disk partition keys are invalidated by a system
+restart.
+<p> EROS partitions are in turn subdivided into ranges.  Each range is
+either a <strong>node</strong>, <strong>page</strong>, or
+<strong>checkpoint log</strong> range, and names the partition in
+which it lives.  The partition, in turn, names an associated
+controller and unit.
+<p> Putting all of this together, we get:
+<pre>
+ Range Table           Partition table
++-----------+          +-----------------------+
+|     ------+-----+    |                       |
++-----------+     |    ~                       ~
+|           |     |    |                       |
+~           ~     |    +-----------------------+
+|           |     +--->| ... | unit | ctrlr ---+---> BlockCtrlr
++-----------+          +-----------------------+
+</pre>
+<p> By walking the partition table, the controller can identify all of
+the partitions associated with a particular unit.  Similarly, by
+walking the range table, it can identify all of the ranges associated
+with a given partition.
+<h3>Sector Addressing</h3>
+<p> These days, there are far too many ways of addressing sectors on a
+disk drive.  In IDE subsystems alone, there are <em>four</em> distinct
+addressing modes that need to be considered:
+<ul>
+  <li> The BIOS translated geometry (C/H/S).
+  <li> The Disk's logical geometry (C/H/S) -- the geometry it presents
+       to the outside world.  This is the geometry that is visible at
+       the controller's register-level interface on older drives.
+       Newer drives frequently allow geometry to be selected on a
+       request by request basis.
+  <li> The Disk's physical geometry (C/H/S), which is used internal to
+       the drive, but which we can discover on inquiry.
+  <li> Linear block addressing (lba), in which the disk is presented
+       as a sequence of linearly addressed blocks.
+</ul>
+<p> Regrettably, there are many utilities (notably disk partitioning
+software) that have traditionally exposed to the user the C/H/S style
+of disk geometry -- usually the BIOS version.  What's truly stupid is
+that these utilities continue to require that partitions begin at
+cylinder boundaries, even though the "cylinder" in question is a
+fiction being maintained by the BIOS.  For this reason, EROS will
+expose <em>all</em> of these geometries through the disk device key if
+appropriate.
+<p> Using the BIOS geometry leads to a variety of problems, mostly
+having to do with limitations on the overall size of the drive.
+Because of this, EROS uses the <strong>linear block address</strong>
+form (lba) for <em>all</em> device types, even if the disk hardware
+does not directly support such an addressing mode.  If the hardware
+requires it, EROS relies on the driver to translate the lba value into
+cylinder, head, and sector terms.  Further, if the hardware requires
+that I/O requests be broken up due to cylinder boundary crossings, it
+is the responsibility of the disk driver to do so.
+<h3>The Partition Structure</h3>
+<p> Given all of this mess, the partition structure is as follows:
+<pre>
+struct Partition {
+    CHS      bios_start;  // geometry as seen by BIOS
+    CHS      bios_end;    // ditto
+    Word     lba_start;   // offset in disk as LBA.
+    Word     sz;          // size in sectors
+    Byte     type;        // machine specific
+    Byte     active;      // DOS vestige
+    Byte     unit;        // unit on block device
+    Byte     ndx;         // index of partition on device
+    BlockDev *ctrlr;      // Controller class
+    Word     uniqueID;    // used for partition keys
+
+    void AddRequest(IoRequest*);
+};
+<p> Some notes on this particular structure, mostly so I don't forget
+why I did things this way:
+<ul>
+  <li> Some controllers will elect to implement a single operation
+       request queue, so a request queue pointer was undesirable.
+       Actually, I can't think of anything that really ought to do
+       this, but I'ld like that option as a way to enforce
+       serialization across busted IDE interfaces.
+       <p> 
+  <li> The unique ID field is not repeated within any given boot
+       cycle, and allows us to hand out partition keys and rescind
+       them when the partition is deleted.
+       <p> 
+  <li> The index field is relative to the unit, and allows us to
+       return partitions to the caller in a consistent order
+       regardless of where they happened to land in the master
+       partition table.
+       <p>
+  <li> An unallocated entry is indicated by a NULL ctrlr pointer.
+</ul>
+<p> The I/O operations permitted on a partition are those that can be
+expressed in IoRequest structures.
+<h3>The Request Structure</h3>
+<p> I've gone back to a simpler IoRequest structure with this design.
+Every IoRequest structure contains all of the information necessary to
+fully perform the requested I/O.  The current design has too many
+wandering pointers for my liking, and lends itself to bad programming.
+Perhaps more important, the current design exhibits hierarchical
+allocation, which makes non-persistent I/O more complicated.
+<p> In the revised design, the content of the UnitIoRequest and
+IoRequest structures will be essentially merged, and the IoRequest
+structure will be replaced with a <strong>DuplexedIO</strong>
+structure.  The <strong>DuplexedIO</strong> structure captures the
+coordination across independent <strong>Request</strong>
+structures.
+<p> This change has two desirable consequences:
+<ul>
+  <li> The <strong>Request</strong> structure can be used across all
+       block devices, and can be more readily modified for things like
+       scatter/gather DMA when the time comes.
+       <p> 
+  <li> The resulting structure is much closer to the structures
+       already used by NetBSD, FreeBSD, and LINUX, making it easier to
+       borrow insight from the drivers used by those systems.
+</ul>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

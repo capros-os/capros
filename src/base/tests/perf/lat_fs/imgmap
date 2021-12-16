@@ -1,0 +1,70 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/* Test image for constructor/metaconstructor. */
+#define DEBUG
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <vcs.map>
+#include <ipltool.map>
+#include <nfile.map>
+
+/********************************************************
+ * Actual test case
+ ********************************************************/
+
+lat_fs = new process;
+
+lat_fs.seg = program segment BUILDDIR "lat_fs";
+lat_fs.pc = symbol BUILDDIR "lat_fs" _start;
+lat_fs.seg = lat_fs.seg with page at 0x1f000;
+
+lat_fs pc = lat_fs.pc;
+lat_fs space = lat_fs.seg;
+lat_fs schedule = sched(8);	/* normal */
+/* lat_fs brand = start pcc 65535; */
+
+/* lat_fs registers: */
+lat_fs key reg KR_SELF = lat_fs;
+lat_fs key reg KR_BANK = primebank;
+lat_fs key reg KR_SCHED = sched(8);
+lat_fs key reg KR_APP(0) = misc Console;
+lat_fs key reg KR_APP(1) = FileSrvC;
+lat_fs key reg KR_APP(2) = misc Sleep;
+lat_fs key reg KR_APP(3) = new node;
+
+/* print domain lat_fs.dom */
+hide lat_fs.seg;
+hide lat_fs.pc;
+
+run lat_fs;

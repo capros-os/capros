@@ -1,0 +1,204 @@
+<html>
+  <head>
+    <title>EOR: Invocation</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class=nocss>
+	    <br class=nocss>&nbsp;
+	      <br class=nocss>&nbsp;
+	  </div>
+	  <div class=KeyName>
+	    [<em><a href="../Cover.html">Return to Top</a></em>]
+	    [<em><a href="00Concepts.html">Concepts</a></em>]
+	    <div align=right>
+	      <H2>EROS Object Reference</H2>
+	      <H2>Concepts</H2>
+	    </div>
+	    <h2>Invocation</h2>
+	    <em>D R A F T</em>
+	    <hr>
+	  </div>
+	  <div class=KeyDescrip>
+	    <h3>Description</h3>
+	    <p>
+	      For some programs, the precise details of invocation
+	      semantics are important. This page provides a detailed
+	      description of the invocation semantics.
+	    </p>
+	    <p>
+	      To invoke a key, a process sets up the message arguments
+	      in it's registers and then performs a kernel trap.  When
+	      this trap occurs, the kernel performs the following
+	      steps:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  Sender is prepared to send.
+		</p>
+		<ol type=A>
+		  <li>
+		    <p>
+		      The sender's data pages, if any, are checked to
+		      be sure they are in-core and readable.
+		    </p>
+		  </li>
+		  <li>
+		    <p>
+		      The invoked key is validated and converted to a
+		      <a href="../kernel/Void.html"><strong>void
+		      key</strong></a> if stale.
+		    </p>
+		  </li>
+		</ol>
+		<p>
+		  NOTE that in order to be sending at all the sender
+		  must be well-formed.  This implies that it has a key
+		  registers node, which we may wish to reconsider.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The invoked key is checked to determine the
+		  receiver, which may not necessarily be the sender.
+		  If invoked key is a gate key, the, receiver must be
+		  extracted from the key and loaded into context
+		  cache.
+		</p>
+	      </li>
+	      <li> 
+		<p>
+		  The recipient is prepared to receive.  The recipient
+		  may not be well formed.
+		</p>
+		<ol type=A>
+		  <li>
+		    <p>
+		      If recipient has no key registers node, or is
+		      otherwise malformed, what happens depends on the
+		      invocation type:
+		    </p>
+		    <table>
+		      <tr>
+			<td><strong>fork, call</strong></td>
+			<td>sender receives RC=KT+1</td>
+		      </tr>
+		      <tr>
+			<td><strong>return</strong></td>
+			<td>sender cannot detect failure</td>
+		      </tr>
+		    </table>
+		  </li>
+		  <li>
+		    <p>
+		      If the recipient does not already have valid
+		      data pages where the receive buffer should be
+		      located, <em>and</em> is not currently faulted,
+		      the following steps occur:
+		    </p>
+		    <ol type=i>
+		      <li>
+			<p>
+			  If the recipient's address space keeper is
+			  available, it is invoked with the usual
+			  address space fault.  It is passed a fault
+			  key to the <em>recipient</em> process.
+			</p>
+		      </li>
+		      <li>
+			<p>
+			  The invocation is nullified.  The invoker
+			  remains in the running state just prior to
+			  the invocation, and is stalled on the
+			  recipient's address space keeper.
+			</p>
+		      </li>
+		    </ol> 
+		  </li>
+		</ol>
+	      </li>
+	      <li>
+		<p>
+		  By this point, a message structure has been
+		  constructed and the key can be invoked.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Sent keys and data are logically copied into a
+		  holding area.  No such holding area exists in the
+		  kernel; this statement simply makes it well-defined
+		  what happens when key sent keys or data are
+		  overwritten by the reply.
+		</p>
+	      </li>
+	      <li> 
+		<p>
+		  The key action is performed.  In the case of a gate
+		  key this is simply a transferral of the thread to
+		  the new process.
+		</p>
+	      </li>
+	      <li> 
+		<p>
+		  Reply keys are delivered to the recipient.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Reply data is delivered to the recipient if delivery
+		  would be <a href="Prompt.html">prompt.</a> If
+		  delivery would not be prompt, the message is
+		  discarded and the high bit of the recipient's fault
+		  code is set to indicate loss of message data.
+		  Delivery is non-prompt under the following
+		  circumstances:
+		</p>
+		<ul>
+		  <li> 
+		    <p>
+		      The recipient was faulted at the time of the
+		      invocation.
+		    </p>
+		  </li>
+		  <li>
+		    <p>
+		      The address space keeper declined to provide the
+		      backing store for the receive buffer(s).
+		    </p>
+		  </li>
+		</ul>
+	      </li>
+	      <li>
+		<p>
+		  The recipient is set running.  If it's fault code is
+		  nonzero, it's process keeper will be invoked before
+		  the recipient performs any units of operation.
+		</p>
+	      </li>
+	    </ol>
+	    <h3>Notes for Shared Services</h3>
+	    <p>
+	      An issue in the design of shared services is that they
+	      must not be delayed by invoking a key that might block.
+	      For this reason, the <strong>return</strong> operation
+	      silently discards the reply if the destination
+	      capability is not a resume capability. If it is desired
+	      to return on a non-resume capability,
+	      <strong>npreturn</strong> should be used instead.
+	  </div>
+	  <hr>
+	    <em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights
+	      reserved.  For terms of redistribution, see the <a
+	      href="../../../legal/license/GPL.html">GNU General
+	      Public License</a></em>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</html>

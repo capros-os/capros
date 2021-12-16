@@ -1,0 +1,33 @@
+package capros;
+
+/** Tool to discriminate properties of keys.
+ */
+interface Discrim extends key {
+
+  const unsigned long clVoid = 0;
+  const unsigned long clNumber = 1;
+  const unsigned long clResume = 2;
+  const unsigned long clMemory = 3;
+  const unsigned long clSched = 4;
+  const unsigned long clOther = 255;
+
+  // This should probably be returning a value of some enumeration
+  unsigned long classify(capros.key k);
+
+  /* verify - Return true iff the key is discreet. */
+  boolean verify(capros.key k);
+
+  boolean compare(capros.key k1, capros.key k2);
+
+  struct info {
+    unsigned long version;
+    boolean valid;
+    array<unsigned long, 4> w;
+  };
+
+  /** Return the representation of a key as data.
+   *
+   * Open Issue: should the get() interface accept as an argument the
+   * desired keybits version, or is the version number output only? */
+  void get(capros.key k, out info bits);
+};

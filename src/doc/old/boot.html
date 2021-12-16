@@ -1,0 +1,177 @@
+<HTML>
+<HEAD>
+<TITLE>The EROS Disk Boot Process</TITLE>
+</HEAD>
+<BODY>
+<P>
+This document describes the machine independent portion of the EROS
+boot process.  It describes the structure of an EROS disk and the
+actions taken by the EROS kernel once the kernel is entered.  The
+details of how the kernel itself gets loaded are highly machine
+dependent, and are described in machine-specific notes.
+<P>
+<H1>1. Structure of an EROS Volume</H1>
+<P>
+An EROS volume is a logical disk.  On an EROS-formatted floppy, the
+volume spans the entire disk.  On hard disks things are a bit more
+complicated.   Typically, the system firmware is designed to allow
+multiple independent operating systems to be loaded onto a single
+disk.  The disk is divided into non-overlapping regions, typically
+called <STRONG>partitions</STRONG>, and each operating system acts for
+the most part as it's partition was a single disk.  EROS is no
+different; it views it's partition as a single volume, and largely
+ignores the rest of the disk.
+<P>
+Every EROS volume is divided into one or more non-overlapping areas.
+To avoid collision with firmware terminology, we use the term
+<STRONG>division</STRONG>.  Divisions come in several types:
+<PRE>
+Unused      Empty. Placeholder for unallocated space.
+Boot        Contains the system-dependent boot code.
+DivTbl      A table describing the division layout.
+Kernel      The kernel's code.
+Spare       Division containing spare sectors.
+Swap        A swap area.
+Page        Holds EROS Pages.
+Node        Holds EROS Nodes.
+FailStart   Names the process to start if all else fails
+</PRE>
+<P>
+The FailStart entry does not name a division on the disk.  Rather, it
+is a pseudo-entry used to bootstrap the system.  It's use is described
+in detail below.  Every volume has exactly one boot division at sector
+0.  Every volume has <EM>at most one</EM> kernel division.
+<P>
+Every disk technology that we know about reserves sector 0 of a
+partition the "boot sector."  The EROS boot sector has reserved
+locations from which the locations of the primary (and optional
+secondary) division tables can be read.
+<P>
+For each division, the division table describes the type, the starting
+sector, the ending sector, and a unique system identifier.  If the
+division is a Node, Page, or Swap division, the division table also
+contains the starting CDA or SwapLoc of the division.
+<P>
+The Spare division is used to hold replacement sectors for defective
+media.  The mapping from old (bad) sectors to sectors in the spare
+area lives in the division table following the division list.
+<H1>2. Formatting the Disk</H1> 
+<P>
+An EROS disk is formatted according to a volume map.  The volume map
+is essentially a human-readable version of the division table to be
+created.  It describes the start and end of each division, and for
+some divisions it provides the file that should be used to initialize
+that division (for example: the file containing the code for the boot
+sector).
+<P>
+As an EROS volume is formatted, a list of bad sectors is accumulated
+by the formatting program.  Bad sectors that are found in Page, Node,
+or Swap divisions are added to the BadMap.  Bad sectors that are found
+in other types of divisions cause formatting to fail.  Usually these
+failures can be worked around by rearranging the volume map to avoid
+the bad sectors.
+<H1>3. The Boot Process</H1>
+<P>
+When the machine is powered up or reset, the firmware determines which
+volume (disk or partition) will be booted.  Though the details are
+machine specific, the firmware typically proceeds by loading a small
+machine-dependent boot sector from sector 0 of the boot volume.
+Usually, the boot sector must first load a larger bootstrap routine,
+which in turn examines the volume map and loads the kernel itself.
+At this point, the EROS kernel proceeds with it's own startup
+procedure.
+<P>
+At a high level, the EROS kernel startup proceeds as follows:
+<OL>
+<LI>
+Perform the minimum required hardware initialization.
+<LI>
+Determine the unique system identifier (USID) of the running kernel.
+<LI>
+Locate and mount all divisions on all disks whose USID matches the
+USID of the running kernel.
+<LI> 
+Locate the run list and begin executing the running processes.  The
+run list can come from one of two locations:
+<UL>
+<LI> 
+If a swap areas has been located, the list of running processes is
+obtained from the most recent valid checkpoint image in the swap area.
+<LI> 
+If no swap area exists, the FailStart entries in the boot volume's
+division table constitute the running process list.
+</UL>
+</OL>
+<P>
+The net effect of this is that EROS will restart the existing system
+image if possible.  If no existing system image can be found, it will
+load a minimal system starting set.  The intention is that this
+minimal process set will be sufficient to enable system recovery.
+<P>
+There are two security-related assumptions embedded in this bootstrap
+mechanism:
+<UL>
+<LI>
+If unauthorized users are able to physically access the boot media,
+the system is not secure.
+<LI>
+If unauthorized users are able to physically access the system
+console, and the swap area(s) have been damaged or do not exist, the
+system is not secure.
+</UL>
+<P>
+The intent of the FailStart mechanism is to simplify initial
+installation of the system.  It eliminates the need to construct a
+swap area on the installation floppy.  Being able to run the kernel
+before the swapping logic has been debugged greatly simplifies initial
+testing.
+<P>
+Some other potential uses of the FailStart mechanism include:
+<UL>
+<LI> 
+Degrading gracefully when a swap device cannot be found because it is
+offline.
+<EM>This is not implemented.</EM>
+<LI>
+Recovering from sector 0 failures on non-boot volumes.
+<EM>This is not implemented.</EM>
+<LI>
+Implementing system startup in embedded systems that boot from a ROM
+and do not have a swap area at all.
+</UL>
+<P>
+The FailStart mechanism was not present in the KeyKOS system.  It's
+uses and abuses have not been fully explored.
+<H2>3.1. Finding the Unique System Identifier</H2>
+<P>
+When the EROS kernel starts up, it performs some minimal hardware
+initialization and then locates the boot volume.  It loads the boot
+sector to learn the location of the division table on the boot volume,
+and then loads the division table itself.  From the kernel entry in
+the division table, it learns the system id of the kernel that was
+booted.
+<P>
+<I>An alternative would be to have the system ID passed to the kernel
+by the bootstrap routine, which has the information available in any
+case.</I>
+<H2>3.2. Mounting the Divisions</H2>
+<P>
+Having determined the unique system identifier, the kernel now loads
+the master partition table of every disk, and searches for EROS
+volumes.  For every EROS volume that it finds, it loads the division
+table.  For every Page, Node, and Swap division whose USID matches
+that of the running system, the division is mounted and the pages and
+nodes in that division are made available to the object loading
+subsystem.
+<H2>3.3. Finding the Run List</H2>
+<P>
+Once all of the divisions are known, the kernel must locate the list
+of processes to run.  If a swap area is available, the run list is
+loaded from the swap area.  If no swap area is available, then the
+FailStart entries from the boot volume's division table are used.  The
+processes named in the run list are swapped in and scheduled.
+<P>
+Once these processes have been started, the system is running
+normally, and bootstrap processing terminates.
+</BODY>
+</HTML>

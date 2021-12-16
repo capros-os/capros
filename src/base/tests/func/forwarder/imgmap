@@ -1,0 +1,56 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+fwd = new forwarder;
+
+proc2 = new process;
+proc2.seg = program segment BUILDDIR "proc2";
+proc2 pc = symbol BUILDDIR "proc2" _start;
+proc2.seg = proc2.seg with page at 0x20000; /* for stack */
+proc2 sp = 0x21000;
+proc2 space = proc2.seg;
+proc2 schedule = sched(8);	/* normal */
+
+proc2 key reg 10 = misc Console;
+
+fwd target = start proc2 0;
+
+proc1 = new process;
+proc1.seg = program segment BUILDDIR "proc1";
+proc1 pc = symbol BUILDDIR "proc1" _start;
+proc1.seg = proc1.seg with page at 0x20000; /* for stack */
+proc1 sp = 0x21000;
+proc1 space = proc1.seg;
+proc1 schedule = sched(8);	/* normal */
+
+proc1 key reg 8 = misc Discrim;
+proc1 key reg 10 = misc Console;
+proc1 key reg 12 = proc2;
+proc1 key reg 13 = fwd;
+proc1 key reg 14 = fwd as opaque forwarder key;
+
+ipl proc1;
+run proc2;	/* just to set its state to RS_Waiting */
+print node fwd;
+

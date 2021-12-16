@@ -1,0 +1,28 @@
+package capros;
+
+/** Kernel interface to key representation.
+ *
+ * KeyBits provides a means to inspect a capability as a value.
+ */
+interface KeyBits extends key {
+  /** Current kernel-implemented keybits version.
+   *
+   * This version number represents the keybits version returned by the 
+   * kernel as of the time this interface was last updated. It is
+   * expected that the keybits version will be updated when a 64-bit
+   * port is done.
+   */
+  const unsigned long VERSION = 1; /* current keybits version */
+
+  struct info {
+    unsigned long version;
+    boolean valid;
+    array<unsigned long,4> w;
+  };
+
+  /** Return the representation of a key as data.
+   *
+   * Open Issue: should the get() interface accept as an argument the
+   * desired keybits version, or is the version number output only? */
+  void get(capros.key k, out info bits);
+};

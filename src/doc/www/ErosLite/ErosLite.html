@@ -1,0 +1,101 @@
+<HTML>
+<HEAD>
+<TITLE>EROS/Lite - A Real-Time, Pure Capability System</TITLE>
+</HEAD>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<P>
+<CENTER>
+  <H1>EROS/Lite - A Real-Time, Pure Capability System</H1>
+</CENTER>
+<P>
+<CENTER><I>Jonathan S. Shapiro<BR>
+  Jonathan M. Smith<BR>
+  David J. Farber<BR>
+  </I>University of Pennsylvania<BR>
+</CENTER>
+<P>
+<CENTER>
+  <B>ABSTRACT</B>
+</CENTER>
+<P>
+<CENTER><TABLE WIDTH=85%>
+  <TR>
+    <TD>
+      EROS is a pure capability system providing high security,
+      strong fault containment, and transparent persistence. Recently,
+      there has been interest in using this system in an embedded,
+      real-time application where transparent persistence is not
+      required. The reduced kernel, EROS/Lite, provides a high performance
+      IPC substrate, strong isolation and containment, and a real-time
+      scheduling mechanism, and will be available for research use on
+      i486/Pentium systems and at least one RISC architecture.
+      <p> EROS/Lite is a subset of the full EROS system. The necessary
+      redesign has led us to a conceptually cleaner and simpler kernel
+      architecture which is described in this paper.
+    </TD>
+  </TR>
+</TABLE>
+</CENTER>
+<H1>Introduction</H1>
+<P> Embedded systems require a higher degree of reliability than
+conventional application software.  Protected service domains, in
+addition to providing security, provide service containment and fault
+isolation.  When a system is built out of small, interconnected
+protection domains, reliability and recovery techniques such as
+modular redundancy become much easier to apply.  Perhaps more
+important, component isolation improves the overall effectiveness of
+unit testing by ensuring that errors in one protection domain can be
+propagated to another <em>only</em> by means of the specified
+interface.  Because of this, only the interface code needs to address
+the possibility of bad input.
+<p> In spite of the advantages of decomposition, few embedded systems
+are designed using these techniques.  Most approaches to decomposition
+have adopted a client/server approach.  While easy to understand, the
+client/server approach destroys the clean separation between
+applications that is necessary for real-time and quality of service
+(QoS) based scheduling.  Multiplexing clients with different QoS
+requirements onto a single service provider lends itself to difficult
+design problems, including priority inversion, starvation, and
+resource mismanagment.  In secure environments, all of these issues
+result in covert channels and are potential openings for denial of
+service attacks.
+<p> Noninvasive update mechanisms (i.e. external reprogramming) for
+pacemakers is now commonplace. Several current generation mass transit
+systems provide mechanisms for remote update.  As such mechanisms
+become more powerful, they simultaneously become increasingly
+susceptible to computer-based attack.  In the face of such mechanisms,
+the line between computer and human viruses becomes very blurry
+indeed.
+<p> EROS, and it's predecessor KeyKOS, adopts a
+client/<em>service</em> approach to protected application composition.
+In this approach, each application receives it's own instance of the
+services that it uses, and runs under the authority of a
+client-specified schedule.  This model allows service QoS to be
+structured in several ways:
+<ul>
+  <li> As conventional multiplexed services, which run under a
+       resource allocation dedicated to that service independent of
+       the caller.
+       <p> 
+  <li> As application services, which run under the resources of the
+        client application.
+       <p> 
+  <li> In any mixture of the above; in particular allowing non-QoS
+       services to run under general-purpose scheduling policies
+       without interfering with QoS-sensitive applications.
+</ul>
+<p> Historically, EROS and KeyKOS have provided orthogonal
+persistence.  While extremely useful for general-purpose computing,
+orthogonal persistence is not consistent with the requirements of
+real-time or QoS scheduling.  To address this, we have reorganized the
+system to allow persistence to be application controlled and/or
+entirely removed from the system feature space.  The resulting system,
+<strong>EROS/Lite</strong>, provides containment, fault isolation, and
+real-time scheduling facilities.  In this paper, we describe the
+design of EROS/Lite, including the separation of function between the
+storage architecture and the real-time service core.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>

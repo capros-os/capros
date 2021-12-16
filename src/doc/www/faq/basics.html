@@ -1,0 +1,567 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+  <head>
+    <title>EROS FAQ: Basic Questions</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <center>
+      <h1>EROS FAQ: Basic Questions About EROS</h1>
+    </center>
+    <p>
+      This document is part of the EROS Frequently Asked Questions
+      list.  To return to the main index, click <a
+      href="faq.html">here</a>.
+    </p>
+    <ol>
+      <li>
+	<p>
+	  <b><a name="whatis-eros">What is EROS?</a></b> 
+	</p>
+	<p>
+	  EROS is a new operating system being implemented at the
+	  University of Pennsylvania.  The system merges some very old
+	  ideas in operating systems with some newer ideas about
+	  performance and resource management.  The result is a small,
+	  secure, real-time operating system that provides orthogonal
+	  persistence.
+	</p>
+	<p>
+	  Some unsual qualities/features of EROS include:
+	</p>
+	<ul type=disc>
+	  <li>
+	    <p>
+	      It is a capability system.  For more information on
+	      capabilities and capability systems, see 
+	      <a href="#whatis-capability">What is a Capability?</a>
+	      and <a
+		href="#whatis-capability-system">What is a Capability
+		System?</a> below.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      It is persistent.  See
+	      <a href="#whatis-capability">What is Persistence?</a>
+	      below.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      It is fast.  Until EROS, fine-grain capability systems
+	      have been too slow to use.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      It is secure.  This is the subject of a whole FAQ
+	      section of its own.  See the <a
+		href="secure.html">EROS Security and Reliability FAQ</a>.
+	    </p>
+	  </li>
+	</ul>
+	<p>
+	  EROS will eventually supply a secure, UNIX-compatible
+	  environement to go along with it's native environment.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="whatis-capability">What is a Capability?</a></b>
+	</p>
+	<p>
+	  A capability names an object and conveys authorities to that
+	  object.  In a capability system, a program must hold a
+	  capability to an object to do anything to it.  There are no
+	  file systems, no notions of ``user identitity,'' and no
+	  other way to access objects.  A detailed introduction to
+	  capabilities, including a comparison to access-list
+	  architectures (UNIX is an access list architecture) can be
+	  found in the essay <a
+	  href="../essays/capintro.html"><em>What is a Capability,
+	  Anyway?</em></a>
+	</p>
+	<p>
+	  Harrison, Ruzzo and Ullman proved in 1976 that access list
+	  systems cannot prevent a program from disclosing information
+	  to anyone in the system.  This means that users cannot trust
+	  programs with sensitive information unless they can inspect
+	  the source code.
+	</p>
+	<p>
+	  Capability systems <em>can</em> prevent such disclosure.
+	  They are therefore the only foundation we know of today on
+	  which systems that handle sensitive information can safely
+	  be constructed.
+	</p>
+	<p>
+	  A few access list system vendors claim that their systems
+	  are secure.  This usually means ``resistant to attack from
+	  outside.''  This makes no guarantees about what will happen
+	  when a user runs a bad program that has been installed on
+	  the system.  Bad programs are very common.  How many of the
+	  millions of lines of code that went into the operating
+	  system and utilities on the system you are running now do
+	  you think were inspected for security flaws?  Never mind the 
+	  operating system.  How about just your copy of Netscape or
+	  Internet Explorer (or whatever browser you are using)?
+	</p>
+	<p>
+	  Both of these browsers have had a number of serious security
+	  flaws in every revision to date.  Active content is making
+	  matters worse.
+	</p>
+	<p>
+	  Active content is making matters worse.  Did you know that
+	  there is a demonstration web page that will shut down your
+	  windows system if you load it into your web browser?  There
+	  is another that will write an electronic check withdrawing
+	  money from your account if you happen to use Quicken.
+	</p>
+	<p>
+	  Such problems can be prevented in capability-based systems.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="whatis-capability-system">What is a Capability
+	      System?</a></b>
+	</p>
+	<p>
+	  A capability system is an operating system or hardware
+	  system in which protection is enforced by capabilities.  See
+	  the <a href="#whatis-capability">What is a Capability?</a>
+	  entry, above.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="whatis-persistence">What is Persistence?</a></b>
+	</p>
+	<p>
+	  Different systems use the word ``persistence'' to mean very
+	  different things.
+	</p>
+	<p>
+	  In EROS, <em>persistence</em> means that the system
+	  periodically saves a copy of everything you are doing.  If
+	  your dog trips and knocks the plug out of the wall (don't
+	  laugh - my dog actually did this to me), EROS will restart
+	  wherever it last saved your work, complete with windows,
+	  applications, and everything you typed.
+	</p>
+	<p>
+	  Typical configurations of EROS save what you are doing every
+	  5 minutes.  In practice, this seems to be often enough to
+	  prevent major losses.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="caps-vs-acls">How are Capabilities Different
+	      From Access Control Lists (ACLs)?</a></b>
+	</p>
+	<p>
+	  This question has two variations:
+	</p>
+	<ul type=disc>
+	  <li>
+	    <p>
+	      How do the two access control mechanisms work? 
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Can't I accomplish everything a capability system can do in
+	      an ACL system?
+	    </p>
+	  </li>
+	</ul>
+	<p>
+	  If you are asking the second question, you want to look at
+	  the answer to <a href="#non-equivalence"><em>Aren't
+	  Capabilities and ACL's Equivalent?</em></a>, below.  You
+	  might also want to look at <a
+	  href="../essays/capintro.html"><em>What is a Capability,
+	  Anyway?</em></a> if you have not already done so.
+	</p>
+	<p>
+	  <img src="./acl.gif" align=right> At the most basic level,
+	  the difference between the two approaches lies in where they
+	  stick access control information.
+	</p>
+	<p>
+	  In an access control list
+	  (ACL) system, every process is assumed to act on behalf of a
+	  particular user, and the <em>user identity</em> of this user
+	  is associated with the process.  Every object has attached
+	  to it a list of access rights for each user.  Access rights
+	  are things like <em>read</em>, <em>write</em>,
+	  <em>execute</em>, and <em>own</em>.  The ``own'' right
+	  allows the user to grant additional authority to any other
+	  user.
+	</p>
+	<p>
+	  To access an object, a typical ACL system requires that the
+	  program perform some operation (e.g. <em>open</em>) to
+	  obtain a descriptor to the object.  In most real ACL
+	  systems, the access list is examined only once at the time
+	  of the open rather than with each operation.  A very few
+	  systems check the access list with each operation.  The
+	  reason that most systems check only at open time is that the
+	  check is expensive and the implementation tricks to make it
+	  efficient are complicated.
+	<p>
+	  <img src="./cap.gif" align=right> A capability system, in
+	  contrast, attaches all the authority to the object
+	  descriptor.  Capabilities (which contain the descriptors)
+	  can be passed directly from one program to another; the
+	  <em>open</em> step is unnecessary.  Since the only way to
+	  name an object (i.e. to say ``I want to manipulate
+	  <em>that</em> thing'') is to hold a capability, the
+	  permissions check becomes very simple. The system already
+	  knows that the user has access to the object because they
+	  hold a capability; all that is needed is to find out if they
+	  have the authority to do the operation they asked for.
+	</p>
+	<ul>
+	    <p>
+	      If you are a UNIX developer, you may be thinking at this
+	      point that capabilities smell a lot like UNIX file
+	      descriptors.  That is pretty much correct, though
+	      capabilities do not have any state equivalent to the
+	      current file offset.  Once you get past the
+	      <em>open</em> call, the UNIX file interface is
+	      essentially a capability interface <em>for reasons of
+	      performance</em>.
+	    </p>
+	</ul>
+      </li>
+      <li>
+	<p>
+	  <b><a name="non-equivalence">Why aren't capabilities and
+	      ACL's equivalent?</a></b>
+	</p>
+	<p>
+	  I recently received email that asked:
+	</p>
+	<ul>
+	    <p>
+	    <em>In "What is" you say that one can't build a capability
+	    system on top of an ACL system.  In practical terms I
+	    certainly agree with you but I wonder if this is true
+	    logically; i.e. if I manufacture enough identities and
+	    enough ACL entries can I not let in the same principals
+	    and keep out the same principals in both cases?</em>
+	    </p>
+	</ul>
+	<p>
+	  The short answer is ``no.''  There are several reasons why:
+	</p>
+	<ol>
+	  <li>
+	    <p>
+	      Most users do not have the authority to create  
+	      new user identities in the system.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Access is dynamic, not static.  Ignoring the
+	      <em>own</em> right (see below), you could conceivably
+	      set up an initial system configuration that granted
+	      <em>read</em>, <em>write</em> and <em>execute</em>
+	      permissions in exactly the same way when the system
+	      first starts running.
+	    </p>
+	    <p>
+	      The minute that a new file is created or a new process
+	      begins running, the parallel construction of access
+	      rights will break down.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      In an access list system, there is no way to grant
+	      object access to exactly one program.
+	    </p>
+	    <p>
+	      <img src="acl-xfer.gif" align=right>
+	      Consider a relatively simple problem of authority
+	      transfer: Process <strong>A</strong> has created a new
+	      object <strong>C</strong>, and wishes to transfer to
+	      <strong>B</strong> <em>and only to B</em> the right to
+	      access <strong>C</strong>.
+	    </p>
+	    <br>
+	    <p>
+	      In an access list system, <strong>C</strong> is owned by 
+	      <strong>userA</strong>, and <strong>B</strong> is
+	      running on behalf of <strong>userB</strong> (user A and
+	      user B might not be the same).  The only way for
+	      <strong>A</strong> to grant access to <strong>B</strong> 
+	      is to add <strong>userB</strong> to the access list for
+	      <strong>C</strong>.
+	    </p>
+	    <p>
+	      The catch is that user A has no way to know what
+	      <em>other</em> programs are running on behalf of user B.
+	      All of these programs will gain access to
+	      <strong>C</strong> when <strong>userB</strong> is added
+	      to the access list for <strong>C</strong>.
+	    </p>
+	    <p>
+	      <em>There is no way to grant object access to a single
+	      program</em> <strong>B</strong> <em>without potentially
+	      granting access to other programs as well.</em>
+	    </p>
+	    <br>
+	    <p>
+	      <img src="cap-xfer.gif" align=right>
+	      In a capability system, the transfer is restricted to
+	      program <strong>B</strong>, because the capability is
+	      transfered only to program <strong>B</strong>.  The
+	      default situation is that other programs <em>do not</em>
+	      gain access to the object.
+	    </p>
+	    <p>
+	      In fact, the problem in capability systems is the other
+	      way around: sometimes you <em>do</em> want lots of
+	      programs to have access to a new object.  The solution,
+	      in short, is to grant all of those programs access to a
+	      common directory object when they are created, and
+	      insert the new object into the directory.  A key point,
+	      however, is that <em>very few programs actually need
+	      this authority</em>.
+	    </p>
+	    <p>
+	      <em>Thanks to Mark Miller for permission to reuse the
+	      picture illustrating the behavior of the capability
+	      system.  The variant for access list systems is my own,
+	      and I'ld welcome suggestions on how to improve it.</em>
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      In an access list system, there is no way to
+	      <em>prevent</em> the owner of an object from granting
+	      rights to an arbitrary user.
+	    </p>
+	    <p>
+	      In the preceding example, we quietly assumed that
+	      <strong>B</strong> was a service operating on behalf of
+	      <strong>A</strong>.
+	    </p>
+	    <p>
+	      Suppose instead that <strong>A</strong> is a service
+	      operating on behalf of some program <strong>D</strong>
+	      (not shown).  <strong>D</strong> is the creator of
+	      <strong>C</strong>, and has given <strong>A</strong>
+	      access to <strong>C</strong>.  In the new scenario, we
+	      are trying to <em>prevent</em> <strong>A</strong> from
+	      passing this access to <strong>B</strong>.
+	    </p>
+	    <br>
+	    <p>
+	      In an access list system, this cannot be prevented.
+	      <strong>A</strong> is free to create some new object or
+	      interprocess communication channel and grant
+	      <strong>B</strong> access to it.  <strong>B</strong> can
+	      then use this channel to tell <strong>A</strong> what it
+	      wishes to know.  <strong>A</strong> performs the
+	      required operations on <strong>C</strong> and transmits
+	      the answers to <strong>B</strong>.
+	    </p>
+	    <p>
+	      There are some people who think that restricting the
+	      system calls <strong>A</strong> can perform will somehow
+	      help.  This is not so:
+	    </p>
+	    <ul type=disc>
+	      <li>
+		<p>
+		  We could prevent <strong>A</strong> from creating
+		  new objects, but it works equally well for
+		  <strong>B</strong> to create the object.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  We could prevent <strong>A</strong> from opening or
+		  reading or writing objects (or some combination of
+		  these), but then <strong>A</strong> could not gain
+		  access to <strong>C</strong>, which we intend for it
+		  to have.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  We might add the program code for
+		  <strong>A</strong> to the access list and treat program 
+		  <strong>A</strong> as though it were a user.
+		  This strategy is used by Microsoft's
+		  <em>Authenticode</em> technology.
+		</p>
+		<p>
+		  This approach is easily defeated by a debugger.
+		  We create a new copy of <strong>A</strong>, cause it 
+		  (by means of the debugger) to open
+		  <strong>C</strong>, and then replace the program
+		  image with anything we desire.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      Fundamentally, what is needed to solve this problem is
+	      object-oriented protection, which is exactly what
+	      capabilities provide.
+	    </p>
+	    <br>
+	    <p>
+	      In a capability system, anyone holding a capability can
+	      transfer the rights it conveys, but <em>only</em> if
+	      they have the authority to communicate with the
+	      recipient.  Note that if they have this authority they
+	      are already in a position to provide proxy service, so
+	      prohibiting the transfer is pointless.
+	    </p>
+	    <p>
+	      In our scenario, <strong>A</strong> can only transmit
+	      capabilities to <strong>B</strong> <em>only</em> if
+	      <strong>A</strong> holds a capability to
+	      <strong>B</strong>.  The solution, then, is to properly
+	      restrict the initial capabilities held by
+	      <strong>A</strong>.  This is the service performed by
+	      the EROS constructor.
+	    </p>
+	    <p>
+	      <strong>A</strong> might still create <em>new</em>
+	      objects and give them the <strong>C</strong> capability,
+	      but this cannot be used to cause access to
+	      <strong>C</strong> to leak.  Just as <strong>A</strong>
+	      cannot transfer the <strong>C</strong> capability, it
+	      cannot transfer any of the capabilities to these new
+	      objects to <strong>B</strong>.
+	    </p>
+	    <p>
+	      As an aside, note that this restriction is not possible
+	      in a ``password capability'' system, because there is no
+	      way to determine what capabilities <strong>A</strong>
+	      initially holds.
+	    </p>
+	  </li>
+	</ol>
+      </li>
+      <li>
+	<p>
+	  <b><a name="practical-example">Why does the difference
+	  between capabilities and ACLs matter?  Give an
+	  example.</a></b>
+	</p>
+	<p>
+	  Here are some examples that may illustrate the differences:
+	</p>
+	<ol>
+	  <li> 
+	    <p>
+	      Capability systems have no notion of <em>user</em>.  The
+	      permissions system is therefore less complicated and
+	      more flexible.
+	    </p>
+	    <p>
+	      A new service application can define its
+	      own notion of authentication and identity without
+	      needing to have access to a system password database
+	      <em>and without compromising the rest of the
+	      machine</em>.
+	    </p>
+	    <p>
+	      A program running on behalf of a service-specific
+	      ``user'' will have only that authority that the service
+	      grants it.  It does not run with the authority of the
+	      server process simply because the server happened to
+	      have a particular user identity.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Capability systems have no equivalent to the UNIX
+	      <em>root</em> user or the Windows <em>sysadmin</em> user
+	      identity. There is no user who has total authority.
+	    </p>
+	    <p>
+	      When a trusted service (say, the email processing
+	      server) is compromised in an access list system, the end
+	      result is that an unauthorized outsider gets the
+	      authority to do anything that the service can do.  Even
+	      if care has been taken not to run those programs with
+	      special authority, it is common for users to leave
+	      certain files and directories publicly writable, and
+	      those files and directories can be compromised.
+	    </p>
+	    <p>
+	      With things like email becoming active (i.e. reading the
+	      email message causes a program to run), the mail agent
+	      need only compromise the user's mail file to compromise
+	      the user on an ACL system.  When the user later goes to
+	      read their mail, the mail reader will start up the
+	      program described in the email, and <em>that program
+	      will run with the full authority of the user reading the
+	      mail.</em>
+	    </p>
+	    <p>
+	      In a capability system, both effects are contained.  The
+	      user (or the administrator) can define a restricted
+	      environment that mail programs run within, and can
+	      thereby prevent such damage from occurring.  The mail
+	      transfer agent, for its part, runs with no special
+	      authority.  It has access to the user's mail files, and
+	      these can be compromised, but it does <em>not</em> have
+	      access to anything else.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Capability systems have no notion of <em>user</em>.  
+	    </p>
+	    <p>
+	      In a capability design, it is not possible for a
+	      capability-protected program to open up your electronic
+	      check processing file and post a new check made out to
+	      the program author <em>unless you permit it</em> by
+	      granting access to the object holding the check records.
+	    </p>
+	    <p>
+	      There is an ActiveX component running around out there
+	      that will do this to you if you happen to be a Quicken
+	      user.  There are holes in all current Java
+	      implementations that would permit a suitably crafted
+	      Java applet to do the same thing.
+	    </p>
+	    <p>
+	      Please scrutinize the check ledger carefully before
+	      letting any electronic payment orders get off your
+	      machine.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Capability systems have no equivalent to the
+	      <em>own</em> right.
+	    </p>
+	    <p>
+	      A restricted program therefore cannot overcome its
+	      restriction by granting access to an unrestricted program.
+	    </p>
+	  </li>
+	</ol>
+      </li>
+    </ol> 
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,7 +1,9 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2005-2010, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,13 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
 
-# Cancel the old suffix list, because the order matters.  We want assembly 
-# source to be recognized in preference to ordinary source code, so the
-# .S, .s cases must come ahead of the rest.
-.SUFFIXES:
-.SUFFIXES: .S .s .cxx .c .y .l .o .dvi .ltx .gif .fig .xml .html .pdf
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 # Some shells do not export this variable. It is used in the package
 # generation rule and in the discovery of EROS_ROOT.
@@ -49,18 +48,52 @@ EROS_ROOT=$(firstword $(subst /eros/$(EROS_SRCDIR), ,$(PWD)))/eros
 
 endif
 
+GOOD_TARGET=0
 ifndef EROS_TARGET
 EROS_TARGET=i486
 endif
-
-ifndef EROS_ROOT
+ifeq ($(EROS_TARGET),i486)
+GOOD_TARGET=1
 endif
+ifeq ($(EROS_TARGET),arm)
+GOOD_TARGET=1
+ifndef CAPROS_MACH
+CAPROS_MACH=edb9315
+endif
+endif
+ifneq ($(GOOD_TARGET),1)
+$(error "arm" and "i486" are the only supported values of EROS_TARGET)
+endif
+
+ifndef CAPROS_MACH
+CAPROS_MACH=generic
+endif
+
+# Sometimes we want i486 (for compatibility with EROS stuff),
+# sometimes i386 (for compatibility with Linux)
+# FIXME: Should be using ARCH_LIST to get the Linux names.
+ifeq "$(EROS_TARGET)" "i486"
+LINUX_TARGET=i386
+# LINUX2624_TARGET is the architecture name as of linux 2.6.24
+LINUX2624_TARGET=x86
+else
+LINUX_TARGET=$(EROS_TARGET)
+LINUX2624_TARGET=$(EROS_TARGET)
+ifeq "$(EROS_TARGET)" "arm"
+# For now, only ep93xx is supported.
+LINUX_MACH=ep93xx
+endif
+endif
+
 ifndef EROS_XENV
-EROS_XENV=$(HOME)/eros-xenv
+EROS_XENV=/capros/host
 endif
 ifndef EROS_CONFIG
 EROS_CONFIG=DEFAULT
 endif
+
+IDL_DIR=$(EROS_ROOT)/idl
+CAPROS_DOMAIN=$(EROS_ROOT)/lib/$(TARGETMACH)
 
 VMWARE=$(EROS_ROOT)/src/build/bin/vmdbg
 export EROS_ROOT
@@ -70,6 +103,7 @@ export EROS_CONFIG
 
 INSTALL=$(EROS_SRC)/build/bin/erosinstall
 REPLACE=$(EROS_SRC)/build/bin/move-if-change
+MKIMAGE=$(EROS_ROOT)/host/bin/$(EROS_TARGET)-mkimage
 MKIMAGEDEP=$(EROS_SRC)/build/bin/mkimagedep
 
 #
@@ -92,7 +126,7 @@ NATIVE_RANLIB=ranlib
 
 NATIVE_GCC=gcc
 ifndef GCCWARN
-MOPSWARN=-Wall -Winline -Wno-format -Wno-char-subscripts
+MOPSWARN=-Wall -Wno-format -Wno-char-subscripts
 GCCWARN=$(MOPSWARN) -Werror
 endif
 
@@ -122,6 +156,9 @@ HOST_FD=/dev/fd0H1440
 
 ###############################################################
 #
+# EROS_HD is the disk device that will have a CapROS system
+# written to it.
+#
 # DANGER, WILL ROBINSON!!!!
 #
 # The EROS_HD environment variable is defined to something
@@ -130,8 +167,8 @@ HOST_FD=/dev/fd0H1440
 # by setting a default.
 #
 # It is intended that the intrepid UNIX-based developer should
-# pick a hard disk partition, set that up with lilo or some
-# such, make it mode 666 from their UNIX environment, and
+# pick a hard disk partition, set that up with GRUB,
+# make it mode 666 from their UNIX environment, and
 # then set EROS_HD to name that partition device file.  This
 # is how *I* work, but you do this at your own risk!!
 #
@@ -141,6 +178,8 @@ EROS_HD=/dev/null
 endif
 
 CAPIDL=$(EROS_SRC)/build/bin/capidl
+#HTMLCAPIDL = $(EROS_SRC)/build/bin/coyotos-capidl
+#HTMLCAPIDL = /home/clandau/coyotos/src/ccs/capidl/BUILD/capidl
 
 #
 # This is where the target environment makefile gets a chance to override
@@ -175,7 +214,20 @@ ifndef EROS_FD
 EROS_FD=$(HOST_FD)
 endif
 
-#
+# strict aliasing breaks code in sys/key/pk_ProcessKey.c.
+EROS_GCC_OPTIM+= -O2 -fno-strict-aliasing
+
+ifeq "$(EROS_CONFIG)" "NDEBUG"
+### May want this for debugging under NDEBUG:
+# ifeq "$(EROS_TARGET)" "arm"
+# EROS_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
+# endif
+else
+ifeq "$(EROS_TARGET)" "arm"
+EROS_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
+endif
+endif
+
 # Now for the REALLY SLEAZY part: if this makefile is performing a
 # cross build, smash the native tool variables with the cross tool 
 # variables.  The clean thing to do would be to separate the rules 
@@ -215,24 +267,73 @@ EROS_CPP=$(EROS_XENV)/bin/cpp -nostdinc -D$(EROS_TARGET)
 endif
 
 
-DOMLIB= $(EROS_ROOT)/lib/libdomain.a
-DOMLIB += $(EROS_ROOT)/lib/libidlstub.a
-DOMLIB += $(EROS_ROOT)/lib/libdomgcc.a
-DOMLIB += $(EROS_ROOT)/lib/libc.a
+# Libraries for make dependencies.
+LIBDEP=$(CAPROS_DOMAIN)/libc-capros.a
+LIBDEP+=$(CAPROS_DOMAIN)/libcapros-large.a
+LIBDEP+=$(CAPROS_DOMAIN)/libcapros-small.a
 
-ifeq "$(EROS_HOSTENV)" "linux-xenv-gcc3"
-#DOMCRT0=$(EROS_ROOT)/lib/gcc-lib/$(EROS_TARGET)-unknown-eros/3.3/crt1.o
-#DOMCRTN=$(EROS_ROOT)/lib/gcc-lib/$(EROS_TARGET)-unknown-eros/3.3/crtn.o
-DOMLINKOPT=-N -static -Ttext 0x0 -L$(EROS_ROOT)/lib
-DOMLINK=$(GCC)
-else
-DOMCRT0=$(EROS_ROOT)/lib/crt0.o
-DOMCRTN=$(EROS_ROOT)/lib/crtn.o
-DOMLINKOPT=-N -Ttext 0x0 -nostdlib -static -e _start -L$(EROS_ROOT)/lib -L$(EROS_ROOT)/lib/$(EROS_TARGET)
-DOMLINK=$(EROS_LD)
+# DOMCRT0 is obsolete, but still appears in some make dependency lists.
+DOMCRT0=
+
+# DOMBASE could be zero, but this value helps catch use of NULL pointers
+# by both user code and kernel code.
+DOMBASE=0x1000
+
+LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(CAPROS_DOMAIN) -e _start #-Wl,--verbose -v
+
+CROSSLINK=$(EROS_GCC) $(LINKOPT) #-v
+
+# Libraries given at the end of the link command:
+CROSSLIBS=
+
+# Workarounds:
+CROSSLIBS+=$(CAPROS_DOMAIN)/libworkaround.a
+
+LIBDEP+=$(CROSSLIBS)
+DOMLIB=$(LIBDEP)	# an older name
+
+LINUXINC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)
+ifdef LINUX_MACH
+# and for <mach/*.h>:
+LINUXINC+= -I$(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/$(LINUX_MACH)
 endif
 
-DOMLIB += $(DOMCRTN)
+DRIVERINC=$(LINUXINC) -I$(EROS_ROOT)/host/include # for disk/NPODescr.h
+DRIVERINC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
+
+CMMEOBJS= # $(CAPROS_DOMAIN)/cmmestart.o # no such file yet
+# Put the read/write section at 0x00c00000:
+CMMELINKOPT=$(LINKOPT) -Wl,--section-start,.eh_frame=0x00c00000
+CMMELINK=$(EROS_GCC) $(CMMELINKOPT) $(CMMEOBJS)
+# libs given at the end of the link command:
+CMMELIBS=$(CAPROS_DOMAIN)/libcmme.a $(CROSSLIBS)
+CMMEDEPS=$(CMMEOBJS) $(CMMELIBS) $(LIBDEP)
+
+CMTEOBJS=$(CMMEOBJS) $(CAPROS_DOMAIN)/cmtestart.o
+CMTELINK=$(EROS_GCC) $(CMMELINKOPT) $(CMTEOBJS)
+# libs given at the end of the link command:
+CMTELIBS=$(CAPROS_DOMAIN)/libcmte.a $(CMMELIBS)
+CMTEDEPS=$(CMTEOBJS) $(CMTELIBS) $(LIBDEP)
+
+DRVOBJS=$(CMTEOBJS) $(CAPROS_DOMAIN)/dstart.o
+DRIVERLINK=$(EROS_GCC) $(CMMELINKOPT) $(DRVOBJS)
+LINUXLIB=$(CAPROS_DOMAIN)/liblinuxk.a
+DRIVERLIBS=$(LINUXLIB) $(CMTELIBS)
+DRIVERDEPS=$(DRVOBJS) $(DRIVERLIBS) $(LIBDEP)
+
+DYNCMMEOBJS=$(CAPROS_DOMAIN)/dyncmmestart.o
+DYNCMMELINK=$(EROS_GCC) $(CMMELINKOPT) $(DYNCMMEOBJS)
+DYNCMMEDEPS=$(DYNCMMEOBJS) $(CMMELIBS) $(LIBDEP)
+
+DYNCMTEOBJS=$(DYNCMMEOBJS) $(CAPROS_DOMAIN)/dyncmtestart.o
+DYNCMTELINK=$(EROS_GCC) $(CMMELINKOPT) $(DYNCMTEOBJS)
+DYNCMTEDEPS=$(DYNCMTEOBJS) $(CMTELIBS) $(LIBDEP)
+
+DYNDRVOBJS=$(DYNCMTEOBJS) $(CAPROS_DOMAIN)/dyndriverstart.o
+DYNDRIVERLINK=$(EROS_GCC) $(CMMELINKOPT) $(DYNDRVOBJS)
+DYNDRIVERDEPS=$(DYNDRVOBJS) $(DRIVERLIBS) $(LIBDEP)
+
+SMALL_SPACE=-small-space
 
 
 # Really ugly GNU Makeism to extract the name of the current package by
@@ -242,8 +343,7 @@ DOMLIB += $(DOMCRTN)
 # empty, so the appropriate word is the second one.
 PACKAGE=$(word 1, $(strip $(subst /, ,$(subst $(EROS_ROOT)/src/,,$(PWD)))))
 
-PKG_ROOT=$(EROS_ROOT)/pkg/${PACKAGE}
-PKG_SRC=$(EROS_ROOT)/$(EROS_SRCDIR)/${PACKAGE}
+TARGETMACH=$(EROS_TARGET)-$(CAPROS_MACH)
 
 # Until proven otherwise...
 IMGMAP=imgmap
@@ -260,27 +360,27 @@ endif
 ifeq "$(PACKAGE)" "legal"
 BUILDDIR=.
 endif
-ifeq "$(PACKAGE)" "build"
-BUILDDIR=.
-endif
 ifeq "$(BUILDDIR)" ""
-BUILDDIR=BUILD/$(EROS_TARGET)
+BUILDDIR=BUILD/$(TARGETMACH)
 endif
 endif
+
+# This is the first, and therefore default, target,
+# unless the Makefile that includes this file defines a default target first.
+local:
+	$(MAKE) $(MAKERULES) interfaces
+	$(MAKE) $(MAKERULES) libs
+	$(MAKE) $(MAKERULES) install
 
 showme:
 	@echo "EROS_ROOT: " $(EROS_ROOT)
 	@echo "EROS_SRCDIR: " $(EROS_SRCDIR)
-	@echo "PKG_ROOT:" $(PKG_ROOT)
-	@echo "PKG_SRC:" $(PKG_SRC)
+	@echo "EROS_XENV: " $(EROS_XENV)
+	@echo "EROS_TARGET: " $(EROS_TARGET)
+	@echo "EROS_CONFIG: " $(EROS_CONFIG)
+	@echo "CAPROS_MACH: " $(CAPROS_MACH)
+	@echo "CAPROS_LOCALDIR: " $(CAPROS_LOCALDIR)
+	@echo "CAPROS_BOOT_PARTITION: " $(CAPROS_BOOT_PARTITION)
 	@echo "BUILDDIR:" $(BUILDDIR)
-
-#root:
-#	@echo $(PWD)
-#	@echo $(firstword $(subst /eros/src, ,$(PWD)))
-#	@echo $(patsubst eros/src%,eros/src,$(PWD))
-#	@echo $(patsubst eros/src,eros,$(patsubst eros/src/%,eros/src,$(PWD)))
-#	@echo $(EROS_ROOT)
-
 
 MAKEVARS_LOADED=1

@@ -1,0 +1,177 @@
+<html>
+<title>Keys, Pages, and Nodes</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> Nearly everything in the EROS system is constructed out of pages
+and nodes.  Because of this, we refer to pages and nodes as
+<em>primary objects</em>.  EROS uses the majority of the system's
+physical memory as a <em>cache</em> of primary objects, and this
+chapter describes how that cache is managed.  The chapter covers:
+<p>
+<ul>
+  <p>
+  <li> The structure of object keys, and what makes a key valid.
+       <p>
+  <li> What primary objects look like -- both in memory and on the
+       disk,
+       <p>
+  <li> The data structures that support the primary object cache,
+       <p>
+  <li> Locating primary objects in the memory cache,
+       <p>
+  <li> How primary objects are loaded into memory,
+       <p>
+  <li> How primary objects are removed from memory,
+       <p>
+  <li> How object authority is rescinded.
+</ul>
+<p> In addition to describing the object management mechanisms, this
+chapter covers many of the important correctness constraints of the
+EROS kernel.
+<h1>1 Keys</h1>
+<p> The most important data structure in EROS is the Key.  Keys come
+in several varieties:
+<p>
+<ul>
+  <p>
+  <li> <em>Object keys</em> name things that are built out of pages
+       and nodes.
+       <p>
+  <li> <em>Device keys</em> grant access to individual hardware
+       devices.
+       <p>
+  <li> <em>Number keys</em> implement 80-bit numbers.
+       <p>
+  <li> <em>Miscellaneous keys</em> provide access to
+       kernel-implemented objects and services.
+</ul>
+<p> All keys are the same size.  In the current implementation, the
+EROS key format occupies 12 bytes, which allows the system to provide
+up to 2<sup>48</sup> distinct pages and 2<sup>48</sup> distinct nodes.  The
+current design can therefore manage up to 1,073,741,824
+<em>giga</em>bytes of user data.  That number deserves some
+perspective.  If you were to take every disk drive ever manufactured
+since the start of the computer industry and hook them all to a single
+EROS system, you'ld still have plenty of room for more.  On the other
+hand, we may well need a larger key format within the next decade.
+<p> In this chapter we will be primarily concerned with object keys.
+The structure of an on-disk object key is shown in
+Figure 21.1.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- DiskObKey.eps -->
+  <p> Figure 21.1: Unprepared object key structure
+</ul>
+<p> The details of most of the fields will be explored as we proceed
+through this chapter.  Interpretation of the <em>authority</em> field
+depends on the type of the key, so this field is described in the
+discussion of individual key types.
+<p> In order for an object to be manipulated, the user must first hold
+a key to that object.  Though a number of optimizations are performed
+by the kernel, all object accesses conceptually occur by invoking some
+key.  Before an object key can be invoked, it must first be
+<em>prepared</em>.  Preparing an object key involves the following
+steps:
+<p>
+<ol>
+  <p>
+  <li> The memory cache is checked to see if the object is present in
+       memory.  If it is not, an I/O operation is started to bring the
+       object in from the disk.  Once the I/O is completed, the
+       process will restart the operation, which will cause us to try
+       and prepare the key again.
+       <p>
+  <li> The allocation count of the key is examined to determine if
+       this is a valid key.  If not, that is the end of the matter.
+       Invoking an invalid key causes the invoking domain to block.
+       <p>
+  <li> If the key is valid, and the object is in memory, it is
+       converted into an optimized, in-memory form.
+       <p>
+  <li> The key is marked as prepared by setting the 'P' bit to 1.
+</ol>
+<p> If a key has been successfully prepared, the associated object is
+known to be in memory.  The object will remain in memory as long as
+there exists a prepared key for it.
+<p> The important part of the prepartion process is that it converts
+the key into in-memory form, as shown in Figure 21.2.
+The in-memory format contains a pointer to the in-memory location of
+the object, making repeated searches unnecessary.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- MemObKey.eps -->
+  <p> Figure 21.2: Prepared object key structure
+</ul>
+<h2>1.1 Locating Objects on the Disk</h2>
+<p> The CDA field of the key gives the <em>coded disk address</em> of
+the object named by the key.  A CDA is simply a 48-bit number that
+uniquely identifies the object.  EROS disks are divided into
+contiguous divisions, each of which holds some range of nodes or
+pages.  When the system first starts up, it examines all of the
+attached disk drives to learn what disk divisions are present.  Each
+division has an associated type (node or page), a starting CDA and
+some number of objects.  Objects within a division are numbered
+sequentially beginning with the starting CDA.
+<p> As EROS first examines the disks, it constructs an in-memory
+table.  For each division that is present, EROS remembers the type of
+the division, the disk on which it appears, the area of the disk that
+the division occupies, and the range of CDAs that the division
+contains.  When EROS needs to locate an object on the disk, it first
+uses this table to determine which disk contains the object, and then
+performs some trivial arithmetic to compute where on the disk the
+object resides.
+<h2>1.2 Locating Objects In Memory</h2>
+<p> As execution proceeds, objects are loaded into main memory.  Every
+object cached in memory has an associated object header.  For nodes,
+this header is directly attached to the object.  For pages, the header
+is kept in a parallel structure called the <strong>core table</strong>.  The
+object header for an in-memory object contains:
+<p>
+<ul>
+  <p>
+  <li> The coded disk address of the object.
+       <p>
+  <li> A pointer to the next object in the CDA hash chain.
+       <p>
+  <li> The number of prepared keys that reference this object.
+       <p>
+  <li> The object's disk allocation count.
+       <p>
+  <li> The object's core allocation count.
+       <p>
+  <li> The current interpretation of the object.  Nodes, for example,
+       can be viewed as nodes or segments.
+       <p>
+  <li> The age of the object, which describes how long the object has
+       been in memory.
+       <p>
+  <li> The number of pending I/O operations that are in progress on
+       this object.  If an I/O operation is in progress, this field
+       will be nonzero.
+       <p>
+  <li> A pointer to the next object.  Objects can be on a number of
+       different singly linked lists, but are never on more than one
+       of these lists at a time.  The next object pointer is used for
+       all of these lists.
+       <p>
+  <li> A pointer to related data structures.
+       <p>
+  <li> A flags byte.
+</ul>
+<p> The header for an in-memory object is placed in a hash table on
+the basis of it's CDA.  When a key needs to be prepared, the CDA is
+used to search the hash chain for the associated object.  If the
+object
+<h2>1.3 Allocation Counts</h2>
+<p> Every object on the disk has an associated <em>allocation
+count</em>.  If the allocation count of the object and the allocation
+count of the key do not match, the key is invalid, and conveys no
+authority over any object.
+<p>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

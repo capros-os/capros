@@ -1,0 +1,46 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#include <drivers/pci/pci_probe.map>
+#include <memmap.map>
+
+MAKE_VIRTUAL_COPIER(helper_vcsk,LIBDIR "drivers/network/helper");
+BOOT_CONSTRUCTOR(helper_c,helper);
+PROD_SPACE(helper_c) = helper_vcsk_c;
+PROD_PC(helper_c) = symbol LIBDIR "drivers/network/helper" _start;
+PROD_CONSTIT(helper_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(helper_c, KC_DEVPRIVS, 6) = misc DevicePrivs;
+
+MAKE_VIRTUAL_COPIER(lance_vcsk,LIBDIR "drivers/network/lance");
+BOOT_CONSTRUCTOR(lance_c,lance);
+PROD_SPACE(lance_c) = lance_vcsk_c;
+PROD_PC(lance_c) = symbol LIBDIR "drivers/network/lance" _start;
+PROD_CONSTIT(lance_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(lance_c, KC_PCI_PROBE_C, 4) = pci_probe_c;
+PROD_CONSTIT(lance_c,KC_DEVPRIVS,6) = misc DevicePrivs;
+PROD_CONSTIT(lance_c,KC_PHYSRANGE,7) = physmem range;
+PROD_CONSTIT(lance_c,KC_MEMMAP_C,8) = memmap_c;
+PROD_CONSTIT(lance_c,KC_HELPER_C,9) = helper_c;
+PROD_CONSTIT(lance_c,KC_SLEEP,10) = misc Sleep;
+
+hide helper_c; /* All r helpers r belong to us */

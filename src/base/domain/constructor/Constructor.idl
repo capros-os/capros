@@ -1,0 +1,28 @@
+package capros;
+
+interface Constructor extends key 
+{
+  key request(SpaceBank bank, key sched, key arg);	// for compatibility
+  unsigned long isDiscreet();
+
+  /* Seal the Constructor.
+  Raises key.RequestError if no address space has been inserted. */
+  key seal();
+  void insertConstituent(unsigned short num, key k);
+
+  /* Define the address space and initial program counter
+  for the constructor's products. */
+  void insertAddrSpace32(key space, unsigned long pc);
+
+  /* Define the address space and initial program counter
+  for the constructor's products.
+  When a product is built, spaceConstructor will be called to
+  produce the address space. spaceConstructor is usually a VCS constructor. */
+  void insertVCSAddrSpace32(key spaceConstructor, unsigned long pc);
+  void insertSymtab(key sym);
+  void insertKeeper(key keeper);
+};
+
+interface ConstructorRequestor extends key {
+  /* Individual constructors will inherit from this. */
+};

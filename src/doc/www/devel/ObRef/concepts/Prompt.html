@@ -1,0 +1,42 @@
+<html>
+<head>
+<title>EOR: Promptness</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Concepts.html">Concepts</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Concepts</H2>
+  </div>
+  <h2>Promptness</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> Several aspects of the EROS design rest on the notion that an
+  operation is <strong>prompt</strong>.  We say that an operation is
+  prompt if its execution time is entirely under the control of the
+  kernel.  Examples of prompt operations include:
+  <ul>
+    <li> All invocations of kernel objects.
+	 <p> 
+    <li> Operations on primary objects that do not result in keeper
+	 invocations (page faults are considered prompt).  While the
+	 kernel cannot guarantee that these operations are prompt, a
+	 user who knows by design that the invocations will not cause
+	 a keeper invocation may rely on their promptness.
+	 <p>
+  </ul>
+  <p> Process invocations are not prompt.  Invocations on device keys
+  may or may not be prompt.
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,576 @@
+<html>
+  <head>
+    <title>Issues in Persistence</title>
+    <meta name=linknotify content=all>
+    <meta name=author content="Jonathan Shapiro">
+    <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+  </head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <h1>Issues in Persistence</h1>
+  <table width=80%>
+    <tr>
+      <td>
+	<p>
+	<center><em>Overview</em></center>
+	</p>
+	<p>
+	This note describes why EROS uses transparent checkpointing as
+	its basic approach to persistence, and what issues are raised
+	by this choice.  It also discusses some of the implications of
+	this choice for the structure of the operating system, which
+	may be helpful to people contemplating persistence designs for
+	other systems.
+	</p>
+      </td>
+    </tr>
+  </table>
+</center>
+<h2>1 Introduction</h2>
+<p>
+General purpose operating systems need to provide a way to write
+things down in permanent fashion.  Any information you can store away
+and get back after turning the machine off is said to be
+<em>persistent</em>.
+</p>
+<h3>1.1 Kinds of Persistence</h3>
+<p>
+Historically, persistence has been implemented in two ways: explicit
+and transparent.  In an explicit system, a program must request that
+the operating system write things down by issuing a <tt>write()</tt>
+call.  Windows, UNIX, VMS, etc. are all explicit persistence systems.
+In order to have something last when the system is shut down it must
+be written to an on-disk file.  
+<p>
+If you accidentally kick the plug out of the wall, the system must do
+some recovery work when it restarts to clean up damage to the file
+system.  In UNIX, this is done automatically by the <tt>fsck</tt>
+utility.  In Windows, the user has to run <tt>checkdisk</tt>
+periodically.  Users typically do not know this, which helps make
+Windows systems less reliable.
+</p>
+<p>
+In an implicit system, things get written down without any special
+action on the part of the program.  One example of such a system was
+the early Lisp machines.  In these machines, the operating system
+would periodically write down the entire state of the system:
+processes, data, video buffer, <em>everything</em>.  If you
+accidentally kick the plug out of the wall, the system returns to
+whatever state was last written down.  To the program, no interruption
+is ever visible.
+</p>
+<p>
+The catch in an implicit system is that <em>everything</em> gets
+written down.  Doing this efficiently is tricky -- before <a
+href="http://www.cis.upenn.edu/~KeyKOS">KeyKOS</a>, nobody really knew
+how.  For some special-purpose applications, transparent persistence
+isn't what you want. To ensure security, network connections must
+evaporate when the system restarts.  Databases require a means to
+write things down explicitly in order to support transactions.
+</p>
+<p>
+The general questions about the two approaches are:
+</p>
+<ul>
+  <li>
+       <p>
+       Which approach is more efficient?
+       </p>
+  </li>
+  <li>
+       <p>
+       which approach places the smallest programming burden on
+       applications?
+       </p>
+  </li>
+</ul>
+<p>
+In the context of capability systems, we should also ask:
+</p>
+<ul>
+  <li>
+       <p>
+       Is one approach more appropriate for a capability system than
+       the other.
+       </p>
+  </li>
+</ul>
+<p>
+I'll quickly address these questions and turn to how persistence works
+in EROS.
+<h3>1.2 Performance</h3>
+The performance issues can be broken down into two kinds:
+<ul>
+  <li>
+       <p>
+       Recovery time
+       </p>
+  </li>
+  <li>
+       <p>
+       Runtime performance
+       </p>
+  </li>
+</ul>
+<h4>1.2.1 Recovery Time</h4>
+<p>
+An explicit persistence system is usually in the middle of an update
+when the system fails.  As a result, the file system must be sanitized
+when the system restarts.  Current file system implementations can
+take 30 minutes or more to recover on a large server after a crash.
+Until the file system is consistent, the system cannot let you run
+programs.
+</p>
+<p>
+While log-structured file system designs can recover more quickly,
+measurements by Ousterhout and <a
+href="http://www.eecs.harvard.edu/~margo/usenix.195/">Seltzer</a> have
+shown that these designs don't work well under heavy load.
+</p>
+<p>
+There are actually two approaches to implicit persistence: per-process
+and transparent.  In the per-process approach, each process is saved
+separately and is responsible for re-establishing consistency with its
+neighbors.  In the transparent approach, the entire machine is saved
+at once so there is no need for different processes to sort out
+consistency between themselves.
+</p>
+<p>
+Both approaches must use a transacted log to be recoverable.  In EROS,
+the logging approach is different from what has been tried by
+Ousterhout, Seltzer, et. al, and is quite fast.  The end result is
+that EROS recovers in about 30 seconds regardless of how many disks
+are attached to the machine.
+</p>
+<h4>1.2.2 Runtime Performance</h4>
+<p>
+Some people argue that explicit persistence should be more efficient,
+because you only write down what you need to.  Transparent persistence
+is forced to write down things like temporary program state (the heap
+and the stack) that may not actually be needed.  This involves extra
+work.
+</p>
+<p>
+The data suggests that EROS does a good bit better than conventional
+designs on comparable hardware, but it is hard to make any principled
+claim about why this is.  Here are some of the issues:
+<ol>
+  <li>
+       <p>
+       An append to a file must update both the content of the file
+       and the file's metadata (which describes where on the disk the
+       content is found).  Since the majority of files are written
+       sequentially, most writes are appends, and therefore carry a
+       hidden extra write to update the metadata.  Measurements of
+       Linux show that about 40% of all writes are metadata
+       writes.  This means that the system is doing almost twice as
+       many writes as you think it is doing.
+       </p>
+  </li>
+  <li>
+       <p>
+       For reasons of recovery, metadata and file content are usually
+       segregated on the disk.  This means that the metadata write is
+       always preceded by a seek.  This in turn means that if the disk
+       is not carefully organized, sequential appending writes to a
+       file will have an intervening seek, even if the content data
+       ends up in sequential locations on the disk.
+       <p>
+       The important point here is that the requirements imposed by
+       the recovery (<tt>fsck</tt>) strategy are forcing extra writes
+       to occur just where you don't want them.  Each metadata update
+       is effectively a micro-transaction in the middle of the file
+       update.
+       </p>
+  </li>
+  <li>
+       <p>
+       A transparently persistent system, in contrast, writes down a
+       whole boat-load of stuff (everything on the machine) at once.
+       It is able to plan this I/O to sequential locations on the
+       disk, and does only one meta-update (updating the snapshot log)
+       for each bulk I/O.  The first catch is that it probably writes
+       down 20% more stuff than it really needs to.  The second catch
+       is that it must then copy all that gunk from the log to where
+       it really belongs (the ``home locations'')
+       </p>
+       <p>
+       This is less damaging than it might appear, for several
+       reasons:
+       </p>
+       <ul>
+	 <li>
+	      <p>
+	      The bulk writes are sequential.  The true source of
+	      delay in writes is not how many writes you do, but how
+	      many <em>seeks</em> are necessary to do them.  Writing
+	      twice as much data without a seek is relatively cheap.
+	      </p>
+	 </li>
+	 <li>
+	      <p>
+	      Most of the copies from the log to home location do not
+	      occur.  Before they can happen, the object in question
+	      gets modified again.  This means that it will be written
+	      down in the <em>next</em> checkpoint, at which time the
+	      version in the <em>current</em> checkpoint will become
+	      obsolete.  Either the next checkpoint will occur
+	      successfully or we will crash and recover from the
+	      current checkpoint.  In either case there is no need to
+	      migrate the data.
+	      </p>
+	 </li>
+	 <li>
+	      <p>
+	      Data that <em>does</em> migrate can often be migrated
+	      from memory (eliminating the need to read it back from
+	      the log), and can often be migrated in bulk (again
+	      eliminating many seeks).
+	      </p>
+	 </li>
+       </ul>
+       <p>
+       While it's pretty easy to measure these things, it is <em>not</em>
+       easy to predict their impact on a particular application.  The
+       leverage lies not in any one difference, but in the synergies between
+       them.
+       </p>
+  </li>
+</ol>
+<p>
+EROS, which is transparently persistent, is able to fully utilize 100%
+of the available sustained disk write bandwidth on a sustained basis.
+UNIX, which is explicitly persistent, can only sustain about 20%
+throughput.  Windows does much worse.  By ``sustain,'' I mean for a
+long series of I/O's.  It's easy to get good disk performance for a
+single write.  Doing it for a hundred writes is a little more
+challenging.
+</p>
+<p>
+What was observed in KeyKOS (which was transparently persistent) is that
+the KeyKOS UNIX emulator did much better on file operations than
+native UNIX does.
+</p>
+<p>
+What this means to your application is not clear.  It does suggest
+strongly that the benefits of transparent persistence should be
+carefully examined.
+<h3>1.3 Burden on Programs</h3>
+<p>
+One argument in support of transparent persistence is the effect on
+application software.  If you look at a typical program, you will find
+that a large amount of it is oriented toward dealing with files:
+opening, reading, writing, and closing them.  Files exist for two
+reasons:
+</p>
+<ul>
+  <li>
+       <p>
+       Programs on most operating systems die when the machine dies.
+       The files serve as their memory.
+       </p>
+  </li>
+  <li>
+       <p>
+       For some programs, an interchange format is necessary to allow
+       multiple programs to manipulate the same data.
+       </p>
+  </li>
+</ul>
+<p>
+The interchange issue is fairly rare, and in most cases can be
+accomplished equally well using shared-memory techniques.  A small
+number of utilities are certainly needed to allow tapes compatible
+with other machines to be written, but this is not central to the
+activity of a complex application.
+</p>
+<p>
+For many programs, a simpler solution would be to have programs resume
+after system shutdown with all of their state intact.  Suppose, for a
+moment, that your To-Do manager simply runs forever (as it does if you
+use a device like a Palm Pilot).  In that case, there is no need to
+write or read files, and almost half of the code for the application
+can be eliminated.
+</p>
+<p>
+Keeping data in active containers (processes) also makes it simpler to
+ensure that access to the data is properly managed.  If the ``file''
+is supposed to be a sequence of records, the managing software can
+ensure that all updates preserve the record structure.  In a file
+system, this sort of customization would place a considerable burden
+on the operating system.
+</p>
+<h3>1.4 Preferred Solution for Capability Designs</h3>
+<p>
+Assuming that it can be made to work efficiently, transparent
+persistence is the preferred design for capability systems, for two
+reasons:
+</p>
+<ul>
+  <li>
+       <p>
+       It eliminates the need for programs to re-acquire capabilities
+       when the system restarts.  This means that we don't have to
+       treat the security of the startup process as a special (and
+       highly complex) situation.
+       </p>
+  </li>
+  <li>
+       <p>
+       It allows the object system to be extended.  Because processes
+       do not die until they are told to, a process can implement an
+       object.  This object can perform any service that the
+       programmer desires, which largely eliminates the need for
+       ad-hoc extensions to the basic object system.
+       </p>
+  </li>
+</ul>
+<p>
+The startup security issue is nontrivial.  The question is: ``Where
+does the first program get it's capabilities from?''  The most obvious
+answer is: ``From the file system.''  The next question ought to be:
+``And how does it have the authority to talk to the file system if it
+doesn't have any capabilities yet?''  The answer is either ``Ulp.'' or
+``Well, everything can talk to the file system.''
+</p>
+<p>
+The design is now in deep trouble.  If everything can talk to the file
+system, then everything can talk to everything else and it becomes
+impossible to enforce some important principles such as the principle
+of confinement and the principle of least privilege.
+</p>
+<p>
+As if that wasn't trouble enough, the next question is: ``And how do
+we decide if the process is authorized to access a given object in the
+file system?''  If your answer is ``According to the user's
+identity,'' then congratulations -- you've just re-invented UNIX.
+</p>
+<h2>2 Implications of Transparent Persistence</h2>
+<p>
+The main challenge to transparent persistence is performance.  The
+naive approach is to stop and make a snapshot of the entire machine.
+Let's examine what that would mean (in approximate terms) on a
+reasonably typical desktop PC:
+</p>
+<ul>
+  <p>
+  The machine has 32 megabytes of memory.
+  </p>
+  <p>
+  40% of the memory has been modified and needs to be written down.
+  </p>
+  <p>
+  12.8 megabytes of data must be transferred to the disk in units of
+  4096 (the page size), for a total of 3276 disk I/O operations.
+  </p>
+  <p>
+  On a modern drive, it is just as expensive to switch from one head
+  to the next as from one cylinder to the next, so the question to ask
+  is how many tracks (not cylinders) we need to write down.  Assume
+  that there are 63 sectors per track, each 512 bytes (a typical
+  modern EIDE drive).  This is not true, but modern drives have
+  sufficient on-disk buffering that we can pretend it is true without
+  terrible loss of accuracy.
+  </p>
+  <p>
+  7 pages fit on a track, so a minimum of 468 tracks must be written.
+  </p>
+  <p>
+  A current-technology disk (as of March 1998) rotates at 5400
+  rotations per minute, or 11 milliseconds per rotation.  The minimum
+  seek time is 4 milliseconds, which is the cost of going from one
+  track to the next.  The minimum total cost to write a track is
+  therefore 15 milliseconds.
+  </p>
+  <p>
+  468 tracks times 15 milliseconds is just a bit above 7 seconds.
+  </p>
+  <p>
+  During those 7 seconds, the content of the machine must not be
+  modified.  This is definitely long enough that the user will notice
+  and get upset.
+  </p>
+  <p>
+  For a server machine with 16 times as much memory, this approach is
+  clearly out of the question.
+  </p>
+</ul>
+<p>
+Obviously, the naive approach will not work.  Several early
+implementations actually used this approach, which gave checkpointing
+a bad reputation.
+</p>
+<p>
+The solution is not to try to write everything so aggressively, but
+rather to mark all of the dirty pages ``copy on write'' and mark them
+as needing to be written.  You can then write them in the background
+while letting computation continue.  This reduces the overhead to
+something under 10 milliseconds, which is fast enough.
+</p>
+<h3>2.1 Writing the OS Structures</h3>
+<p>
+In addition to the user data, however, we must also write down all of
+the data structures maintained by the operating system on behalf of
+the processes.  If the process were to come back without any of its
+open files, we would not have a very useful persistence mechanism.
+</p>
+<p>
+More precisely, you must capture all of the <em>persistent</em>
+operating system state.  A great deal of the operating system state is
+not persistent.  Some examples:
+</p>
+<ul>
+  <table width=85%>
+    <tr valign=top>
+      <th align=left>Structure</th>
+      <th align=left>Save?</th>
+      <th align=left>Reason</th>
+    </tr>
+    <tr valign=top>
+      <td>Process List</td>
+      <td>Y</td>
+      <td>Need to know which processes were running and their states.</td>
+    </tr>
+    <tr valign=top>
+      <td>Networking Data</td>
+      <td>N</td>
+      <td>Connections must be closed on restart anyway for reasons of
+	security.</td>
+    </tr>
+    <tr valign=top>
+      <td>I/O Requests</td>
+      <td>N</td>
+      <td>I/O system calls/faults can be restarted, which will
+	reconstruct these.</td>
+    </tr>
+    <tr valign=top>
+      <td>File Table</td>
+      <td>Y</td>
+      <td>Files and file sharing are part of the process state
+	maintained by the OS, and cannot be easily reconstructed.</td>
+    </tr>
+  </table>
+</ul>
+<p>
+Conceptually, capturing the OS state isn't hard to do -- you simply
+locate all of the operating system data structures to be saved,
+convert them into an on-disk format (sometimes known as "pickling"),
+and write them down.  The main challenge is that this copy activity
+must be done all at once, because it is difficult to make the
+operating system data structures copy on write.
+</p>
+<p>
+Because the data structures need to be copied quickly, it is very
+inconvenient if the persistent structures are allocated from a heap.
+If they are, then a garbage-collection sweep pass must be made to find
+them and pickle them, and the operating system must reserve sufficient
+memory to pickle them to (because you cannot stop halfway through the
+job without getting an inconsistent result).  Pickling is therefore
+greatly simplified if the persistent data structures are allocated out
+of fixed-size tables.  Most operating systems are not designed this way.
+</p>
+<ul>
+<p>
+  <em>Aside:</em> I would argue that dynamically allocated heap memory
+  is a deceptively easy way to get into trouble in most kernels.  It
+  is too easy for one subsystem to allocate memory that another
+  subsystem needs, which creates both hidden sources of deadlock and
+  hidden communication channels within the kernel.  It also makes
+  performance difficult to predict.
+  </p>
+  <p>
+  The counterargument is that a common heap allows the operating
+  system to respond to changes in workload without requiring excessive
+  heap memory.  This is true, but does not address the issue of
+  simultaneously high demand from multiple workload sources.
+  </p>
+  <p>
+  If a dynamic heap is to be used, it is best to segregate the heap by
+  usage type so that every subsystem is guaranteed a certain minimum
+  portion of the heap sufficient to ensure it's correct execution.
+  </p>
+</ul>
+<p>
+Finally, it is important to note that bugs in a persistent operating
+system last forever.  Operating system state is difficult to check for
+consistency.  The greater the amount of state that is "owned" by the
+operating system, the greater the likelihood that damaged state will
+get written down.  Once written down, there is no recovery short of
+reloading the system.
+</p>
+<h3>2.2  Write-Ahead Checkpoint Log</h3>
+<p>
+The other problem with transparent persistence is that the system can
+fail while you are halfway through writing down the state.  This means
+that you cannot throw away the previous state before you are done
+writing down the new version.  Some portion of the disk must therefore
+be reserved for a write-ahead log; data in official ``home locations''
+must not be updated until a complete snapshot has been accomplished.
+After it has been successfully written down, the data can be migrated
+to it's official home.
+</p>
+<p>
+You might think that this extra migration load causes more I/O to
+happen.  It does, but for the reasons discussed in section 1.2 the
+impact is different from what you might expect.
+</p>
+<h2>3  The Database Problem</h2>
+<p>
+By now, I hope, you will have seen that checkpointing might be made to
+work.  If you are reading this on EROS, a checkpoint has probably
+occurred at some point while you were reading and you didn't notice
+The checkpointing overhead on EROS is less than 0.3%, so a lot of
+other things get in the way first.
+</p>
+<p>
+When an ATM machine hands you money, it is important that the bank
+remember this fact.  Suppose that the server takes a checkpoint, hands
+you some money, and then fails before the next checkpoint.  When it
+comes back, it will not remember that it has given you any money.
+</p>
+<ul>
+  <p>
+  <em>Aside:</em> A strong case can be made that this is a perfectly
+  sound design.  No matter how good the system design is, some amount
+  of money will be lost in the face of certain kinds of failures.  The
+  question is how much and how often.  A bank experiencing one machine
+  failure every two years might well decide that it was willing to
+  accept a loss of up to $2 million every two years if this enabled
+  the bank to execute twice as many transactions.  On such a machine,
+  a reasonable checkpoint policy is every 5 minutes or $2 million in
+  withdrawals (whichever comes first).
+  </p>
+  <p>
+  As the customer whose deposit got lost, you are likely to be less
+  forgiving.  Recall, however, that the ATM machine contains the check
+  or envelope you deposited, so these transactions can be reapplied.
+  </p>
+</ul>
+<p>
+For all that it might be a reasonable design, the bank isn't going to
+take that view.  A mechanism is needed to remember this sort of
+information if the system fails.  A transparently persistent system
+must provide such a mechanism.
+</p>
+<p>
+In EROS, the solution is something called <b>journaling</b>.  A
+process holding the journaling capability can say ``mark this page as
+a journaled page.''  It can later come back and say ``write this page
+down quickly, because I need it to survive a machine failure.''  This
+mechanism provides the necessary underpinnings for the database
+system.
+</p>
+<h2>4 Conclusions</h2>
+<p>
+The moral of the story is that mechanisms for explicit persistence are
+necessary to support databases applications.  My view, however, is
+that these applications are the exceptional case.  Most applications
+should not have to deal with files or persistence at all.  EROS shows
+that transparent persistence is feasible and efficient.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

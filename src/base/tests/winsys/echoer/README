@@ -1,0 +1,4 @@
+This domain simply echoes keystrokes inside a graphical window.
+Nothing fancy is provided, as far as line discipline or scrolling.  As
+of this writing, there were two fonts available for clients.  This
+demo uses the larger font.
