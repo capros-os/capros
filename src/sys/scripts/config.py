@@ -33,7 +33,6 @@
 #
 
 import sys
-import string
 import os
 import glob
 # import regex
@@ -251,16 +250,14 @@ def arch(name):
 
 @publishf
 def cpu(name):
-    global conf_cpus
-
-    if (conf_machine == None):
+    if conf_machine is None:
         error("Unknown machine type!");
 
     valid_cpus = cpu_types[conf_arch]
 
     if name in valid_cpus:
 #        print("Adding cpu type '%s'." % name)
-        conf_cpus = conf_cpus + [name]
+        conf_cpus.append(name)
     else:
         error("Unknown CPU type")
 
@@ -281,7 +278,7 @@ def option_value(name):
     elif name in conf_primoptions:
         return conf_primoptions[name]
     else:
-        error("Option_value(\"%s\") on undefined option." % name)
+        error("Option_value(%r) on undefined option." % name)
 
 @publishf
 def option(name):
@@ -290,7 +287,7 @@ def option(name):
     elif name in conf_primoptions:
         conf_primoptions[name] = 1
     else:
-        error("Unknown option \"%s\"" % name)
+        error("Unknown option %r" % name)
 
 
 @publishf
@@ -305,7 +302,7 @@ def exclude(name):
     elif name in conf_primoptions:
         conf_primoptions[name] = 0
     else:
-        error("Unknown option \"%s\"" % name)
+        error("Unknown option %r" % name)
 
 
 @publishf
@@ -347,7 +344,7 @@ def ifdevice(name):
 def pseudo_device(name, count=1):
     filename = "%s/%s.h" % (targdir,name)
     with open(filename, 'w') as out:
-        cpp_define = "#define N%s %d" % (string.upper(name), count)
+        cpp_define = "#define N%s %d" % (name.upper(), count)
         out.write("%s\n" % cpp_define)
 
 
@@ -417,7 +414,7 @@ execfile(sys.argv[1], config_name_table, {})
 
 def dump_ac_types(out):
     out.write("\n/* Driver structure declarations: */\n");
-    for i in range(len(config_table)):
+    for i, tmpl in enumerate(config_table):
         tmpl = config_table[i]
         out.write("extern struct Driver ac_%s;\n" % tmpl.name);
 
@@ -454,14 +451,14 @@ def dump_optvar(out):
             out.write("CONFIG_%s=0\n" % device_classes[b][3:])
     for o in conf_options.keys():
         if conf_options[o]:
-            out.write("OPT_%s=1\n" % string.upper(o))
+            out.write("OPT_%s=1\n" % o.upper())
         else:
-            out.write("OPT_%s=0\n" % string.upper(o))
+            out.write("OPT_%s=0\n" % o.upper())
     for o in conf_primoptions.keys():
         if conf_primoptions[o]:
-            out.write("PRIMOPT_%s=1\n" % string.upper(o))
+            out.write("PRIMOPT_%s=1\n" % o.upper())
         else:
-            out.write("PRIMOPT_%s=0\n" % string.upper(o))
+            out.write("PRIMOPT_%s=0\n" % o.upper())
 
 def dump_options(out):
     for b in device_classes.keys():
@@ -469,14 +466,14 @@ def dump_options(out):
             out.write("OPTIONS += -DCONFIG_%s=1\n" % device_classes[b][3:])
     for o in conf_options.keys():
         if conf_options[o]:
-            out.write("OPTIONS += -DOPTION_%s=1\n" % string.upper(o))
+            out.write("OPTIONS += -DOPTION_%s=1\n" % o.upper())
     for o in conf_primoptions.keys():
         if conf_primoptions[o]:
-            out.write("OPTIONS += -D%s=1\n" % string.upper(o))
+            out.write("OPTIONS += -D%s=1\n" % o.upper())
     for c in conf_cpus:
-        out.write("OPTIONS += -DCPU_%s=1\n" % string.upper(c))
-    out.write("OPTIONS += -DARCH_%s=1\n" % string.upper(conf_arch))
-    out.write("OPTIONS += -DMACHINE_%s=1\n" % string.upper(conf_machine))
+        out.write("OPTIONS += -DCPU_%s=1\n" % c.upper())
+    out.write("OPTIONS += -DARCH_%s=1\n" % conf_arch.upper())
+    out.write("OPTIONS += -DMACHINE_%s=1\n" % conf_arch.upper())
 
 def dump_defines(out):
     for d in conf_defines.keys():
@@ -488,14 +485,14 @@ def dump_options_header(out):
             out.write("#define CONFIG_%s 1\n" % device_classes[b][3:])
     for o in conf_options.keys():
         if conf_options[o]:
-            out.write("#define OPTION_%s 1\n" % string.upper(o))
+            out.write("#define OPTION_%s 1\n" % o.upper())
     for o in conf_primoptions.keys():
         if conf_primoptions[o]:
-            out.write("#define %s 1\n" % string.upper(o))
+            out.write("#define %s 1\n" % o.upper())
     for c in conf_cpus:
-        out.write("#define CPU_%s 1\n" % string.upper(c))
-    out.write("#define ARCH_%s 1\n" % string.upper(conf_arch))
-    out.write("#define MACHINE_%s 1\n" % string.upper(conf_machine))
+        out.write("#define CPU_%s 1\n" % c.upper())
+    out.write("#define ARCH_%s 1\n" % conf_arch.upper())
+    out.write("#define MACHINE_%s 1\n" % conf_machine.upper())
     for d in conf_defines.keys():
         out.write("#define %s 1\n" % d)
 
