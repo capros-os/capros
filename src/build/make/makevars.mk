@@ -110,7 +110,7 @@ MKIMAGEDEP=$(EROS_SRC)/build/bin/mkimagedep
 # First, set up variables for building native tools:
 #
 GAWK=gawk
-PYTHON=python
+PYTHON=python3
 #XML_LINT=$(EROS_XENV)/bin/xmllint
 #XSLT=$(EROS_XENV)/bin/xsltproc
 XML_LINT=xmllint
