@@ -443,31 +443,31 @@ def dump_table(name, tbl, out):
     out.write("\n};\n")
 
 def dump_optvar(out):
-    for b in device_classes.keys():
+    for b in device_classes:
         if b < 0: continue;        # that one is a placeholder
         if b in conf_busses:
             out.write("CONFIG_%s=1\n" % device_classes[b][3:])
         else:
             out.write("CONFIG_%s=0\n" % device_classes[b][3:])
-    for o in conf_options.keys():
+    for o in conf_options:
         if conf_options[o]:
             out.write("OPT_%s=1\n" % o.upper())
         else:
             out.write("OPT_%s=0\n" % o.upper())
-    for o in conf_primoptions.keys():
+    for o in conf_primoptions:
         if conf_primoptions[o]:
             out.write("PRIMOPT_%s=1\n" % o.upper())
         else:
             out.write("PRIMOPT_%s=0\n" % o.upper())
 
 def dump_options(out):
-    for b in device_classes.keys():
+    for b in device_classes:
         if b in conf_busses:
             out.write("OPTIONS += -DCONFIG_%s=1\n" % device_classes[b][3:])
-    for o in conf_options.keys():
+    for o in conf_options:
         if conf_options[o]:
             out.write("OPTIONS += -DOPTION_%s=1\n" % o.upper())
-    for o in conf_primoptions.keys():
+    for o in conf_primoptions:
         if conf_primoptions[o]:
             out.write("OPTIONS += -D%s=1\n" % o.upper())
     for c in conf_cpus:
@@ -476,24 +476,24 @@ def dump_options(out):
     out.write("OPTIONS += -DMACHINE_%s=1\n" % conf_arch.upper())
 
 def dump_defines(out):
-    for d in conf_defines.keys():
+    for d in conf_defines:
         out.write("CONF_DEFS += -D%s=1\n" % d)
 
 def dump_options_header(out):
-    for b in device_classes.keys():
+    for b in device_classes:
         if b in conf_busses:
             out.write("#define CONFIG_%s 1\n" % device_classes[b][3:])
-    for o in conf_options.keys():
+    for o in conf_options:
         if conf_options[o]:
             out.write("#define OPTION_%s 1\n" % o.upper())
-    for o in conf_primoptions.keys():
+    for o in conf_primoptions:
         if conf_primoptions[o]:
             out.write("#define %s 1\n" % o.upper())
     for c in conf_cpus:
         out.write("#define CPU_%s 1\n" % c.upper())
     out.write("#define ARCH_%s 1\n" % conf_arch.upper())
     out.write("#define MACHINE_%s 1\n" % conf_machine.upper())
-    for d in conf_defines.keys():
+    for d in conf_defines:
         out.write("#define %s 1\n" % d)
 
 #def dump_targets(out):
@@ -553,10 +553,10 @@ publish('BT_EISA')
 publish('BT_ISA')
 publish('BT_SCSI')
 
-for i in conf_options.keys():
+for i in conf_options:
     config_name_table[i] = conf_options[i]
 
-for i in conf_primoptions.keys():
+for i in conf_primoptions:
     config_name_table[i] = conf_primoptions[i]
 
 for i in conf_cpus:
@@ -576,7 +576,7 @@ def check_dependencies():
     ##
     ###############################################
 
-    for nm in depends_on.keys():
+    for nm in depends_on:
         buggered = 0
 
         for require in depends_on[nm]:
