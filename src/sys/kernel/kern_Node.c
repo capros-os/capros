@@ -247,7 +247,7 @@ node_PrepAsSegment(Node* thisPtr)
   return true;
 }
 
-inline bool
+bool
 node_IsCurrentDomain(Node* thisPtr)
 {
   /* Note proc_Current() may be NULL.  If we are trying to
