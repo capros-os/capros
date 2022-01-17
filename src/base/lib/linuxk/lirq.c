@@ -163,8 +163,6 @@ int request_irq(unsigned int irq, irq_handler_t handler,
  */
 void free_irq(unsigned int irq, void *dev_id)
 {
-  result_t result;
-
   // Find the irqDesc.
   // This list will rarely be longer than one element.
   struct irqDesc * desc;
@@ -183,7 +181,7 @@ void free_irq(unsigned int irq, void *dev_id)
   descList = desc->next;	// unchain
   CMTEMutex_unlock(&listLock);
 
-  result = capros_DevPrivs_releaseIRQ(KR_DEVPRIVS, irq);
+  capros_DevPrivs_releaseIRQ(KR_DEVPRIVS, irq);
 
   /* When the IRQ is released, the loop in interrupt_thread_func will terminate,
   which will cause that thread to exit. 
