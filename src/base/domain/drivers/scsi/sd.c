@@ -1970,12 +1970,16 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 	struct scsi_disk *sdkp = data;
 	struct scsi_device *sdp;
 	struct gendisk *gd;
+#if 0 // CapROS
 	u32 index;
+#endif
 	struct device *dev;
 
 	sdp = sdkp->device;
 	gd = sdkp->disk;
+#if 0 // CapROS
 	index = sdkp->index;
+#endif
 	dev = &sdp->sdev_gendev;
 
 #if 0 // CapROS

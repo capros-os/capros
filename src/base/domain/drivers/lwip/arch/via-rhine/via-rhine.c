@@ -467,8 +467,8 @@ static void rhine_set_rx_mode(struct net_device *dev);
 #if 0 // CapROS
 static struct net_device_stats *rhine_get_stats(struct net_device *dev);
 static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-#endif // CapROS
 static const struct ethtool_ops netdev_ethtool_ops;
+#endif // CapROS
 static int  rhine_close(struct net_device *dev);
 static void rhine_shutdown (struct pci_dev *pdev);
 
