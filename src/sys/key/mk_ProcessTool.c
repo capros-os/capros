@@ -82,8 +82,7 @@ CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
       return false;
   }
   else {
-    if ( pBrand->keyData != pBrand->keyData
-	 || pBrand->u.nk.value[0] != otherBrand->u.nk.value[0]
+    if ( pBrand->u.nk.value[0] != otherBrand->u.nk.value[0]
 	 || pBrand->u.nk.value[1] != otherBrand->u.nk.value[1]
 	 || pBrand->u.nk.value[2] != otherBrand->u.nk.value[2] )
       return false;
