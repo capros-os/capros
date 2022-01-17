@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>
 #include <kerninc/multiboot.h>
 #include <kerninc/heap.h>
+#include <arch-kerning/kintttypes.h>
 
 #define dbg_init	0x1u
 

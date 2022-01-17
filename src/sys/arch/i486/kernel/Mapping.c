@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/PhysMem.h>
 #include <arch-kerninc/PTE.h>
+#include <arch-kerning/kintttypes.h>
 #include "CpuFeatures.h"
 #include "Process486.h"
 #include "Cpu.h"
