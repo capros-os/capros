@@ -39,6 +39,7 @@ DIRS+=rbtree util
 DIRS+=graphics forwarder addrspace xsprintf
 DIRS+= cmme cmte linuxk
 DIRS+=ethread
+DIRS+=workaround
 ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far
 endif
 ifeq "$(EROS_TARGET)" "i486"	# only for i486 so far
