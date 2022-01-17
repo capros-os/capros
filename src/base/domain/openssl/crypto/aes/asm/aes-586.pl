@@ -44,7 +44,7 @@
 # the undertaken effort was that it appeared that in tight IA-32
 # register window little-endian flavor could achieve slightly higher
 # Instruction Level Parallelism, and it indeed resulted in up to 15%
-# better performance on most recent µ-archs...
+# better performance on most recent micro-archs...
 #
 # Third version adds AES_cbc_encrypt implementation, which resulted in
 # up to 40% performance imrovement of CBC benchmark results. 40% was
@@ -101,7 +101,7 @@ $compromise=0;		# $compromise=128 abstains from copying key
 			# you get way better, up to +70%, small block
 			# performance.
 $small_footprint=1;	# $small_footprint=1 code is ~5% slower [on
-			# recent µ-archs], but ~5 times smaller!
+			# recent micro-archs], but ~5 times smaller!
 			# I favor compact code to minimize cache
 			# contention and in hope to "collect" 5% back
 			# in real-life applications...
