@@ -1109,7 +1109,7 @@ alloc_bank(void)
 
   if (!newBank) return NULL;
   
-  bzero(newBank, sizeof(Bank*));
+  bzero(newBank, sizeof(Bank));
 
   return newBank;
 }
