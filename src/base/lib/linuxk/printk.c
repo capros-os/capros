@@ -28,7 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/spinlock.h>
 #include <linux/jiffies.h>
 
-int printk(const char *fmt, ...)
+asmlinkage int printk(const char *fmt, ...)
 {
   va_list args;
 
