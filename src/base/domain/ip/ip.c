@@ -184,7 +184,7 @@ IPVoid(result_t result)
   return isVoid;
 }
 
-NORETURN int
+int
 main(void)
 {
   result_t result;

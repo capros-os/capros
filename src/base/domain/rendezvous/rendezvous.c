@@ -71,7 +71,7 @@ CheckRendezvous(void)
   }
 }
 
-NORETURN int
+int
 main(void)
 {
   Message Msg = {

@@ -966,9 +966,10 @@ ActivateNeededBranches(struct Branch * br)
           // There is no direct-on for the aux branch.
           ProgramSmartOn(coup, &coup->u.coupler.auxBranch);
           err = RunProgram();
-          if (err)
+          if (err) {
             CheckSetPathErrors(err);
             return err;
+          }
         }
       } else {
         // Neither branch needs work.
@@ -1015,13 +1016,10 @@ FinishWork(struct Branch * br)
       }
       // Now deal with the other branch:
       struct Branch * otherBranch;
-      uint32_t otherBranchCommand;
       if (coup->u.coupler.activeBranch == capros_W1Bus_stepCode_setPathMain) {
         otherBranch = &coup->u.coupler.auxBranch;
-        otherBranchCommand = capros_W1Bus_stepCode_setPathAux;
       } else {
         otherBranch = &coup->u.coupler.mainBranch;
-        otherBranchCommand = capros_W1Bus_stepCode_setPathMain;
       }
       if (otherBranch->needsWork) {
         DEBUG(doall)
