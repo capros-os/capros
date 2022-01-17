@@ -178,6 +178,7 @@ db_restart_at_pc(db_regs_t *regs, bool watchpt)
 {
 	register db_addr_t pc = PC_REGS(regs);
 
+#ifdef	SOFTWARE_SSTEP
 	if ((db_run_mode == STEP_COUNT) ||
 	    (db_run_mode == STEP_RETURN) ||
 	    (db_run_mode == STEP_CALLT)) {
@@ -192,7 +193,6 @@ db_restart_at_pc(db_regs_t *regs, bool watchpt)
 	    db_inst_count++;
 	    db_load_count += inst_load(ins);
 	    db_store_count += inst_store(ins);
-#ifdef	SOFTWARE_SSTEP
 	    /* XXX works on mips, but... */
 	    if (inst_branch(ins) || inst_call(ins)) {
 		ins = db_get_value(next_instr_address(pc,1),
@@ -201,8 +201,8 @@ db_restart_at_pc(db_regs_t *regs, bool watchpt)
 		db_load_count += inst_load(ins);
 		db_store_count += inst_store(ins);
 	    }
-#endif	/* SOFTWARE_SSTEP */
 	}
+#endif	/* SOFTWARE_SSTEP */
 
 	if (db_run_mode == STEP_CONTINUE) {
 	    if (watchpt || db_find_breakpoint_here(pc)) {
