@@ -42,11 +42,11 @@
 
 /* These are for everybody (although not all archs will actually
    discard it in modules) */
-#define __init		__section(.init.text) __cold notrace
-#define __initdata	__section(.init.data)
-#define __initconst	__section(.init.rodata)
-#define __exitdata	__section(.exit.data)
-#define __exit_call	__used __section(.exitcall.exit)
+#define __init		__section(".init.text") __cold notrace
+#define __initdata	__section(".init.data")
+#define __initconst	__section(".init.rodata")
+#define __exitdata	__section(".exit.data")
+#define __exit_call	__used __section(".exitcall.exit")
 
 /* modpost check for section mismatches during the kernel build.
  * A section mismatch happens when there are references from a
@@ -58,9 +58,9 @@
  * the *init / *exit section (code or data) is valid and will teach
  * modpost not to issue a warning.
  * The markers follow same syntax rules as __init / __initdata. */
-#define __ref            __section(.ref.text) noinline
-#define __refdata        __section(.ref.data)
-#define __refconst       __section(.ref.rodata)
+#define __ref            __section(".ref.text") noinline
+#define __refdata        __section(".ref.data")
+#define __refconst       __section(".ref.rodata")
 
 /* compatibility defines */
 #define __init_refok     __ref
@@ -74,31 +74,31 @@
 #define __exitused  __used
 #endif
 
-#define __exit          __section(.exit.text) __exitused __cold
+#define __exit          __section(".exit.text") __exitused __cold
 
 /* Used for HOTPLUG */
-#define __devinit        __section(.devinit.text) __cold
-#define __devinitdata    __section(.devinit.data)
-#define __devinitconst   __section(.devinit.rodata)
-#define __devexit        __section(.devexit.text) __exitused __cold
-#define __devexitdata    __section(.devexit.data)
-#define __devexitconst   __section(.devexit.rodata)
+#define __devinit        __section(".devinit.text") __cold
+#define __devinitdata    __section(".devinit.data")
+#define __devinitconst   __section(".devinit.rodata")
+#define __devexit        __section(".devexit.text") __exitused __cold
+#define __devexitdata    __section(".devexit.data")
+#define __devexitconst   __section(".devexit.rodata")
 
 /* Used for HOTPLUG_CPU */
-#define __cpuinit        __section(.cpuinit.text) __cold
-#define __cpuinitdata    __section(.cpuinit.data)
-#define __cpuinitconst   __section(.cpuinit.rodata)
-#define __cpuexit        __section(.cpuexit.text) __exitused __cold
-#define __cpuexitdata    __section(.cpuexit.data)
-#define __cpuexitconst   __section(.cpuexit.rodata)
+#define __cpuinit        __section(".cpuinit.text") __cold
+#define __cpuinitdata    __section(".cpuinit.data")
+#define __cpuinitconst   __section(".cpuinit.rodata")
+#define __cpuexit        __section(".cpuexit.text") __exitused __cold
+#define __cpuexitdata    __section(".cpuexit.data")
+#define __cpuexitconst   __section(".cpuexit.rodata")
 
 /* Used for MEMORY_HOTPLUG */
-#define __meminit        __section(.meminit.text) __cold
-#define __meminitdata    __section(.meminit.data)
-#define __meminitconst   __section(.meminit.rodata)
-#define __memexit        __section(.memexit.text) __exitused __cold
-#define __memexitdata    __section(.memexit.data)
-#define __memexitconst   __section(.memexit.rodata)
+#define __meminit        __section(".meminit.text") __cold
+#define __meminitdata    __section(".meminit.data")
+#define __meminitconst   __section(".meminit.rodata")
+#define __memexit        __section(".memexit.text") __exitused __cold
+#define __memexitdata    __section(".memexit.data")
+#define __memexitconst   __section(".memexit.rodata")
 
 /* For assembly routines */
 #define __HEAD		.section	__stringify(HEAD_TEXT_SECTION),"ax"
@@ -206,11 +206,11 @@ extern void (*late_time_init)(void);
 
 #define console_initcall(fn) \
 	static initcall_t __initcall_##fn \
-	__used __section(.con_initcall.init) = fn
+	__used __section(".con_initcall.init") = fn
 
 #define security_initcall(fn) \
 	static initcall_t __initcall_##fn \
-	__used __section(.security_initcall.init) = fn
+	__used __section(".security_initcall.init") = fn
 
 struct obs_kernel_param {
 	const char *str;
@@ -227,7 +227,7 @@ struct obs_kernel_param {
 #define __setup_param(str, unique_id, fn, early)			\
 	static char __setup_str_##unique_id[] __initdata __aligned(1) = str; \
 	static struct obs_kernel_param __setup_##unique_id	\
-		__used __section(.init.setup)			\
+		__used __section(".init.setup")			\
 		__attribute__((aligned((sizeof(long)))))	\
 		= { __setup_str_##unique_id, fn, early }
 
@@ -296,7 +296,7 @@ void __init parse_early_options(char *cmdline);
 #endif
 
 /* Data marked not to be saved by software suspend */
-#define __nosavedata __section(.data.nosave)
+#define __nosavedata __section(".data.nosave")
 
 /* This means "can be init if no module support, otherwise module load
    may call it." */

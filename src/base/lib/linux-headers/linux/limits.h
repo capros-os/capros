@@ -3,8 +3,8 @@
 
 #define NR_OPEN	        1024
 
-#define NGROUPS_MAX    65536	/* supplemental group IDs are available */
 // FIXME WL: I've commented out a bunch of these to use those provided
+//#define NGROUPS_MAX    65536	/* supplemental group IDs are available */
 // by newlib, but we should actually get newlib to use our provided
 // figures.
 
