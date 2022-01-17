@@ -75,7 +75,7 @@ extern void __bad_percpu_size(void);
 do {							\
 	typedef typeof(var) T__;			\
 	if (0) {					\
-		T__ tmp__;				\
+		T__ tmp__ __maybe_unused;				\
 		tmp__ = (val);				\
 	}						\
 	switch (sizeof(var)) {				\
