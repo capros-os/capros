@@ -135,7 +135,7 @@ while [ -f "${ERRFILE}" ]; do ERRFILE="${ERRFILE}_`date`"; done
 #returning an error code.
 
 # let cpp generate the include dependencies, and add the generated file to it.
-{ /lib/cpp -M ${CPPARGS} ${INFILE} || touch "${ERRFILE}"; } \
+{ cpp -M ${CPPARGS} ${INFILE} || touch "${ERRFILE}"; } \
   | { sed 's@'"${INFILE}"'.o:@'"${OUTFILE} ${GENFILE}:"'@g' \
      || touch "${ERRFILE}" ;} 
 
@@ -146,7 +146,7 @@ fi
 
 echo "${OUTFILE}: ${INFILE} \\"
 # Comments are below.
-{ /lib/cpp ${CPPARGS} ${INFILE} || touch "${ERRFILE}"; } \
+{ cpp ${CPPARGS} ${INFILE} || touch "${ERRFILE}"; } \
   | { sed -e 's:number *(\( *\"[^\"]*\" *\)*)::g' \
            -e 's:print\( *\"[^\"]*\"\)*::g' \
            -e 's:;:\n:g' \
