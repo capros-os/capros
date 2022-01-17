@@ -53,7 +53,7 @@ __rt_buy_data_space()
   bound += EROS_PAGE_SIZE - 1;
   bound &= - EROS_PAGE_SIZE;
 
-  result = capros_Process_getAddrSpace(KR_SELF, KR_MYSPACE);
+  capros_Process_getAddrSpace(KR_SELF, KR_MYSPACE);
 
   while (base < bound) {
     uint32_t slot = base / EROS_PAGE_SIZE;
