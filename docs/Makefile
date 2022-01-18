@@ -24,7 +24,7 @@
 # Approved for public release, distribution unlimited.
 
 default: package
-EROS_SRC=../..
+EROS_SRC=../src
 include $(EROS_SRC)/build/make/makevars.mk
 
 DOCS=capros.html overview.html

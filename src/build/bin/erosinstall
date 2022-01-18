@@ -2,6 +2,7 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
 # Copyright (C) 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2022, Charles Landau.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -27,20 +28,35 @@
 #
 # This script is command-line compatible with the LINUX install utility,
 # but avoids unnecessary copies by checking for actual changes before
-# installing the file.
+# copying the file. In all cases, the mode, owner, and group are updated.
 #
 # A useful trick that this program takes advantage of is that
 # running chmod/chown do NOT change a file's modification time.
 #
-# install can be invoked as:
+# install can be invoked in four ways:
 #
 #	install [options] -d dir_name ...
-#	install [options] [ -s ] file inst_file
-#	install [options] [ -s ] file... inst_dir
+#		For each dir_name argument:
+#		if it is an existing directory, just set the mode, owner, and group.
+#		Otherwise, create any missing directories in the dir_name path.
+#	install [options] [ -s ] src_file target_file
+#		Replace or create target_file with a copy of src_file.
+#	install [options] [ -s ] src_file target_dir
+#		Copy src_file to a new file of the same name in target_dir.
+#	install [options] [ -s ] file... target_dir
+#		For each file, copy it to a file of the same name in target_dir,
+#		or replace an existing file of that name.
 #
 # where the 'options' are:
 #
-#	[-c] [-g group] [-m mode] [-o owner]
+#	-m mode		specifies the mode for target files
+#				Default is 0755 if -d specified, othewise 0644
+#	-o owner	specifies the owner for target files
+#	-g group	specifies the group for target files
+#				Default for owner and group is the current user.
+#	-c			ignored except for BSD
+#
+# Option -s strips any symbol table.
 #
 # we do not support the gnuish style options.
 #
@@ -65,7 +81,7 @@ cflag="-c"
 
 dfltmode=0644	# unless directory
 
-set -- `getopt cdg:m:o: $*`
+set -- `getopt csdg:m:o: $*`
 for i in $*
 do
 	case $i in
@@ -142,17 +158,17 @@ else
 		exit 0
 	fi
 
+	# Following disGUSTing hack is to figure out what the
+	# last argument is:
+	for arg in $*
+	do
+		target_dir=$arg;
+	done
+	# target_dir is now last argument.
+
 	while [ $# -gt 1 ]
 	do
-		# Following disGUSTing hack is to figure out what the
-		# last argument is:
-		for arg in $*
-		do
-			target=$arg;
-		done
-		# target is now last argument.
-
-		target=$target/`basename $1`
+		target=$target_dir/`basename $1`
 		src=$1
 
 		#install_file $src $target
