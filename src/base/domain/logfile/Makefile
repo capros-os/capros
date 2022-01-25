@@ -53,7 +53,7 @@ $(BUILDDIR)/logfileprotospace: $(PROTOOBJECTS)
 $(BUILDDIR)/logfile: $(OBJECTS) $(DOMLIB)
 # For some unknown reason, to get the .eh_frame section to start at
 # 0x00020800, you have to specify 0x0001f800.
-	$(EROS_GCC) $(LINKOPT) -Wl,--section-start,.eh_frame=0x0001f800 $(OBJECTS) $(CROSSLIBS) -o $@
+	$(TARGET_GCC) $(LINKOPT) -Wl,--section-start,.eh_frame=0x0001f800 $(OBJECTS) $(CROSSLIBS) -o $@
 	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
