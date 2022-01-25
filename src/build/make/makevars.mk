@@ -136,19 +136,6 @@ GPLUSWARN=-Wall -Winline -Werror -Wno-format
 endif
 
 #
-# Then variables for building EROS binaries:
-#
-TARGET_GCC=$(NATIVE_GCC)
-EROS_GPLUS=$(NATIVE_GPLUS)
-EROS_LD=$(NATIVE_LD)
-EROS_REAL_LD=$(NATIVE_LD)
-EROS_AR=$(NATIVE_AR)
-EROS_RANLIB=$(NATIVE_RANLIB)
-EROS_OBJDUMP=$(NATIVE_OBJDUMP)
-EROS_STRIP=$(NATIVE_STRIP)
-EROS_SIZE=$(NATIVE_SIZE)
-
-#
 # Then variables related to installation and test generation:
 #
 
