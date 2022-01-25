@@ -60,7 +60,7 @@ TOP=$(EROS_SRC)/sys
 # only called from one location.
 EMUL_486=-DNO_LARGE_PAGES -DWRITE_THROUGH -DSINGLE_PIPE
 
-OPTIM= -g -O2 -march=i486 $(EROS_GCC_OPTIM) # $(PACK_OPTIM)
+OPTIM= -g -O2 -march=i486 $(TARGET_GCC_OPTIM) # $(PACK_OPTIM)
 
 INC=-include kernel-config.h -I$(EROS_ROOT)/include -I../.. -I$(TOP) -I.
 
@@ -93,7 +93,7 @@ OPT_MOPS=0
 endif
 endif
 
-OPTIM += $(EROS_GCC_KERNEL_ALIGN)
+OPTIM += $(TARGET_GCC_KERNEL_ALIGN)
 
 # %targets
 

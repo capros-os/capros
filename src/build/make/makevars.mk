@@ -138,7 +138,7 @@ endif
 #
 # Then variables for building EROS binaries:
 #
-EROS_GCC=$(NATIVE_GCC)
+TARGET_GCC=$(NATIVE_GCC)
 EROS_GPLUS=$(NATIVE_GPLUS)
 EROS_LD=$(NATIVE_LD)
 EROS_REAL_LD=$(NATIVE_LD)
@@ -215,16 +215,16 @@ EROS_FD=$(HOST_FD)
 endif
 
 # strict aliasing breaks code in sys/key/pk_ProcessKey.c.
-EROS_GCC_OPTIM+= -O2 -fno-strict-aliasing
+TARGET_GCC_OPTIM+= -O2 -fno-strict-aliasing
 
 ifeq "$(EROS_CONFIG)" "NDEBUG"
 ### May want this for debugging under NDEBUG:
 # ifeq "$(EROS_TARGET)" "arm"
-# EROS_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
+# TARGET_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
 # endif
 else
 ifeq "$(EROS_TARGET)" "arm"
-EROS_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
+TARGET_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
 endif
 endif
 
@@ -233,7 +233,7 @@ endif
 # variables.  The clean thing to do would be to separate the rules 
 # somehow, but this is quicker:
 ifdef CROSS_BUILD
-GCC=$(EROS_CCACHE) $(EROS_GCC)
+GCC=$(EROS_CCACHE) $(TARGET_GCC)
 GPLUS=$(EROS_CCACHE) $(EROS_GPLUS)
 LD=$(EROS_LD)
 AR=$(EROS_AR)
@@ -242,7 +242,7 @@ SIZE=$(EROS_SIZE)
 STRIP=$(EROS_STRIP)
 RANLIB=$(EROS_RANLIB)
 GPLUS_OPTIM=$(EROS_GPLUS_OPTIM)
-GCC_OPTIM=$(EROS_GCC_OPTIM)
+GCC_OPTIM=$(TARGET_GCC_OPTIM)
 endif
 ifndef CROSS_BUILD
 GCC=$(EROS_CCACHE) $(NATIVE_GCC)
@@ -281,7 +281,7 @@ DOMBASE=0x1000
 
 LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(CAPROS_DOMAIN) -e _start #-Wl,--verbose -v
 
-CROSSLINK=$(EROS_GCC) $(LINKOPT) #-v
+CROSSLINK=$(TARGET_GCC) $(LINKOPT) #-v
 
 # Libraries given at the end of the link command:
 CROSSLIBS=
@@ -304,33 +304,33 @@ DRIVERINC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 CMMEOBJS= # $(CAPROS_DOMAIN)/cmmestart.o # no such file yet
 # Put the read/write section at 0x00c00000:
 CMMELINKOPT=$(LINKOPT) -Wl,--section-start,.eh_frame=0x00c00000
-CMMELINK=$(EROS_GCC) $(CMMELINKOPT) $(CMMEOBJS)
+CMMELINK=$(TARGET_GCC) $(CMMELINKOPT) $(CMMEOBJS)
 # libs given at the end of the link command:
 CMMELIBS=$(CAPROS_DOMAIN)/libcmme.a $(CROSSLIBS)
 CMMEDEPS=$(CMMEOBJS) $(CMMELIBS) $(LIBDEP)
 
 CMTEOBJS=$(CMMEOBJS) $(CAPROS_DOMAIN)/cmtestart.o
-CMTELINK=$(EROS_GCC) $(CMMELINKOPT) $(CMTEOBJS)
+CMTELINK=$(TARGET_GCC) $(CMMELINKOPT) $(CMTEOBJS)
 # libs given at the end of the link command:
 CMTELIBS=$(CAPROS_DOMAIN)/libcmte.a $(CMMELIBS)
 CMTEDEPS=$(CMTEOBJS) $(CMTELIBS) $(LIBDEP)
 
 DRVOBJS=$(CMTEOBJS) $(CAPROS_DOMAIN)/dstart.o
-DRIVERLINK=$(EROS_GCC) $(CMMELINKOPT) $(DRVOBJS)
+DRIVERLINK=$(TARGET_GCC) $(CMMELINKOPT) $(DRVOBJS)
 LINUXLIB=$(CAPROS_DOMAIN)/liblinuxk.a
 DRIVERLIBS=$(LINUXLIB) $(CMTELIBS)
 DRIVERDEPS=$(DRVOBJS) $(DRIVERLIBS) $(LIBDEP)
 
 DYNCMMEOBJS=$(CAPROS_DOMAIN)/dyncmmestart.o
-DYNCMMELINK=$(EROS_GCC) $(CMMELINKOPT) $(DYNCMMEOBJS)
+DYNCMMELINK=$(TARGET_GCC) $(CMMELINKOPT) $(DYNCMMEOBJS)
 DYNCMMEDEPS=$(DYNCMMEOBJS) $(CMMELIBS) $(LIBDEP)
 
 DYNCMTEOBJS=$(DYNCMMEOBJS) $(CAPROS_DOMAIN)/dyncmtestart.o
-DYNCMTELINK=$(EROS_GCC) $(CMMELINKOPT) $(DYNCMTEOBJS)
+DYNCMTELINK=$(TARGET_GCC) $(CMMELINKOPT) $(DYNCMTEOBJS)
 DYNCMTEDEPS=$(DYNCMTEOBJS) $(CMTELIBS) $(LIBDEP)
 
 DYNDRVOBJS=$(DYNCMTEOBJS) $(CAPROS_DOMAIN)/dyndriverstart.o
-DYNDRIVERLINK=$(EROS_GCC) $(CMMELINKOPT) $(DYNDRVOBJS)
+DYNDRIVERLINK=$(TARGET_GCC) $(CMMELINKOPT) $(DYNDRVOBJS)
 DYNDRIVERDEPS=$(DYNDRVOBJS) $(DRIVERLIBS) $(LIBDEP)
 
 SMALL_SPACE=-small-space

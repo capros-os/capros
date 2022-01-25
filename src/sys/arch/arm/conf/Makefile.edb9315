@@ -45,7 +45,7 @@ TOP=$(EROS_SRC)/sys
 #  Any:      -DSTRESS_TEST       runs things in ways designed to break things
 
 # -march=armv4t for ARM9TDMI.
-# Note: -Ox optimization level is set in EROS_GCC_OPTIM.
+# Note: -Ox optimization level is set in TARGET_GCC_OPTIM.
 OPTIM= -g -march=armv4t # $(PACK_OPTIM)
 
 INC=-include kernel-config.h -I$(EROS_ROOT)/include -I../.. -I$(TOP) -I.
@@ -74,7 +74,7 @@ DEF += $(EROS_TEST_DEFS)
 # a mops installation locally, don't build the MOPS files.
 OPT_MOPS=0
 
-OPTIM += $(EROS_GCC_KERNEL_ALIGN)
+OPTIM += $(TARGET_GCC_KERNEL_ALIGN)
 
 # %targets
 
