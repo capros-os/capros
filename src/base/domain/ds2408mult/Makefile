@@ -32,7 +32,7 @@ all: $(TARGETS)
 
 $(BUILDDIR)/ds2408mult: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

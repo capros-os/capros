@@ -44,7 +44,7 @@ include ../../test.mk
 $(BUILDDIR)/test: $(BUILDDIR)/test.o $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(BUILDDIR)/test.o $(CROSSLIBS)
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 
 -include $(BUILDDIR)/.*.m

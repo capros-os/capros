@@ -40,14 +40,14 @@ all: $(TARGETS)
 $(BUILDDIR)/usbhcduhci: $(OBJECTS) $(UHCI_OBJECTS) $(DRIVERDEPS)
 	$(DRIVERLINK) $(OBJECTS) $(UHCI_OBJECTS) $(DRIVERLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symsuhci
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembleduhci
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symsuhci
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembleduhci
 
 $(BUILDDIR)/usbhcdehci: $(OBJECTS) $(EHCI_OBJECTS) $(DYNDRIVERDEPS)
 	$(DYNDRIVERLINK) $(OBJECTS) $(EHCI_OBJECTS) $(DRIVERLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symsehci
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledehci
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symsehci
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledehci
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers

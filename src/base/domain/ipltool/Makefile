@@ -45,7 +45,7 @@ ipltool.c: $(BUILDDIR)/constituents.h
 $(BUILDDIR)/ipltool: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

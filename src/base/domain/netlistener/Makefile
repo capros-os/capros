@@ -48,8 +48,8 @@ netlistener.c: $(BUILDDIR)/constituents.h
 $(BUILDDIR)/netlistener: $(OBJECTS) $(LIBDEP)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(LIBS) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

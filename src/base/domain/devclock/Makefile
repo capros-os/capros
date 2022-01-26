@@ -42,7 +42,7 @@ interfaces: $(IDL)
 
 $(BUILDDIR)/devclock: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) -Wl,--section-start,.eh_frame=0x00008000 $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

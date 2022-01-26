@@ -47,7 +47,7 @@ $(BUILDDIR)/libcmme.a: $(OBJECTS) $(MAKE_BUILDDIR)
 	$(RANLIB) $@
 
 $(BUILDDIR)/dyncmmeprotospace: $(DYNOBJECTS)
-	$(EROS_LD) -N -Ttext 0 -static -e _start $(DYNOBJECTS) -o $@
+	$(TARGET_LD) -N -Ttext 0 -static -e _start $(DYNOBJECTS) -o $@
 
 interfaces:
 	$(INSTALL) -d $(EROS_ROOT)/include/domain

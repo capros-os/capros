@@ -43,8 +43,8 @@ interfaces: $(IDL)
 $(BUILDDIR)/swca: $(OBJECTS) $(CMTEDEPS)
 	$(CMTELINK) $(OBJECTS) $(CMTELIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

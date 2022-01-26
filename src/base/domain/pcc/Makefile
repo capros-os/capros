@@ -43,13 +43,13 @@ all: $(TARGETS)
 $(BUILDDIR)/proccre: $(BUILDDIR)/proccre.o $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/proccre.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 $(BUILDDIR)/pcc: $(BUILDDIR)/pcc.o $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/pcc.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/pccdisassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/pccdisassembled
 
 pcc.c: $(BUILDDIR)/constituents.h
 proccre.c: $(BUILDDIR)/constituents.h

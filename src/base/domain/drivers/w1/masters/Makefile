@@ -44,12 +44,12 @@ all: $(TARGETS) $(DRIVER_TARGETS) $(BUILDDIR)/ds2490_ids.o
 $(BUILDDIR)/ds2490: $(DS2490_OBJECTS) $(LIBS) $(DYNDRIVERDEPS)
 	$(DYNDRIVERLINK) $(DS2490_OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled2490
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled2490
 
 $(BUILDDIR)/ds2480b:  $(BUILDDIR)/ds2480b.o $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/ds2480b.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) -t --disassemble $@ >$(BUILDDIR)/disassembled2480b
+	$(TARGET_OBJDUMP) -t --disassemble $@ >$(BUILDDIR)/disassembled2480b
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers

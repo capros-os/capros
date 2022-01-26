@@ -46,17 +46,17 @@ interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 $(BUILDDIR)/logfileprotospace: $(PROTOOBJECTS)
-	$(EROS_LD) -N -Ttext 0 -static -e _start $(PROTOOBJECTS) -o $@
+	$(TARGET_LD) -N -Ttext 0 -static -e _start $(PROTOOBJECTS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/protodis
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/protodis
 
 $(BUILDDIR)/logfile: $(OBJECTS) $(DOMLIB)
 # For some unknown reason, to get the .eh_frame section to start at
 # 0x00020800, you have to specify 0x0001f800.
 	$(TARGET_GCC) $(LINKOPT) -Wl,--section-start,.eh_frame=0x0001f800 $(OBJECTS) $(CROSSLIBS) -o $@
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

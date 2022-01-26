@@ -42,7 +42,7 @@ hello.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/hello: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(OBJECTS) $(CROSSLIBS)
-#	$(EROS_OBJDUMP) --syms $@ > $(BUILDDIR)/hello.syms
+#	$(TARGET_OBJDUMP) --syms $@ > $(BUILDDIR)/hello.syms
 
 -include $(BUILDDIR)/.*.m
 

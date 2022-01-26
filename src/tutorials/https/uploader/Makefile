@@ -37,12 +37,12 @@ uploaderHttp.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/uploaderResource: $(BUILDDIR)/uploaderResource.o $(LIBDEP)
 	$(CROSSLINK) $(BUILDDIR)/uploaderResource.o $(CROSSLIBS) -o $@
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledResource
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledResource
 
 $(BUILDDIR)/uploaderHttp: $(BUILDDIR)/uploaderHttp.o $(LIBDEP)
 	$(CROSSLINK) $(BUILDDIR)/uploaderHttp.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

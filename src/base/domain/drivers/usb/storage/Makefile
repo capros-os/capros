@@ -53,7 +53,7 @@ IDL=$(wildcard *.idl)
 $(BUILDDIR)/usbstorage: $(OBJECTS) $(LIBS) $(DYNDRIVERDEPS)
 	$(DYNDRIVERLINK) $(OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers

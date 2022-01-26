@@ -54,20 +54,20 @@ interfaces: $(IDL)
 $(BUILDDIR)/$(COMPONENT): $(OBJECTS) $(LIBDEP) $(DYNCMMEDEPS)
 	$(DYNCMMELINK) $(OBJECTS) $(LIBS) $(CMMELIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 $(BUILDDIR)/httprget: $(BUILDDIR)/httprget.o $(LIBDEP)
 	$(CROSSLINK) $(BUILDDIR)/httprget.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symshttpr
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledhttpr
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symshttpr
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledhttpr
 
 $(BUILDDIR)/httprpost: $(BUILDDIR)/httprpost.o $(LIBDEP)
 	$(CROSSLINK) $(BUILDDIR)/httprpost.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symshttprpost
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledhttprpost
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symshttprpost
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledhttprpost
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
