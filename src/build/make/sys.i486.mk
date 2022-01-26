@@ -59,7 +59,7 @@ bootPartitionDef:
 #   set RESTART_CKPT to "-p" to properly link device drivers.
 np: $(BUILDDIR)/sysimg $(KERNPATH).o bootPartitionDef
 	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(RESTART_CKPT) $(BUILDDIR)/imgdata
-	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
+	$(TARGET_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
 	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
 	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(BUILDDIR)/kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
 	$(OBJDUMP) --disassemble $(BUILDDIR)/kernimg > $(BUILDDIR)/kerndis
@@ -70,7 +70,7 @@ np: $(BUILDDIR)/sysimg $(KERNPATH).o bootPartitionDef
 p: $(BUILDDIR)/sysimg $(BUILDDIR)/psysimg $(KERNPATH).o bootPartitionDef
 	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg -p $(BUILDDIR)/imgdata
 	$(EROS_ROOT)/host/bin/npgen -s $(PRANGESIZE) -b 0x0100000000000000 $(BUILDDIR)/psysimg -a $(BUILDDIR)/imgdata
-	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
+	$(TARGET_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
 	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
 	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(BUILDDIR)/kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
 	$(OBJDUMP) --disassemble $(BUILDDIR)/kernimg > $(BUILDDIR)/kerndis

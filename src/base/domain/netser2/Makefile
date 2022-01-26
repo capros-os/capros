@@ -40,7 +40,7 @@ all: $(TARGETS)
 $(BUILDDIR)/netser2: $(OBJECTS) $(CMTEDEPS)
 	$(CMTELINK) $(OBJECTS) $(CMTELIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

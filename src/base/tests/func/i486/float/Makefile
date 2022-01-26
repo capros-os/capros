@@ -37,6 +37,6 @@ include ../../../test.mk
 
 $(BUILDDIR)/test: $(OBJECTS) $(LIBDEP)
 	$(CROSSLINK) -o $@ $(OBJECTS) $(CROSSLIBS)
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 -include $(BUILDDIR)/.*.m

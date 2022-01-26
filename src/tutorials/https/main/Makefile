@@ -37,6 +37,6 @@ include $(EROS_SRC)/base/tests/test.mk
 
 $(BUILDDIR)/test: $(OBJECTS) $(LIBDEP) $(DYNCMMEDEPS)
 	$(DYNCMMELINK) $(OBJECTS) $(CMMELIBS) -o $@
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 -include $(BUILDDIR)/.*.m

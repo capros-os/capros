@@ -20,8 +20,18 @@
 
 # Overrides for building under Linux, using RedHat 4.2 or later:
 
+TARGET_GCC=gcc
+TARGET_GPLUS=g++
+TARGET_LD=ld
+TARGET_AR=ar
+TARGET_SIZE=size
+TARGET_OBJCOPY=objcopy
+TARGET_OBJDUMP=objdump
+TARGET_RANLIB=ranlib
+TARGET_STRIP=strip
+
 # GCC 2.8+ and EGCS require these to successfully compile the kernel:
 ifneq "" "$(findstring /usr/bin/egcs,$(wildcard /usr/bin/*))"
-EROS_GPLUS_OPTIM=-fno-rtti -fno-exceptions
+TARGET_GPLUS_OPTIM=-fno-rtti -fno-exceptions
 NATIVE_GPLUS_OPTIM=-fno-rtti -fno-exceptions
 endif

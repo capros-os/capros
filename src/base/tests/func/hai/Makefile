@@ -45,6 +45,6 @@ include ../../test.mk
 
 $(BUILDDIR)/test: $(BUILDDIR)/test.o $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(BUILDDIR)/test.o $(CROSSLIBS) -lcaproscrypto
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 -include $(BUILDDIR)/.*.m

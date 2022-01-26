@@ -45,14 +45,14 @@ loghttp.c: $(BUILDDIR)/constituents.h
 $(BUILDDIR)/loghttp: $(OBJECTS) $(DOMLIB)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 $(BUILDDIR)/lhresource: $(BUILDDIR)/lhresource.o $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/lhresource.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symslhr
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledlhr
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symslhr
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledlhr
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

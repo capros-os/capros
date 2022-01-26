@@ -36,8 +36,8 @@ homehttprh.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/homehttprh: $(BUILDDIR)/homehttprh.o $(LIBDEP)
 	$(CROSSLINK) $(BUILDDIR)/homehttprh.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

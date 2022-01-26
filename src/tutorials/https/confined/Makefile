@@ -31,8 +31,8 @@ install all: $(TARGETS)
 
 $(BUILDDIR)/confined: $(BUILDDIR)/confined.o $(LIBDEP)
 	$(CROSSLINK) $(BUILDDIR)/confined.o $(SMALL_SPACE) $(CROSSLIBS) -o $@ -lm
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 	$(STRIP) -s $@
 
 -include $(BUILDDIR)/.*.m

@@ -45,21 +45,21 @@ all: $(TARGETS) $(LIBTARGETS)
 # (just to save having another separate page). 
 # telospace.S is loaded at the fixed address 0x400.
 $(BUILDDIR)/protospace: $(BUILDDIR)/protospace1 $(BUILDDIR)/telospace
-	$(EROS_LD) -N -Ttext 0 --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 -static -e _start $(BUILDDIR)/protospace1 $(BUILDDIR)/telospace -o $@
-#	$(EROS_OBJDUMP) -x $@ > $(BUILDDIR)/all.dump
+	$(TARGET_LD) -N -Ttext 0 --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 -static -e _start $(BUILDDIR)/protospace1 $(BUILDDIR)/telospace -o $@
+#	$(TARGET_OBJDUMP) -x $@ > $(BUILDDIR)/all.dump
 
 $(BUILDDIR)/protospace1: $(BUILDDIR)/protospace.o
 # Link without $(DOMLIB). Should not need any other procedures.
 # Protospace is well-known to start at zero.
-	$(EROS_LD) -Ttext 0 -N $(BUILDDIR)/protospace.o -o $@
+	$(TARGET_LD) -Ttext 0 -N $(BUILDDIR)/protospace.o -o $@
 
 $(BUILDDIR)/telospace: $(BUILDDIR)/telospace.o
 # Link without $(DOMLIB). Should not need any other procedures.
 # Telospace is well-known to start at 0x400.
 # I don't know how to get section .rodatatelo to follow .texttelo,
 # so put it at a fixed address.
-	$(EROS_LD) --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 -N $(BUILDDIR)/telospace.o -o $@
-	$(EROS_OBJCOPY) --keep-global-symbol=telospacestart --set-section-flags .texttelo=alloc,code,load --set-section-flags .rodatatelo=alloc,load,readonly,data $@
+	$(TARGET_LD) --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 -N $(BUILDDIR)/telospace.o -o $@
+	$(TARGET_OBJCOPY) --keep-global-symbol=telospacestart --set-section-flags .texttelo=alloc,code,load --set-section-flags .rodatatelo=alloc,load,readonly,data $@
 
 interfaces:
 	$(INSTALL) -d $(EROS_ROOT)/include/domain

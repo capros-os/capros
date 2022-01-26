@@ -50,8 +50,8 @@ PRANGESIZE=310
 endif
 
 $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata: $(KERNPATH)
-	$(EROS_OBJCOPY) -O binary --remove-section=.data --remove-section=.bss $(KERNPATH) $(BUILDDIR)/kerneltext
-	$(EROS_OBJCOPY) -O binary --only-section=.data $(KERNPATH) $(BUILDDIR)/kerneldata
+	$(TARGET_OBJCOPY) -O binary --remove-section=.data --remove-section=.bss $(KERNPATH) $(BUILDDIR)/kerneltext
+	$(TARGET_OBJCOPY) -O binary --only-section=.data $(KERNPATH) $(BUILDDIR)/kerneldata
 
 // Link kernel and non-persistent objects:
 # To run with non-persistent objects only, leave RESTART_CKPT empty

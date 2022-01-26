@@ -41,6 +41,6 @@ include ../../test.mk
 
 $(BUILDDIR)/test: $(BUILDDIR)/test.o $(DOMLIB)
 	$(CROSSLINK) $(SMALL_SPACE) -o $@ $(BUILDDIR)/test.o $(CROSSLIBS)
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 -include $(BUILDDIR)/.*.m

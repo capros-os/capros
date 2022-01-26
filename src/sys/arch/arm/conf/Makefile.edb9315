@@ -146,7 +146,7 @@ install: all
 # Set up for loading by Redboot.
 #	cp $(CONFIG).eros /tftpboot/redcap
 # Set up for loading by download.
-#	$(EROS_OBJCOPY) -O binary --change-section-lma .data=$(KDataPackedAddr) $(CONFIG).eros /tftpboot/capros-kernel
+#	$(TARGET_OBJCOPY) -O binary --change-section-lma .data=$(KDataPackedAddr) $(CONFIG).eros /tftpboot/capros-kernel
 
 .FORCE:
 

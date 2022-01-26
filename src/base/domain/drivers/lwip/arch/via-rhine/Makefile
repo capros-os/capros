@@ -45,8 +45,8 @@ include $(EROS_SRC)/build/make/makerules.mk
 $(BUILDDIR)/lwip: $(OBJECTS) $(DYNDRIVERDEPS)
 	$(DYNDRIVERLINK) $(OBJECTS) $(DRIVERLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 interfaces:
 	$(INSTALL) -d $(INSTALL_DIR)

@@ -44,8 +44,8 @@ include ../../test.mk
 $(BUILDDIR)/proc1: $(BUILDDIR)/proc1.o $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(BUILDDIR)/proc1.o $(CROSSLIBS)
 ## and for debugging:
-	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(TARGET_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(TARGET_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 $(BUILDDIR)/proc2: $(BUILDDIR)/proc2.o $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(BUILDDIR)/proc2.o $(CROSSLIBS)
