@@ -44,7 +44,6 @@ extern uint32_t __rt_small_space;
 void
 __rt_buy_data_space()
 {
-  uint32_t result;
   uint32_t base = (uint32_t) &__data_start;
   uint32_t bound = (uint32_t) &end;
   
@@ -54,18 +53,18 @@ __rt_buy_data_space()
   bound += EROS_PAGE_SIZE - 1;
   bound &= - EROS_PAGE_SIZE;
 
-  result = capros_Process_getAddrSpace(KR_SELF, KR_MYSPACE);
+  capros_Process_getAddrSpace(KR_SELF, KR_MYSPACE);
 
   while (base < bound) {
     uint32_t slot = base / EROS_PAGE_SIZE;
     
-    result = capros_GPT_getSlot(KR_MYSPACE, slot, KR_OLDPAGE);
+    capros_GPT_getSlot(KR_MYSPACE, slot, KR_OLDPAGE);
 
-    result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_NEWPAGE);
+    capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_NEWPAGE);
     
-    result = capros_Page_clone(KR_NEWPAGE, KR_OLDPAGE);
+    capros_Page_clone(KR_NEWPAGE, KR_OLDPAGE);
     
-    result = capros_GPT_setSlot(KR_MYSPACE, slot, KR_NEWPAGE);
+    capros_GPT_setSlot(KR_MYSPACE, slot, KR_NEWPAGE);
 
     base += EROS_PAGE_SIZE;
   }

@@ -91,10 +91,13 @@ $(BUILDDIR)/lex.o: lex.c $(BUILDDIR)/idl.h
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
 
-$(BUILDDIR)/prescan.o: prescan.c
+$(BUILDDIR)/prescan.o: prescan.c $(BUILDDIR)/idl.h
 # Can't use $(C_BUILD) because it has -Werror and prescan.c generates warnings.
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
+
+.NOTPARALLEL:
+# the bison rule below is not re-entrant.
 
 $(BUILDDIR)/idl.c $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR);bison -v -d -y ../../idl.y)

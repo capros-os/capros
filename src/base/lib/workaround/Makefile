@@ -1,6 +1,7 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
 # Copyright (C) 2009, 2010, Strawberry Development Group.
+# Copyright (C) 2021, William ML Leslie.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -25,13 +26,34 @@
 
 default: package
 
-EROS_SRC=..
+EROS_SRC=../../..
 CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=src
+INC=-I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/pkgrules.mk
+
+OBJECTS=
+# Workaround for strstr bug in cross lib for FC10:
+OBJECTS+=$(BUILDDIR)/libcfix.o
+ifeq "$(EROS_TARGET)" "i486"
+# Workaround for longjmp bug (has cli/sti):
+OBJECTS+=$(BUILDDIR)/longjmpfix.o
+INC+=-I$(EROS_ROOT)/include
+endif
+TARGETS=$(BUILDDIR)/libworkaround.a
+include $(EROS_SRC)/build/make/makerules.mk
+
+libs: $(TARGETS)
+
+$(TARGETS): $(OBJECTS)
+	$(AR) -crv $@ $(OBJECTS)
+	$(RANLIB) $@
+
+install: $(TARGETS)
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

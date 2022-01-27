@@ -269,12 +269,15 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
 
   lastframe = 0;
   while (count && frame != 0) {
+#if 0
     int		narg;
+    const char **argnp = NULL;
+#define MAXNARG	16
+    const char	*argnames[MAXNARG];
+#endif
     const char *	name;
     db_expr_t	offset;
     db_sym_t	sym;
-#define MAXNARG	16
-    const char	*argnames[MAXNARG], **argnp = NULL;
 
     sym = db_search_symbol(callpc, DB_STGY_ANY, &offset);
     db_symbol_values(sym, &name, NULL);
@@ -338,15 +341,15 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
 #endif
       else
 	goto normal;
+#if 0
       narg = 0;
+#endif
     } else {
     normal:
       is_trap = NONE;
+#if 0
       narg = MAXNARG;
-      if (db_sym_numargs(sym, &narg, argnames))
-	argnp = argnames;
-      else
-	narg = db_numargs(frame);
+#endif
     }
 
 #if 0
@@ -363,8 +366,6 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     }
 
     while (narg) {
-      if (argnp)
-	db_printf("%s=", *argnp++);
       db_printf("%x", db_get_value((int)argp + userSpaceOffset, 4, false));
       argp++;
       if (--narg != 0)

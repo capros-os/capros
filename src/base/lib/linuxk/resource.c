@@ -868,7 +868,6 @@ int iomem_map_sanity_check(resource_size_t addr, unsigned long size)
 
 	return err;
 }
-#endif // CapROS
 
 #ifdef CONFIG_STRICT_DEVMEM
 static int strict_iomem_checks = 1;
@@ -876,7 +875,6 @@ static int strict_iomem_checks = 1;
 static int strict_iomem_checks;
 #endif
 
-#if 0 // CapROS
 /*
  * check if an address is reserved in the iomem resource tree
  * returns 1 if reserved, 0 if not reserved.
@@ -913,7 +911,6 @@ int iomem_is_exclusive(u64 addr)
 
 	return err;
 }
-#endif // CapROS
 
 static int __init strict_iomem(char *str)
 {
@@ -925,3 +922,4 @@ static int __init strict_iomem(char *str)
 }
 
 __setup("iomem=", strict_iomem);
+#endif // CapROS

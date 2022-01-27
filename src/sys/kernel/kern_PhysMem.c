@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/ffs.h>
 #include <eros/fls.h>
 #include <idl/capros/DevPrivs.h>
+#include <arch-kerninc/kinttypes.h>
 
 #define dbg_pgalloc	0x1
 #define dbg_avail	0x2
@@ -510,7 +511,7 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
       const kpa_t split = align_up(base, EROS_PAGE_SIZE);
       if (split < allocTarget->allocBound) {
         /* Split the region */
-        PmemInfo * newPmi;
+        PmemInfo * newPmi = NULL;
 #if 0
         printf("Splitting: 0x%x 0x%x 0x%x 0x%x\n",
                        (unsigned)allocTarget->allocBase,
@@ -523,6 +524,7 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
         ret = physMem_AddRegion(split, allocTarget->allocBound,
                                 MI_MEMORY, &newPmi);
         assert(!ret);
+        assert(newPmi);
         newPmi->allocBase = max(split, where + nBytes);
         allocTarget->bound = split;
         allocTarget->allocBound = where;

@@ -66,16 +66,6 @@
 
 group=`id -n -g`
 owner=`id -n -u`
-if [ -e /bin/chown ]
-then
-	chown=/bin/chown
-elif [ -e /usr/sbin/chown ]
-then
-	chown=/usr/sbin/chown
-else
-	echo "chown not found"
-	exit 1
-fi
 
 cflag="-c"
 
@@ -126,7 +116,7 @@ then
 		if [ -d $d ]
 		then
 			chmod $mode $d;
-			${chown} $owner.$group $d
+			chown $owner.$group $d
 		else
 			install -d -g $group -o $owner -m $mode $d
 		fi
@@ -147,7 +137,7 @@ then
 	then
 	    # content is identical - just make sure of the modes
 	    chmod $mode $target
-	    ${chown} $owner.$group $target
+	    chown $owner.$group $target
 	else
 	    install -D $cflag $strip -g $group -o $owner -m $mode $src $target
 	fi
@@ -177,7 +167,7 @@ else
 		then
 		    # content is identical - just make sure of the modes
 		    chmod $mode $target
-		    ${chown} $owner.$group $target
+		    chown $owner.$group $target
 		else
 		    install -D $cflag $strip -g $group -o $owner -m $mode $src $target
 		fi

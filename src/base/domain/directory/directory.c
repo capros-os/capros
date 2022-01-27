@@ -224,7 +224,9 @@ alloc_dirent(state_t *state)
           bit += w * UINT32_BITS;
 
           result = capros_SuperNode_allocateRange(KR_SNODE, bit, bit);
-          // FIXME: handle allocation error here
+          if (result != RC_OK) {
+            return 0;
+          }
 
 	  return bit;
 	}
@@ -332,10 +334,8 @@ insert_dirent(struct direct *dp, char *name, uint32_t kr, state_t *state)
 #endif
   
   entno = alloc_dirent(state);
-#if 0
   if (entno == 0)
     return false;
-#endif
 
   
   DEBUG(link) kdprintf(KR_OSTREAM, "insrt_de(0x%08x, \"%s\", %d) entno %d\n",

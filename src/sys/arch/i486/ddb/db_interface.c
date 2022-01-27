@@ -166,24 +166,6 @@ kdb_trap(int type, int code, register db_regs_t *regs)
 	return true;
 }
 
-/* For now... */
-char *trap_type[0];
-int trap_types = 0;
-
-/*
- * Print trap reason.
- */
-void
-kdbprinttrap(int type, int code)
-{
-	db_printf("kernel: ");
-	if (type >= trap_types || type < 0)
-		db_printf("type %d", type);
-	else
-		db_printf("%s", trap_type[type]);
-	db_printf(" trap, code=%x\n", code);
-}
-
 /*
  * Read bytes from kernel address space for debugger.
  */

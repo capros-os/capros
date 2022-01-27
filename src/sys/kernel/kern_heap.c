@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/Depend.h>
 #include <kerninc/heap.h>
+#include <arch-kerninc/kinttypes.h>
      
 #define dbg_init	0x1u
 #define dbg_avail	0x2u

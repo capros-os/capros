@@ -247,9 +247,9 @@ extern struct pid *session_of_pgrp(struct pid *pgrp);
 #define FW_INFO		"[Firmware Info]: "
 
 #ifdef CONFIG_PRINTK
-asmlinkage int vprintk(const char *fmt, va_list args)
+int vprintk(const char *fmt, va_list args)
 	__attribute__ ((format (printf, 1, 0)));
-asmlinkage int printk(const char * fmt, ...)
+int printk(const char * fmt, ...)
 	__attribute__ ((format (printf, 1, 2))) __cold;
 
 extern struct ratelimit_state printk_ratelimit_state;

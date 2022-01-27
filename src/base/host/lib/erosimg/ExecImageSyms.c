@@ -18,6 +18,13 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* binutils (correctly) does not ship its config.h, but it attempts to
+   check in its public API that config.h has been included already by
+   checking the following variables. */
+
+#define PACKAGE 1
+#define PACKAGE_VERSION 1
+
 #include <bfd.h>
 #include <string.h>
 

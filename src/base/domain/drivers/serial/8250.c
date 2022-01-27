@@ -1481,7 +1481,7 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 			 * interrupt meaning an LCR write attempt occured while the
 			 * UART was busy. The interrupt must be cleared by reading
 			 * the UART status register (USR) and the LCR re-written. */
-			unsigned int status;
+			unsigned int status __attribute__((unused));
 			status = *(volatile u32 *)up->port.private_data;
 			serial_out(up, UART_LCR, up->lcr);
 
@@ -2893,7 +2893,7 @@ EXPORT_SYMBOL(serial8250_unregister_port);
 	return ret;
 }
 
-static void __exit serial8250_exit(void)
+/* static */ void __exit serial8250_exit(void)
 {
 	struct platform_device *isa_dev = serial8250_isa_devs;
 

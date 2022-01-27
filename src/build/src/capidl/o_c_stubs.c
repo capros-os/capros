@@ -532,7 +532,9 @@ emit_send_string(PtrVec *symVec, FILE *out, int indent)
     }
     else if (symbol_IsFixSequenceType(s0BaseType)) {
       do_indent(out, indent);
-      fprintf(out, "msg.snd_len = sizeof(%s);\n", s0->name);
+      fprintf(out, "msg.snd_len = sizeof(");
+      output_c_type(s0->type, out, 0);
+      fprintf(out, ");\n");
     }
     else {
       do_indent(out, indent);
@@ -999,7 +1001,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     do_indent(out, indent + 2);
     fprintf(out, "unsigned sndLen = 0;\n");
     do_indent(out, indent + 2);
-    fprintf(out, "unsigned sndIndir = 0;\n");
+    fprintf(out, "unsigned sndIndir __attribute__((unused)) = 0;\n");
   }
   if (needRcvString == 1) {
     do_indent(out, indent + 2);

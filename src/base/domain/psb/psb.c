@@ -184,7 +184,7 @@ SBVoid(result_t result)
   return isVoid;
 }
 
-NORETURN int
+int
 main(void)
 {
   char buff[sizeof(capros_SpaceBank_limits) + 2];

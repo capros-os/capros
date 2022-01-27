@@ -39,7 +39,7 @@ OBJECTS= $(BUILDDIR)/gram.o $(BUILDDIR)/lex.o $(BUILDDIR)/PtrMap.o
 DEF+=   -D_REVEAL_KERNEL_KEY_TYPES_
 INC=	-I$(BUILDDIR) -I. -I$(EROS_ROOT)/host/include $(XENV_INCLUDE)
 LIBS=	$(EROS_ROOT)/host/lib/liberos.a $(EROS_ROOT)/host/lib/libdisk.a
-OTHER_LIBS=	-lbfd -liberty -ldl
+OTHER_LIBS=	-lbfd -liberty -ldl -lz
 DIRS=
 HEADERS=mkimage.preinclude
 
@@ -58,6 +58,9 @@ $(BUILDDIR)/lex.o: $(BUILDDIR)/lex.c $(BUILDDIR)/gram.c.h $(MAKE_BUILDDIR)
 # Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@
 	$(C_DEP)
+
+.NOTPARALLEL:
+# the bison rule below is not re-entrant.
 
 $(BUILDDIR)/gram.c $(BUILDDIR)/gram.c.h: gram.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR); bison -v -d -y ../../gram.y)
