@@ -30,7 +30,7 @@ BEGIN {
 
 /^arch/ {
   arch = $2;
-  gsub(/\"/, "", arch);
+  gsub(/"/, "", arch);
 }
 
 /^BEGIN/ {
