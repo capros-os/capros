@@ -41,8 +41,6 @@ ifeq "$(EROS_TARGET)" "i486"
 TARGET_GCC_KERNEL_ALIGN=-falign-functions=4
 endif
 
-EROS_CPP=/lib/cpp -undef -nostdinc -D$(EROS_TARGET)
-
 GAWK=gawk
 
 HOST_FD=/dev/fd0H1440

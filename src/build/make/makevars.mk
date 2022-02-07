@@ -44,7 +44,7 @@ else
 EROS_SRCDIR=src
 endif
 
-EROS_ROOT=$(firstword $(subst /eros/$(EROS_SRCDIR), ,$(PWD)))/eros
+EROS_ROOT=$(firstword $(subst /$(EROS_SRCDIR), ,$(PWD)))
 
 endif
 
@@ -110,7 +110,7 @@ MKIMAGEDEP=$(EROS_SRC)/build/bin/mkimagedep
 # First, set up variables for building native tools:
 #
 GAWK=gawk
-PYTHON=python
+PYTHON=python3
 #XML_LINT=$(EROS_XENV)/bin/xmllint
 #XSLT=$(EROS_XENV)/bin/xsltproc
 XML_LINT=xmllint
@@ -244,15 +244,10 @@ GPLUS_OPTIM=$(NATIVE_GPLUS_OPTIM)
 GCC_OPTIM=$(NATIVE_GCC_OPTIM)
 endif
 
-#
-# in all the places where this is run, we actually want the environmental
+# EROS_CPP is the native cpp, but in all the places
+# where this is run, we actually want the environmental
 # definitions set for the target environment.
-#
-
-ifndef EROS_CPP
-EROS_CPP=$(EROS_XENV)/bin/cpp -nostdinc -D$(EROS_TARGET)
-endif
-
+EROS_CPP=/lib/cpp -undef -nostdinc -D$(EROS_TARGET)
 
 # Libraries for make dependencies.
 LIBDEP=$(CAPROS_DOMAIN)/libc-capros.a

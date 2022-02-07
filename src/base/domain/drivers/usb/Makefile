@@ -37,4 +37,3 @@ include $(EROS_SRC)/build/make/makerules.mk
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
-	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers
