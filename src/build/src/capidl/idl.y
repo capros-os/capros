@@ -113,7 +113,7 @@ int num_errors = 0;  /* hold the number of syntax errors encountered. */
 #define YYPARSE_PARAM lexer
 #define YYLEX_PARAM lexer
 
-#define yyerror(s) mylexer_ReportParseError(lexer, s)
+#define yyerror(lexer, s) mylexer_ReportParseError(lexer, s)
 
 #include "Lexer.h"
 
@@ -124,7 +124,12 @@ extern int mylexer_lex (YYSTYPE *lvalp, MyLexer *);
 extern void output_symdump(Symbol *);
 %}
 
-%pure_parser
+/* The following generates the warning
+  "POSIX Yacc does not support %pure-parser",
+   but it is necessary to avoid other errors. */
+%pure-parser
+
+%param {MyLexer * lexer}
 
 /* Categorical terminals */
 %token <tok>        Identifier

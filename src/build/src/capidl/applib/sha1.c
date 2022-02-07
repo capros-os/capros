@@ -47,48 +47,6 @@ static const uint32_t k[80] = {
   0xca62c1d6u, 0xca62c1d6u, 0xca62c1d6u, 0xca62c1d6u, 0xca62c1d6u,
 };
 
-typedef uint32_t (*shafn)(uint32_t b, uint32_t c, uint32_t d);
-
-static uint32_t
-fa(uint32_t b, uint32_t c, uint32_t d)
-{
-  return (b&c)|((~b)&d);
-}
-
-static uint32_t
-fb(uint32_t b, uint32_t c, uint32_t d)
-{
-  return (b ^ c ^ d);
-}
-
-static uint32_t
-fc(uint32_t b, uint32_t c, uint32_t d)
-{
-  return (b & c) | (b & d) | (c & d);
-}
-
-const static shafn fns[80] = {
-  fa, fa, fa, fa, fa,
-  fa, fa, fa, fa, fa,
-  fa, fa, fa, fa, fa,
-  fa, fa, fa, fa, fa,
-
-  fb, fb, fb, fb, fb,
-  fb, fb, fb, fb, fb,
-  fb, fb, fb, fb, fb,
-  fb, fb, fb, fb, fb,
-
-  fc, fc, fc, fc, fc,
-  fc, fc, fc, fc, fc,
-  fc, fc, fc, fc, fc,
-  fc, fc, fc, fc, fc,
-
-  fb, fb, fb, fb, fb,
-  fb, fb, fb, fb, fb,
-  fb, fb, fb, fb, fb,
-  fb, fb, fb, fb, fb,
-} ;
-
 __inline__ static uint32_t
 dofn(uint32_t n, uint32_t b, uint32_t c, uint32_t d)
 {
