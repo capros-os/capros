@@ -1,13 +1,19 @@
-cross
-host
-doc
-domain
+# global names:
+BUILD
+.*.m
 idl
-include
-lib
-pkg
-bin
-man
-info
-share
-i486-unknown-eros
+.opencm-rules
+
+# names in this directory:
+/cross
+/host
+/doc
+/domain
+/include
+/lib
+/pkg
+/bin
+/man
+/info
+/share
+/i486-unknown-eros
