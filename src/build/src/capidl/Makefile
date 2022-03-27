@@ -63,8 +63,6 @@ CAPIDL_OBJECTS += $(BUILDDIR)/o_c_stub_depend.o
 CAPIDL_OBJECTS += $(BUILDDIR)/o_capidl.o
 CAPIDL_OBJECTS += $(BUILDDIR)/o_depend.o
 
-OBJECTS=$(LIBAPP_OBJECTS) $(CAPIDL_OBJECTS)
-
 INC=	-I. -I$(BUILDDIR)
 LIBS=$(BUILDDIR)/libapp.a
 OTHER_LIBS= -liberty -lgmp -lstdc++
@@ -88,12 +86,14 @@ $(BUILDDIR)/idl.o: $(BUILDDIR)/idl.c
 
 $(BUILDDIR)/lex.o: lex.c $(BUILDDIR)/idl.h
 # Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
-	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
+# Defining YY_NO_INPUT to avoid warning that procedure input is not used.
+	$(GCC) $(GCCFLAGS) -DYY_NO_INPUT $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
 
 $(BUILDDIR)/prescan.o: prescan.c $(BUILDDIR)/idl.h
 # Can't use $(C_BUILD) because it has -Werror and prescan.c generates warnings.
-	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
+# Defining YY_NO_INPUT to avoid warning that procedure input is not used.
+	$(GCC) $(GCCFLAGS) -DYY_NO_INPUT $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
 
 .NOTPARALLEL:
