@@ -87,13 +87,13 @@ $(BUILDDIR)/idl.o: $(BUILDDIR)/idl.c
 	$(C_DEP)
 
 $(BUILDDIR)/lex.o: lex.c $(BUILDDIR)/idl.h
-# Can't use $(C_BUILD) because it has -Werror and lex.c generates a warning.
-	$(GCC) $(GCCFLAGS) $(MOPSWARN) -Werror -Wno-unused-function -c $< -o $@ 
+# Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
+	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
 
 $(BUILDDIR)/prescan.o: prescan.c $(BUILDDIR)/idl.h
-# Can't use $(C_BUILD) because it has -Werror and prescan.c generates a warning.
-	$(GCC) $(GCCFLAGS) $(MOPSWARN) -Werror -Wno-unused-function -c $< -o $@ 
+# Can't use $(C_BUILD) because it has -Werror and prescan.c generates warnings.
+	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
 
 .NOTPARALLEL:
@@ -105,14 +105,12 @@ $(BUILDDIR)/idl.c $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR); mv y.tab.c idl.c)
 	(cd $(BUILDDIR); mv y.tab.h idl.h)
 
-$(BUILDDIR)/prescan.c: prescan.l $(MAKE_BUILDDIR)
-	flex -d -o$@ prescan.l
-
-$(BUILDDIR)/lex.c: lex.l
-	flex -d -o$@ lex.l
-
-nonrecursiveClean:
-	rm lex.c prescan.c 
+# The following worked in Fedora Core 6 but not FC8:
+#$(BUILDDIR)/prescan.c: prescan.l $(MAKE_BUILDDIR)
+#	flex -d -o$@ prescan.l
+#
+#$(BUILDDIR)/lex.c: lex.l
+#	flex -d -o$@ lex.l
 
 interfaces: $(TARGETS)
 	$(INSTALL) -m 755 $(TARGETS) ../../bin
