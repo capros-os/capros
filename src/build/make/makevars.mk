@@ -49,12 +49,17 @@ EROS_ROOT=$(firstword $(subst /$(EROS_SRCDIR), ,$(PWD)))
 endif
 
 GOOD_TARGET=0
+TARGET_GCC_FLAGS=
 ifndef EROS_TARGET
 EROS_TARGET=i486
 endif
+
 ifeq ($(EROS_TARGET),i486)
 GOOD_TARGET=1
+# CapROS is still 32-bit only.
+TARGET_GCC_FLAGS+=-m32
 endif
+
 ifeq ($(EROS_TARGET),arm)
 GOOD_TARGET=1
 ifndef CAPROS_MACH
@@ -176,7 +181,11 @@ ifndef EROS_HOSTENV
 EROS_HOSTENV=linux-xenv
 endif
 
+# This include defines the tools on a particular host.
 include $(EROS_SRC)/build/make/$(EROS_HOSTENV).mk
+
+TARGET_GCC+= $(TARGET_GCC_FLAGS)
+TARGET_GPLUS+= $(TARGET_GCC_FLAGS)
 
 # search for ppmtogif in all the obvious places:
 ifndef NETPBMDIR
