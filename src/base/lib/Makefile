@@ -42,10 +42,13 @@ DIRS+=ethread
 ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far
 endif
 ifeq "$(EROS_TARGET)" "i486"	# only for i486 so far
-DIRS+=pci
+	# pci does not currently build
+	# DIRS+=pci
 endif
 # keycache was a failed experiment.
 
-LDIRS=pci
+LDIRS=
+# pci does not currently build
+# LDIRS+=pci
 
 include $(EROS_SRC)/build/make/makerules.mk
