@@ -94,8 +94,15 @@ extern db_regs_t	ddb_regs;	/* register state */
 #define	inst_call(ins)		(((ins)&0xff) == I_CALL || \
 				 (((ins)&0xff) == I_CALLI && \
 				  ((ins)&0x3800) == 0x1000))
-#define inst_load(ins)		0
-#define inst_store(ins)		0
+
+INLINE int inst_load(db_expr_t ins) {
+   (void)ins;  // to avoid a compiler warning
+   return 0;
+}
+INLINE int inst_store(db_expr_t ins) {
+   (void)ins;
+   return 0;
+}
 
 /* access capability and access macros */
 
