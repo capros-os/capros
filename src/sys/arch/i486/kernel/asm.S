@@ -142,7 +142,7 @@ L_halt:
 	hlt
 	jmp L_halt
 
-ENTRY(abort)
+ENTRY(kern_abort)
 	movl	$0x000b8000,%eax	// CGA buffer?
 	movl	$0x07620741,(%eax)	// "Ab"
 	cli			/* disable interrupts */

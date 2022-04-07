@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 
 void halt(char c) NORETURN;
 void pause();
-void abort(void) NORETURN;
+void kern_abort() NORETURN;
 
   /* void Stall(uint32_t howLong); */
 

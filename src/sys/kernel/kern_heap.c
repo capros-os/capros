@@ -108,7 +108,7 @@ heap_AcquirePage(void)
  */
 // May Yield.
 void *
-malloc(size_t nBytes)
+kern_malloc(size_t nBytes)
 {
   void *vp = 0;
   /* We are going to allocate the nBytes bytes beginning at heap_end. */
@@ -135,7 +135,7 @@ malloc(size_t nBytes)
     
   DEBUG(alloc)
     dprintf(false,
-		    "malloc() returns nBytes=%d at 0x%08x\n", nBytes,
+		    "kern_malloc() returns nBytes=%d at 0x%08x\n", nBytes,
 		    vp);
 
   return vp;
