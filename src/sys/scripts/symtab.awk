@@ -72,8 +72,14 @@ function basename(s) {
 
 # Look for function name in $6 and $7, ignoring ".hidden".
 function striphidden(n1, n2) {
-  if (n1 == ".hidden")
-    return n2;
+  if (substr(n1,1,1) == ".") {
+    if (n1 == ".hidden")
+      return n2;    # ignore .hidden
+    else {
+      printf("[SYMn] Unrecognized function name on line %d\n", NR)
+      return ""
+    }
+  }
   else
     return n1
 }
