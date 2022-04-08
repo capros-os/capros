@@ -70,6 +70,20 @@ function basename(s) {
   return s;
 }
 
+# Look for function name in $6 and $7, ignoring ".hidden".
+function striphidden(n1, n2) {
+  if (substr(n1,1,1) == ".") {
+    if (n1 == ".hidden")
+      return n2;    # ignore .hidden
+    else {
+      printf("[SYMn] Unrecognized function name on line %d\n", NR)
+      return ""
+    }
+  }
+  else
+    return n1
+}
+
 # Strangely enough, gawk does not appear to grok hex numbers for
 # purposes of conversion...
 function hextodec(s) {
@@ -101,7 +115,7 @@ function toindex(value) {
 $2=="l" && $3=="F" && $4==".text" {
   truepc = hextodec($1);
   pc = toindex(truepc);
-  fun_name = $6;
+  fun_name = striphidden($6, $7);
   
   if (debug)
     printf("0x%08x FUN  %s\n", truepc, fun_name);
@@ -113,6 +127,7 @@ $2=="l" && $3=="F" && $4==".text" {
   }
 
   funtab[pc] = fun_name;
+  funLine[pc] = NR;
   funpc[pc] = truepc;
   funclass[pc] = "l";
 }
@@ -120,7 +135,7 @@ $2=="l" && $3=="F" && $4==".text" {
 $2=="g" && $3=="F" && $4==".text" {
   truepc = hextodec($1);
   pc = toindex(truepc);
-  fun_name = $6;
+  fun_name = striphidden($6, $7);
   
   if (debug)
     printf("0x%08x FUN  %s\n", truepc, fun_name);
@@ -140,6 +155,7 @@ $2=="g" && $3=="F" && $4==".text" {
 #  }
 
   funtab[pc] = fun_name;
+  funLine[pc] = NR;
   funpc[pc] = truepc;
   funclass[pc] = "g";
 }
@@ -147,7 +163,7 @@ $2=="g" && $3=="F" && $4==".text" {
 $2=="w" && $3=="F" && $4==".text" {
   truepc = hextodec($1);
   pc = toindex(truepc);
-  fun_name = $6;
+  fun_name = striphidden($6, $7);
   
   if (debug)
     printf("0x%08x FUN  %s\n", truepc, fun_name);
@@ -155,13 +171,16 @@ $2=="w" && $3=="F" && $4==".text" {
   # Perversely, a weak symbol name should be accepted over a global
   # symbol name, because the weak symbol name is the one that actually
   # resolved.
-  if (funtab[pc] && funtab[pc] != "g" && funtab[pc] != fun_name) {
-      printf("[SYMS] Function table mismatch at 0x%08x old=%s new=%s\n",
-	     truepc, funtab[pc], fun_name);
-      exit(1);
-  }
+
+  # Mismatch does happen here; ignore it.
+  # if (funtab[pc] && funtab[pc] != "g" && funtab[pc] != fun_name) {
+  #     printf("[SYMSw] Function table mismatch at 0x%08x old=%s new=%s oldline=%d newline=%d\n",
+	#      truepc, funtab[pc], fun_name, funLine[pc], NR);
+  #     exit(1);
+  # }
 
   funtab[pc] = fun_name;
+  funLine[pc] = NR;
   funpc[pc] = truepc;
   funclass[pc] = "w";
 }
