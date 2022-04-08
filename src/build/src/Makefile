@@ -22,7 +22,8 @@
 EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=capidl vmdbg
+# Disabling vmdbg due to build warnings.
+DIRS=capidl # vmdbg
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <malloc.h>
+#include <unistd.h>
 
 struct sockaddr_un addr;
 const char *pipename;
@@ -143,6 +144,7 @@ main(int argc, char **argv)
        statement adds the last arg in elements 11 and 12? (vandy) */
     //    memcpy(&vmware_argv[11], &argv[1], argc * sizeof(argv[0]));
 
+    // Here the compiler warns that the arguments are supposed to be writeable:
     memcpy(&vmware_argv[13], &argv[1], argc * sizeof(argv[0]));
 
     execvp("vmware", vmware_argv);
