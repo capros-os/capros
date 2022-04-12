@@ -62,6 +62,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
+#include <domain/assert.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -198,7 +199,11 @@ const uint32_t __rt_stack_pages = 0x1 + N_FREEMAP_PAGE;
 
 struct direct * const first_entry = (struct direct *) VCS_LOCATION;
 
-/* Allocate a slot in the supernode. */
+/* Allocate a slot in the supernode. 
+   Return the entry number, or zero if we could not allocate a slot.
+   The first allocation succeeds and returns zero.
+   Do not free this entry, so zero will be unambiguous.
+*/
 uint32_t
 alloc_dirent(state_t *state)
 {
@@ -215,16 +220,18 @@ alloc_dirent(state_t *state)
 
       DEBUG(freemap) kprintf(KR_OSTREAM, "Word %d is 0x%08x\n", w, state->freeMap[w]);
       for (bit = 0; bit < UINT32_BITS; bit++) {
-	uint32_t which_bit = bit ? (1 << bit) : 1;
-	if ((state->freeMap[w] & which_bit) == 0) {
+	uint32_t bitMask = 1 << bit;
+	if ((state->freeMap[w] & bitMask) == 0) {
 	  DEBUG(freemap) kdprintf(KR_OSTREAM, "Setting bit %d of word %d\n",
 		   bit, w);
-	  state->freeMap[w] |= which_bit;
+	  state->freeMap[w] |= bitMask;
 
           bit += w * UINT32_BITS;
 
           result = capros_SuperNode_allocateRange(KR_SNODE, bit, bit);
-          // FIXME: handle allocation error here
+          if (result != RC_OK) {
+            return 0;
+          }
 
 	  return bit;
 	}
@@ -240,9 +247,9 @@ free_dirent(state_t *state, uint32_t ndx)
 {
   uint32_t w = ndx / UINT32_BITS;
   uint32_t bit = ndx % UINT32_BITS;
-  uint32_t which_bit = bit ? (1 << bit) : 1;
+  uint32_t bitMask = bit ? (1 << bit) : 1;
   
-  state->freeMap[w] &= ~which_bit;
+  state->freeMap[w] &= ~bitMask;
 }
 
 struct direct *
@@ -332,10 +339,8 @@ insert_dirent(struct direct *dp, char *name, uint32_t kr, state_t *state)
 #endif
   
   entno = alloc_dirent(state);
-#if 0
   if (entno == 0)
     return false;
-#endif
 
   
   DEBUG(link) kdprintf(KR_OSTREAM, "insrt_de(0x%08x, \"%s\", %d) entno %d\n",
@@ -604,8 +609,14 @@ Initialize(state_t *state)
 	
   DEBUG(init) kdprintf(KR_OSTREAM, "Allocate Initial slots...\n");
 
-  (void) alloc_dirent(state);
-  (void) alloc_dirent(state);
+  uint32_t entno = alloc_dirent(state);
+  /* The first allocation is guaranteed to succeed (since N_FREEMAP_PAGE must be > 0)
+     and to return entry number zero.
+     This entry is never freed.
+     After this point, zero signals a failure to allocate. */
+  assert(entno == 0);
+  entno = alloc_dirent(state);
+  assert(entno == 1);
 
   /* insert key for ".." entry: */
   // FIXME: KR_ARG0 is surely wrong

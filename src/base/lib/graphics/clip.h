@@ -21,6 +21,7 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
+#include <stdbool.h>
 #include "rect.h"
 
 typedef struct clip_region_t {
