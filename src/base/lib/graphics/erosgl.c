@@ -209,8 +209,6 @@ static void
 doLineDraw(GLContext *gc, line_t line)
 {
   uint32_t width;
-  uint32_t color;
-  uint32_t rop;
   int dx, dy, delta, yincr, xincr;  
   rect_t clipRegion;
   rect_t new_clipRegion;
@@ -221,8 +219,10 @@ doLineDraw(GLContext *gc, line_t line)
 
   clipRegion = gc->clip_region;
   width = gc->line_width;
-  color = gc->color;
-  rop = gc->raster_op;
+  #if 0
+  uint32_t color = gc->color;
+  uint32_t rop = gc->raster_op;
+  #endif
 
 #ifdef DEBUG
   kprintf(ostream, "EROSGL: doLineDraw w/line (%d,%d) to (%d,%d)\n"

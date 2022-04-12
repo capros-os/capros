@@ -47,8 +47,9 @@ unsigned long __rt_runtime_hook = 0;
 #define KR_SLEEP      KR_APP(1)
 #define KR_Checkpoint KR_APP(2)
 
-NORETURN int
-main(void)
+// main loops forever and does not return.
+int
+main()
 {
   result_t result;
   capros_Sleep_nanoseconds_t timeToSave;
