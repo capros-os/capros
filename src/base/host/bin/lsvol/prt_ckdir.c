@@ -40,8 +40,8 @@ showProcs(uint8_t * p, unsigned int num)
     struct DiskProcessDescriptor dpd;
     memcpy(&dpd, dpdp, sizeof(struct DiskProcessDescriptor));
 
-    diag_printf("OID=%#llx cc=%#x",
-                get_target_oid(&dpd.oid), dpd.callCount);
+    diag_printf("OID=%#" PRIxOID " cc=%#x",
+                GetDiskProcessDescriptorOid(&dpd), dpd.callCount);
     if (dpd.actHazard) {
       diag_printf(" haz=%d\n", dpd.actHazard);
     } else {

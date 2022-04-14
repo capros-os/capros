@@ -35,13 +35,15 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
+#include <inttypes.h>
 
 /* The target and host programs such as sysgen need to agree on the
 alignment and endianness of uint64_t.
-Use target_u64 when declaring uint64_t in a structure.
-The following works for targets that align uint64_t the same as uint32_t. */
+Use target_u64 when declaring uint64_t in a structure used by target code.
+Use get_target_u64 and put_target_u64 to read and write a target_u64 on the host.
+ */
 
-#ifdef __KERNEL__	// if compiling for target
+#ifdef __KERNEL__	// if cross-compiling for target
 
 typedef uint64_t target_u64;
 
@@ -59,23 +61,26 @@ put_target_u64(target_u64 * p, uint64_t v)
 
 #else			// compiling for host
 
+// Host is assumed to be little-endian.
+
 #include <eros/endian.h>
 
-typedef struct {
-  uint32_t words[2];
-} target_u64;
+#if (BYTE_ORDER != LITTLE_ENDIAN) || (_QUAD_LOWWORD != 0)
+#error Only little-endian targets are currently supported.
+#endif
+
+typedef uint64_t target_u64;
 
 INLINE uint64_t
 get_target_u64(const target_u64 * p)
 {
-  return ((uint64_t)p->words[_QUAD_HIGHWORD] << 32) + p->words[_QUAD_LOWWORD];
+  return *p;
 }
 
 INLINE void
 put_target_u64(target_u64 * p, uint64_t v)
 {
-  p->words[_QUAD_LOWWORD] = (uint32_t)v;
-  p->words[_QUAD_HIGHWORD] = v >> 32;
+  *p = v;
 }
 
 #endif
@@ -83,6 +88,7 @@ put_target_u64(target_u64 * p, uint64_t v)
 typedef uint32_t ObCount;
 
 typedef uint64_t OID;
+#define PRIxOID PRIx64
 typedef target_u64 OID_s;	// use this in structures
 #define get_target_oid(p) get_target_u64(p)
 #define put_target_oid(p, v) put_target_u64(p, v)

@@ -24,6 +24,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <disk/ErosTypes.h>
+#include <string.h>
 
 // struct DiskObjectDescriptor is packed because
 // (1) it needs to be the same on the host and target, and
@@ -38,5 +39,14 @@ struct DiskObjectDescriptor {
   uint8_t   type;		/**<The type of the object. */
 } __attribute__ ((packed));
 typedef struct DiskObjectDescriptor DiskObjectDescriptor;
+
+INLINE LID 
+GetDiskObjectDescriptorLogLoc(const DiskObjectDescriptor * dod)
+{
+  // Must use memcpy since DiskObjectDescriptor is packed.
+  LID_s lid;
+  memcpy(&lid, &dod->logLoc, sizeof(lid));
+  return get_target_lid(&lid);
+}
 
 #endif /* _DISKOBJDESCR_H */

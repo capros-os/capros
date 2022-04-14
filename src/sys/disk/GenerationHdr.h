@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <disk/ErosTypes.h>
+#include <string.h>
 
 struct GenDirHdr {
   LID_s firstDirFrame;
@@ -58,5 +59,14 @@ struct DiskProcessDescriptor {
   ObCount callCount;
   uint8_t actHazard;
 } __attribute__ ((packed));
+
+INLINE OID 
+GetDiskProcessDescriptorOid(const struct DiskProcessDescriptor * dpd)
+{
+  // Must use memcpy since DiskProcessDescriptor is packed.
+  OID_s oids;
+  memcpy(&oids, &dpd->oid, sizeof(oids));
+  return get_target_oid(&oids);
+}
 
 #endif // __GENERATIONHDR_H__
