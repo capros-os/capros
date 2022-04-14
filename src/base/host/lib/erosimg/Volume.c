@@ -1360,7 +1360,7 @@ vol_GetPagePotInfo(Volume *pVol, OID oid, VolPagePot *pPot)
   if (cpd) {
     pPot->count = cpd->allocCount;
     pPot->type = cpd->type;
-    pPot->isZero = CONTENT_LID(get_target_lid(&cpd->logLoc)) ? 0 : TagIsZero;
+    pPot->isZero = CONTENT_LID(GetDiskObjectDescriptorLogLoc(cpd)) ? 0 : TagIsZero;
 
     return true;
   }
@@ -1401,7 +1401,7 @@ vol_ReadDataPage(Volume *pVol, OID oid, uint8_t *buf)
   cpd = vol_LookupObject(pVol, oid);
     
   if (cpd) {
-    LID lid = get_target_lid(&cpd->logLoc);
+    LID lid = GetDiskObjectDescriptorLogLoc(cpd);
     assert (CONTENT_LID(lid));
     return vol_ReadLogPage(pVol, lid, buf);
   }
@@ -1457,7 +1457,7 @@ vol_WriteDataPage(Volume *pVol, OID oid, const uint8_t *buf)
   /* If a location has already been fabricated, write it there even if
    * it is a zero page.
    */
-  LID lid = get_target_lid(&cpd->logLoc);
+  LID lid = GetDiskObjectDescriptorLogLoc(cpd);
   if ( cpd && CONTENT_LID(lid) ) {
     return vol_WriteLogPage(pVol, lid, buf);
   }
@@ -1636,9 +1636,9 @@ vol_ReadNode(Volume * pVol, OID oid, DiskNode * pNode)
 {
   int div;
   CkptDirent* ccd = vol_LookupObject(pVol, oid);
-  LID lid = get_target_lid(&ccd->logLoc);
     
   if (ccd && ccd->type == FRM_TYPE_NODE) {
+    LID lid = GetDiskObjectDescriptorLogLoc(ccd);
     uint32_t i;
     uint8_t logPage[EROS_PAGE_SIZE];
     DiskNode * logPot = (DiskNode *) logPage;
@@ -1710,7 +1710,7 @@ bool
 vol_WriteNode(Volume *pVol, OID oid, const DiskNode * pNode)
 {
   CkptDirent* ccd = vol_LookupObject(pVol, oid);
-  LID lid = get_target_lid(&ccd->logLoc);
+  LID lid = GetDiskObjectDescriptorLogLoc(ccd);
   int div;
     
   if (ccd && ccd->type != FRM_TYPE_NODE)

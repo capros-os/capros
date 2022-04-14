@@ -38,11 +38,11 @@ LOCAL_HEADERS=\
 	atomic.h \
 	cap-instr.h \
 	DevPrivs.h \
+	endian.h \
 	Invoke.h \
 	IORQ.h \
 	IRQSWI.h \
 	SWI.h \
-	endian.h \
 	StackPtr.h \
 	target-asm.h \
 
