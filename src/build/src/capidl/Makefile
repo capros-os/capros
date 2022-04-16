@@ -80,29 +80,29 @@ $(BUILDDIR)/libapp.a: $(LIBAPP_OBJECTS)
 $(BUILDDIR)/capidl: $(CAPIDL_OBJECTS) $(LIBS)
 	$(GPLUS) $(GPLUSFLAGS) -o $@ $(CAPIDL_OBJECTS) $(XENV_LIBDIR) $(LIBS) $(OTHER_LIBS)
 
-$(BUILDDIR)/idl.o: $(BUILDDIR)/idl.c
+$(BUILDDIR)/idl.o: $(BUILDDIR)/idl.cpp
 	$(C_BUILD) 
 	$(C_DEP)
 
-$(BUILDDIR)/lex.o: lex.c $(BUILDDIR)/idl.h
-# Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
+$(BUILDDIR)/lex.o: lex.cpp $(BUILDDIR)/idl.h
+# Can't use $(CPP_BUILD) because it has -Werror and lex.cpp generates warnings.
 # Defining YY_NO_INPUT to avoid warning that procedure input is not used.
-	$(GCC) $(GCCFLAGS) -DYY_NO_INPUT $(MOPSWARN) -c $< -o $@ 
+	$(GPLUS) $(GPLUSFLAGS) -DYY_NO_INPUT $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
 
-$(BUILDDIR)/prescan.o: prescan.c $(BUILDDIR)/idl.h
-# Can't use $(C_BUILD) because it has -Werror and prescan.c generates warnings.
+$(BUILDDIR)/prescan.o: prescan.cpp $(BUILDDIR)/idl.h
+# Can't use $(CPP_BUILD) because it has -Werror and prescan.cpp generates warnings.
 # Defining YY_NO_INPUT to avoid warning that procedure input is not used.
-	$(GCC) $(GCCFLAGS) -DYY_NO_INPUT $(MOPSWARN) -c $< -o $@ 
+	$(GPLUS) $(GPLUSFLAGS) -DYY_NO_INPUT $(MOPSWARN) -c $< -o $@ 
 	$(C_DEP)
 
 .NOTPARALLEL:
 # the bison rule below is not re-entrant.
 
 
-$(BUILDDIR)/idl.c $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
+$(BUILDDIR)/idl.cpp $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR);bison -v -d -y ../../idl.y)
-	(cd $(BUILDDIR); mv y.tab.c idl.c)
+	(cd $(BUILDDIR); mv y.tab.c idl.cpp)
 	(cd $(BUILDDIR); mv y.tab.h idl.h)
 
 # The following worked in Fedora Core 6 but not FC8:

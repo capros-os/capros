@@ -506,6 +506,9 @@ emit_indirect_byte_computation(PtrVec *symVec, FILE *out, int indent,
 
 extern const char* c_serializer(Symbol *s);
 
+/*
+Emit code to set up the string to be sent to the key.
+*/
 void
 emit_send_string(PtrVec *symVec, FILE *out, int indent)
 {

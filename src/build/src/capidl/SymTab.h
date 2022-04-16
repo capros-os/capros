@@ -34,7 +34,6 @@ Approved for public release, distribution unlimited. */
  * logic unhappy....
  */
 
-typedef enum LitType LitType;
 enum LitType {			/* literal type */
   lt_void,
   lt_integer,
@@ -44,14 +43,15 @@ enum LitType {			/* literal type */
   lt_bool,
   lt_string,
 };
+typedef enum LitType LitType;
 
-typedef struct LitValue LitValue;
 struct LitValue {
   mpz_t         i;		/* large precision integers */
   double        d;		/* doubles, floats */
   LitType	lty;
   /* no special field for lt_string, as the name is the literal */
 };
+typedef struct LitValue LitValue;
 
 /* There is a design issue hiding here: how symbolic should the output
  * of the IDL compiler be? I think the correct answer is "very", in
@@ -59,12 +59,12 @@ struct LitValue {
  * I consider a computed constant value to be a symbol.
  */
 
-typedef enum SymClass SymClass;
 enum SymClass {
 #define SYMCLASS(x,n) sc_##x,
 #include "symclass.def"
 #undef  SYMCLASS
 };
+typedef enum SymClass SymClass;
 
 #define SYMDEBUG
 
