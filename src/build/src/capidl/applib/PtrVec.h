@@ -31,19 +31,13 @@ struct PtrVec {
 PtrVec *ptrvec_create(void);
 void    ptrvec_destroy(PtrVec*);
 void    ptrvec_append(PtrVec *vec, void *vp);
-void    ptrvec_insert(PtrVec *vec, void *vp, unsigned ndx);
 void    ptrvec_set(PtrVec *vec, unsigned ndx, void *vp);
 void    ptrvec_sort_using(PtrVec *vec, int (*cmp)(const void *, const void *));
-PtrVec *ptrvec_shallow_copy(PtrVec *vec);
 bool    ptrvec_contains(PtrVec *vec, void *vp);
 
 #define vec_len(vec)       ((vec)->size)
 #define vec_fetch(vec,ndx)  ((vec)->elements[(ndx)])
 #define symvec_fetch(vec,ndx)  ((Symbol *)(vec)->elements[(ndx)])
-
-/* These leverage the underlying representation pun... */
-extern void vec_remove(void *vec, unsigned ndx);
-extern void vec_reset(void *vec);
 
 void ptrvec_sort_using(PtrVec *vec, int (*cmp)(const void *, const void *));
 

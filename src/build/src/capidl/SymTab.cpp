@@ -103,7 +103,6 @@ symbol_PopScope()
 Symbol*
 symbol_LookupChild(Symbol *s, const char *nm, Symbol *bound)
 {
-  char *dot;
   Symbol *child;
   Symbol *childScope;
   InternedString ident;
@@ -113,7 +112,7 @@ symbol_LookupChild(Symbol *s, const char *nm, Symbol *bound)
      descendant: */
 
   nm = intern(nm);
-  dot = strchr(nm, '.');
+  const char * dot = strchr(nm, '.');
 
 
   if (dot == 0) {
@@ -356,10 +355,9 @@ Symbol *
 symbol_createPackage(const char *nm, Symbol *inPkg)
 {
   Symbol *thePkg;
-  char *dot;
 
   nm = intern(nm);
-  dot = strchr(nm,'.');
+  const char * dot = strchr(nm,'.');
 
   if (dot == 0) {
     /* We are down to the tail identifier. */
@@ -1091,7 +1089,7 @@ symbol_IsLinearizable(Symbol *sym)
 void
 symbol_ClearAllMarks(Symbol *sym)
 {
-  int i;
+  unsigned int i;
   sym->mark = false;
 
   if (sym->baseType)

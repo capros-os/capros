@@ -30,18 +30,19 @@ endif
 # The following variables depend on things set in the makefile:
 GCCFLAGS=$(CFLAGS) $(GCC_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) -DCAPROS_MACH_$(CAPROS_MACH) $(DEF)
 GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(GPLUS_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
+GPLUSFLAGS+= -fpermissive	# for now
 MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"$(CAPROS_DOMAIN)/\" -DCAPROS_LOCALDIR=$(CAPROS_LOCALDIR) -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include $(LINUXINC)
 
 # __ASSEMBLER__ gets defined automatically, but Linux requires:
 ASMFLAGS=-D__ASSEMBLY__
 
 C_DEP=@$(GCC) $(GCCFLAGS) $(GCCWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
-CXX_DEP=@$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
+CPP_DEP=@$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
 ASM_DEP=@$(GCC) $(GCCFLAGS) $(ASMFLAGS) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
 #MOPS_DEP=$(GCC) $(GCCFLAGS) $(MOPSWARN) -S $< -o $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@))
 
 C_BUILD=$(GCC) $(GCCFLAGS) $(GCCWARN) -c $< -o $@
-CXX_BUILD=$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -c $< -o $@
+CPP_BUILD=$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -c $< -o $@
 ASM_BUILD=$(GCC) $(GCCFLAGS) $(ASMFLAGS) -c $< -o $@
 MOPS_BUILD=$(GCC) -B$(MOPS)/rc/ $(GCCFLAGS) $(MOPSWARN) -S $< -o $@
 
@@ -78,9 +79,9 @@ $(BUILDDIR)/%.cfg: %.c $(MAKE_BUILDDIR)
 	$(MOPS_BUILD) 
 	$(MOPS_DEP)
 
-$(BUILDDIR)/%.o: %.cxx $(MAKE_BUILDDIR)
-	$(CXX_BUILD) 
-	$(CXX_DEP)
+$(BUILDDIR)/%.o: %.cpp $(MAKE_BUILDDIR)
+	$(CPP_BUILD) 
+	$(CPP_DEP)
 
 
 # Rules to process XML files to produce HTML:
@@ -112,7 +113,7 @@ $(BUILDDIR)/.%.xml.m: %.xml $(MAKE_BUILDDIR)
 
 ifdef ETAGDIRS
 ETAGEXPAND=$(patsubst %,%/*.c,$(ETAGDIRS))
-ETAGEXPAND+=$(patsubst %,%/*.cxx,$(ETAGDIRS))
+ETAGEXPAND+=$(patsubst %,%/*.cpp,$(ETAGDIRS))
 ETAGEXPAND+=$(patsubst %,%/*.hxx,$(ETAGDIRS))
 ETAGEXPAND+=$(patsubst %,%/*.h,$(ETAGDIRS))
 

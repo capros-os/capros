@@ -38,6 +38,7 @@
 #include "SymTab.h"
 #include "ParseType.h"
 #include "Lexer.h"
+#include "idl.h"
 #include "backend.h"
 
 bool showparse = false;

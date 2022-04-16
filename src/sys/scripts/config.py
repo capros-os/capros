@@ -630,9 +630,9 @@ with open(makefilename, 'w') as out:
                 if (suffix == ".c"):
                     out.write("\t$(C_BUILD)\n")
                     out.write("\t$(C_DEP)\n\n")
-                elif (suffix == ".cxx"):
-                    out.write("\t$(CXX_BUILD)\n")
-                    out.write("\t$(CXX_DEP)\n\n")
+                elif (suffix == ".cpp"):
+                    out.write("\t$(CPP_BUILD)\n")
+                    out.write("\t$(CPP_DEP)\n\n")
                 elif (suffix == ".S"):
                     out.write("\t$(ASM_BUILD)\n")
                     out.write("\t$(ASM_DEP)\n\n")

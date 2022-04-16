@@ -73,29 +73,6 @@ vec_MaybeGrow(PtrVec *vec)
 }
 
 void
-vec_reset(void *v)
-{
-  unsigned i;
-  PtrVec *vec = v;
-  
-  for (i = 0; i < vec->size; i++)
-    vec->elements[i] = 0;
-    
-  vec->size = 0;
-}
-  
-PtrVec *
-ptrvec_shallow_copy(PtrVec *vec)
-{
-  int i;
-  PtrVec *newVec = ptrvec_create();
-  for (i = 0; i < vec_len(vec); i++)
-    ptrvec_append(newVec, vec_fetch(vec, i));
-
-  return newVec;
-}
-
-void
 ptrvec_append(PtrVec *vec, void *vp)
 {
   vec_MaybeGrow(vec);
@@ -103,43 +80,10 @@ ptrvec_append(PtrVec *vec, void *vp)
 }
 
 void
-ptrvec_insert(PtrVec *vec, void *vp, unsigned ndx)
-{
-  unsigned i;
-  
-  assert (ndx <= vec->size);
-  
-  vec_MaybeGrow(vec);
-
-  for (i = vec->size; i > ndx; i++)
-    vec->elements[i] = vec->elements[i-1];
-
-  vec->size++;
-
-  vec->elements[ndx] = vp;
-}
-
-void
 ptrvec_set(PtrVec *vec, unsigned ndx, void *vp)
 {
   assert (ndx < vec->size);
   vec->elements[ndx] = vp;
-}
-
-void
-vec_remove(void *vd_vec, unsigned ndx)
-{
-  unsigned i;
-  PtrVec *vec = vd_vec;
-  
-  assert (ndx < vec->size);
-  
-  for (i = ndx; i < (vec->size - 1); i++)
-    vec->elements[i] = vec->elements[i+1];
-
-  vec->elements[vec->size - 1] = 0;
-  
-  vec->size--;
 }
 
 PtrVec *
