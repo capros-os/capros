@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -18,11 +19,10 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
-/* GNU multiple precision library: */
 #include <sys/types.h>
 #include <errno.h>
 #include <getopt.h>
-#include <gmp.h>
+#include <gmp.h>  // GNU multiple precision library
 #include <malloc.h>
 #include <dirent.h>
 #include <string.h>
@@ -33,7 +33,6 @@
 #include <applib/Intern.h>
 #include <applib/PtrVec.h>
 #include <applib/path.h>
-/* #include <applib/Dictionary.h> */
 
 #include "SymTab.h"
 #include "ParseType.h"

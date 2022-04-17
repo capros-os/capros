@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -118,8 +119,8 @@ symdump(Symbol *s, int indent)
 	for(i = 0; i < vec_len(s->children); i++)
 	  symdump(symvec_fetch(s->children,i), indent + 2);
 
-	for(i = 0; i < vec_len(s->raises); i++)
-	  symdump(symvec_fetch(s->raises,i), indent + 2);
+  for (const auto eachRaised : s->raised)
+    symdump(eachRaised, indent + 2);
 
 	do_indent(indent);
 	diag_printf("</%s>\n", symbol_ClassName(s));
@@ -146,8 +147,8 @@ symdump(Symbol *s, int indent)
 	for(i = 0; i < vec_len(s->children); i++)
 	  symdump(symvec_fetch(s->children,i), indent + 2);
 
-	for(i = 0; i < vec_len(s->raises); i++)
-	  symdump(symvec_fetch(s->raises,i), indent + 2);
+  for (const auto eachRaised : s->raised)
+    symdump(eachRaised, indent + 2);
 
 	do_indent(indent);
 	diag_printf("</%s>\n", symbol_ClassName(s));
