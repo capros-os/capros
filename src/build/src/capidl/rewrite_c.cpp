@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -42,8 +43,6 @@
 static void
 fixup(Symbol *s)
 {
-  unsigned i;
-
   switch(s->cls){
   case sc_operation:
     {
@@ -60,10 +59,11 @@ fixup(Symbol *s)
       /* Reorder the parameters so that all of the IN parameters
        * appear first. */
       {
-	unsigned int first_out = UINT_MAX;
+	size_t first_out = UINT_MAX;
+        size_t i;
 
-	for (i = 0; i < vec_len(s->children); i++) {
-	  Symbol *child = symvec_fetch(s->children, i);
+	for (i = 0; i < s->children.size(); i++) {
+	  Symbol * child = s->children[i];
 
 	  if (child->cls == sc_outformal && i < first_out) {
 	    first_out = i;
@@ -71,10 +71,10 @@ fixup(Symbol *s)
 	  }
 
 	  if (child->cls == sc_formal && i > first_out) {
-	    unsigned j;
+	    size_t j;
 	    for (j = i; j > first_out; j--)
-	      ptrvec_set(s->children, j, symvec_fetch(s->children, j-1));
-	    ptrvec_set(s->children, first_out, child);
+              s->children[j] = s->children[j-1];
+	    s->children[first_out]= child;
 	    first_out++;
 	  }
 	}
@@ -88,8 +88,8 @@ fixup(Symbol *s)
       /* Types need to be rewritten, but we rely on the fact that the
        * xformer is run over the entire input tree, and the type
        * symbol will therefore be caught as the child of some scope. */
-      for(i = 0; i < vec_len(s->children);i++)
-	fixup(symvec_fetch(s->children,i));
+      for (const auto eachChild : s->children)
+	fixup(eachChild);
 
       break;
     }
@@ -99,7 +99,6 @@ fixup(Symbol *s)
 bool
 c_typecheck(Symbol *s)
 {
-  unsigned i;
   bool result = true;
   Symbol *ty = s->type;
 
@@ -139,7 +138,7 @@ c_typecheck(Symbol *s)
     }
   }
 
-  if (s->cls == sc_exception && vec_len(s->children) != 0) {
+  if (s->cls == sc_exception && ! s->children.empty()) {
     diag_printf("%s \"%s\" EROS exceptions should not have members\n",
 		symbol_ClassName(s),
 		symbol_QualifiedName(s, '.'));
@@ -149,8 +148,8 @@ c_typecheck(Symbol *s)
   if (s->cls == sc_symRef)
     return result;
 
-  for(i = 0; i < vec_len(s->children); i++)
-    result = result && c_typecheck(symvec_fetch(s->children,i));
+  for (const auto eachChild : s->children)
+    result = result && c_typecheck(eachChild);
 
   return result;
 }

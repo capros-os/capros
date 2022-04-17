@@ -257,20 +257,20 @@ compute_value(Symbol *s)
 	MP_INT right;
 	char op;
 
-	assert(vec_len(s->children));
+	assert(! s->children.empty());
 
 	mpz_init(&right);
 
 	op = mpz_get_ui(s->v.i);
-	assert (op == '-' || vec_len(s->children) > 1);
 
-	left = compute_value(symvec_fetch(s->children,0));
-	if (op == '-' && vec_len(s->children) == 1) {
+	left = compute_value(s->children[0]);
+	if (s->children.size() == 1) {
+	  assert(op == '-');	// Only minus can be unary
 	  mpz_neg(&left, &left);
 	  return left;
 	}
 	  
-	right = compute_value(symvec_fetch(s->children,1));
+	right = compute_value(s->children[1]);
 
 	switch(op) {
 	  case '-':
@@ -554,8 +554,6 @@ symdump(Symbol *s, FILE *out, int indent)
   switch(s->cls){
   case sc_package:
     {
-      unsigned i;
-
       /* Don't output nested packages. */
       if (s->nameSpace->cls == sc_package)
 	return;
@@ -567,8 +565,8 @@ symdump(Symbol *s, FILE *out, int indent)
       fprintf(out, "#define __%s__\n",
 	      symbol_QualifiedName(s,'_'));
 
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), out, indent + 2);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, out, indent + 2);
 
       fprintf(out, "\n#endif /* __%s__ */\n",
 	      symbol_QualifiedName(s,'_'));
@@ -576,15 +574,13 @@ symdump(Symbol *s, FILE *out, int indent)
     }
   case sc_scope:
     {
-      unsigned i;
-
       fputc('\n', out);
       do_indent(out, indent);
       fprintf(out, "/* namespace %s { */\n",
 	      symbol_QualifiedName(s,'_'));
 
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), out, indent + 2);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, out, indent + 2);
 
       do_indent(out, indent);
       fprintf(out, "/* } ; */\n");
@@ -607,21 +603,17 @@ symdump(Symbol *s, FILE *out, int indent)
 
   case sc_enum:
     {
-      unsigned i;
-
       fprintf(out, "\n");
 
       print_typedef(s, out, indent);
 
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), out, indent + 2);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, out, indent + 2);
       break;
     }
 
   case sc_struct:
     {
-      unsigned i;
-
       fprintf(out, "\n");
       print_asmifdef(out);
       do_indent(out, indent);
@@ -630,8 +622,8 @@ symdump(Symbol *s, FILE *out, int indent)
 	      symbol_ClassName(s),
 	      symbol_QualifiedName(s,'_'));
 
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), out, indent + 2);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, out, indent + 2);
 
       do_indent(out, indent);
       fprintf(out, "} %s;\n",
@@ -649,9 +641,7 @@ symdump(Symbol *s, FILE *out, int indent)
 
       /* Exceptions only generate a struct definition if they 
 	 actually have members. */
-      if (vec_len(s->children) > 0) {
-	unsigned i;
-
+      if (! s->children.empty()) {
 	fprintf(out, "\n");
 	print_asmifdef(out);
 	do_indent(out, indent);
@@ -659,8 +649,8 @@ symdump(Symbol *s, FILE *out, int indent)
 	fprintf(out, "struct %s {\n",
 		symbol_QualifiedName(s,'_'));
 
-	for(i = 0; i < vec_len(s->children); i++)
-	  symdump(symvec_fetch(s->children,i), out, indent + 2);
+	for (const auto eachChild : s->children)
+	  symdump(eachChild, out, indent + 2);
 
 	do_indent(out, indent);
 	fprintf(out, "} ;\n");
@@ -673,7 +663,6 @@ symdump(Symbol *s, FILE *out, int indent)
   case sc_interface:
   case sc_absinterface:
     {
-      unsigned i;
       unsigned opr_ndx=1;	// opcode 0 is (arbitrarily) reserved
 
       unsigned long sig = symbol_CodedName(s);
@@ -703,23 +692,21 @@ symdump(Symbol *s, FILE *out, int indent)
       print_asmendif(out);
       fprintf(out,"\n");
 
-      for(i = 0; i < vec_len(s->children); i++) {
-	Symbol *child = symvec_fetch(s->children, i);
-
-	if (child->cls == sc_operation) {
-	  if (child->flags & SF_NO_OPCODE) {
+      for (const auto eachChild : s->children) {
+	if (eachChild->cls == sc_operation) {
+	  if (eachChild->flags & SF_NO_OPCODE) {
 	    fprintf(out, "\n/* Method %s is client-only */\n",
-		    symbol_QualifiedName(child,'_'),
+		    symbol_QualifiedName(eachChild,'_'),
 		    ((s->ifDepth << 24) | opr_ndx++));
 	  }
 	  else {
 	    fprintf(out, "\n#define OC_%s 0x%x\n",
-		    symbol_QualifiedName(child,'_'),
+		    symbol_QualifiedName(eachChild,'_'),
 		    ((s->ifDepth << 24) | opr_ndx++));
 	  }
 	}
 
-	symdump(child, out, indent);
+	symdump(eachChild, out, indent);
       }
 
       fputc('\n', out);
@@ -765,7 +752,6 @@ symdump(Symbol *s, FILE *out, int indent)
     }
   case sc_operation:
     {
-      unsigned i;
       assert(symbol_IsVoidType(s->type));
 
       print_asmifdef(out);
@@ -778,9 +764,9 @@ symdump(Symbol *s, FILE *out, int indent)
 
       fprintf(out, " %s(cap_t _self", symbol_QualifiedName(s,'_'));
 
-      for(i = 0; i < vec_len(s->children); i++) {
+      for (const auto eachChild : s->children) {
 	fprintf(out, ", ");
-	symdump(symvec_fetch(s->children,i), out, 0);
+	symdump(eachChild, out, 0);
       }
 
       fprintf(out, ");\n");
@@ -800,14 +786,14 @@ symdump(Symbol *s, FILE *out, int indent)
       do_indent(out, indent);
       fputc('(', out);
 
-      if (vec_len(s->children) > 1) {
-	symdump(symvec_fetch(s->children,0), out, indent + 2);
+      if (s->children.size() > 1) {
+	symdump(s->children[0], out, indent + 2);
 	fprintf(out, "%s", s->name);
-	symdump(symvec_fetch(s->children,1), out, indent + 2);
+	symdump(s->children[1], out, indent + 2);
       }
       else {
 	fprintf(out, "%s", s->name);
-	symdump(symvec_fetch(s->children,0), out, indent + 2);
+	symdump(s->children[0], out, indent + 2);
       }
       fputc(')', out);
 

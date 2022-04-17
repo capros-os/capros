@@ -88,8 +88,6 @@ symdump(Symbol *s, int indent)
   case sc_interface:
   case sc_absinterface:
     {
-      unsigned i;
-
       if (s->cls == sc_absinterface)
 	diag_printf("abstract ");
 
@@ -100,12 +98,14 @@ symdump(Symbol *s, int indent)
 		     symbol_QualifiedName(s->baseType,'.'));
 
       if (! s->raised.empty()) {
-	auto i = s->raised.size();	// number left to print
 	diag_printf("raises (");
+	bool first = true;
 	for (const auto eachRaised : s->raised) {
-	  diag_printf(eachRaised->name);
-	  if (--i != 0)
+      	  if (!first)
 	    diag_printf(", ");
+          else
+            first = false;
+	  diag_printf(eachRaised->name);
 	}
 
 	diag_printf(") ");
@@ -117,10 +117,16 @@ symdump(Symbol *s, int indent)
 
       diag_printf("{\n");
 
-      for(i = 0; i < vec_len(s->children); i++) {
-	symdump((symvec_fetch(s->children,i)), indent + 2);
-	if (s->cls == sc_enum && i != (vec_len(s->children)-1))
-	  diag_printf(",\n");
+      bool first = true;
+      for (const auto eachChild : s->children) {
+      	if (! first) {
+	  if (s->cls == sc_enum)
+	    diag_printf(",\n");
+	}
+      	else
+      	  first = false;
+
+	symdump((eachChild), indent + 2);
       }
 
       do_indent(indent);
@@ -145,13 +151,11 @@ symdump(Symbol *s, int indent)
   case sc_switch:
     {
       if (!symbol_IsScope(s) ||
-	  (vec_len(s->children) == 0 && !s->docComment && s->baseType == 0)) {
+	  (s->children.empty() && !s->docComment && s->baseType == 0)) {
 	diag_printf("<%s name=\"%s\" qname=\"%s\"/>\n", symbol_ClassName(s), 
 		     s->name, symbol_QualifiedName(s,'_'));
       }
       else {
-	unsigned i;
-
 	diag_printf("<%s name=\"%s\" qname=\"%s\">\n", symbol_ClassName(s), 
 		     s->name, symbol_QualifiedName(s,'_'));
 
@@ -161,8 +165,8 @@ symdump(Symbol *s, int indent)
 	if (s->baseType) 
 	  symdump(s->baseType, indent + 2);
 
-	for(i = 0; i < vec_len(s->children); i++)
-	  symdump((symvec_fetch(s->children,i)), indent + 2);
+	 for (const auto eachChild : s->children)
+	  symdump((eachChild), indent + 2);
 
 	do_indent(indent);
 	diag_printf("</%s>\n", symbol_ClassName(s));
@@ -259,28 +263,31 @@ symdump(Symbol *s, int indent)
     }
   case sc_operation:
     {
-      unsigned i;
-
       do_indent(indent);
       symdump(s->type, indent);
 
       diag_printf(" %s(", s->name);
 
-      for(i = 0; i < vec_len(s->children); i++) {
-	symdump((symvec_fetch(s->children,i)), 0);
-	if (i != vec_len(s->children)-1)
+      bool first = true;
+      for (const auto eachChild : s->children) {
+      	if (!first)
 	  diag_printf(",\n");
+      	else
+      	  first = false;
+	symdump((eachChild), 0);
       }
 
       if (! s->raised.empty()) {
-	auto i = s->raised.size();	// number left to print
 	diag_printf(")\n");
 	do_indent(indent + 2);
 	diag_printf("(");
+        first = true;
 	for (const auto eachRaised : s->raised) {
-	  diag_printf("%s", symbol_QualifiedName(eachRaised,'_'));
-	  if (--i != 0)
+      	  if (!first)
 	    diag_printf(", ");
+          else
+            first = false;
+	  diag_printf("%s", symbol_QualifiedName(eachRaised,'_'));
 	}
         diag_printf(");\n");
       }
@@ -293,14 +300,14 @@ symdump(Symbol *s, int indent)
       do_indent(indent);
       diag_printf("(");
 
-      if (vec_len(s->children) > 1) {
-	symdump(symvec_fetch(s->children,0), indent + 2);
+      if (s->children.size() > 1) {
+	symdump(s->children[0], indent + 2);
 	diag_printf(s->name);
-	symdump(symvec_fetch(s->children,1), indent + 2);
+	symdump(s->children[1], indent + 2);
       }
       else {
 	diag_printf(s->name);
-	symdump(symvec_fetch(s->children,0), indent + 2);
+	symdump(s->children[0], indent + 2);
       }
       diag_printf(")");
 

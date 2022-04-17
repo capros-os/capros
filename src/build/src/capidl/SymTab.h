@@ -88,7 +88,7 @@ public:
   bool           isActiveUOC;	/* created in an active unit of compilation */
 
   Symbol         *nameSpace = nullptr;	/* containing namespace */
-  PtrVec         *children;	/* members of the scope */
+  std::vector<Symbol*> children;	/* members of the scope */
   std::vector<Symbol*> raised;	/* exceptions raised by this method/interface */
 
   SymClass       cls;
@@ -111,7 +111,7 @@ public:
    */
 
   // Public methods:
-  
+
   InternedString QualifiedName(char sep);
 };
 
