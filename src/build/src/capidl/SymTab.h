@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
  * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -24,6 +25,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <applib/PtrVec.h>
+#include <vector>
 
 #define ENUMERAL_SIZE    4
 #define TARGET_LONG_SIZE 4
@@ -71,35 +73,35 @@ typedef enum SymClass SymClass;
 #define SF_NOSTUB     0x1u
 #define SF_NO_OPCODE  0x2u
 
-typedef struct Symbol Symbol;
-struct Symbol {
+class Symbol {
+public:
+  // Constructor
+  Symbol(const char *nm, bool isActiveUOC, SymClass sc);
+
   InternedString name;
 #ifdef SYMDEBUG
   InternedString qualifiedName;
 #endif
-  InternedString docComment;
+  InternedString docComment = nullptr;  /* unknown type */
 
-  bool           mark;		/* used for circularity detection */
+  bool           mark = false;		/* used for circularity detection */
   bool           isActiveUOC;	/* created in an active unit of compilation */
 
-  Symbol         *nameSpace;	/* containing namespace */
+  Symbol         *nameSpace = nullptr;	/* containing namespace */
   PtrVec         *children;	/* members of the scope */
-  PtrVec         *raises;	/* exceptions raised by this method/interface */
-#if 0
-  Symbol         *next;		/* in same scope */
-  Symbol         *children;
-#endif
+  std::vector<Symbol*> raised;	/* exceptions raised by this method/interface */
 
   SymClass       cls;
 
-  Symbol *       type;		/* type of an identifier */
-  Symbol *       baseType;	/* base type, if extension */
-  Symbol *       value;		/* value of a constant */
+  Symbol *       type = nullptr;		/* type of an identifier */
+  Symbol *       baseType = nullptr;	/* base type, if extension */
+  Symbol *       value = nullptr;		/* value of a constant */
 				  
-  bool           complete;	/* used for top symbols only. */
-  unsigned       ifDepth;	/* depth of inheritance tree */
+  bool           complete;	  /* used for top symbols only. */
+  unsigned       ifDepth = 0;	/* depth of inheritance tree */
+                              /* depth 0 arbitrarily reserved */
 
-  unsigned       flags;		/* flags that govern code generation */
+  unsigned       flags = 0;		/* flags that govern code generation */
 
   LitValue       v;		/* only for sc_value and sc_builtin */
 
@@ -107,6 +109,10 @@ struct Symbol {
    * you have to do the scope push/pop by hand, which is at best
    * messy. Bother.
    */
+
+  // Public methods:
+  
+  InternedString QualifiedName(char sep);
 };
 
 #ifdef __cplusplus
@@ -127,8 +133,9 @@ Symbol *symbol_create(const char *nm, bool isActiveUOC, SymClass);
 Symbol *symbol_createPackage(const char *nm, Symbol *inPkg);
 Symbol *symbol_createRef(const char *nm, bool isActiveUOC);
 Symbol *symbol_createRef_inScope(const char *nm, bool isActiveUOC, Symbol *inScope);
+
+// Create a RaisesRef in scope symbol_curScope
 Symbol *symbol_createRaisesRef(const char *nm, bool isActiveUOC);
-Symbol *symbol_createRaisesRef_inScope(const char *nm, bool isActiveUOC, Symbol *inScope);
 Symbol *symbol_gensym(SymClass, bool isActiveUOC);
 Symbol *symbol_gensym_inScope(SymClass, bool isActiveUOC, Symbol *inScope);
   

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -98,12 +99,12 @@ symdump(Symbol *s, int indent)
 	diag_printf("extends %s ", 
 		     symbol_QualifiedName(s->baseType,'.'));
 
-      if (vec_len(s->raises) != 0) {
-	unsigned i;
+      if (! s->raised.empty()) {
+	auto i = s->raised.size();	// number left to print
 	diag_printf("raises (");
-	for(i = 0; i < vec_len(s->raises); i++) {
-	  diag_printf((symvec_fetch(s->raises,i))->name);
-	  if (i != (vec_len(s->raises)-1))
+	for (const auto eachRaised : s->raised) {
+	  diag_printf(eachRaised->name);
+	  if (--i != 0)
 	    diag_printf(", ");
 	}
 
@@ -271,21 +272,18 @@ symdump(Symbol *s, int indent)
 	  diag_printf(",\n");
       }
 
-
-      if (vec_len(s->raises) > 0) {
-	unsigned i;
-
+      if (! s->raised.empty()) {
+	auto i = s->raised.size();	// number left to print
 	diag_printf(")\n");
 	do_indent(indent + 2);
 	diag_printf("(");
-	for (i = 0; i < vec_len(s->raises); i++) {
-	  diag_printf("%s", symbol_QualifiedName(symvec_fetch(s->raises,i),'_'));
-	  if (i != vec_len(s->raises)-1)
+	for (const auto eachRaised : s->raised) {
+	  diag_printf("%s", symbol_QualifiedName(eachRaised,'_'));
+	  if (--i != 0)
 	    diag_printf(", ");
 	}
+        diag_printf(");\n");
       }
-
-      diag_printf(");\n");
 
       break;
     }

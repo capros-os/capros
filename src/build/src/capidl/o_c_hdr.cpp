@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
  * Copyright (C) 2006-2008, 2010, Strawberry Development Group.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -683,10 +684,10 @@ symdump(Symbol *s, FILE *out, int indent)
 	      symbol_QualifiedName(s,'.'));
       
       /* Identify the exceptions raised at the interface level first: */
-      for(i = 0; i < vec_len(s->raises); i++) {
+      for (const auto eachRaised : s->raised) {
 	do_indent(out, indent+2);
 	fprintf(out, "/* interface raises %s */\n",
-		symbol_QualifiedName(symvec_fetch(s->raises,i),'_'));
+		eachRaised->QualifiedName('_') );
       }
 
       fprintf(out, "\n");
@@ -784,10 +785,10 @@ symdump(Symbol *s, FILE *out, int indent)
 
       fprintf(out, ");\n");
 
-      for(i = 0; i < vec_len(s->raises); i++) {
+      for (const auto eachRaised : s->raised) {
 	do_indent(out, indent + 2);
 	fprintf(out, "/* raises %s */\n" ,
-		symbol_QualifiedName(symvec_fetch(s->raises,i),'_'));
+		eachRaised->QualifiedName('_') );
       }
 
       print_asmendif(out);

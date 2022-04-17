@@ -29,7 +29,9 @@ endif
 
 # The following variables depend on things set in the makefile:
 GCCFLAGS=$(CFLAGS) $(GCC_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) -DCAPROS_MACH_$(CAPROS_MACH) $(DEF)
-GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(GPLUS_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
+GPLUSFLAGS=-fdefault-inline $(GPLUS_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
+# The following does not work for capidl:
+# GPLUSFLAGS+= -fno-implicit-templates
 GPLUSFLAGS+= -fpermissive	# for now
 MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"$(CAPROS_DOMAIN)/\" -DCAPROS_LOCALDIR=$(CAPROS_LOCALDIR) -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include $(LINUXINC)
 

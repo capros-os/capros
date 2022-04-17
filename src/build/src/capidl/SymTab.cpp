@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -144,28 +145,17 @@ symbol_LookupChild(Symbol *s, const char *nm, Symbol *bound)
 Symbol *
 symbol_construct(const char *nm, bool isActiveUOC, SymClass sc)
 {
-  Symbol *s = MALLOC(Symbol);
-
-  s->name = intern(nm);
-  s->docComment = 0;
-  s->cls = sc;
-  s->type = 0;			/* unknown type */
-  s->ifDepth = 0;		/* depth 0 arbitrarily reserved */
-  mpz_init(s->v.i);
-  s->v.lty = lt_void;
-  s->nameSpace = 0;		/* do not auto-insert */
-  s->value = 0;
-  s->flags = 0;
-  s->isActiveUOC = isActiveUOC;
-
-  s->children = ptrvec_create();
-  s->raises = ptrvec_create();
-
-  s->mark = false;
-
-  s->complete = symbol_sc_isScope[sc] ? true : false;
-
-  return s;
+  return new Symbol(nm, isActiveUOC, sc);
+}
+Symbol::Symbol(const char *nm, bool isActiveUOC, SymClass sc) :
+  name(intern(nm)),
+  isActiveUOC(isActiveUOC),
+  cls(sc),
+  complete(symbol_sc_isScope[sc] ? true : false),
+  children(ptrvec_create())
+{
+  v.lty = lt_void;
+  mpz_init(v.i);
 }
 
 Symbol *
@@ -215,41 +205,28 @@ symbol_createRef(const char *nm, bool isActiveUOC)
 }
 
 Symbol *
-symbol_createRaisesRef_inScope(const char *nm, bool isActiveUOC, Symbol *inScope)
+symbol_createRaisesRef(const char *nm, bool isActiveUOC)
 {
-  unsigned i;
-  Symbol *sym;
-  Symbol *raises;
   nm = intern(nm);
 
+  Symbol * const inScope = symbol_curScope;
   assert(inScope);
-  assert(inScope == symbol_curScope);	// check for usage error in the grammar
 
   /* If this exception has already been added, do not add it again. */
 
   /* FIX: What about raises inheritance in method overrides? */
 
-  for (i = 0; i < vec_len(inScope->raises); i++) {
-    raises = symvec_fetch(inScope->raises,i);
-
-    if (raises->name == nm)
+  for (const auto eachRaised : inScope->raised) {
+    if (eachRaised->name == nm)
       return 0;
   }
 
-  sym = symbol_construct(nm, isActiveUOC, sc_symRef);
-  sym->type = 0;
-  sym->nameSpace = inScope;
+  Symbol * const sym = symbol_createRef_inScope(nm, isActiveUOC, inScope);
 
   /* The reference per se does not have a namespace */
-  ptrvec_append(inScope->raises, sym);
+  inScope->raised.push_back(sym);
 
   return sym;
-}
-
-Symbol *
-symbol_createRaisesRef(const char *nm, bool isActiveUOC)
-{
-  return symbol_createRaisesRef_inScope(nm, isActiveUOC, symbol_curScope);
 }
 
 /**
@@ -722,13 +699,16 @@ Symbol *symbol_ResolveType(Symbol *sym)
 InternedString
 symbol_QualifiedName(Symbol *s, char sep)
 {
-  InternedString nm;
-  Symbol *sym = s;
-
-  if (symbol_IsAnonymous(sym))
+  return s->QualifiedName(sep);
+}
+InternedString
+Symbol::QualifiedName(char sep)
+{
+  if (symbol_IsAnonymous(this))
     return "";
 
-  nm = sym->name;
+  Symbol * sym = this;
+  InternedString nm = sym->name;
 
   while (sym->nameSpace && sym->nameSpace != symbol_UniversalScope) {
     sym = sym->nameSpace;
@@ -779,8 +759,8 @@ symbol_QualifyNames(Symbol *sym)
   for(i = 0; i < vec_len(sym->children); i++)
     symbol_QualifyNames(symvec_fetch(sym->children,i));
 
-  for(i = 0; i < vec_len(sym->raises); i++)
-    symbol_QualifyNames(symvec_fetch(sym->raises,i));
+  for (const auto eachRaised : sym->raised)
+    symbol_QualifyNames(eachRaised);
 }
 #endif
 
@@ -811,8 +791,8 @@ symbol_ResolveReferences(Symbol *sym)
   for(i = 0; i < vec_len(sym->children); i++)
     result = result && symbol_ResolveReferences(symvec_fetch(sym->children,i));
 
-  for(i = 0; i < vec_len(sym->raises); i++)
-    result = result && symbol_ResolveReferences(symvec_fetch(sym->raises,i));
+  for (const auto eachRaised : sym->raised)
+    result = result && symbol_ResolveReferences(eachRaised);
 
   return result;
 }
@@ -841,8 +821,8 @@ symbol_ResolveIfDepth(Symbol *sym)
   for(i = 0; i < vec_len(sym->children); i++)
     symbol_ResolveIfDepth(symvec_fetch(sym->children,i));
 
-  for(i = 0; i < vec_len(sym->raises); i++)
-    symbol_ResolveIfDepth(symvec_fetch(sym->raises,i));
+  for (const auto eachRaised : sym->raised)
+    symbol_ResolveIfDepth(eachRaised);
 }
 
 bool
@@ -875,25 +855,23 @@ symbol_TypeCheck(Symbol *sym)
     result = false;
   }
 
-  if (vec_len(sym->raises) > 0) {
+  if (! sym->raised.empty()) {
     if (!symbol_IsInterface(sym) && !symbol_IsOperation(sym)) {
       diag_printf("Exceptions can only be raised by interfaces and methods\n",
 		   sym->name);
       result = false;
     }
 
-    for (i = 0; i < vec_len(sym->raises); i++) {
-      Symbol *excpt = symvec_fetch(sym->raises,i);
+    for (const auto eachRaised : sym->raised) {
+      assert(eachRaised->cls == sc_symRef);
 
-      assert(excpt->cls == sc_symRef);
-
-      if (! symbol_IsException(excpt)) {
+      if (! symbol_IsException(eachRaised)) {
 	diag_printf("%s \"%s\" raises  \"%s\" (%s), "
 		     "which is not an exception type\n", 
 		     symbol_ClassName(sym),
 		     symbol_QualifiedName(sym, '.'),
-		     symbol_QualifiedName(excpt, '_'),
-		     symbol_ClassName(excpt));
+		     symbol_QualifiedName(eachRaised, '_'),
+		     symbol_ClassName(eachRaised));
 	result = false;
       }
     }
@@ -1066,12 +1044,12 @@ symbol_IsLinearizable(Symbol *sym)
     }
   }
 
-  for(i = 0; i < vec_len(sym->raises); i++) {
-    if (!symbol_IsLinearizable(symvec_fetch(sym->raises,i))) {
+  for (const auto eachRaised : sym->raised) {
+    if (!symbol_IsLinearizable(eachRaised)) {
       if (sym->cls != sc_symRef) 
 	diag_printf("Symbol \"%s\" contains \"%s\"\n", 
 		     symbol_QualifiedName(sym, '.'),
-		     symbol_QualifiedName(symvec_fetch(sym->raises,i), '.'));
+		     symbol_QualifiedName(eachRaised, '.'));
       goto fail;
     }
   }
@@ -1102,8 +1080,8 @@ symbol_ClearAllMarks(Symbol *sym)
   for(i = 0; i < vec_len(sym->children); i++)
     symbol_ClearAllMarks(symvec_fetch(sym->children,i));
 
-  for(i = 0; i < vec_len(sym->raises); i++)
-    symbol_ClearAllMarks(symvec_fetch(sym->raises,i));
+  for (const auto eachRaised : sym->raised)
+    symbol_ClearAllMarks(eachRaised);
 }
 
 void 
@@ -1133,8 +1111,8 @@ symbol_ComputeDependencies(Symbol *sym, PtrVec *depVec)
   for(i = 0; i < vec_len(sym->children); i++)
     symbol_ComputeDependencies(symvec_fetch(sym->children,i), depVec);
 
-  for(i = 0; i < vec_len(sym->raises); i++)
-    symbol_ComputeDependencies(symvec_fetch(sym->raises,i), depVec);
+  for (const auto eachRaised : sym->raised)
+    symbol_ComputeDependencies(eachRaised, depVec);
 }
 
 void 
@@ -1164,8 +1142,8 @@ symbol_ComputeTransDependencies(Symbol *sym, PtrVec *depVec)
   for(i = 0; i < vec_len(sym->children); i++)
     symbol_ComputeTransDependencies(symvec_fetch(sym->children,i), depVec);
 
-  for(i = 0; i < vec_len(sym->raises); i++)
-    symbol_ComputeTransDependencies(symvec_fetch(sym->raises,i), depVec);
+  for (const auto eachRaised : sym->raised)
+    symbol_ComputeTransDependencies(eachRaised, depVec);
 }
 
 int
@@ -1228,8 +1206,8 @@ symbol_IsFixedSerializable(Symbol *sym)
       result = result && symbol_IsFixedSerializable(child->type);
   }
 
-  for(i = 0; i < vec_len(sym->raises); i++)
-    result = result && symbol_IsFixedSerializable(symvec_fetch(sym->raises,i));
+  for (const auto eachRaised : sym->raised)
+    result = result && symbol_IsFixedSerializable(eachRaised);
 
   return result;
 }
