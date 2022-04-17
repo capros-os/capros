@@ -104,7 +104,6 @@ symbol_PopScope()
 Symbol*
 symbol_LookupChild(Symbol *s, const char *nm, Symbol *bound)
 {
-  Symbol *child;
   Symbol *childScope;
   InternedString ident;
   InternedString rest;
@@ -117,15 +116,12 @@ symbol_LookupChild(Symbol *s, const char *nm, Symbol *bound)
 
 
   if (dot == 0) {
-    unsigned i;
-    for (i = 0; i < vec_len(s->children); i++) {
-      child = symvec_fetch(s->children,i);
-
-      if (bound && bound == child)
+    for (const auto eachChild : s->children) {
+      if (bound && bound == eachChild)
 	return 0;
 
-      if (child->name == nm)
-	return child;
+      if (eachChild->name == nm)
+	return eachChild;
     }
 
     return 0;
@@ -151,8 +147,7 @@ Symbol::Symbol(const char *nm, bool isActiveUOC, SymClass sc) :
   name(intern(nm)),
   isActiveUOC(isActiveUOC),
   cls(sc),
-  complete(symbol_sc_isScope[sc] ? true : false),
-  children(ptrvec_create())
+  complete(symbol_sc_isScope[sc] ? true : false)
 {
   v.lty = lt_void;
   mpz_init(v.i);
@@ -524,8 +519,8 @@ symbol_MakeExprNode(const char *op, Symbol *left, Symbol *right)
   sym->v.lty = lt_char;
   mpz_set_ui(sym->v.i, *op);
 
-  ptrvec_append(sym->children, left);
-  ptrvec_append(sym->children, right);
+  sym->children.push_back(left);
+  sym->children.push_back(right);
 
   return sym;
 }
@@ -639,7 +634,7 @@ symbol_InitSymtab()
 void
 symbol_AddChild(Symbol *parent, Symbol *sym)
 {
-  ptrvec_append(parent->children, sym);
+  parent->children.push_back(sym);
 }
 
 Symbol*
@@ -742,8 +737,6 @@ symbol_CodedName(Symbol *sym)
 void
 symbol_QualifyNames(Symbol *sym)
 {
-  unsigned i;
-
   if (sym->cls == sc_symRef || sym->cls == sc_value || sym->cls == sc_builtin)
     return;			// skip these!
 
@@ -756,8 +749,8 @@ symbol_QualifyNames(Symbol *sym)
   if (sym->value)
     symbol_QualifyNames(sym->value);
 
-  for(i = 0; i < vec_len(sym->children); i++)
-    symbol_QualifyNames(symvec_fetch(sym->children,i));
+  for (const auto eachChild : sym->children)
+    symbol_QualifyNames(eachChild);
 
   for (const auto eachRaised : sym->raised)
     symbol_QualifyNames(eachRaised);
@@ -767,7 +760,6 @@ symbol_QualifyNames(Symbol *sym)
 bool
 symbol_ResolveReferences(Symbol *sym)
 {
-  unsigned i;
   bool result;
 
   if (sym->cls == sc_symRef)
@@ -788,8 +780,8 @@ symbol_ResolveReferences(Symbol *sym)
   if (sym->value)
     result = result && symbol_ResolveReferences(sym->value);
 
-  for(i = 0; i < vec_len(sym->children); i++)
-    result = result && symbol_ResolveReferences(symvec_fetch(sym->children,i));
+  for (const auto eachChild : sym->children)
+    result = result && symbol_ResolveReferences(eachChild);
 
   for (const auto eachRaised : sym->raised)
     result = result && symbol_ResolveReferences(eachRaised);
@@ -800,7 +792,6 @@ symbol_ResolveReferences(Symbol *sym)
 void
 symbol_ResolveIfDepth(Symbol *sym)
 {
-  unsigned i;
   if (sym->baseType)
     symbol_ResolveIfDepth(sym->baseType);
 
@@ -818,8 +809,8 @@ symbol_ResolveIfDepth(Symbol *sym)
     sym->ifDepth = sym->value->ifDepth;
   }
 
-  for(i = 0; i < vec_len(sym->children); i++)
-    symbol_ResolveIfDepth(symvec_fetch(sym->children,i));
+  for (const auto eachChild : sym->children)
+    symbol_ResolveIfDepth(eachChild);
 
   for (const auto eachRaised : sym->raised)
     symbol_ResolveIfDepth(eachRaised);
@@ -828,7 +819,6 @@ symbol_ResolveIfDepth(Symbol *sym)
 bool
 symbol_TypeCheck(Symbol *sym)
 {
-  unsigned i;
   bool result = true;
 
   if (sym->baseType && ! symbol_IsInterface(sym->baseType)) {
@@ -915,8 +905,8 @@ symbol_TypeCheck(Symbol *sym)
   if (sym->cls == sc_symRef)
     return result;
 
-  for(i = 0; i < vec_len(sym->children); i++)
-    result = result && symbol_TypeCheck(symvec_fetch(sym->children,i));
+  for (const auto eachChild : sym->children)
+    result = result && symbol_TypeCheck(eachChild);
 
   return result;
 }
@@ -1004,8 +994,6 @@ symbol_ClearDepth()
 bool
 symbol_IsLinearizable(Symbol *sym)
 {
-  unsigned i;
-
   if (sym->mark) {
     diag_printf("Symbol \"%s\"\n", symbol_QualifiedName(sym, '.'));
     return false;
@@ -1034,12 +1022,12 @@ symbol_IsLinearizable(Symbol *sym)
   if (sym->value && !symbol_IsLinearizable(sym->value))
     goto fail;
 
-  for(i = 0; i < vec_len(sym->children); i++) {
-    if (!symbol_IsLinearizable(symvec_fetch(sym->children,i))) {
+  for (const auto eachChild : sym->children) {
+    if (!symbol_IsLinearizable(eachChild)) {
       if (sym->cls != sc_symRef) 
 	diag_printf("Symbol \"%s\" contains \"%s\"\n", 
-		     symbol_QualifiedName(sym, '.'),
-		     symbol_QualifiedName(symvec_fetch(sym->children,i), '.'));
+                     sym->QualifiedName('.'),
+                     eachChild->QualifiedName('.') );
       goto fail;
     }
   }
@@ -1067,7 +1055,6 @@ symbol_IsLinearizable(Symbol *sym)
 void
 symbol_ClearAllMarks(Symbol *sym)
 {
-  unsigned int i;
   sym->mark = false;
 
   if (sym->baseType)
@@ -1077,8 +1064,8 @@ symbol_ClearAllMarks(Symbol *sym)
   if (sym->value && sym->cls != sc_symRef)
     symbol_ClearAllMarks(sym->value);
 
-  for(i = 0; i < vec_len(sym->children); i++)
-    symbol_ClearAllMarks(symvec_fetch(sym->children,i));
+  for (const auto eachChild : sym->children)
+    symbol_ClearAllMarks(eachChild);
 
   for (const auto eachRaised : sym->raised)
     symbol_ClearAllMarks(eachRaised);
@@ -1087,8 +1074,6 @@ symbol_ClearAllMarks(Symbol *sym)
 void 
 symbol_ComputeDependencies(Symbol *sym, PtrVec *depVec)
 {
-  unsigned i;
-
   if (sym->cls == sc_symRef) {
     Symbol *targetUoc = symbol_UnitOfCompilation(sym->value);
     if (targetUoc != symbol_UnitOfCompilation(sym)) {
@@ -1108,8 +1093,8 @@ symbol_ComputeDependencies(Symbol *sym, PtrVec *depVec)
   if (sym->value)
     symbol_ComputeDependencies(sym->value, depVec);
     
-  for(i = 0; i < vec_len(sym->children); i++)
-    symbol_ComputeDependencies(symvec_fetch(sym->children,i), depVec);
+  for (const auto eachChild : sym->children)
+    symbol_ComputeDependencies(eachChild, depVec);
 
   for (const auto eachRaised : sym->raised)
     symbol_ComputeDependencies(eachRaised, depVec);
@@ -1118,8 +1103,6 @@ symbol_ComputeDependencies(Symbol *sym, PtrVec *depVec)
 void 
 symbol_ComputeTransDependencies(Symbol *sym, PtrVec *depVec)
 {
-  unsigned i;
-
   if (sym->cls == sc_symRef) {
     Symbol *targetUoc = symbol_UnitOfCompilation(sym->value);
     if (!ptrvec_contains(depVec, targetUoc)) {
@@ -1138,9 +1121,9 @@ symbol_ComputeTransDependencies(Symbol *sym, PtrVec *depVec)
 
   if (sym->value)
     symbol_ComputeTransDependencies(sym->value, depVec);
-    
-  for(i = 0; i < vec_len(sym->children); i++)
-    symbol_ComputeTransDependencies(symvec_fetch(sym->children,i), depVec);
+
+  for (const auto eachChild : sym->children)
+    symbol_ComputeTransDependencies(eachChild, depVec);
 
   for (const auto eachRaised : sym->raised)
     symbol_ComputeTransDependencies(eachRaised, depVec);
@@ -1169,7 +1152,6 @@ symbol_SortByQualifiedName(const void *v1, const void *v2)
 bool
 symbol_IsFixedSerializable(Symbol *sym)
 {
-  unsigned i;
   bool result = true;
 
   sym = symbol_ResolveType(sym);
@@ -1200,10 +1182,9 @@ symbol_IsFixedSerializable(Symbol *sym)
     break;
   }
   
-  for(i = 0; i < vec_len(sym->children); i++) {
-    Symbol *child = vec_fetch(sym->children, i);
-    if (!symbol_IsTypeSymbol(child))
-      result = result && symbol_IsFixedSerializable(child->type);
+  for (const auto eachChild : sym->children) {
+    if (!symbol_IsTypeSymbol(eachChild))
+      result = result && symbol_IsFixedSerializable(eachChild->type);
   }
 
   for (const auto eachRaised : sym->raised)
@@ -1262,14 +1243,12 @@ symbol_alignof(Symbol *s)
     }
   case sc_struct:
     {
-      unsigned i;
       unsigned align = 0;
 
       /* Alignment of struct is alignment of worst member. */
-      for(i = 0; i < vec_len(s->children); i++) {
-	Symbol *child = vec_fetch(s->children, i);
-	if (!symbol_IsTypeSymbol(child))
-	  align = max(align, symbol_alignof(child->type));
+      for (const auto eachChild : s->children) {
+	if (!symbol_IsTypeSymbol(eachChild))
+	  align = max(align, symbol_alignof(eachChild->type));
       }
       return align;
     }
@@ -1290,13 +1269,11 @@ symbol_alignof(Symbol *s)
 
   case sc_union:
     {
-      unsigned i;
       unsigned align = 0;
 
       /* Alignment of union is alignment of worst member. */
-      for(i = 0; i < vec_len(s->children); i++) {
-	Symbol *child = vec_fetch(s->children, i);
-	align = max(align, symbol_alignof(child->type));
+      for (const auto eachChild : s->children) {
+	align = max(align, symbol_alignof(eachChild->type));
       }
 
       return align;
@@ -1493,13 +1470,10 @@ symbol_directSize(Symbol *s)
     }
   case sc_struct:
     {
-      unsigned i;
-
-      for(i = 0; i < vec_len(s->children); i++) {
-	Symbol *child = vec_fetch(s->children, i);
-	if (!symbol_IsTypeSymbol(child)) {
-	  len = round_up(len, symbol_alignof(child));
-	  len += symbol_directSize(child->type);
+      for (const auto eachChild : s->children) {
+	if (!symbol_IsTypeSymbol(eachChild)) {
+	  len = round_up(len, symbol_alignof(eachChild));
+	  len += symbol_directSize(eachChild->type);
 	}
       }
 
@@ -1579,12 +1553,9 @@ symbol_indirectSize(Symbol *s)
     return 0;
   case sc_struct:
     {
-      unsigned i;
-
-      for(i = 0; i < vec_len(s->children); i++) {
-	Symbol *child = vec_fetch(s->children, i);
-	if (!symbol_IsTypeSymbol(child))
-	  len += symbol_indirectSize(child->type);
+      for (const auto eachChild : s->children) {
+	if (!symbol_IsTypeSymbol(eachChild))
+	  len += symbol_indirectSize(eachChild->type);
       }
 
       return len;

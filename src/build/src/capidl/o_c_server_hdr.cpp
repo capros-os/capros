@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003, The EROS Group, LLC.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -49,8 +50,6 @@ calc_sym_depend(Symbol *s, PtrVec *vec)
   case sc_absinterface:
   case sc_interface:
     {
-      int i;
-
       symbol_ComputeDependencies(s, vec);
 
       {
@@ -59,8 +58,8 @@ calc_sym_depend(Symbol *s, PtrVec *vec)
 	  ptrvec_append(vec, targetUoc);
       }
 
-      for(i = 0; i < vec_len(s->children); i++)
-	calc_sym_depend(symvec_fetch(s->children,i), vec);
+      for (const auto eachChild : s->children)
+	calc_sym_depend(eachChild, vec);
     }
 
   case sc_operation:
@@ -79,17 +78,13 @@ calc_sym_depend(Symbol *s, PtrVec *vec)
 static void
 compute_server_dependencies(Symbol *scope, PtrVec *vec)
 {
-  unsigned i;
-
   /* Export subordinate packages first! */
-  for (i = 0; i < vec_len(scope->children); i++) {
-    Symbol *child = symvec_fetch(scope->children, i);
+  for (const auto eachChild : scope->children) {
+    if (eachChild->cls != sc_package && eachChild->isActiveUOC)
+      calc_sym_depend(eachChild, vec);
 
-    if (child->cls != sc_package && child->isActiveUOC)
-      calc_sym_depend(child, vec);
-
-    if (child->cls == sc_package)
-      compute_server_dependencies(child, vec);
+    if (eachChild->cls == sc_package)
+      compute_server_dependencies(eachChild, vec);
   }
 
   return;
@@ -98,26 +93,25 @@ compute_server_dependencies(Symbol *scope, PtrVec *vec)
 static void
 emit_op_dispatcher(Symbol *s, FILE *outFile)
 {
-  int i;
-
   fprintf(outFile, "\nfixreg_t implement_%s(",
 	  symbol_QualifiedName(s, '_'));
 
-
-  for (i = 0; i < vec_len(s->children); i++) {
-    Symbol *arg = symvec_fetch(s->children, i);
-    Symbol *argType = symbol_ResolveRef(arg->type);
+  bool first = true;
+  for (const auto eachChild : s->children) {
+    Symbol *argType = symbol_ResolveRef(eachChild->type);
     Symbol *argBaseType = symbol_ResolveType(argType);
     
-    if (i > 0)
+    if (!first)
       fprintf(outFile, ", ");
+    else
+      first = false;
     
-    if (arg->cls == sc_formal) {
+    if (eachChild->cls == sc_formal) {
       output_c_type(argBaseType, outFile, 0);
-      fprintf(outFile, " %s", arg->name);
+      fprintf(outFile, " %s", eachChild->name);
     } else {
       output_c_type(argBaseType, outFile, 0);
-      fprintf(outFile, " * %s /* OUT */", arg->name);
+      fprintf(outFile, " * %s /* OUT */", eachChild->name);
     }
   }
   fprintf(outFile, ");\n");
@@ -136,13 +130,11 @@ emit_decoders(Symbol *s, FILE *outFile)
   case sc_absinterface:
   case sc_interface:
     {
-      int i;
-
       if (s->baseType)
 	emit_decoders(symbol_ResolveRef(s->baseType), outFile);
 
-      for(i = 0; i < vec_len(s->children); i++)
-	emit_decoders(symvec_fetch(s->children,i), outFile);
+      for (const auto eachChild : s->children)
+	emit_decoders(eachChild, outFile);
 
       return;
     }
@@ -165,17 +157,13 @@ emit_decoders(Symbol *s, FILE *outFile)
 void
 emit_server_header_decoders(Symbol *scope, FILE *outFile)
 {
-  unsigned i;
-
   /* Export subordinate packages first! */
-  for (i = 0; i < vec_len(scope->children); i++) {
-    Symbol *child = symvec_fetch(scope->children, i);
+  for (const auto eachChild : scope->children) {
+    if (eachChild->cls != sc_package && eachChild->isActiveUOC)
+      emit_decoders(eachChild, outFile);
 
-    if (child->cls != sc_package && child->isActiveUOC)
-      emit_decoders(child, outFile);
-
-    if (child->cls == sc_package)
-      emit_server_header_decoders(child, outFile);
+    if (eachChild->cls == sc_package)
+      emit_server_header_decoders(eachChild, outFile);
   }
 
   return;

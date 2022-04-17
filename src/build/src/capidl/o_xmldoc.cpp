@@ -96,14 +96,12 @@ symdump(Symbol *s, int indent)
   case sc_symRef:
     {
       if (!symbol_IsScope(s) ||
-	  (vec_len(s->children) == 0 && !s->docComment && s->baseType == 0)) {
+	  (s->children.empty() && !s->docComment && s->baseType == 0)) {
 	diag_printf("<%s name=\"%s\" qname=\"%s\"/>\n", 
 		     symbol_ClassName(s), s->name,
 		     symbol_QualifiedName(s, '_'));
       }
       else {
-	unsigned i;
-
 	diag_printf("<%s name=\"%s\" qname=\"%s\">\n", symbol_ClassName(s), 
 		     s->name, symbol_QualifiedName(s, '_'));
 
@@ -116,8 +114,8 @@ symdump(Symbol *s, int indent)
 		       symbol_QualifiedName(s, '_'));
 	}
 
-	for(i = 0; i < vec_len(s->children); i++)
-	  symdump(symvec_fetch(s->children,i), indent + 2);
+	for (const auto eachChild : s->children)
+	  symdump(eachChild, indent + 2);
 
   for (const auto eachRaised : s->raised)
     symdump(eachRaised, indent + 2);
@@ -131,7 +129,7 @@ symdump(Symbol *s, int indent)
     {
       const char *type_name = s->type->name;
 
-      bool use_nest = (vec_len(s->children) != 0 || s->docComment);
+      bool use_nest = (! s->children.empty() || s->docComment);
 
       diag_printf("<%s name=\"%s\" qname=\"%s\" ty=\"%s\" tyclass=\"%s\"%s>\n", 
 		   symbol_ClassName(s), s->name,
@@ -140,12 +138,11 @@ symdump(Symbol *s, int indent)
 		   use_nest ? "" : "/");
 
       if (use_nest) {
-	unsigned i;
 	if (s->docComment)
 	  PrintDocComment(s->docComment, indent+2);
 
-	for(i = 0; i < vec_len(s->children); i++)
-	  symdump(symvec_fetch(s->children,i), indent + 2);
+	for (const auto eachChild : s->children)
+	  symdump(eachChild, indent + 2);
 
   for (const auto eachRaised : s->raised)
     symdump(eachRaised, indent + 2);
@@ -159,12 +156,11 @@ symdump(Symbol *s, int indent)
 
   case sc_arithop:
     {
-      unsigned i;
       diag_printf("<%s name=\"%s\" qname=\"%s\">\n", symbol_ClassName(s), 
 		   s->name, symbol_QualifiedName(s, '_'));
 
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), indent + 2);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, indent + 2);
 
       do_indent(indent);
       diag_printf("</%s>\n", symbol_ClassName(s));

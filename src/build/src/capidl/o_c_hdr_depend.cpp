@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -46,7 +47,6 @@ symdump(Symbol *s, FILE *out, int indent)
     // enabling stubs for abstract interface.  This can be double checked later
   case sc_interface:
     {
-      int i;
       extern const char *target;
       extern InternedString lookup_containing_file(Symbol *s);
 
@@ -70,17 +70,15 @@ symdump(Symbol *s, FILE *out, int indent)
 
       fprintf(stdout, "%s: %s\n", fileName, uocFileName);
 
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), out, indent);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, out, indent);
 
       break;
     }
   case sc_package:
     {
-      unsigned i;
-
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), out, indent);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, out, indent);
 
       break;
     }

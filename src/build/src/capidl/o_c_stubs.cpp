@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
  * Copyright (C) 2008, 2009, 2011, Strawberry Development Group.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -212,24 +213,21 @@ emit_deregisterize(FILE *out, Symbol *child, int indent, unsigned regCount)
 PtrVec *
 extract_registerizable_arguments(Symbol *s, SymClass sc)
 {
-  unsigned i;
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
   PtrVec *regArgs = ptrvec_create();
 
-  for(i = 0; i < vec_len(s->children); i++) {
-    Symbol *child = symvec_fetch(s->children,i);
-
-    if (child->cls != sc)
+  for (const auto eachChild : s->children) {
+    if (eachChild->cls != sc)
       continue;
 
-    if (symbol_IsInterface(child->type)) {
-      ptrvec_append(regArgs, child);
+    if (symbol_IsInterface(eachChild->type)) {
+      ptrvec_append(regArgs, eachChild);
       continue;
     }
 
-    if ((needRegs = can_registerize(child->type, nReg))) {
-      ptrvec_append(regArgs, child);
+    if ((needRegs = can_registerize(eachChild->type, nReg))) {
+      ptrvec_append(regArgs, eachChild);
       nReg += needRegs;
       continue;
     }
@@ -241,26 +239,23 @@ extract_registerizable_arguments(Symbol *s, SymClass sc)
 PtrVec *
 extract_string_arguments(Symbol *s, SymClass sc)
 {
-  unsigned i;
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
   PtrVec *stringArgs = ptrvec_create();
 
-  for(i = 0; i < vec_len(s->children); i++) {
-    Symbol *child = symvec_fetch(s->children,i);
-
-    if (child->cls != sc)
+  for (const auto eachChild : s->children) {
+    if (eachChild->cls != sc)
       continue;
 
-    if (symbol_IsInterface(child->type))
+    if (symbol_IsInterface(eachChild->type))
       continue;
 
-    if ((needRegs = can_registerize(child->type, nReg))) {
+    if ((needRegs = can_registerize(eachChild->type, nReg))) {
       nReg += needRegs;
       continue;
     }
 
-    ptrvec_append(stringArgs, child);
+    ptrvec_append(stringArgs, eachChild);
   }
 
   return stringArgs;
@@ -414,12 +409,9 @@ emit_indirect_symbol_size(const char *fullName, Symbol *s,
 
   case sc_struct:
     {
-      unsigned i;
-
       /* Compute indirect size on each member in turn */
-      for(i = 0; i < vec_len(s->children); i++) {
-	Symbol *child = vec_fetch(s->children, i);
-	align = emit_indirect_symbol_size(fullName, child, out, indent,
+      for (const auto eachChild : s->children) {
+	align = emit_indirect_symbol_size(fullName, eachChild, out, indent,
 					  sc, align);
       }
 
@@ -848,27 +840,24 @@ c_op_needs_exception_string(Symbol *op)
 static unsigned
 c_op_needs_message_string(Symbol *op, SymClass sc)
 {
-  unsigned a;
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
 
   unsigned nStringElem = 0;
   unsigned nDirectElem = 0;
 
-  for (a = 0; a < vec_len(op->children); a++) {
-    Symbol *arg = symvec_fetch(op->children,a);
-
-    if (arg->cls != sc)
+  for (const auto eachChild : op->children) {
+    if (eachChild->cls != sc)
       continue;
 
-    if (symbol_IsInterface(arg->type)) {
+    if (symbol_IsInterface(eachChild->type)) {
     }
-    else if ((needRegs = can_registerize(arg->type, nReg))) {
+    else if ((needRegs = can_registerize(eachChild->type, nReg))) {
       nReg += needRegs;
     }
     else {
       nStringElem ++;
-      if (symbol_IsDirectSerializable(arg->type))
+      if (symbol_IsDirectSerializable(eachChild->type))
 	nDirectElem ++;
     }
   }
@@ -964,23 +953,21 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   /* Function prefix and arguments */
   fprintf(out, "\n%s(cap_t _self", symbol_QualifiedName(s,'_'));
 
-  for(i = 0; i < vec_len(s->children); i++) {
-    Symbol *child = symvec_fetch(s->children,i);
-
-    bool wantPtr = (child->cls == sc_outformal) || c_byreftype(child->type);
-    wantPtr = wantPtr && !symbol_IsInterface(child->type);
+  for (const auto eachChild : s->children) {
+    bool wantPtr = (eachChild->cls == sc_outformal) || c_byreftype(eachChild->type);
+    wantPtr = wantPtr && !symbol_IsInterface(eachChild->type);
 
     fprintf(out, ", ");
-    output_c_type(child->type, out, 0);
+    output_c_type(eachChild->type, out, 0);
     fprintf(out, " ");
     if (wantPtr)
       fprintf(out, "*");
-    fprintf(out, "%s", child->name);
+    fprintf(out, "%s", eachChild->name);
     /* Normally would call output_c_type_trailer, but that is only
        used to add the trailing "[size]" to vectors, and we don't want
        that in the procedure signature. 
 
-       output_c_type_trailer(child->type, out, 0);
+       output_c_type_trailer(eachChild->type, out, 0);
     */
   }
 
@@ -1551,7 +1538,6 @@ symdump(Symbol *s, FILE *out, int indent)
     // enabling stubs for abstract interface.  This can be double checked later
   case sc_interface:
     {
-      unsigned i;
 #if 0
       extern bool opt_dispatchers;
 
@@ -1585,8 +1571,8 @@ symdump(Symbol *s, FILE *out, int indent)
       }
 #endif
 
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), out, indent);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, out, indent);
 
       break;
     }
@@ -1594,10 +1580,8 @@ symdump(Symbol *s, FILE *out, int indent)
   case sc_scope:
   case sc_enum:
     {
-      unsigned i;
-
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), out, indent);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, out, indent);
 
       break;
     }

@@ -62,16 +62,13 @@ basename(const char *s)
 void
 pkgwalker(Symbol *scope, BackEndFn outfn)
 {
-  unsigned i;
-
   /* Export subordinate packages first! */
-  for (i = 0; i < vec_len(scope->children); i++) {
-    Symbol *child = symvec_fetch(scope->children, i);
-    if (child->cls != sc_package)
-      outfn(child);
+  for (const auto eachChild : scope->children) {
+    if (eachChild->cls != sc_package)
+      outfn(eachChild);
 
-    if (child->cls == sc_package)
-      pkgwalker(child, outfn);
+    if (eachChild->cls == sc_package)
+      pkgwalker(eachChild, outfn);
   }
 }
 

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2003, The EROS Group, LLC.
  * Copyright (C) 2009, Strawberry Development Group.
+ * Copyright (C) 2022, Charles Landau.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -120,7 +121,7 @@ emit_return_via_reg(FILE *outFile, Symbol *arg, int indent, unsigned regCount)
 static void
 emit_op_dispatcher(Symbol *s, FILE *outFile)
 {
-  int i;
+  unsigned i;
 
   unsigned snd_regcount = FIRST_REG;
   unsigned needRegs = 0;	// This is probably wrong;
@@ -280,29 +281,28 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   {
     unsigned rcv_regcount = FIRST_REG;
 
-    for (i = 0; i < vec_len(s->children); i++) {
-      Symbol *arg = symvec_fetch(s->children, i);
-      Symbol *argType = symbol_ResolveRef(arg->type);
+    for (const auto eachChild : s->children) {
+      Symbol *argType = symbol_ResolveRef(eachChild->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
       if (i > 0)
 	fprintf(outFile, ", ");
       
-      if (arg->cls == sc_formal) {
+      if (eachChild->cls == sc_formal) {
 	if ((needRegs = can_registerize(argBaseType, rcv_regcount))) {
-	  fprintf(outFile, "%s", arg->name);
+	  fprintf(outFile, "%s", eachChild->name);
 	}
 	else {
-	  fprintf(outFile, "*%s", arg->name);
+	  fprintf(outFile, "*%s", eachChild->name);
 	}
       }
       else {
 	if ((needRegs = can_registerize(argBaseType, snd_regcount))) {
-	  fprintf(outFile, "/* OUT */ &%s", arg->name);
+	  fprintf(outFile, "/* OUT */ &%s", eachChild->name);
 	  snd_regcount += needRegs;
 	}
 	else {
-	  fprintf(outFile, "/* OUT */ %s", arg->name);
+	  fprintf(outFile, "/* OUT */ %s", eachChild->name);
 	}
       }
     }
@@ -322,16 +322,15 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
     do_indent(outFile, 2);
     fprintf(outFile, "if (msg->snd_code == RC_OK) {\n");
 
-    for (i = 0; i < vec_len(s->children); i++) {
-      Symbol *arg = symvec_fetch(s->children, i);
-      Symbol *argType = symbol_ResolveRef(arg->type);
+    for (const auto eachChild : s->children) {
+      Symbol *argType = symbol_ResolveRef(eachChild->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
-      if (arg->cls == sc_formal)
+      if (eachChild->cls == sc_formal)
 	continue;
 
       if ((needRegs = can_registerize(argBaseType, snd_regcount))) {
-	emit_return_via_reg(outFile, arg, 4, snd_regcount);
+	emit_return_via_reg(outFile, eachChild, 4, snd_regcount);
 	snd_regcount += needRegs;
       }
 
@@ -344,12 +343,12 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 	fprintf(outFile, 
 		"__builtin_memcpy(msg.snd_data + sndIndir, "
 		"%s->data, %s->len * sizeof(*%s->data));\n",
-		arg->name, arg->name, arg->name);
+		eachChild->name, eachChild->name, eachChild->name);
 
 	do_indent(outFile, 4);
 	fprintf(outFile, 
 		"sndIndir += (%s->len * sizeof(*%s->data));\n",
-		arg->name, arg->name);
+		eachChild->name, eachChild->name);
       }
     }
 
@@ -385,20 +384,17 @@ emit_if_decoder(Symbol *s, FILE *outFile)
   fprintf(outFile, "switch(msg->rcv_code) {\n");
 
   while (s) {
-    int i;
-
     fprintf(outFile, "\n");
     do_indent(outFile, 2);
     fprintf(outFile, "/* IF %s */\n", symbol_QualifiedName(s, '_'));
     fprintf(outFile, "\n");
 
-    for(i = 0; i < vec_len(s->children); i++) {
-      Symbol *child = symvec_fetch(s->children, i);
-      if (child->cls != sc_operation)
+    for (const auto eachChild : s->children) {
+      if (eachChild->cls != sc_operation)
 	continue;
 
       do_indent(outFile, 2);
-      fprintf(outFile, "case OC_%s:\n", symbol_QualifiedName(child,'_'));
+      fprintf(outFile, "case OC_%s:\n", eachChild->QualifiedName('_'));
       do_indent(outFile, 4);
       fprintf(outFile, "DISPATCH_OP_%s(msg, info);\n", 
 	      symbol_QualifiedName(s, '_'));
@@ -433,13 +429,11 @@ emit_decoders(Symbol *s, FILE *outFile)
   case sc_absinterface:
   case sc_interface:
     {
-      int i;
-
       if (s->baseType)
 	emit_decoders(symbol_ResolveRef(s->baseType), outFile);
 
-      for(i = 0; i < vec_len(s->children); i++)
-	emit_decoders(symvec_fetch(s->children,i), outFile);
+      for (const auto eachChild : s->children)
+	emit_decoders(eachChild, outFile);
 
       emit_if_decoder(s, outFile);
 
@@ -469,12 +463,8 @@ msg_size(Symbol *s, SymClass sc)
   case sc_absinterface:
   case sc_interface:
     {
-      int i;
-
-      for(i = 0; i < vec_len(s->children); i++) {
-	size_t childsz = msg_size(symvec_fetch(s->children,i), sc);
-	sz = max(sz, childsz);
-      }
+      for (const auto eachChild : s->children)
+	sz = max(sz, msg_size(eachChild, sc));
 
 #if 0
       fprintf(outFile, "IF %s size for %s is %d\n", 
@@ -524,18 +514,14 @@ static size_t
 size_server_buffer(Symbol *scope, SymClass sc)
 {
   size_t bufSz = 0;
-  unsigned i;
 
   /* Export subordinate packages first! */
-  for (i = 0; i < vec_len(scope->children); i++) {
-    Symbol *child = symvec_fetch(scope->children, i);
-    if (child->cls != sc_package && child->isActiveUOC) {
-      size_t msgsz = msg_size(child, sc);
-      bufSz = max(bufSz, msgsz);
-    }
+  for (const auto eachChild : scope->children) {
+    if (eachChild->cls != sc_package && eachChild->isActiveUOC)
+      bufSz = max(bufSz, msg_size(eachChild, sc));
 
-    if (child->cls == sc_package) {
-      size_t msgsz = size_server_buffer(child, sc);
+    if (eachChild->cls == sc_package) {
+      size_t msgsz = size_server_buffer(eachChild, sc);
       bufSz = max(bufSz, msgsz);
     }
   }
@@ -550,8 +536,6 @@ calc_sym_depend(Symbol *s, PtrVec *vec)
   case sc_absinterface:
   case sc_interface:
     {
-      int i;
-
       symbol_ComputeDependencies(s, vec);
 
       {
@@ -560,8 +544,8 @@ calc_sym_depend(Symbol *s, PtrVec *vec)
 	  ptrvec_append(vec, targetUoc);
       }
 
-      for(i = 0; i < vec_len(s->children); i++)
-	calc_sym_depend(symvec_fetch(s->children,i), vec);
+      for (const auto eachChild : s->children)
+	calc_sym_depend(eachChild, vec);
     }
 
   case sc_operation:
@@ -580,17 +564,13 @@ calc_sym_depend(Symbol *s, PtrVec *vec)
 static void
 compute_server_dependencies(Symbol *scope, PtrVec *vec)
 {
-  unsigned i;
-
   /* Export subordinate packages first! */
-  for (i = 0; i < vec_len(scope->children); i++) {
-    Symbol *child = symvec_fetch(scope->children, i);
+  for (const auto eachChild : scope->children) {
+    if (eachChild->cls != sc_package && eachChild->isActiveUOC)
+      calc_sym_depend(eachChild, vec);
 
-    if (child->cls != sc_package && child->isActiveUOC)
-      calc_sym_depend(child, vec);
-
-    if (child->cls == sc_package)
-      compute_server_dependencies(child, vec);
+    if (eachChild->cls == sc_package)
+      compute_server_dependencies(eachChild, vec);
   }
 
   return;
@@ -599,17 +579,13 @@ compute_server_dependencies(Symbol *scope, PtrVec *vec)
 static void
 emit_server_decoders(Symbol *scope, FILE *outFile)
 {
-  unsigned i;
-
   /* Export subordinate packages first! */
-  for (i = 0; i < vec_len(scope->children); i++) {
-    Symbol *child = symvec_fetch(scope->children, i);
+  for (const auto eachChild : scope->children) {
+    if (eachChild->cls != sc_package && eachChild->isActiveUOC)
+      emit_decoders(eachChild, outFile);
 
-    if (child->cls != sc_package && child->isActiveUOC)
-      emit_decoders(child, outFile);
-
-    if (child->cls == sc_package)
-      emit_server_decoders(child, outFile);
+    if (eachChild->cls == sc_package)
+      emit_server_decoders(eachChild, outFile);
   }
 
   return;

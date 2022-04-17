@@ -97,12 +97,11 @@ symdump(Symbol *s, int indent)
   case sc_symRef:
   case sc_operation:
     {
-      if (!symbol_IsScope(s) || (vec_len(s->children) == 0 && s->baseType == 0)) {
+      if (!symbol_IsScope(s) || (s->children.empty() && s->baseType == 0)) {
 	diag_printf("<%s name=\"%s\"/>\n", symbol_ClassName(s), 
 		     s->name);
       }
       else {
-	unsigned i;
 	diag_printf("<%s name=\"%s\">\n", symbol_ClassName(s), 
 		     s->name);
 
@@ -112,10 +111,10 @@ symdump(Symbol *s, int indent)
 		      symbol_QualifiedName(s, '_'));
 	}
 
-	for(i = 0; i < vec_len(s->children); i++)
-	  symdump(symvec_fetch(s->children,i), indent + 2);
+	for (const auto eachChild : s->children)
+	  symdump(eachChild, indent + 2);
 
-  for (const auto eachRaised : s->raised)
+        for (const auto eachRaised : s->raised)
 	  symdump(eachRaised, indent + 2);
 
 	do_indent(indent);
@@ -126,12 +125,11 @@ symdump(Symbol *s, int indent)
 
   case sc_arithop:
     {
-      unsigned i;
       diag_printf("<%s name=\"%s\">\n", symbol_ClassName(s), 
 		   s->name);
 
-      for(i = 0; i < vec_len(s->children); i++)
-	symdump(symvec_fetch(s->children,i), indent + 2);
+      for (const auto eachChild : s->children)
+	symdump(eachChild, indent + 2);
 
       do_indent(indent);
       diag_printf("</%s>\n", symbol_ClassName(s));
