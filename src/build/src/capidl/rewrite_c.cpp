@@ -31,7 +31,6 @@
 
 #include <applib/Intern.h>
 #include <applib/Diag.h>
-#include <applib/PtrVec.h>
 #include <applib/xmalloc.h>
 #include "SymTab.h"
 #include "util.h"

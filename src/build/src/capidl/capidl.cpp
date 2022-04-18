@@ -31,8 +31,8 @@
 #include <applib/xmalloc.h>
 #include <applib/App.h>
 #include <applib/Intern.h>
-#include <applib/PtrVec.h>
 #include <applib/path.h>
+#include <vector>
 
 #include "SymTab.h"
 #include "ParseType.h"
@@ -44,19 +44,18 @@ bool showparse = false;
 bool opt_dispatchers = false;
 extern int yyparse(void *);
 
-PtrVec *searchPath;
-PtrVec *uocMap;
+// Include locations specified on the command line with -I:
+static std::vector<const char *> searchPath;
+
+static std::vector<TopsymMap*> uocMap;
 
 
 TopsymMap *
 topsym_create(InternedString s, InternedString f, bool isCmdLine)
 {
-  TopsymMap *ts = MALLOC(TopsymMap);
-  ts->symName = s;
-  ts->fileName = f;
-  ts->isCmdLine = isCmdLine;
+  TopsymMap * ts = new TopsymMap(s, f, isCmdLine);
 
-  ptrvec_append(uocMap, ts);
+  uocMap.push_back(ts);
 
   return ts;
 }
@@ -144,7 +143,6 @@ contains(InternedString scope, InternedString sym)
 void
 import_uoc(InternedString ident)
 {
-  unsigned i;
   Symbol *sym = symbol_LookupChild(symbol_UniversalScope, ident, 0);
 
   if (sym) {
@@ -158,12 +156,11 @@ import_uoc(InternedString ident)
 
   }
 
-  for (i = 0; i < vec_len(uocMap); i++) {
-    TopsymMap *ts = vec_fetch(uocMap, i);
-    InternedString scopeName = ts->symName;
+  for (const auto eachTS : uocMap) {
+    InternedString scopeName = eachTS->symName;
     
     if (contains(scopeName,ident)) {
-      parse_file(ts->fileName, ts->isCmdLine);
+      parse_file(eachTS->fileName, eachTS->isCmdLine);
       return;
     }
   }
@@ -172,17 +169,14 @@ import_uoc(InternedString ident)
 InternedString
 lookup_containing_file(Symbol *s)
 {
-  unsigned i;
   InternedString uocName;
 
   s = symbol_UnitOfCompilation(s);
   uocName = symbol_QualifiedName(s, '.');
 
-  for (i = 0; i < vec_len(uocMap); i++) {
-    TopsymMap *ts = vec_fetch(uocMap, i);
-    
-    if(ts->symName == uocName)
-      return ts->fileName;
+  for (const auto eachTS : uocMap) {
+    if(eachTS->symName == uocName)
+      return eachTS->fileName;
   }
 
   return 0;
@@ -203,15 +197,12 @@ lookup_containing_file(Symbol *s)
 void
 import_symbol(InternedString ident)
 {
-  unsigned i;
-
   /* First, see if the symbol is defined in one of the input files. 
      This is true exactly if the symbol provided by the input file is
      a identifier-wise substring of the desired symbol. */ 
 
-  for (i = 0; i < vec_len(uocMap); i++) {
-    TopsymMap *ts = vec_fetch(uocMap, i);
-    InternedString scopeName = ts->symName;
+  for (const auto eachTS : uocMap) {
+    InternedString scopeName = eachTS->symName;
     
     if (contains(scopeName,ident))
       import_uoc(scopeName);
@@ -289,16 +280,12 @@ main(int argc, char *argv[])
 #if 0
   extern char *optarg;
 #endif
-  unsigned i;
   backend *be;
   int opterr = 0;
   const char *lang = 0;
   bool verbose = false;
   
   app_init("capidl");
-
-  searchPath = ptrvec_create();
-  uocMap = ptrvec_create();
 
   while ((c = getopt(argc, argv, 
 		     "D:X:A:sdvl:o:I:h:"
@@ -330,7 +317,7 @@ main(int argc, char *argv[])
       break;
 
     case 'I':
-      ptrvec_append(searchPath, optarg);
+      searchPath.push_back(optarg);
       break;
 
     case 'd':
@@ -375,17 +362,16 @@ main(int argc, char *argv[])
 
   /* Must prescan the command line units of compilation first, so that
      they get marked as units of compilation. */
-  for (i = 0; i < argc; i++)
+  for (int i = 0; i < argc; i++)
     prescan(argv[i], true);
 
-  for (i = 0; i < vec_len(searchPath); i++)
-    prescan_includes(vec_fetch(searchPath,i));
+  for (const auto eachPath : searchPath)
+    prescan_includes(eachPath);
 
   symbol_InitSymtab();
 
-  for (i = 0; i < vec_len(uocMap); i++) {
-    TopsymMap *ts = vec_fetch(uocMap, i);
-    InternedString ident = ts->symName;
+  for (const auto eachTS : uocMap) {
+    InternedString ident = eachTS->symName;
 
     import_uoc(ident);
   }

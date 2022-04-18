@@ -31,7 +31,6 @@
 #include <applib/xmalloc.h>
 #include <applib/Intern.h>
 #include <applib/Diag.h>
-#include <applib/PtrVec.h>
 #include "SymTab.h"
 #include "ParseType.h"
 #include "Lexer.h"
