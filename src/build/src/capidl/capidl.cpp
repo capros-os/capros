@@ -47,6 +47,21 @@ extern int yyparse(void *);
 PtrVec *searchPath;
 PtrVec *uocMap;
 
+
+TopsymMap *
+topsym_create(InternedString s, InternedString f, bool isCmdLine)
+{
+  TopsymMap *ts = MALLOC(TopsymMap);
+  ts->symName = s;
+  ts->fileName = f;
+  ts->isCmdLine = isCmdLine;
+
+  ptrvec_append(uocMap, ts);
+
+  return ts;
+}
+
+
 const char *
 basename(const char *s)
 {
@@ -214,7 +229,7 @@ prescan(const char *fileName, bool isCmdLine)
     diag_fatal(1, "Couldn't open description file \"%s\"\n",
 	       fileName);
 
-  lexer = prescanlexer_create(fileName, uocMap, isCmdLine, fin);
+  lexer = prescanlexer_create(fileName, isCmdLine, fin);
   if (showparse)
     prescanlexer_setDebug(showparse);
 

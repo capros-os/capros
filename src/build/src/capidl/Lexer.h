@@ -1,5 +1,6 @@
 #include <applib/PtrVec.h>
 #include <applib/buffer.h>
+#include <capidl.h>
 
 typedef struct MyLexer MyLexer;
 struct MyLexer {
@@ -19,23 +20,10 @@ void mylexer_setDebug(bool);
 void mylexer_ReportParseError(MyLexer *, const char * /* msg */);
 InternedString mylexer_grab_doc_comment(MyLexer *);
 
-typedef struct TopsymMap TopsymMap;
-struct TopsymMap {
-  InternedString symName;
-  InternedString fileName;
-  bool isUOC;			/* is this symbol a unit of compilation */
-  bool isCmdLine;		/* is this a command-line UOC, as
-				   opposed to something on the include
-				   path? */
-};
-
-TopsymMap *topsym_create(InternedString s, InternedString f, bool isCmdLine);
-
 typedef struct PrescanLexer PrescanLexer;
 struct PrescanLexer {
   InternedString pkgName;
   InternedString fileName;
-  PtrVec *map;
 
   bool isCmdLine;
   int current_line;
@@ -47,7 +35,7 @@ int prescan_lex(ParseType *lvalp, PrescanLexer *lexer);
 
 PrescanLexer *
 prescanlexer_create(const char *inputFileName, 
-		    PtrVec *uocMap, bool isCmdLine, FILE *fin);
+		    bool isCmdLine, FILE *fin);
 void prescanlexer_setDebug(bool showParse);
 
 #if 0
@@ -84,27 +72,9 @@ struct MyLexer : public yyFlexLexer {
   }
 };
 
-struct TopsymMap {
-  InternedString symName;
-  InternedString fileName;
-  bool isUOC;
-
-  TopsymMap()
-  {
-  }
-
-  TopsymMap(const InternedString &s, const InternedString& f)
-  {
-    symName = s;
-    fileName = f;
-    isUOC = true;
-  }
-};
-
 struct PrescanLexer : public yyFlexLexer {
   InternedString pkgName;
   InternedString fileName;
-  Vector<TopsymMap>& map;
 
   int current_line;
   int commentCaller;
@@ -113,11 +83,9 @@ struct PrescanLexer : public yyFlexLexer {
   int yylex();
 
   PrescanLexer( const char *inputFileName,
-		Vector<TopsymMap>& uocMap,
 		istream* arg_yyin = 0, ostream* arg_yyout = 0)
     : yyFlexLexer(arg_yyin, arg_yyout), 
-		 fileName(inputFileName),
-		 map(uocMap)
+		 fileName(inputFileName)
   {
     current_line = 1;
   }
