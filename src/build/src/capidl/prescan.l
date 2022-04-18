@@ -84,7 +84,7 @@ package           {  /* ignore */         }
                        InternedString topName = 
 			 intern_concat(lexer->pkgName,
 				       intern_concat(".", yytext));
-		       ptrvec_append(lexer->map, topsym_create(topName, lexer->fileName, lexer->isCmdLine));
+		       topsym_create(topName, lexer->fileName, lexer->isCmdLine);
 // diag_printf("Found %s %s %s\n", lexer->pkgName, yytext, lexer->fileName);
 
                        BEGIN(TOSEMI);
@@ -127,13 +127,11 @@ package           {  /* ignore */         }
 
 PrescanLexer *
 prescanlexer_create(const char *inputFileName, 
-		    PtrVec *uocMap, bool isCmdLine, FILE *fin)
+		    bool isCmdLine, FILE *fin)
 {
   PrescanLexer *lx = MALLOC(PrescanLexer);
   lx->current_line = 1;
   lx->curlyDepth = 0;
-
-  lx->map = uocMap;
 
   lx->pkgName = 0;
   lx->fileName = intern(inputFileName);
@@ -148,18 +146,6 @@ prescanlexer_create(const char *inputFileName,
   prescan_in = fin;
 
   return lx;
-}
-
-TopsymMap *
-topsym_create(InternedString s, InternedString f, bool isCmdLine)
-{
-  TopsymMap *ts = MALLOC(TopsymMap);
-  ts->symName = s;
-  ts->fileName = f;
-  ts->isCmdLine = isCmdLine;
-  ts->isUOC = true;
-
-  return ts;
 }
 
 void 
