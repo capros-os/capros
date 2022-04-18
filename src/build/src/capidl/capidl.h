@@ -21,7 +21,8 @@
 
 #include <applib/PtrVec.h>
 
-struct TopsymMap {
+class TopsymMap {
+public:
   InternedString symName;
   InternedString fileName;
   bool isCmdLine;   /* is this a command-line UOC, as
@@ -30,9 +31,16 @@ struct TopsymMap {
   // bool isUOC = true;     /* is this symbol a unit of compilation */
        /* As a FUTURE optimization, we will use the isUOC field in the
        TopsymMap to perform lazy file prescanning. */
+
+  // Constructor
+  TopsymMap(InternedString s, InternedString f, bool i) :
+    symName(s),
+    fileName(f),
+    isCmdLine(i)
+    { }
 };
 
 /*
 Create a TopsymMap and add it to uocMap.
 */
-TopsymMap *topsym_create(InternedString s, InternedString f, bool isCmdLine);
+TopsymMap * topsym_create(InternedString s, InternedString f, bool isCmdLine);
