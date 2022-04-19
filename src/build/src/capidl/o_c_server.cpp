@@ -40,26 +40,42 @@
 #include "SymTab.h"
 #include "util.h"
 #include "backend.h"
-
-#define FIRST_REG 1		/* reserve 1 for opcode/result code */
-/* Size of native register */
-#define REGISTER_BITS      32
+#include "o_c_util.h"
 
 #define max(a,b) ((a > b) ? (a) : (b))
 
 static Buffer *preamble;
 
-extern unsigned compute_direct_bytes(PtrVec *symVec);
-extern unsigned compute_indirect_bytes(PtrVec *symVec);
-extern PtrVec *extract_registerizable_arguments(Symbol *s, SymClass sc);
-extern PtrVec *extract_string_arguments(Symbol *s, SymClass sc);
 
-extern unsigned compute_direct_bytes(PtrVec *symVec);
+static unsigned
+compute_direct_bytes(PtrVec *symVec)
+{
+  unsigned i;
+  unsigned sz = 0;
 
-extern void output_c_type(Symbol *s, FILE *out, int indent);
-extern unsigned can_registerize(Symbol *s, unsigned nReg);
-extern unsigned emit_symbol_align(const char *lenVar, FILE *out, int indent,
-				  unsigned elemAlign, unsigned align);
+  for(i = 0; i < vec_len(symVec); i++) {
+    Symbol *sym = vec_fetch(symVec, i);
+    sz = round_up(sz, symbol_alignof(sym));
+    sz += symbol_directSize(sym);
+  }
+
+  return sz;
+}
+
+static unsigned
+compute_indirect_bytes(PtrVec *symVec)
+{
+  unsigned i;
+  unsigned sz = 0;
+
+  for(i = 0; i < vec_len(symVec); i++) {
+    Symbol *sym = vec_fetch(symVec, i);
+    sz = round_up(sz, symbol_alignof(sym));
+    sz += symbol_indirectSize(sym);
+  }
+
+  return sz;
+}
 
 static void
 emit_pass_from_reg(FILE *outFile, Symbol *arg, unsigned regCount)

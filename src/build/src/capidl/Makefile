@@ -56,6 +56,7 @@ CAPIDL_OBJECTS += $(BUILDDIR)/o_symdump.o
 CAPIDL_OBJECTS += $(BUILDDIR)/o_xmldoc.o
 CAPIDL_OBJECTS += $(BUILDDIR)/o_c_hdr.o
 CAPIDL_OBJECTS += $(BUILDDIR)/o_c_hdr_depend.o
+CAPIDL_OBJECTS += $(BUILDDIR)/o_c_util.o
 CAPIDL_OBJECTS += $(BUILDDIR)/o_c_stubs.o
 CAPIDL_OBJECTS += $(BUILDDIR)/o_c_server.o
 CAPIDL_OBJECTS += $(BUILDDIR)/o_c_server_hdr.o
