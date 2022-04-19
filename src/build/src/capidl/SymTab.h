@@ -24,6 +24,10 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#pragma once
+
+#include <gmp.h>  // GNU multiple precision library
+#include <applib/Intern.h>
 #include <applib/PtrVec.h>
 #include <vector>
 
@@ -78,14 +82,14 @@ public:
   // Constructor
   Symbol(const char *nm, bool isActiveUOC, SymClass sc);
 
-  InternedString name;
+  InternedString const name;
 #ifdef SYMDEBUG
   InternedString qualifiedName;
 #endif
   InternedString docComment = nullptr;  /* unknown type */
 
   bool           mark = false;		/* used for circularity detection */
-  bool           isActiveUOC;	/* created in an active unit of compilation */
+  bool const     isActiveUOC;	/* created in an active unit of compilation */
 
   Symbol         *nameSpace = nullptr;	/* containing namespace */
   std::vector<Symbol*> children;	/* members of the scope */

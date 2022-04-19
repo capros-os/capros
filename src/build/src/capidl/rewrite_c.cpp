@@ -35,10 +35,6 @@
 #include "SymTab.h"
 #include "util.h"
 
-#define REGISTER_BITS    32
-#define ENUMERAL_SIZE    4
-#define TARGET_LONG_SIZE 4
-
 static void
 fixup(Symbol *s)
 {

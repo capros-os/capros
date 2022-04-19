@@ -42,104 +42,14 @@ Approved for public release, distribution unlimited. */
 #include "SymTab.h"
 #include "util.h"
 #include "backend.h"
-
-/* Size of native register */
-#define REGISTER_BITS      32
-
-/* Size of largest integral type that we will attempt to registerize: */
-#define MAX_REGISTERIZABLE 64
-
-#define FIRST_REG 1		/* reserve 1 for opcode/result code */
-#define MAX_REGS  4
+#include "o_c_util.h"
 
 static Buffer *preamble;
 
 extern bool c_byreftype(Symbol *s);
 extern const char* c_typename(Symbol *s);
-extern void output_c_type(Symbol *s, FILE *out, int indent);
 extern void output_c_type_trailer(Symbol *s, FILE *out, int indent);
 extern MP_INT compute_value(Symbol *s);
-
-/* can_registerize(): given a symbol /s/ denoting an argument, and a
-   number /nReg/ indicating how many register slots are taken, return:
-
-     0   if the symbol /s/ cannot be passed in registers, or
-     N>0 the number of registers that the symbol /s/ will occupy.
-
-   note that a 64 bit integer quantity will be registerized, but only
-   if it can be squeezed into the number of registers that remain
-   available.
-*/
-unsigned 
-can_registerize(Symbol *s, unsigned nReg)
-{
-  s = symbol_ResolveType(s);
-  
-  assert(symbol_IsBasicType(s));
-
-  if (nReg == MAX_REGS)
-    return 0;
-
-  while (s->cls == sc_symRef)
-    s = s->value;
-
-  if (s->cls == sc_typedef)
-    return can_registerize(s->type, nReg);
-
-  if (s->cls == sc_enum)
-    return 1;
-
-  switch(s->cls) {
-  case sc_primtype:
-    {
-      switch(s->v.lty) {
-      case lt_integer:
-      case lt_unsigned:
-      case lt_char:
-      case lt_bool:
-      case lt_float:
-	{
-	  /* Integral types are aligned to their size. Floating types
-	     are aligned to their size, not to exceed 64 bits. If we
-	     ever support larger fixed integers, we'll need to break
-	     these cases up. */
-
-	  unsigned bits = mpz_get_ui(s->v.i);
-      
-	  if (bits == 0)
-	    return 0;
-
-	  if (nReg >= MAX_REGS)
-	    return 0;
-
-	  if (bits <= REGISTER_BITS)
-	    return 1;
-
-	  if (bits <= MAX_REGISTERIZABLE) {
-	    unsigned needRegs = bits / REGISTER_BITS;
-	    if (nReg + needRegs <= MAX_REGS)
-	      return needRegs;
-	  }
-
-	  return 0;
-	}
-      default:
-	return 0;
-      }
-    }
-  case sc_enum:
-    {
-      /* Note assumption that enumeral type fits in a register */
-      if (nReg >= MAX_REGS)
-	return 0;
-
-      return 1;
-    }
-
-  default:
-    return 0;
- }
-}
 
 void
 emit_registerize(FILE *out, Symbol *child, int indent, unsigned regCount)
@@ -209,102 +119,7 @@ emit_deregisterize(FILE *out, Symbol *child, int indent, unsigned regCount)
     regCount++;
   }
 }
-
-PtrVec *
-extract_registerizable_arguments(Symbol *s, SymClass sc)
-{
-  unsigned nReg = FIRST_REG;
-  unsigned needRegs;
-  PtrVec *regArgs = ptrvec_create();
-
-  for (const auto eachChild : s->children) {
-    if (eachChild->cls != sc)
-      continue;
-
-    if (symbol_IsInterface(eachChild->type)) {
-      ptrvec_append(regArgs, eachChild);
-      continue;
-    }
-
-    if ((needRegs = can_registerize(eachChild->type, nReg))) {
-      ptrvec_append(regArgs, eachChild);
-      nReg += needRegs;
-      continue;
-    }
-  }
-
-  return regArgs;
-}
-
-PtrVec *
-extract_string_arguments(Symbol *s, SymClass sc)
-{
-  unsigned nReg = FIRST_REG;
-  unsigned needRegs;
-  PtrVec *stringArgs = ptrvec_create();
-
-  for (const auto eachChild : s->children) {
-    if (eachChild->cls != sc)
-      continue;
-
-    if (symbol_IsInterface(eachChild->type))
-      continue;
-
-    if ((needRegs = can_registerize(eachChild->type, nReg))) {
-      nReg += needRegs;
-      continue;
-    }
-
-    ptrvec_append(stringArgs, eachChild);
-  }
-
-  return stringArgs;
-}
-
-unsigned
-compute_indirect_bytes(PtrVec *symVec)
-{
-  unsigned i;
-  unsigned sz = 0;
-
-  for(i = 0; i < vec_len(symVec); i++) {
-    Symbol *sym = vec_fetch(symVec, i);
-    sz = round_up(sz, symbol_alignof(sym));
-    sz += symbol_indirectSize(sym);
-  }
-
-  return sz;
-}
-
-unsigned
-compute_direct_bytes(PtrVec *symVec)
-{
-  unsigned i;
-  unsigned sz = 0;
-
-  for(i = 0; i < vec_len(symVec); i++) {
-    Symbol *sym = vec_fetch(symVec, i);
-    sz = round_up(sz, symbol_alignof(sym));
-    sz += symbol_directSize(sym);
-  }
-
-  return sz;
-}
-
-unsigned
-emit_symbol_align(const char *lenVar, FILE *out, int indent,
-		  unsigned elemAlign, unsigned align)
-{
-  if ((elemAlign & align) == 0) {
-    do_indent(out, indent);
-    fprintf(out, "%s += (%d-1); %s -= (%s %% %d);\t/* align to %d */\n",
-	    lenVar, elemAlign,
-	    lenVar, lenVar, elemAlign, elemAlign);
-  }
-
-  return (elemAlign * 2) - 1;
-}
-     
+   
 /* The /align/ field is a bitmap representing which power of two
    alignments are known to be valid. */
 unsigned

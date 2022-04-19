@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2003, The EROS Group, LLC.
+ * Copyright (C) 2009, Strawberry Development Group.
  * Copyright (C) 2022, Charles Landau.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -19,28 +21,21 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
+#include <SymTab.h>
 #include <applib/PtrVec.h>
 
-class TopsymMap {
-public:
-  InternedString const symName;
-  InternedString const fileName;
-  bool const isCmdLine;   /* is this a command-line UOC, as
-           opposed to something on the include path? */
+extern PtrVec *extract_registerizable_arguments(Symbol *s, SymClass sc);
+extern PtrVec *extract_string_arguments(Symbol *s, SymClass sc);
 
-  // bool const isUOC = true;     /* is this symbol a unit of compilation */
-       /* As a FUTURE optimization, we will use the isUOC field in the
-       TopsymMap to perform lazy file prescanning. */
+extern void output_c_type(Symbol *s, FILE *out, int indent);
 
-  // Constructor
-  TopsymMap(InternedString s, InternedString f, bool i) :
-    symName(s),
-    fileName(f),
-    isCmdLine(i)
-    { }
-};
+extern unsigned can_registerize(Symbol *s, unsigned nReg);
+extern unsigned emit_symbol_align(const char *lenVar, FILE *out, int indent,
+                  unsigned elemAlign, unsigned align);
 
-/*
-Create a TopsymMap and add it to uocMap.
-*/
-TopsymMap * topsym_create(InternedString s, InternedString f, bool isCmdLine);
+#define FIRST_REG 1     /* reserve 1 for opcode/result code */
+
+/* Size of native register */
+#define REGISTER_BITS      32
+
+#define MAX_REGS  4

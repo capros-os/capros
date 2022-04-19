@@ -38,10 +38,9 @@
 #include "SymTab.h"
 #include "util.h"
 #include "backend.h"
+#include "o_c_util.h"
 
 static Buffer *preamble;
-
-extern void output_c_type(Symbol *s, FILE *out, int indent);
 
 static void
 calc_sym_depend(Symbol *s, PtrVec *vec)
