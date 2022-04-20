@@ -48,30 +48,26 @@ static Buffer *preamble;
 
 
 static unsigned
-compute_direct_bytes(PtrVec *symVec)
+compute_direct_bytes(std::vector<Symbol*> const & symVec)
 {
-  unsigned i;
   unsigned sz = 0;
 
-  for(i = 0; i < vec_len(symVec); i++) {
-    Symbol *sym = vec_fetch(symVec, i);
-    sz = round_up(sz, symbol_alignof(sym));
-    sz += symbol_directSize(sym);
+  for (const auto eachSym : symVec) {
+    sz = round_up(sz, symbol_alignof(eachSym));
+    sz += symbol_directSize(eachSym);
   }
 
   return sz;
 }
 
 static unsigned
-compute_indirect_bytes(PtrVec *symVec)
+compute_indirect_bytes(std::vector<Symbol*> const & symVec)
 {
-  unsigned i;
   unsigned sz = 0;
 
-  for(i = 0; i < vec_len(symVec); i++) {
-    Symbol *sym = vec_fetch(symVec, i);
-    sz = round_up(sz, symbol_alignof(sym));
-    sz += symbol_indirectSize(sym);
+  for (const auto eachSym : symVec) {
+    sz = round_up(sz, symbol_alignof(eachSym));
+    sz += symbol_indirectSize(eachSym);
   }
 
   return sz;
@@ -137,16 +133,15 @@ emit_return_via_reg(FILE *outFile, Symbol *arg, int indent, unsigned regCount)
 static void
 emit_op_dispatcher(Symbol *s, FILE *outFile)
 {
-  unsigned i;
-
   unsigned snd_regcount = FIRST_REG;
   unsigned needRegs = 0;	// This is probably wrong;
 	// just initialize it to prevent a compiler warning.
 
-  PtrVec *rcvRegs = extract_registerizable_arguments(s, sc_formal);
-  PtrVec *sndRegs = extract_registerizable_arguments(s, sc_outformal);
-  PtrVec *rcvString = extract_string_arguments(s, sc_formal);
-  PtrVec *sndString = extract_string_arguments(s, sc_outformal);
+  std::vector<Symbol*> rcvRegs, sndRegs, rcvString, sndString;
+  extract_registerizable_arguments(s, sc_formal, rcvRegs);
+  extract_registerizable_arguments(s, sc_outformal, sndRegs);
+  extract_string_arguments(s, sc_formal, rcvString);
+  extract_string_arguments(s, sc_outformal, sndString);
 
   unsigned sndOffset = 0;
   unsigned rcvOffset = 0;
@@ -185,49 +180,45 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   fprintf(outFile, "/* Emit OP %s */\n", symbol_QualifiedName(s, '_'));
 
   /* Pass 1: emit the declarations for the direct variables */
-  if (vec_len(rcvRegs) || vec_len(rcvString)) {
+  if (! rcvRegs.empty() || ! rcvString.empty()) {
     do_indent(outFile, 2);
     fprintf(outFile, "/* Incoming arguments */\n");
 
-    if (vec_len(rcvRegs)) {
+    if (! rcvRegs.empty()) {
       unsigned rcv_regcount = FIRST_REG;
 
-      for (i = 0; i < vec_len(rcvRegs); i++) {
-	Symbol *arg = symvec_fetch(rcvRegs, i);
-	Symbol *argType = symbol_ResolveRef(arg->type);
+      for (const auto eachRcvReg : rcvRegs) {
+	Symbol *argType = symbol_ResolveRef(eachRcvReg->type);
 
 	do_indent(outFile, 2);
 	output_c_type(argType, outFile, 0);
-	fprintf(outFile, " %s = ", arg->name);
+	fprintf(outFile, " %s = ", eachRcvReg->name);
 
-	emit_pass_from_reg(outFile, arg, rcv_regcount);
+	emit_pass_from_reg(outFile, eachRcvReg, rcv_regcount);
 	fprintf(outFile, ";\n");
 	rcv_regcount += needRegs;
       }
     }
 
-    if (vec_len(rcvString)) {
-      for (i = 0; i < vec_len(rcvString); i++) {
-	Symbol *arg = symvec_fetch(rcvString, i);
-	Symbol *argType = symbol_ResolveRef(arg->type);
-	Symbol *argBaseType = symbol_ResolveType(argType);
+    for (const auto eachrcvString : rcvString) {
+      Symbol *argType = symbol_ResolveRef(eachrcvString->type);
+      Symbol *argBaseType = symbol_ResolveType(argType);
 
-	rcvOffset = round_up(rcvOffset, symbol_alignof(argBaseType));
+      rcvOffset = round_up(rcvOffset, symbol_alignof(argBaseType));
 
-	do_indent(outFile, 2);
-	output_c_type(argType, outFile, 0);
-	fprintf(outFile, " *%s = (", arg->name);
-	output_c_type(argType, outFile, 0);
-	fprintf(outFile, " *) (msg->rcv_data + %d);\n", rcvOffset);
+      do_indent(outFile, 2);
+      output_c_type(argType, outFile, 0);
+      fprintf(outFile, " *%s = (", eachrcvString->name);
+      output_c_type(argType, outFile, 0);
+      fprintf(outFile, " *) (msg->rcv_data + %d);\n", rcvOffset);
 
-	rcvOffset += symbol_directSize(argBaseType);
-      }
+      rcvOffset += symbol_directSize(argBaseType);
     }
 
     fprintf(outFile, "\n");
   }
 
-  if (vec_len(sndString) || vec_len(sndRegs)) {
+  if (! sndString.empty() || ! sndRegs.empty()) {
     do_indent(outFile, 2);
     fprintf(outFile, "/* Outgoing arguments */\n");
 
@@ -235,50 +226,43 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
        that we can pass pointers of the expected type. Casting the word
        fields as in "(char *) &msg.rcv_w0" could create problems on
        depending on byte sex */
-    if (vec_len(sndRegs)) {
-      for (i = 0; i < vec_len(sndRegs); i++) {
-	Symbol *arg = symvec_fetch(sndRegs, i);
-	Symbol *argType = symbol_ResolveRef(arg->type);
-	Symbol *argBaseType = symbol_ResolveType(argType);
+    for (const auto eachSndReg : sndRegs) {
+      Symbol *argType = symbol_ResolveRef(eachSndReg->type);
+      Symbol *argBaseType = symbol_ResolveType(argType);
 
-	do_indent(outFile, 2);
-	output_c_type(argType, outFile, 0);
-	fprintf(outFile, " %s;\n", arg->name);
+      do_indent(outFile, 2);
+      output_c_type(argType, outFile, 0);
+      fprintf(outFile, " %s;\n", eachSndReg->name);
 
-	sndOffset += symbol_directSize(argBaseType);
-      }
+      sndOffset += symbol_directSize(argBaseType);
     }
 
-    if (vec_len(sndString)) {
-      for (i = 0; i < vec_len(sndString); i++) {
-	Symbol *arg = symvec_fetch(sndString, i);
-	Symbol *argType = symbol_ResolveRef(arg->type);
-	Symbol *argBaseType = symbol_ResolveType(argType);
+    for (const auto eachSndString : sndString) {
+      Symbol *argType = symbol_ResolveRef(eachSndString->type);
+      Symbol *argBaseType = symbol_ResolveType(argType);
 
-	sndOffset = round_up(sndOffset, symbol_alignof(argBaseType));
+      sndOffset = round_up(sndOffset, symbol_alignof(argBaseType));
 
-	do_indent(outFile, 2);
-	output_c_type(argType, outFile, 0);
-	fprintf(outFile, " *%s = (", arg->name);
-	output_c_type(argType, outFile, 0);
-	fprintf(outFile, " *) (msg->snd_data + %d);\n", sndOffset);
+      do_indent(outFile, 2);
+      output_c_type(argType, outFile, 0);
+      fprintf(outFile, " *%s = (", eachSndString->name);
+      output_c_type(argType, outFile, 0);
+      fprintf(outFile, " *) (msg->snd_data + %d);\n", sndOffset);
 
-	sndOffset += symbol_directSize(argBaseType);
-      }
+      sndOffset += symbol_directSize(argBaseType);
     }
 
     fprintf(outFile, "\n");
   }
 
   /* Pass 2: patch the indirect arg data pointers */
-  for (i = 0; i < vec_len(rcvString); i++) {
-    Symbol *arg = symvec_fetch(rcvString, i);
-    Symbol *argType = symbol_ResolveRef(arg->type);
+  for (const auto eachrcvString : rcvString) {
+    Symbol *argType = symbol_ResolveRef(eachrcvString->type);
     Symbol *argBaseType = symbol_ResolveType(argType);
 
     if (symbol_IsVarSequenceType(argBaseType)) {
       do_indent(outFile, 2);
-      fprintf(outFile, "%s->data = (", arg->name);
+      fprintf(outFile, "%s->data = (", eachrcvString->name);
 
       output_c_type(argBaseType->type, outFile, 0);
 
@@ -286,7 +270,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 
       do_indent(outFile, 2);
       fprintf(outFile, "rcvIndir += (%s->len * sizeof(*%s->data));\n",
-	      arg->name, arg->name);
+	      eachrcvString->name, eachrcvString->name);
     }
   }
 
@@ -297,12 +281,15 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   {
     unsigned rcv_regcount = FIRST_REG;
 
+    bool first = true;
     for (const auto eachChild : s->children) {
       Symbol *argType = symbol_ResolveRef(eachChild->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
-      if (i > 0)
+      if (! first)
 	fprintf(outFile, ", ");
+      else
+        first = false;
       
       if (eachChild->cls == sc_formal) {
 	if ((needRegs = can_registerize(argBaseType, rcv_regcount))) {
@@ -331,7 +318,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   fprintf(outFile, "\n");
 
   /* Pass 4: pack the outgoing return string */
-  if (vec_len(sndRegs) || vec_len(sndString)) {
+  if (! sndRegs.empty() || ! sndString.empty()) {
     unsigned snd_regcount = FIRST_REG;
     unsigned curAlign = 0xfu;
 
@@ -368,7 +355,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
       }
     }
 
-    if (vec_len(sndString)) {
+    if (! sndString.empty()) {
       do_indent(outFile, 4);
 
       if (sndIndirect)
@@ -496,8 +483,9 @@ msg_size(Symbol *s, SymClass sc)
       size_t rcvsz;
       size_t sndsz;
 
-      PtrVec *rcvString = extract_string_arguments(s, sc_formal);
-      PtrVec *sndString = extract_string_arguments(s, sc_outformal);
+      std::vector<Symbol*> rcvString, sndString;
+      extract_string_arguments(s, sc_formal, rcvString);
+      extract_string_arguments(s, sc_outformal, sndString);
 
       rcvsz = compute_direct_bytes(rcvString);
       sndsz = compute_direct_bytes(sndString);

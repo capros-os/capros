@@ -284,28 +284,22 @@ emit_indirect_symbol_size(const char *fullName, Symbol *s,
 }
 
 unsigned
-emit_direct_byte_computation(PtrVec *symVec, FILE *out, int indent,
+emit_direct_byte_computation(std::vector<Symbol*> const & symVec, FILE *out, int indent,
 			     SymClass sc, unsigned align)
 {
-  unsigned i;
-
-  for(i = 0; i < vec_len(symVec); i++) {
-    Symbol *sym = vec_fetch(symVec, i);
-    align = emit_direct_symbol_size(sym->name, sym, out, indent, sc, align);
+  for (const auto eachSym : symVec) {
+    align = emit_direct_symbol_size(eachSym->name, eachSym, out, indent, sc, align);
   }
 
   return align;
 }
 
 unsigned
-emit_indirect_byte_computation(PtrVec *symVec, FILE *out, int indent,
+emit_indirect_byte_computation(std::vector<Symbol*> const & symVec, FILE *out, int indent,
 			       SymClass sc, unsigned align)
 {
-  unsigned i;
-
-  for(i = 0; i < vec_len(symVec); i++) {
-    Symbol *sym = vec_fetch(symVec, i);
-    align = emit_indirect_symbol_size(sym->name, sym, out, indent, sc, align);
+  for (const auto eachSym : symVec) {
+    align = emit_indirect_symbol_size(eachSym->name, eachSym, out, indent, sc, align);
   }
 
   return align;
@@ -317,17 +311,15 @@ extern const char* c_serializer(Symbol *s);
 Emit code to set up the string to be sent to the key.
 */
 void
-emit_send_string(PtrVec *symVec, FILE *out, int indent)
+emit_send_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
 {
-  unsigned i;
-
-  if (vec_len(symVec) == 0)
+  if (symVec.empty())
     return;
 
   /* Choose strategy: */
-  if (vec_len(symVec) == 1 &&
-      symbol_IsDirectSerializable(symvec_fetch(symVec,0)->type)) {
-    Symbol *s0 = symvec_fetch(symVec, 0);
+  if (symVec.size() == 1 &&
+      symbol_IsDirectSerializable(symVec[0]->type)) {
+    Symbol * s0 = symVec[0];
     Symbol * s0BaseType = symbol_ResolveType(s0->type);
 
     do_indent(out, indent);
@@ -335,8 +327,7 @@ emit_send_string(PtrVec *symVec, FILE *out, int indent)
 
     if (symbol_IsVarSequenceType(s0BaseType)) {
       do_indent(out, indent);
-      fprintf(out, "msg.snd_len = %s_len * sizeof(",
-	      symvec_fetch(symVec,0)->name);
+      fprintf(out, "msg.snd_len = %s_len * sizeof(", s0->name);
       output_c_type(s0->type, out, 0);
       fprintf(out, ");\n");
     }
@@ -368,8 +359,7 @@ emit_send_string(PtrVec *symVec, FILE *out, int indent)
     do_indent(out, indent);
     fprintf(out, "sndLen = 0;\n");
 
-    for(i = 0; i < vec_len(symVec); i++) {
-      Symbol *arg = vec_fetch(symVec, i);
+    for (const auto arg : symVec) {
       Symbol *argType = symbol_ResolveRef(arg->type);
       Symbol *argBaseType = symbol_ResolveType(arg->type);
       
@@ -441,15 +431,15 @@ emit_send_string(PtrVec *symVec, FILE *out, int indent)
 }
 
 static void
-emit_receive_string(PtrVec *symVec, FILE *out, int indent)
+emit_receive_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
 {
-  if (vec_len(symVec) == 0)
+  if (symVec.empty())
     return;
   
   /* Choose strategy: */
-  if (vec_len(symVec) == 1 &&
-      symbol_IsDirectSerializable(symvec_fetch(symVec,0)->type)) {
-    Symbol *s0 = symvec_fetch(symVec, 0);
+  if (symVec.size() == 1 &&
+      symbol_IsDirectSerializable(symVec[0]->type) ) {
+    Symbol * s0 = symVec[0];
 
     do_indent(out, indent);
     fprintf(out, "/* Using direct method */\n");
@@ -471,23 +461,20 @@ emit_receive_string(PtrVec *symVec, FILE *out, int indent)
 }
 
 static void
-emit_unpack_return_registers(PtrVec *symVec, FILE *out, int indent)
+emit_unpack_return_registers(std::vector<Symbol*> const & symVec, FILE *out, int indent)
 {
-  unsigned i;
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
 
-  for(i = 0; i < vec_len(symVec); i++) {
-    Symbol *child = symvec_fetch(symVec,i);
-
-    if (child->cls != sc_outformal)
+  for (const auto eachSym : symVec) {
+    if (eachSym->cls != sc_outformal)
       continue;
 
-    if (symbol_IsInterface(child->type))
+    if (symbol_IsInterface(eachSym->type))
       continue;
 
-    if ((needRegs = can_registerize(child->type, nReg))) {
-      emit_deregisterize(out, child, indent+2, nReg);
+    if ((needRegs = can_registerize(eachSym->type, nReg))) {
+      emit_deregisterize(out, eachSym, indent+2, nReg);
       nReg += needRegs;
       continue;
     }
@@ -495,16 +482,15 @@ emit_unpack_return_registers(PtrVec *symVec, FILE *out, int indent)
 }
 
 static void
-emit_unpack_return_string(PtrVec *symVec, FILE *out, int indent)
+emit_unpack_return_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
 {
   bool isDirect;
-  unsigned i;
   unsigned align = 0xfu;
   unsigned indirAlign = 0xfu;
 
   /* Choose strategy: */
-  isDirect = (vec_len(symVec) == 1 &&
-	      symbol_IsDirectSerializable(symvec_fetch(symVec,0)->type));
+  isDirect = (symVec.size() == 1 &&
+	      symbol_IsDirectSerializable(symVec[0]->type));
 
   if (isDirect)
     return;
@@ -512,8 +498,7 @@ emit_unpack_return_string(PtrVec *symVec, FILE *out, int indent)
   do_indent(out, indent);
   fprintf(out, "rcvLen = 0;\n");
 
-  for(i = 0; i < vec_len(symVec); i++) {
-    Symbol *arg = vec_fetch(symVec, i);
+  for (const auto arg : symVec) {
     Symbol *argType = symbol_ResolveRef(arg->type);
     Symbol *argBaseType = symbol_ResolveType(arg->type);
       
@@ -731,11 +716,11 @@ loadRcvCap(FILE * out, int indent, const char * name)
 static void
 output_client_stub(FILE *out, Symbol *s, int indent)
 {
-  unsigned i;
-  PtrVec *sndRegs = extract_registerizable_arguments(s, sc_formal);
-  PtrVec *rcvRegs = extract_registerizable_arguments(s, sc_outformal);
-  PtrVec *sndString = extract_string_arguments(s, sc_formal);
-  PtrVec *rcvString = extract_string_arguments(s, sc_outformal);
+  std::vector<Symbol*> sndRegs, rcvRegs, sndString, rcvString;
+  extract_registerizable_arguments(s, sc_formal, sndRegs);
+  extract_registerizable_arguments(s, sc_outformal, rcvRegs);
+  extract_string_arguments(s, sc_formal, sndString);
+  extract_string_arguments(s, sc_outformal, rcvString);
 
   unsigned snd_capcount = 0;
   rcv_capcount = 0;
@@ -894,31 +879,27 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   rcv_regcount += can_registerize(s->type, rcv_regcount);
 
   /* Sent registerizable arguments */
-  for(i = 0; i < vec_len(sndRegs); i++) {
-    Symbol *child = symvec_fetch(sndRegs,i);
-
-    if (symbol_IsInterface(child->type)) {
+  for (const auto eachSndReg : sndRegs) {
+    if (symbol_IsInterface(eachSndReg->type)) {
       if (snd_capcount >= 3)
 	diag_fatal(1, "Too many capabilities transmitted\n");
 
       do_indent(out, indent + 2);
       fprintf(out, "msg.snd_key%d = %s;\n", 
-	      snd_capcount++, child->name);
+	      snd_capcount++, eachSndReg->name);
     }
-    else if ((needRegs = can_registerize(child->type, snd_regcount))) {
-      emit_registerize(out, child, indent + 2, snd_regcount);
+    else if ((needRegs = can_registerize(eachSndReg->type, snd_regcount))) {
+      emit_registerize(out, eachSndReg, indent + 2, snd_regcount);
       snd_regcount += needRegs;
     }
   }
 
   /* Received registerizable arguments */
-  for(i = 0; i < vec_len(rcvRegs); i++) {
-    Symbol *child = symvec_fetch(rcvRegs,i);
-
-    if (symbol_IsInterface(child->type)) {
-      loadRcvCap(out, indent, child->name);
+  for (const auto eachRcvReg : rcvRegs) {
+    if (symbol_IsInterface(eachRcvReg->type)) {
+      loadRcvCap(out, indent, eachRcvReg->name);
     }
-    else if ((needRegs = can_registerize(child->type, rcv_regcount))) {
+    else if ((needRegs = can_registerize(eachRcvReg->type, rcv_regcount))) {
       /* do nothing -- handled through registerization below */
       rcv_regcount += needRegs;
     }
@@ -1485,7 +1466,6 @@ void
 output_c_stubs(Symbol *s)
 {
   unsigned i;
-  PtrVec *vec;
   extern const char *target;
 
   if (s->isActiveUOC == false)
@@ -1508,6 +1488,7 @@ output_c_stubs(Symbol *s)
   buffer_appendString(preamble, "#include <eros/Invoke.h>\n");
   // buffer_appendString(preamble, "#include <eros/capidl.h>\n");
 
+  PtrVec *vec;
   vec = ptrvec_create();
 
   symbol_ComputeDependencies(s, vec);

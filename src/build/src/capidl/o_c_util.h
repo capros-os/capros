@@ -21,11 +21,18 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
+#include <vector>
 #include <SymTab.h>
-#include <applib/PtrVec.h>
 
-extern PtrVec *extract_registerizable_arguments(Symbol *s, SymClass sc);
-extern PtrVec *extract_string_arguments(Symbol *s, SymClass sc);
+/*
+Append the extracted Symbols to regArgs.
+*/
+void extract_registerizable_arguments(Symbol *s, SymClass sc, std::vector<Symbol*> & regArgs);
+
+/*
+Append the extracted Symbols to stringArgs.
+*/
+void extract_string_arguments(Symbol *s, SymClass sc, std::vector<Symbol*> & stringArgs);
 
 extern void output_c_type(Symbol *s, FILE *out, int indent);
 
