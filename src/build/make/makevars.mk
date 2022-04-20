@@ -140,7 +140,7 @@ endif
 NATIVE_GPLUS=g++
 ifndef GPLUSWARN
 GPLUSWARN=-Wall -Winline -Wno-format
-# disabled for now: GPLUSWARN+= -Werror 
+GPLUSWARN+= -Werror 
 endif
 
 #
