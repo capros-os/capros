@@ -32,38 +32,34 @@ Approved for public release, distribution unlimited. */
 #define MAX_REGISTERIZABLE 64
 
 
-PtrVec *
-extract_registerizable_arguments(Symbol *s, SymClass sc)
+void
+extract_registerizable_arguments(Symbol * s, SymClass sc, std::vector<Symbol*> & regArgs)
 {
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
-  PtrVec *regArgs = ptrvec_create();
 
   for (const auto eachChild : s->children) {
     if (eachChild->cls != sc)
       continue;
 
     if (symbol_IsInterface(eachChild->type)) {
-      ptrvec_append(regArgs, eachChild);
+      regArgs.push_back(eachChild);
       continue;
     }
 
     if ((needRegs = can_registerize(eachChild->type, nReg))) {
-      ptrvec_append(regArgs, eachChild);
+      regArgs.push_back(eachChild);
       nReg += needRegs;
       continue;
     }
   }
-
-  return regArgs;
 }
 
-PtrVec *
-extract_string_arguments(Symbol *s, SymClass sc)
+void
+extract_string_arguments(Symbol * s , SymClass sc, std::vector<Symbol*> & stringArgs)
 {
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
-  PtrVec *stringArgs = ptrvec_create();
 
   for (const auto eachChild : s->children) {
     if (eachChild->cls != sc)
@@ -77,10 +73,8 @@ extract_string_arguments(Symbol *s, SymClass sc)
       continue;
     }
 
-    ptrvec_append(stringArgs, eachChild);
+    stringArgs.push_back(eachChild);
   }
-
-  return stringArgs;
 }
 
 /* NOTE: the 'indent' argument is NOT used here in the normal case. It
