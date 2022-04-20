@@ -133,14 +133,14 @@ buffer_append(Buffer *buf, const void *vp, off_t len)
   unsigned char *bp = (unsigned char *) vp;
 
   while (BLKNDX(end) >= vec_len(CMGET(buf,vec))) {
-    void * block = VMALLOC(void, BUFFER_BLOCK_SIZE);
+    void * block = xcalloc(BUFFER_BLOCK_SIZE, 1);
     ptrvec_append(CMCLOBBER(buf,vec), block);
   }
   
   while (len > 0) {
     off_t start = CMGET(buf,end);
     size_t blkoff = BLKOFF(start);
-    size_t take = min(BUFFER_BLOCK_SIZE - blkoff, len);
+    size_t take = min(BUFFER_BLOCK_SIZE - blkoff, (size_t)len);
     unsigned char *block = 
       (unsigned char *) vec_fetch(CMGET(buf,vec), BLKNDX(start));
 
@@ -206,7 +206,7 @@ void
 buffer_read(const Buffer *buf, void *vp, off_t pos, off_t len)
 {
   off_t end = pos + len;
-  unsigned char *bp = vp;
+  unsigned char *bp = (unsigned char *)vp;
 
   while (pos < end) {
     BufferChunk bc = buffer_getChunk(buf, pos, end - pos);
