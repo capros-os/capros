@@ -1,7 +1,6 @@
 #include <applib/buffer.h>
 #include <capidl.h>
 
-typedef struct MyLexer MyLexer;
 struct MyLexer {
   InternedString current_file;
   InternedString current_basename;
@@ -19,7 +18,6 @@ void mylexer_setDebug(bool);
 void mylexer_ReportParseError(MyLexer *, const char * /* msg */);
 InternedString mylexer_grab_doc_comment(MyLexer *);
 
-typedef struct PrescanLexer PrescanLexer;
 struct PrescanLexer {
   InternedString pkgName;
   InternedString fileName;

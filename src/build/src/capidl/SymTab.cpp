@@ -83,6 +83,11 @@ unsigned symbol_sc_isScope[] = {
 
 static void symbol_AddChild(Symbol *parent, Symbol *sym);
 
+void Symbol::SetOutParam()
+{
+  assert(false);    // only for class FormalSym
+}
+
 void
 symbol_PushScope(Symbol *newScope)
 {
@@ -673,8 +678,7 @@ Symbol *symbol_ResolveType(Symbol *sym)
     return sym;
       
   switch(sym->cls) {
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
   case sc_member:
   case sc_operation:
   case sc_oneway:
@@ -867,14 +871,7 @@ symbol_TypeCheck(Symbol *sym)
     }
   }
 
-  if (sym->cls == sc_formal && !symbol_IsValidParamType(sym->type)) {
-    diag_printf("%s \"%s\" has illegal parameter type (hint: sequence<> and buffer<> should be typedefed)\n", 
-		symbol_ClassName(sym),
-		symbol_QualifiedName(sym, '.'));
-    result = false;
-  }
-
-  if (sym->cls == sc_outformal && !symbol_IsValidParamType(sym->type)) {
+  if (sym->cls == sc_ioformal    && !symbol_IsValidParamType(sym->type)) {
     diag_printf("%s \"%s\" has illegal parameter type (hint: sequence<> and buffer<> should be typedefed)\n", 
 		symbol_ClassName(sym),
 		symbol_QualifiedName(sym, '.'));
@@ -1260,8 +1257,7 @@ symbol_alignof(Symbol *s)
     }
   case sc_typedef:
   case sc_member:
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
   case sc_arrayType:
     {
       return symbol_alignof(s->type);
@@ -1355,8 +1351,7 @@ symbol_sizeof(Symbol *s)
     }
   case sc_typedef:
   case sc_member:
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
     {
       return symbol_sizeof(s->type);
     }
@@ -1484,8 +1479,7 @@ symbol_directSize(Symbol *s)
     }
   case sc_typedef:
   case sc_member:
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
     {
       return symbol_directSize(s->type);
     }
@@ -1562,8 +1556,7 @@ symbol_indirectSize(Symbol *s)
     }
   case sc_typedef:
   case sc_member:
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
     {
       return symbol_indirectSize(s->type);
     }
@@ -1627,3 +1620,25 @@ symbol_indirectSize(Symbol *s)
   return 0;
 }
 
+
+FormalSym *
+formalsym_create_inScope(const char * nm, bool isActiveUOC, Symbol * scope)
+{
+  nm = intern(nm);
+
+  if (scope) {
+    Symbol * sym = symbol_LookupChild(scope, nm, 0);
+
+    if (sym)
+      return nullptr;
+  }
+  
+  FormalSym * fsym = new FormalSym(nm, isActiveUOC);
+
+  if (scope) {
+    fsym->nameSpace = scope;
+    symbol_AddChild(scope, fsym);
+  }
+
+  return fsym;
+}

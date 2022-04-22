@@ -124,26 +124,25 @@ emit_deregisterize(FILE *out, Symbol *child, int indent, unsigned regCount)
    alignments are known to be valid. */
 unsigned
 emit_direct_symbol_size(const char *fullName, Symbol *s, 
-			FILE *out, int indent, SymClass sc, unsigned align)
+			FILE *out, int indent, bool output, unsigned align)
 {
-  const char *lenVar = (sc == sc_formal) ? "sndLen" : "rcvLen";
+  const char *lenVar = ! output ? "sndLen" : "rcvLen";
       
   switch(s->cls) {
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
   case sc_typedef:
     {
       return emit_direct_symbol_size(fullName, s->type, out,
-				     indent, sc, align);
+				     indent, output, align);
     }
   case sc_member:
     {
       return emit_direct_symbol_size(symname_join(fullName, s->name, '.'),
-				     s->type, out, indent, sc, align);
+				     s->type, out, indent, output, align);
     }
   case sc_symRef:
     {
-      return emit_direct_symbol_size(fullName, s->value, out, indent, sc,
+      return emit_direct_symbol_size(fullName, s->value, out, indent, output,
 				     align);
     }
     
@@ -192,28 +191,27 @@ emit_direct_symbol_size(const char *fullName, Symbol *s,
 
 /* The /align/ field is a bitmap representing which power of two
    alignments are known to be valid. */
-unsigned
+static unsigned
 emit_indirect_symbol_size(const char *fullName, Symbol *s, 
-			  FILE *out, int indent, SymClass sc, unsigned align)
+			  FILE *out, int indent, bool output, unsigned align)
 {
-  const char *lenVar = (sc == sc_formal) ? "sndLen" : "rcvLen";
+  const char *lenVar = ! output? "sndLen" : "rcvLen";
       
   switch(s->cls) {
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
   case sc_typedef:
     {
       return emit_indirect_symbol_size(fullName, s->type, out,
-				       indent, sc, align);
+				       indent, output, align);
     }
   case sc_member:
     {
       return emit_indirect_symbol_size(symname_join(fullName, s->name, '.'),
-				       s->type, out, indent, sc, align);
+				       s->type, out, indent, output, align);
     }
   case sc_symRef:
     {
-      return emit_indirect_symbol_size(fullName, s->value, out, indent, sc,
+      return emit_indirect_symbol_size(fullName, s->value, out, indent, output,
 				       align);
     }
     
@@ -227,7 +225,7 @@ emit_indirect_symbol_size(const char *fullName, Symbol *s,
       /* Compute indirect size on each member in turn */
       for (const auto eachChild : s->children) {
 	align = emit_indirect_symbol_size(fullName, eachChild, out, indent,
-					  sc, align);
+					  output, align);
       }
 
       return align;
@@ -243,7 +241,7 @@ emit_indirect_symbol_size(const char *fullName, Symbol *s,
       align = emit_symbol_align(lenVar, out, indent, elemAlign, align);
       
       do_indent(out, indent);
-      if (sc == sc_formal) {
+      if (! output) {
 	fprintf(out, "%s += %d * %s.len; /* %s vector content, align=%d */\n",
 		lenVar, elemSize, fullName, fullName, elemAlign);
       }
@@ -285,10 +283,10 @@ emit_indirect_symbol_size(const char *fullName, Symbol *s,
 
 unsigned
 emit_direct_byte_computation(std::vector<Symbol*> const & symVec, FILE *out, int indent,
-			     SymClass sc, unsigned align)
+			     bool output, unsigned align)
 {
   for (const auto eachSym : symVec) {
-    align = emit_direct_symbol_size(eachSym->name, eachSym, out, indent, sc, align);
+    align = emit_direct_symbol_size(eachSym->name, eachSym, out, indent, output, align);
   }
 
   return align;
@@ -296,10 +294,10 @@ emit_direct_byte_computation(std::vector<Symbol*> const & symVec, FILE *out, int
 
 unsigned
 emit_indirect_byte_computation(std::vector<Symbol*> const & symVec, FILE *out, int indent,
-			       SymClass sc, unsigned align)
+			       bool output, unsigned align)
 {
   for (const auto eachSym : symVec) {
-    align = emit_indirect_symbol_size(eachSym->name, eachSym, out, indent, sc, align);
+    align = emit_indirect_symbol_size(eachSym->name, eachSym, out, indent, output, align);
   }
 
   return align;
@@ -467,7 +465,9 @@ emit_unpack_return_registers(std::vector<Symbol*> const & symVec, FILE *out, int
   unsigned needRegs;
 
   for (const auto eachSym : symVec) {
-    if (eachSym->cls != sc_outformal)
+    FormalSym * fsym = dynamic_cast<FormalSym*>(eachSym);
+    assert(fsym);
+    if (! fsym->isOutput)
       continue;
 
     if (symbol_IsInterface(eachSym->type))
@@ -638,7 +638,7 @@ c_op_needs_exception_string(Symbol *op)
  *     2 if a message string is needed but can be serialized directly.
  */
 static unsigned
-c_op_needs_message_string(Symbol *op, SymClass sc)
+c_op_needs_message_string(Symbol *op, bool output)
 {
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
@@ -647,7 +647,8 @@ c_op_needs_message_string(Symbol *op, SymClass sc)
   unsigned nDirectElem = 0;
 
   for (const auto eachChild : op->children) {
-    if (eachChild->cls != sc)
+    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
+    if (! fsym || fsym->isOutput != output)
       continue;
 
     if (symbol_IsInterface(eachChild->type)) {
@@ -717,18 +718,18 @@ static void
 output_client_stub(FILE *out, Symbol *s, int indent)
 {
   std::vector<Symbol*> sndRegs, rcvRegs, sndString, rcvString;
-  extract_registerizable_arguments(s, sc_formal, sndRegs);
-  extract_registerizable_arguments(s, sc_outformal, rcvRegs);
-  extract_string_arguments(s, sc_formal, sndString);
-  extract_string_arguments(s, sc_outformal, rcvString);
+  extract_registerizable_arguments(s, false, sndRegs);
+  extract_registerizable_arguments(s,  true, rcvRegs);
+  extract_string_arguments(s, false, sndString);
+  extract_string_arguments(s,  true, rcvString);
 
   unsigned snd_capcount = 0;
   rcv_capcount = 0;
   unsigned snd_regcount = FIRST_REG;
   unsigned rcv_regcount = FIRST_REG;
 
-  unsigned needSendString = c_op_needs_message_string(s, sc_formal);
-  unsigned needRcvString = c_op_needs_message_string(s, sc_outformal);
+  unsigned needSendString = c_op_needs_message_string(s, false);
+  unsigned needRcvString = c_op_needs_message_string(s, true);
 
   unsigned needRegs;
 
@@ -754,7 +755,9 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   fprintf(out, "\n%s(cap_t _self", symbol_QualifiedName(s,'_'));
 
   for (const auto eachChild : s->children) {
-    bool wantPtr = (eachChild->cls == sc_outformal) || c_byreftype(eachChild->type);
+    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
+    assert(fsym);
+    bool wantPtr = fsym->isOutput || c_byreftype(eachChild->type);
     wantPtr = wantPtr && !symbol_IsInterface(eachChild->type);
 
     fprintf(out, ", ");
@@ -806,14 +809,14 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     do_indent(out, indent + 2);
     fprintf(out, "/* send string size computation */\n");
     align = emit_direct_byte_computation(sndString, out, indent+2,
-					 sc_formal, align);
+					 false, align);
     /* Align up to an 8 byte boundary to begin the indirect bytes */
     align = emit_symbol_align("sndLen", out, indent+2, 8, align);
 
     do_indent(out, indent + 2);
     fprintf(out, "sndIndir = sndLen;\n");
     align = emit_indirect_byte_computation(sndString, out, indent+2,
-					   sc_formal, align);
+					   false, align);
     do_indent(out, indent + 2);
     fprintf(out, "sndData = alloca(sndLen);\n");
   }
@@ -823,7 +826,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     do_indent(out, indent + 2);
     fprintf(out, "/* receive string size computation */\n");
     align = emit_direct_byte_computation(rcvString, out, indent+2,
-					 sc_outformal, align);
+					 true, align);
 
     /* Align up to an 8 byte boundary to begin the indirect bytes */
     align = emit_symbol_align("rcvLen", out, indent+2, 8, align);
@@ -832,7 +835,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     fprintf(out, "rcvIndir = rcvLen;\n");
 
     emit_indirect_byte_computation(rcvString, out, indent+2,
-				   sc_outformal, align);
+				   true, align);
     do_indent(out, indent + 2);
     fprintf(out, "rcvData = alloca(rcvLen);\n");
   }

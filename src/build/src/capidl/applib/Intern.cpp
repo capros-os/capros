@@ -23,7 +23,6 @@
 #include "Intern.h"
 #include "xmalloc.h"
 
-typedef struct InternEntry InternEntry;
 struct InternEntry {
   InternEntry *pNext;
   unsigned signature;

@@ -33,13 +33,17 @@ Approved for public release, distribution unlimited. */
 
 
 void
-extract_registerizable_arguments(Symbol * s, SymClass sc, std::vector<Symbol*> & regArgs)
+extract_registerizable_arguments(Symbol * s, bool output, std::vector<Symbol*> & regArgs)
 {
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
 
   for (const auto eachChild : s->children) {
-    if (eachChild->cls != sc)
+    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
+    if (! fsym)
+      continue;
+
+    if (fsym->isOutput != output)
       continue;
 
     if (symbol_IsInterface(eachChild->type)) {
@@ -56,13 +60,17 @@ extract_registerizable_arguments(Symbol * s, SymClass sc, std::vector<Symbol*> &
 }
 
 void
-extract_string_arguments(Symbol * s , SymClass sc, std::vector<Symbol*> & stringArgs)
+extract_string_arguments(Symbol * s, bool output, std::vector<Symbol*> & stringArgs)
 {
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
 
   for (const auto eachChild : s->children) {
-    if (eachChild->cls != sc)
+    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
+    if (! fsym)
+      continue;
+
+    if (fsym->isOutput != output)
       continue;
 
     if (symbol_IsInterface(eachChild->type))

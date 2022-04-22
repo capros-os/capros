@@ -232,8 +232,7 @@ symdump(Symbol *s, int indent)
     }
 
   case sc_member:
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
     {
       const char *type_name = s->type->name;
 

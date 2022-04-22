@@ -97,6 +97,9 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 
   bool first = true;
   for (const auto eachChild : s->children) {
+    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
+    assert(fsym);
+
     Symbol *argType = symbol_ResolveRef(eachChild->type);
     Symbol *argBaseType = symbol_ResolveType(argType);
     
@@ -105,7 +108,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
     else
       first = false;
     
-    if (eachChild->cls == sc_formal) {
+    if (! fsym->isOutput) {
       output_c_type(argBaseType, outFile, 0);
       fprintf(outFile, " %s", eachChild->name);
     } else {

@@ -24,7 +24,6 @@ typedef void (*BackEndFn)(Symbol *);
 typedef bool (*BackEndCheckFn)(Symbol *);
 typedef void (*ScopeWalker)(Symbol *scope, BackEndFn outfn);
 
-typedef struct backend backend;
 struct backend {
   const char *name;
   BackEndCheckFn typecheck;

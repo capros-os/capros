@@ -138,10 +138,10 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 	// just initialize it to prevent a compiler warning.
 
   std::vector<Symbol*> rcvRegs, sndRegs, rcvString, sndString;
-  extract_registerizable_arguments(s, sc_formal, rcvRegs);
-  extract_registerizable_arguments(s, sc_outformal, sndRegs);
-  extract_string_arguments(s, sc_formal, rcvString);
-  extract_string_arguments(s, sc_outformal, sndString);
+  extract_registerizable_arguments(s, false, rcvRegs);
+  extract_registerizable_arguments(s,  true, sndRegs);
+  extract_string_arguments(s, false, rcvString);
+  extract_string_arguments(s,  true, sndString);
 
   unsigned sndOffset = 0;
   unsigned rcvOffset = 0;
@@ -283,6 +283,9 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 
     bool first = true;
     for (const auto eachChild : s->children) {
+      FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
+      assert(fsym);
+
       Symbol *argType = symbol_ResolveRef(eachChild->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
@@ -290,8 +293,8 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 	fprintf(outFile, ", ");
       else
         first = false;
-      
-      if (eachChild->cls == sc_formal) {
+
+      if (! fsym->isOutput) {
 	if ((needRegs = can_registerize(argBaseType, rcv_regcount))) {
 	  fprintf(outFile, "%s", eachChild->name);
 	}
@@ -299,7 +302,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 	  fprintf(outFile, "*%s", eachChild->name);
 	}
       }
-      else {
+      else {    // it isOutput
 	if ((needRegs = can_registerize(argBaseType, snd_regcount))) {
 	  fprintf(outFile, "/* OUT */ &%s", eachChild->name);
 	  snd_regcount += needRegs;
@@ -326,10 +329,13 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
     fprintf(outFile, "if (msg->snd_code == RC_OK) {\n");
 
     for (const auto eachChild : s->children) {
+      FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
+      assert(fsym);
+
       Symbol *argType = symbol_ResolveRef(eachChild->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
-      if (eachChild->cls == sc_formal)
+      if (! fsym->isOutput)
 	continue;
 
       if ((needRegs = can_registerize(argBaseType, snd_regcount))) {
@@ -458,7 +464,7 @@ emit_decoders(Symbol *s, FILE *outFile)
 }
 
 static size_t
-msg_size(Symbol *s, SymClass sc)
+msg_size(Symbol *s, bool output)
 {
   size_t sz = 0;
 
@@ -467,11 +473,11 @@ msg_size(Symbol *s, SymClass sc)
   case sc_interface:
     {
       for (const auto eachChild : s->children)
-	sz = max(sz, msg_size(eachChild, sc));
+	sz = max(sz, msg_size(eachChild, output));
 
 #if 0
       fprintf(outFile, "IF %s size for %s is %d\n", 
-	     (sc == sc_formal) ? "Receive" : "Send",
+	     ! output ? "Receive" : "Send",
 	     symbol_QualifiedName(s, '_'), sz);
 #endif
 
@@ -484,8 +490,8 @@ msg_size(Symbol *s, SymClass sc)
       size_t sndsz;
 
       std::vector<Symbol*> rcvString, sndString;
-      extract_string_arguments(s, sc_formal, rcvString);
-      extract_string_arguments(s, sc_outformal, sndString);
+      extract_string_arguments(s, false, rcvString);
+      extract_string_arguments(s,  true, sndString);
 
       rcvsz = compute_direct_bytes(rcvString);
       sndsz = compute_direct_bytes(sndString);
@@ -496,11 +502,11 @@ msg_size(Symbol *s, SymClass sc)
       rcvsz += compute_indirect_bytes(rcvString);
       sndsz += compute_indirect_bytes(sndString);
 
-      sz = (sc == sc_outformal) ? sndsz : rcvsz;
+      sz = output ? sndsz : rcvsz;
 
 #if 0
       fprintf(outFile, "  OP %s size for %s is %d (rcv %d, snd %d)\n", 
-	     (sc == sc_formal) ? "Receive" : "Send",
+	     ! output ? "Receive" : "Send",
 	     symbol_QualifiedName(s, '_'), sz, rcvsz, sndsz);
 #endif
 
@@ -515,17 +521,17 @@ msg_size(Symbol *s, SymClass sc)
 }
 
 static size_t
-size_server_buffer(Symbol *scope, SymClass sc)
+size_server_buffer(Symbol *scope, bool output)
 {
   size_t bufSz = 0;
 
   /* Export subordinate packages first! */
   for (const auto eachChild : scope->children) {
     if (eachChild->cls != sc_package && eachChild->isActiveUOC)
-      bufSz = max(bufSz, msg_size(eachChild, sc));
+      bufSz = max(bufSz, msg_size(eachChild, output));
 
     if (eachChild->cls == sc_package) {
-      size_t msgsz = size_server_buffer(eachChild, sc);
+      size_t msgsz = size_server_buffer(eachChild, output);
       bufSz = max(bufSz, msgsz);
     }
   }
@@ -598,8 +604,8 @@ emit_server_decoders(Symbol *scope, FILE *outFile)
 static void 
 emit_server_dispatcher(Symbol *scope, FILE *outFile)
 {
-  size_t rcvSz = size_server_buffer(scope, sc_formal);
-  size_t sndSz = size_server_buffer(scope, sc_outformal);
+  size_t rcvSz = size_server_buffer(scope, false);
+  size_t sndSz = size_server_buffer(scope,  true);
 
   do_indent(outFile, 2);
   fprintf(outFile, "\nvoid\nmainloop(void *globalState)\n{\n");
