@@ -3,6 +3,12 @@
   /* The following are all rvalues: */
 SYMCLASS(scope,1)		/* for scope records */
 SYMCLASS(builtin,0)		/* builtin constants */
+
+/* There is a design issue hiding here: how symbolic should the output
+ * of the IDL compiler be? I think the correct answer is "very", in
+ * which case we may need to do some tail chasing for constants. Thus,
+ * I consider a computed constant value to be a symbol.
+ */
 SYMCLASS(value,0)		/* computed constant values */ 
 
   /* The following define new names: */ 
@@ -20,8 +26,7 @@ SYMCLASS(package,1)		/* package name */
 SYMCLASS(member,0)		/* member field name */
 SYMCLASS(operation,1)		/* operation name */
 SYMCLASS(oneway,1)		/* oneway function name */
-SYMCLASS(formal,0)		/* formal parameter name */
-SYMCLASS(outformal,0)		/* OUT formal parameter name */
+SYMCLASS(ioformal,0)		/* formal parameter name */
 SYMCLASS(exception,1)		/* exception name */
 SYMCLASS(switch,1)		/* switch scope */
 SYMCLASS(caseScope,1)		/* implied case discriminator scope */

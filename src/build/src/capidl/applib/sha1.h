@@ -32,7 +32,6 @@ typedef unsigned long long uint64_t;
 
 /* NOTE: If a pointer is ever added to this structure for some
  * reason, change sha_create() to use non-atomic malloc! */
-typedef struct SHA SHA;
 struct SHA {
   uint32_t h[5];		/* sha in progress */
   unsigned char block[BLKCHARS]; /* pending block */

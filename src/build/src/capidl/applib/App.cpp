@@ -27,12 +27,10 @@
 #include "xmalloc.h"
 #include "App.h"
 
-typedef struct FileList FileList;
 struct FileList {
   char* fileName;
   int isScratch;
   FileList* next;
-    
 } ;
 
 static struct {

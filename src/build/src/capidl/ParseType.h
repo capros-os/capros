@@ -27,7 +27,6 @@
  * logic unhappy....
  */
 
-typedef struct Token Token;
 struct Token {
   /* Context at which token was found */
   InternedString file;
@@ -37,7 +36,6 @@ struct Token {
   InternedString is;
 };
 
-typedef struct ParseType ParseType;
 struct ParseType {
   Token     tok;		/* a literal string from the
 				 * tokenizer. Used for strings,

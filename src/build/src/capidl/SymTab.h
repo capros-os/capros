@@ -49,7 +49,6 @@ enum LitType {			/* literal type */
   lt_bool,
   lt_string,
 };
-typedef enum LitType LitType;
 
 struct LitValue {
   mpz_t         i;		/* large precision integers */
@@ -57,20 +56,12 @@ struct LitValue {
   LitType	lty;
   /* no special field for lt_string, as the name is the literal */
 };
-typedef struct LitValue LitValue;
-
-/* There is a design issue hiding here: how symbolic should the output
- * of the IDL compiler be? I think the correct answer is "very", in
- * which case we may need to do some tail chasing for constants. Thus,
- * I consider a computed constant value to be a symbol.
- */
 
 enum SymClass {
 #define SYMCLASS(x,n) sc_##x,
 #include "symclass.def"
 #undef  SYMCLASS
 };
-typedef enum SymClass SymClass;
 
 #define SYMDEBUG
 
@@ -95,7 +86,7 @@ public:
   std::vector<Symbol*> children;	/* members of the scope */
   std::vector<Symbol*> raised;	/* exceptions raised by this method/interface */
 
-  SymClass       cls;
+  SymClass const cls;
 
   Symbol *       type = nullptr;		/* type of an identifier */
   Symbol *       baseType = nullptr;	/* base type, if extension */
@@ -107,7 +98,7 @@ public:
 
   unsigned       flags = 0;		/* flags that govern code generation */
 
-  LitValue       v;		/* only for sc_value and sc_builtin */
+  LitValue       v;		/* only for sc_value, sc_primtype, and sc_builtin */
 
   /* Using a left-recursive grammar is always really messy, because
    * you have to do the scope push/pop by hand, which is at best
@@ -117,11 +108,10 @@ public:
   // Public methods:
 
   InternedString QualifiedName(char sep);
-};
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+  // Mark this formal parameter name as OUT.
+  virtual void SetOutParam();
+};
 
 void symbol_InitSymtab();
 
@@ -129,10 +119,10 @@ void symbol_ClearAllMarks(Symbol *s);
 Symbol *symbol_construct(const char *name, bool isActiveUOC, SymClass);
 Symbol *symbol_FindPackageScope();
 
-/* Creates a new symbol of the specified type in the currently
- * active scope. This is not a constructor because it must be able
- * to return failure in the event of a symbol name collision. */
-Symbol *symbol_create_inScope(const char *nm, bool isActiveUOC, SymClass, Symbol *inScope);
+/* Create a new Symbol of the specified type in the specified scope.
+ * Returns nullptr in the event of a symbol name collision. */
+Symbol * symbol_create_inScope(const char * nm, bool isActiveUOC, SymClass, Symbol * inScope);
+
 Symbol *symbol_create(const char *nm, bool isActiveUOC, SymClass);
 Symbol *symbol_createPackage(const char *nm, Symbol *inPkg);
 Symbol *symbol_createRef(const char *nm, bool isActiveUOC);
@@ -248,21 +238,6 @@ static inline bool symbol_IsTypedef(Symbol *sym)
   sym = symbol_ResolveRef(sym);
   return (sym->cls == sc_typedef);
 }
-
-#if 0
-/* Return TRUE iff the type of this symbol is some sort of aggregate
-   type. */
-static inline bool symbol_IsAggregateType(Symbol *sym)
-{
-  sym = symbol_ResolveType(sym);
-
-  return (sym->cls == sc_struct ||
-	  sym->cls == sc_union ||
-	  sym->cls == sc_bufType ||
-	  sym->cls == sc_seqType ||
-	  sym->cls == sc_arrayType);
-}
-#endif
 
 static inline bool symbol_IsValidParamType(Symbol *sym)
 {
@@ -404,10 +379,6 @@ symbol_SortByName(const void *v1, const void *v2);
 int
 symbol_SortByQualifiedName(const void *v1, const void *v2);
 
-#ifdef __cplusplus
-}
-#endif
-
 
 extern Symbol *symbol_curScope;
 extern Symbol *symbol_voidType;
@@ -415,3 +386,26 @@ extern Symbol *symbol_UniversalScope;
 extern Symbol *symbol_KeywordScope;
 extern Symbol *symbol_CurrentScope;
 
+
+// Class for a formal parameter symbol
+class FormalSym : public Symbol
+{
+public:
+  bool isOutput = false;
+
+  /* Constructor
+     isOutput will default to false.
+  */
+  FormalSym(const char * nm, bool isActiveUOC) :
+    Symbol(nm, isActiveUOC, sc_ioformal)
+    { }
+
+  // Mark this formal parameter name as OUT.
+  void SetOutParam() override
+    { isOutput = true; }
+};
+
+/* Create a new FormalSym of the specified type in the specified scope.
+ * isOutput will default to false.
+ * Returns nullptr if there is already a symbol of that name in inScope. */
+FormalSym * formalsym_create_inScope(const char * nm, bool isActiveUOC, Symbol * inScope);

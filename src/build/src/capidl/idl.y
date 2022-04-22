@@ -1739,11 +1739,10 @@ param_list:
  */
 param:
         param_type name_def {
-          Symbol *sym;
           SHOWPARSE("param -> type name_def\n");
 
-	  sym = symbol_create($2.is, MYLEXER->isActiveUOC, sc_formal);
-	  if (sym == 0) {
+	  FormalSym * fsym = formalsym_create_inScope($2.is, MYLEXER->isActiveUOC, symbol_curScope);
+	  if (fsym == 0) {
 	    diag_printf("%s:%d: syntax error -- parameter identifier \"%s\" reused\n",
 			 MYLEXER->current_file, 
 			 MYLEXER->current_line,
@@ -1751,10 +1750,10 @@ param:
 	    num_errors++;
 	    YYERROR;
 	  }
-	  sym->type = $1;
-	  sym->docComment = mylexer_grab_doc_comment(lexer);
+	  fsym->type = $1;
+	  fsym->docComment = mylexer_grab_doc_comment(lexer);
 
-	  $$ = sym;
+	  $$ = fsym;
 	}
  ;
 
@@ -1806,7 +1805,7 @@ param_2:
         }
  |      OUT param {
           SHOWPARSE("param_2 -> OUT param\n");
-	  $2->cls = sc_outformal;
+	  $2->SetOutParam();
 	}
  ;
 

@@ -46,7 +46,8 @@ fixup(Symbol *s)
       /* If the return type is non-void, stick it on the end of the
        * parameter list as an OUT parameter named "_retVal" */
       if (symbol_IsVoidType(s->type) == false) {
-	Symbol *retVal = symbol_create_inScope("_retVal", s->isActiveUOC, sc_outformal, s);
+	FormalSym * retVal = formalsym_create_inScope("_retVal", s->isActiveUOC, s);
+        retVal->SetOutParam();
 	retVal->type = s->type;
 	s->type = symbol_voidType;
       }
@@ -59,13 +60,15 @@ fixup(Symbol *s)
 
 	for (i = 0; i < s->children.size(); i++) {
 	  Symbol * child = s->children[i];
+          FormalSym * fsym = dynamic_cast<FormalSym*>(child);
+          assert(fsym);
 
-	  if (child->cls == sc_outformal && i < first_out) {
+	  if (fsym->isOutput && i < first_out) {
 	    first_out = i;
 	    continue;
 	  }
 
-	  if (child->cls == sc_formal && i > first_out) {
+	  if (! fsym->isOutput && i > first_out) {
 	    size_t j;
 	    for (j = i; j > first_out; j--)
               s->children[j] = s->children[j-1];

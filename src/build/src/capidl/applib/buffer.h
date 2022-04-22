@@ -54,7 +54,6 @@ off_t buffer_length(const Buffer *);
 /* Extract a buffer that is a subrange of some existing buffer. */
 Buffer *buffer_fromBuffer(const Buffer *in, off_t start, off_t len);
 
-typedef struct BufferChunk BufferChunk;
 struct BufferChunk {
   const unsigned char *ptr;
   off_t len;

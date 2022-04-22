@@ -382,10 +382,10 @@ symdump(Symbol *s, int indent)
 	break;
     }
 
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
     {
-      if (s->cls == sc_outformal)
+      FormalSym * fsym = dynamic_cast<FormalSym*>(s);
+      if (fsym->isOutput)
 	diag_printf("OUT ");
 
       symdump(s->type, 0);

@@ -27,12 +27,12 @@
 /*
 Append the extracted Symbols to regArgs.
 */
-void extract_registerizable_arguments(Symbol *s, SymClass sc, std::vector<Symbol*> & regArgs);
+void extract_registerizable_arguments(Symbol *s, bool output, std::vector<Symbol*> & regArgs);
 
 /*
 Append the extracted Symbols to stringArgs.
 */
-void extract_string_arguments(Symbol *s, SymClass sc, std::vector<Symbol*> & stringArgs);
+void extract_string_arguments(Symbol *s, bool output, std::vector<Symbol*> & stringArgs);
 
 extern void output_c_type(Symbol *s, FILE *out, int indent);
 

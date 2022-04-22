@@ -687,10 +687,12 @@ symdump(Symbol *s, FILE *out, int indent)
 
       break;
     }
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
     {
-      bool wantPtr = (s->cls == sc_outformal) || c_byreftype(s->type);
+      FormalSym * fsym = dynamic_cast<FormalSym*>(s);
+      assert(fsym);
+
+      bool wantPtr = fsym->isOutput || c_byreftype(s->type);
       wantPtr = wantPtr && !symbol_IsInterface(s->type);
 
       output_c_type(s->type, out, 0);

@@ -194,8 +194,7 @@ symdump(Symbol *s, int indent)
     }
 
   case sc_member:
-  case sc_formal:
-  case sc_outformal:
+  case sc_ioformal:
     {
       diag_printf("<%s name=\"%s\">\n", symbol_ClassName(s), 
 		   s->name);
