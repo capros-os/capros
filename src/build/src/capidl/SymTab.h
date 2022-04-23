@@ -82,9 +82,11 @@ public:
   bool           mark = false;		/* used for circularity detection */
   bool const     isActiveUOC;	/* created in an active unit of compilation */
 
-  Symbol         *nameSpace = nullptr;	/* containing namespace */
-  std::vector<Symbol*> children;	/* members of the scope */
-  std::vector<Symbol*> raised;	/* exceptions raised by this method/interface */
+  Symbol *       nameSpace = nullptr;	// the containing scope/namespace
+  std::vector<Symbol*> children;	// members of this scope/namespace
+
+  std::vector<Symbol*> raised;	// exceptions raised by this method/interface.
+                                // All are sc_symref's.
 
   SymClass const cls;
 
