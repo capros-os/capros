@@ -24,7 +24,7 @@ SYMCLASS(typedef,0)		/* typedef name */
 SYMCLASS(package,1)		/* package name */
 
 SYMCLASS(member,0)		/* member field name */
-SYMCLASS(operation,1)		/* operation name */
+SYMCLASS(operation,1)		/* operation (method?) name */
 SYMCLASS(oneway,1)		/* oneway function name */
 SYMCLASS(ioformal,0)		/* formal parameter name */
 SYMCLASS(exception,1)		/* exception name */

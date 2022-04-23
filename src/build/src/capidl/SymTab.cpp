@@ -507,6 +507,8 @@ symbol_MakeKeyword(const char *nm, SymClass sc,
 		    LitType lt,
 		    unsigned value)
 {
+  assert(sc == sc_primtype || sc == sc_builtin);
+
   Symbol *sym = symbol_construct(nm, false, sc);
   sym->nameSpace = symbol_KeywordScope;
   sym->v.lty = lt;
@@ -1624,21 +1626,18 @@ symbol_indirectSize(Symbol *s)
 FormalSym *
 formalsym_create_inScope(const char * nm, bool isActiveUOC, Symbol * scope)
 {
+  assert(scope && scope->cls == sc_operation);
+
   nm = intern(nm);
 
-  if (scope) {
-    Symbol * sym = symbol_LookupChild(scope, nm, 0);
-
-    if (sym)
-      return nullptr;
-  }
+  Symbol * sym = symbol_LookupChild(scope, nm, 0);
+  if (sym)
+    return nullptr;     // name already exists
   
   FormalSym * fsym = new FormalSym(nm, isActiveUOC);
 
-  if (scope) {
-    fsym->nameSpace = scope;
-    symbol_AddChild(scope, fsym);
-  }
+  fsym->nameSpace = scope;
+  symbol_AddChild(scope, fsym);
 
   return fsym;
 }
