@@ -192,7 +192,6 @@ Symbol *
 symbol_createRef_inScope(const char * nm, bool isActiveUOC, Symbol *inScope)
 {
   Symbol *sym = symbol_construct(nm, isActiveUOC, sc_symRef);
-  sym->type = 0;
   sym->nameSpace = inScope;
 
   return sym;
@@ -633,8 +632,6 @@ symbol_InitSymtab()
   sym->type = boolType;
 
   sym = symbol_MakeKeyword("false", sc_builtin, lt_bool, 0);
-  sym->type = boolType;
-
   sym->type = boolType;
 }
 

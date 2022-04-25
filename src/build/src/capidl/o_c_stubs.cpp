@@ -282,7 +282,7 @@ emit_indirect_symbol_size(const char *fullName, Symbol *s,
 }
 
 unsigned
-emit_direct_byte_computation(std::vector<Symbol*> const & symVec, FILE *out, int indent,
+emit_direct_byte_computation(std::vector<FormalSym*> const & symVec, FILE *out, int indent,
 			     bool output, unsigned align)
 {
   for (const auto eachSym : symVec) {
@@ -293,7 +293,7 @@ emit_direct_byte_computation(std::vector<Symbol*> const & symVec, FILE *out, int
 }
 
 unsigned
-emit_indirect_byte_computation(std::vector<Symbol*> const & symVec, FILE *out, int indent,
+emit_indirect_byte_computation(std::vector<FormalSym*> const & symVec, FILE *out, int indent,
 			       bool output, unsigned align)
 {
   for (const auto eachSym : symVec) {
@@ -309,7 +309,7 @@ extern const char* c_serializer(Symbol *s);
 Emit code to set up the string to be sent to the key.
 */
 void
-emit_send_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
+emit_send_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
 {
   if (symVec.empty())
     return;
@@ -331,7 +331,13 @@ emit_send_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
     }
     else if (symbol_IsFixSequenceType(s0BaseType)) {
       do_indent(out, indent);
-      fprintf(out, "msg.snd_len = sizeof(%s);\n", s0->name);
+      fprintf(out, "msg.snd_len = sizeof(");
+      /* when an array is passed as a parameter, it is implicitly converted to
+         a pointer to the first element.
+         sizeof(the parameter) would thus be the size of the pointer.
+         Take sizeof(the type) instead to get the number of bytes in the array. */
+      output_c_type(s0->type, out, 0);
+      fprintf(out, ");\n");
     }
     else {
       do_indent(out, indent);
@@ -429,7 +435,7 @@ emit_send_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
 }
 
 static void
-emit_receive_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
+emit_receive_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
 {
   if (symVec.empty())
     return;
@@ -459,15 +465,13 @@ emit_receive_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
 }
 
 static void
-emit_unpack_return_registers(std::vector<Symbol*> const & symVec, FILE *out, int indent)
+emit_unpack_return_registers(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
 {
   unsigned nReg = FIRST_REG;
   unsigned needRegs;
 
   for (const auto eachSym : symVec) {
-    FormalSym * fsym = dynamic_cast<FormalSym*>(eachSym);
-    assert(fsym);
-    if (! fsym->isOutput)
+    if (! eachSym->isOutput)
       continue;
 
     if (symbol_IsInterface(eachSym->type))
@@ -482,7 +486,7 @@ emit_unpack_return_registers(std::vector<Symbol*> const & symVec, FILE *out, int
 }
 
 static void
-emit_unpack_return_string(std::vector<Symbol*> const & symVec, FILE *out, int indent)
+emit_unpack_return_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
 {
   bool isDirect;
   unsigned align = 0xfu;
@@ -634,39 +638,44 @@ c_op_needs_exception_string(Symbol *op)
 /* c_op_needs_message_string(): returns
  *
  *     0 if no message string is required
- *     1 if a message string is needed and a struct must be built
- *     2 if a message string is needed but can be serialized directly.
+ *     1 if a message string is needed but cannot be serialized directly
+ *       (a struct must be built)
+ *     2 if a message string is needed and can be serialized directly.
  */
 static unsigned
 c_op_needs_message_string(Symbol *op, bool output)
 {
-  unsigned nReg = FIRST_REG;
-  unsigned needRegs;
-
-  unsigned nStringElem = 0;
-  unsigned nDirectElem = 0;
+  unsigned nReg = FIRST_REG;    // number that can go in data registers
+  unsigned nDirectElem = 0;     // number that are fixed serializable
+  unsigned nOtherElem = 0;      // number of others that go in the string
 
   for (const auto eachChild : op->children) {
-    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
-    if (! fsym || fsym->isOutput != output)
+    FormalSym * const fsym = dynamic_cast<FormalSym*>(eachChild);
+    assert(fsym);
+
+    if (fsym->isOutput != output)
       continue;
 
-    if (symbol_IsInterface(eachChild->type)) {
+    Symbol * const fsymTypeResolved = symbol_ResolveType(fsym->type);
+    unsigned needRegs;
+
+    if (symbol_IsInterface(fsymTypeResolved)) {
     }
-    else if ((needRegs = can_registerize(eachChild->type, nReg))) {
+    else if ((needRegs = can_registerize(fsymTypeResolved, nReg))) {
       nReg += needRegs;
     }
     else {
-      nStringElem ++;
-      if (symbol_IsDirectSerializable(eachChild->type))
+      if (symbol_IsDirectSerializable(fsymTypeResolved))
 	nDirectElem ++;
+      else
+        nOtherElem ++;
     }
   }
 
-  if (nStringElem == 1 && nDirectElem == 1)
+  if (nDirectElem == 1 && nOtherElem == 0)
     return 2;
   else 
-    return (nStringElem ? 1 : 0);
+    return (nOtherElem || nDirectElem) ? 1 : 0;
 }
 
 #if 0
@@ -717,12 +726,9 @@ loadRcvCap(FILE * out, int indent, const char * name)
 static void
 output_client_stub(FILE *out, Symbol *s, int indent)
 {
-  std::vector<Symbol*> sndRegs, rcvRegs, sndString, rcvString;
-  extract_registerizable_arguments(s, false, sndRegs);
-  extract_registerizable_arguments(s,  true, rcvRegs);
-  extract_string_arguments(s, false, sndString);
-  extract_string_arguments(s,  true, rcvString);
-
+  AnalyzedArgs analArgs;
+  analyze_arguments(s, analArgs);
+  
   unsigned snd_capcount = 0;
   rcv_capcount = 0;
   unsigned snd_regcount = FIRST_REG;
@@ -808,14 +814,14 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     fprintf(out, "\n");
     do_indent(out, indent + 2);
     fprintf(out, "/* send string size computation */\n");
-    align = emit_direct_byte_computation(sndString, out, indent+2,
+    align = emit_direct_byte_computation(analArgs.inString, out, indent+2,
 					 false, align);
     /* Align up to an 8 byte boundary to begin the indirect bytes */
     align = emit_symbol_align("sndLen", out, indent+2, 8, align);
 
     do_indent(out, indent + 2);
     fprintf(out, "sndIndir = sndLen;\n");
-    align = emit_indirect_byte_computation(sndString, out, indent+2,
+    align = emit_indirect_byte_computation(analArgs.inString, out, indent+2,
 					   false, align);
     do_indent(out, indent + 2);
     fprintf(out, "sndData = alloca(sndLen);\n");
@@ -825,7 +831,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     fprintf(out, "\n");
     do_indent(out, indent + 2);
     fprintf(out, "/* receive string size computation */\n");
-    align = emit_direct_byte_computation(rcvString, out, indent+2,
+    align = emit_direct_byte_computation(analArgs.outString, out, indent+2,
 					 true, align);
 
     /* Align up to an 8 byte boundary to begin the indirect bytes */
@@ -834,7 +840,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     do_indent(out, indent + 2);
     fprintf(out, "rcvIndir = rcvLen;\n");
 
-    emit_indirect_byte_computation(rcvString, out, indent+2,
+    emit_indirect_byte_computation(analArgs.outString, out, indent+2,
 				   true, align);
     do_indent(out, indent + 2);
     fprintf(out, "rcvData = alloca(rcvLen);\n");
@@ -882,10 +888,12 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   rcv_regcount += can_registerize(s->type, rcv_regcount);
 
   /* Sent registerizable arguments */
-  for (const auto eachSndReg : sndRegs) {
+  for (const auto eachSndReg : analArgs.inRegs) {
     if (symbol_IsInterface(eachSndReg->type)) {
+      // Only 3 capabilities are available because the fourth is the resume key.
       if (snd_capcount >= 3)
-	diag_fatal(1, "Too many capabilities transmitted\n");
+	diag_fatal(1, "\n%s: Too many capabilities transmitted\n",
+                symbol_QualifiedName(s,'_'));
 
       do_indent(out, indent + 2);
       fprintf(out, "msg.snd_key%d = %s;\n", 
@@ -898,7 +906,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   }
 
   /* Received registerizable arguments */
-  for (const auto eachRcvReg : rcvRegs) {
+  for (const auto eachRcvReg : analArgs.outRegs) {
     if (symbol_IsInterface(eachRcvReg->type)) {
       loadRcvCap(out, indent, eachRcvReg->name);
     }
@@ -914,9 +922,9 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     loadRcvCap(out, indent, "_resultCap");
   }
 
-  emit_send_string(sndString, out, indent+2);
+  emit_send_string(analArgs.inString, out, indent+2);
 
-  emit_receive_string(rcvString, out, indent+2);
+  emit_receive_string(analArgs.outString, out, indent+2);
 
   if (needSendString || needRcvString)
     fputc('\n', out);
@@ -932,9 +940,9 @@ output_client_stub(FILE *out, Symbol *s, int indent)
 
   /* Unpack the registers and the structure (if any) that contain the
      returned arguments (if any) */
-  emit_unpack_return_registers(rcvRegs, out, indent);
+  emit_unpack_return_registers(analArgs.outRegs, out, indent);
   if (needRcvString)
-    emit_unpack_return_string(rcvString, out, indent + 2);
+    emit_unpack_return_string(analArgs.outString, out, indent + 2);
 
   do_indent(out, indent + 2);
   fprintf(out, "return msg.rcv_code;\n");
@@ -1409,7 +1417,6 @@ symdump(Symbol *s, FILE *out, int indent)
   case sc_operation:
     {
       if ((s->flags & SF_NOSTUB) == 0) {
-	FILE *out;
 	extern const char *target;
 	InternedString fileName;
 
@@ -1429,7 +1436,7 @@ symdump(Symbol *s, FILE *out, int indent)
 	  free(tmp);
 	}
 
-	out = fopen(fileName, "w");
+        FILE * out = fopen(fileName, "w");
 	if (out == NULL)
 	  diag_fatal(1, "Couldn't open stub source file \"%s\"\n",
 		     fileName);

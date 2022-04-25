@@ -32,7 +32,6 @@ GCCFLAGS=$(CFLAGS) $(GCC_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) -DC
 GPLUSFLAGS=-fdefault-inline $(GPLUS_OPTIM) $(OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
 # The following does not work for capidl:
 # GPLUSFLAGS+= -fno-implicit-templates
-GPLUSFLAGS+= -fpermissive	# for now
 MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"$(CAPROS_DOMAIN)/\" -DCAPROS_LOCALDIR=$(CAPROS_LOCALDIR) -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include $(LINUXINC)
 
 # __ASSEMBLER__ gets defined automatically, but Linux requires:
