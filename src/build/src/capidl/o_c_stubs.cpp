@@ -659,39 +659,25 @@ c_op_needs_exception_string(Symbol *op)
  *     2 if a message string is needed and can be serialized directly.
  */
 static unsigned
-c_op_needs_message_string(Symbol *op, bool output)
+c_op_needs_message_string(std::vector<FormalSym*> & stringArgs)
 {
-  unsigned nReg = FIRST_REG;    // number that can go in data registers
+  if (stringArgs.empty())
+    return 0;
+
   unsigned nDirectElem = 0;     // number that are fixed serializable
   unsigned nOtherElem = 0;      // number of others that go in the string
 
-  for (const auto eachChild : op->children) {
-    FormalSym * const fsym = dynamic_cast<FormalSym*>(eachChild);
-    assert(fsym);
-
-    if (fsym->isOutput != output)
-      continue;
-
-    Symbol * const fsymTypeResolved = symbol_ResolveType(fsym->type);
-    unsigned needRegs;
-
-    if (symbol_IsInterface(fsymTypeResolved)) {
-    }
-    else if ((needRegs = can_registerize(fsymTypeResolved, nReg))) {
-      nReg += needRegs;
-    }
-    else {
-      if (symbol_IsDirectSerializable(fsymTypeResolved))
-	nDirectElem ++;
-      else
-        nOtherElem ++;
-    }
+  for (const auto fsym : stringArgs) {
+    if (symbol_IsDirectSerializable(fsym->type))
+      nDirectElem ++;
+    else
+      nOtherElem ++;
   }
 
   if (nDirectElem == 1 && nOtherElem == 0)
     return 2;
   else 
-    return (nOtherElem || nDirectElem) ? 1 : 0;
+    return 1;
 }
 
 #if 0
@@ -725,16 +711,16 @@ c_if_needs_message_string(Symbol *s, SymClass sc)
 static void
 output_client_stub(FILE *out, Symbol *s, int indent)
 {
+  unsigned needRegs;
+
   AnalyzedArgs analArgs;
   analyze_arguments(s, analArgs);
   
   unsigned snd_regcount = FIRST_REG;
   unsigned rcv_regcount = FIRST_REG;
 
-  unsigned needSendString = c_op_needs_message_string(s, false);
-  unsigned needRcvString = c_op_needs_message_string(s, true);
-
-  unsigned needRegs;
+  unsigned needSendString = c_op_needs_message_string(analArgs.inString);
+  unsigned needRcvString = c_op_needs_message_string(analArgs.outString);
 
   {
     BufferChunk bc;

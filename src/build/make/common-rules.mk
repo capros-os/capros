@@ -119,7 +119,7 @@ nonrecursiveClean: generic-clean
 
 .PHONY: generic-clean
 generic-clean:
-	-rm -f *.o core *~ new.Makefile  ".#"*
+	-rm -f *.o *~ new.Makefile  ".#"*
 	-rm -f sysgen.map TAGS
 	-rm -f *.dvi *.blg *.aux *.log *.toc $(CLEANLIST)
 ifneq "$(CLEAN_BUILDDIR)" ""
