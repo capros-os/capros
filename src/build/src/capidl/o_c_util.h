@@ -24,25 +24,29 @@
 #include <vector>
 #include <SymTab.h>
 
-/*
-Append the extracted Symbols to regArgs.
-*/
-void extract_registerizable_arguments(Symbol *s, bool output, std::vector<Symbol*> & regArgs);
-
-/*
-Append the extracted Symbols to stringArgs.
-*/
-void extract_string_arguments(Symbol *s, bool output, std::vector<Symbol*> & stringArgs);
-
 extern void output_c_type(Symbol *s, FILE *out, int indent);
 
 extern unsigned can_registerize(Symbol *s, unsigned nReg);
 extern unsigned emit_symbol_align(const char *lenVar, FILE *out, int indent,
                   unsigned elemAlign, unsigned align);
 
-#define FIRST_REG 1     /* reserve 1 for opcode/result code */
+#define FIRST_REG 1     // First available data register
+                        // reserving [0] for snd_code or rcv_code
 
 /* Size of native register */
 #define REGISTER_BITS      32
 
-#define MAX_REGS  4
+#define MAX_REGS  4     // Total number of data registers
+
+
+/* AnalyzedArgs captures our analysis of the args to an operation/method.
+*/
+struct AnalyzedArgs {
+  std::vector<FormalSym*> inKeyRegs;
+  std::vector<FormalSym*> outKeyRegs;
+  std::vector<FormalSym*> inDataRegs;
+  std::vector<FormalSym*> outDataRegs;
+  std::vector<FormalSym*> inString;
+  std::vector<FormalSym*> outString;
+};
+void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs);

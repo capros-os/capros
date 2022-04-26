@@ -393,6 +393,12 @@ extern Symbol *symbol_CurrentScope;
 class FormalSym : public Symbol
 {
 public:
+  // isOutput is from the viewpoint of the object being invoked,
+  // and corresponds to the "out" keyword in the idl.
+  // true means the stub receives the parameter from the key
+  // and returns it to its caller;
+  // the server sends the parameter to the resume key.
+  // false means the reverse.
   bool isOutput = false;
 
   /* Constructor

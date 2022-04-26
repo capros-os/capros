@@ -32,59 +32,6 @@ Approved for public release, distribution unlimited. */
 #define MAX_REGISTERIZABLE 64
 
 
-void
-extract_registerizable_arguments(Symbol * s, bool output, std::vector<Symbol*> & regArgs)
-{
-  unsigned nReg = FIRST_REG;
-  unsigned needRegs;
-
-  for (const auto eachChild : s->children) {
-    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
-    if (! fsym)
-      continue;
-
-    if (fsym->isOutput != output)
-      continue;
-
-    if (symbol_IsInterface(eachChild->type)) {
-      regArgs.push_back(eachChild);
-      continue;
-    }
-
-    if ((needRegs = can_registerize(eachChild->type, nReg))) {
-      regArgs.push_back(eachChild);
-      nReg += needRegs;
-      continue;
-    }
-  }
-}
-
-void
-extract_string_arguments(Symbol * s, bool output, std::vector<Symbol*> & stringArgs)
-{
-  unsigned nReg = FIRST_REG;
-  unsigned needRegs;
-
-  for (const auto eachChild : s->children) {
-    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
-    if (! fsym)
-      continue;
-
-    if (fsym->isOutput != output)
-      continue;
-
-    if (symbol_IsInterface(eachChild->type))
-      continue;
-
-    if ((needRegs = can_registerize(eachChild->type, nReg))) {
-      nReg += needRegs;
-      continue;
-    }
-
-    stringArgs.push_back(eachChild);
-  }
-}
-
 /* NOTE: the 'indent' argument is NOT used here in the normal case. It
    is provided to indicate the indentation level at which the type is
    being output, so that types which require multiline output can be
@@ -278,7 +225,7 @@ output_c_type(Symbol *s, FILE *out, int indent)
 }
 
 /* can_registerize(): given a symbol /s/ denoting an argument, and a
-   number /nReg/ indicating how many register slots are taken, return:
+   number /nReg/ indicating how many register slots (data words in the message) are taken, return:
 
      0   if the symbol /s/ cannot be passed in registers, or
      N>0 the number of registers that the symbol /s/ will occupy.
@@ -290,23 +237,21 @@ output_c_type(Symbol *s, FILE *out, int indent)
 unsigned 
 can_registerize(Symbol *s, unsigned nReg)
 {
+  if (nReg == MAX_REGS)
+    return 0;
+  assert(nReg < MAX_REGS);
+
   s = symbol_ResolveType(s);
   
   assert(symbol_IsBasicType(s));
 
-  if (nReg == MAX_REGS)
-    return 0;
-
   while (s->cls == sc_symRef)
     s = s->value;
 
-  if (s->cls == sc_typedef)
+  switch(s->cls) {
+  case sc_typedef:
     return can_registerize(s->type, nReg);
 
-  if (s->cls == sc_enum)
-    return 1;
-
-  switch(s->cls) {
   case sc_primtype:
     {
       switch(s->v.lty) {
@@ -347,9 +292,6 @@ can_registerize(Symbol *s, unsigned nReg)
   case sc_enum:
     {
       /* Note assumption that enumeral type fits in a register */
-      if (nReg >= MAX_REGS)
-    return 0;
-
       return 1;
     }
 
@@ -370,4 +312,45 @@ emit_symbol_align(const char *lenVar, FILE *out, int indent,
   }
 
   return (elemAlign * 2) - 1;
+}
+
+void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs)
+{
+  unsigned  inNReg = FIRST_REG;  // first available  IN data register
+  unsigned outNReg = FIRST_REG;  // first available OUT data register
+
+  for (const auto eachChild : s->children) {
+    FormalSym * fsym = dynamic_cast<FormalSym*>(eachChild);
+    assert(fsym);
+    
+    if (symbol_IsInterface(fsym->type)) {   // a key
+      if (fsym->isOutput)
+        analArgs.outKeyRegs.push_back(fsym);
+      else
+        analArgs.inKeyRegs.push_back(fsym);
+    }
+    else {  // It's data.
+      unsigned needRegs;
+      if (fsym->isOutput) {
+        if ((needRegs = can_registerize(fsym->type, outNReg)) != 0) {
+          // Data in OUT register(s)
+          outNReg += needRegs;
+          analArgs.outDataRegs.push_back(fsym);
+        }
+        else {
+          analArgs.outString.push_back(fsym);
+        }
+      }
+      else {    // input
+        if ((needRegs = can_registerize(fsym->type, inNReg)) != 0) {
+          // Data in IN register(s)
+          inNReg += needRegs;
+          analArgs.inDataRegs.push_back(fsym);
+        }
+        else {
+          analArgs.inString.push_back(fsym);
+        }
+      }
+    }
+  }
 }

@@ -48,7 +48,7 @@ static Buffer *preamble;
 
 
 static unsigned
-compute_direct_bytes(std::vector<Symbol*> const & symVec)
+compute_direct_bytes(std::vector<FormalSym*> const & symVec)
 {
   unsigned sz = 0;
 
@@ -61,7 +61,7 @@ compute_direct_bytes(std::vector<Symbol*> const & symVec)
 }
 
 static unsigned
-compute_indirect_bytes(std::vector<Symbol*> const & symVec)
+compute_indirect_bytes(std::vector<FormalSym*> const & symVec)
 {
   unsigned sz = 0;
 
@@ -137,22 +137,19 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   unsigned needRegs = 0;	// This is probably wrong;
 	// just initialize it to prevent a compiler warning.
 
-  std::vector<Symbol*> rcvRegs, sndRegs, rcvString, sndString;
-  extract_registerizable_arguments(s, false, rcvRegs);
-  extract_registerizable_arguments(s,  true, sndRegs);
-  extract_string_arguments(s, false, rcvString);
-  extract_string_arguments(s,  true, sndString);
-
+  AnalyzedArgs analArgs;
+  analyze_arguments(s, analArgs);
+  
   unsigned sndOffset = 0;
   unsigned rcvOffset = 0;
-  unsigned rcvDirect = compute_direct_bytes(rcvString);
-  unsigned sndDirect = compute_direct_bytes(sndString);
+  unsigned rcvDirect = compute_direct_bytes(analArgs.inString);
+  unsigned sndDirect = compute_direct_bytes(analArgs.outString);
 
-  /* Computing indirect bytes on rcvString/sndString vector will
+  /* Computing indirect bytes on analArgs.inString/analArgs.outString vector will
      generate the wrong number, but a non-zero number tells us that
      there ARE some indirect bytes to consider. */
-  unsigned rcvIndirect = compute_indirect_bytes(rcvString);
-  unsigned sndIndirect = compute_indirect_bytes(sndString);
+  unsigned rcvIndirect = compute_indirect_bytes(analArgs.inString);
+  unsigned sndIndirect = compute_indirect_bytes(analArgs.outString);
 
   rcvDirect = round_up(rcvDirect, 8);
   sndDirect = round_up(sndDirect, 8);
@@ -180,14 +177,14 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   fprintf(outFile, "/* Emit OP %s */\n", symbol_QualifiedName(s, '_'));
 
   /* Pass 1: emit the declarations for the direct variables */
-  if (! rcvRegs.empty() || ! rcvString.empty()) {
+  if (! analArgs.inDataRegs.empty() || ! analArgs.inString.empty()) {
     do_indent(outFile, 2);
     fprintf(outFile, "/* Incoming arguments */\n");
 
-    if (! rcvRegs.empty()) {
+    if (! analArgs.inDataRegs.empty()) {
       unsigned rcv_regcount = FIRST_REG;
 
-      for (const auto eachRcvReg : rcvRegs) {
+      for (const auto eachRcvReg : analArgs.inDataRegs) {
 	Symbol *argType = symbol_ResolveRef(eachRcvReg->type);
 
 	do_indent(outFile, 2);
@@ -200,7 +197,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
       }
     }
 
-    for (const auto eachrcvString : rcvString) {
+    for (const auto eachrcvString : analArgs.inString) {
       Symbol *argType = symbol_ResolveRef(eachrcvString->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
@@ -218,7 +215,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
     fprintf(outFile, "\n");
   }
 
-  if (! sndString.empty() || ! sndRegs.empty()) {
+  if (! analArgs.outString.empty() || ! analArgs.outDataRegs.empty()) {
     do_indent(outFile, 2);
     fprintf(outFile, "/* Outgoing arguments */\n");
 
@@ -226,7 +223,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
        that we can pass pointers of the expected type. Casting the word
        fields as in "(char *) &msg.rcv_w0" could create problems on
        depending on byte sex */
-    for (const auto eachSndReg : sndRegs) {
+    for (const auto eachSndReg : analArgs.outDataRegs) {
       Symbol *argType = symbol_ResolveRef(eachSndReg->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
@@ -237,7 +234,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
       sndOffset += symbol_directSize(argBaseType);
     }
 
-    for (const auto eachSndString : sndString) {
+    for (const auto eachSndString : analArgs.outString) {
       Symbol *argType = symbol_ResolveRef(eachSndString->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
@@ -256,7 +253,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   }
 
   /* Pass 2: patch the indirect arg data pointers */
-  for (const auto eachrcvString : rcvString) {
+  for (const auto eachrcvString : analArgs.inString) {
     Symbol *argType = symbol_ResolveRef(eachrcvString->type);
     Symbol *argBaseType = symbol_ResolveType(argType);
 
@@ -321,7 +318,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   fprintf(outFile, "\n");
 
   /* Pass 4: pack the outgoing return string */
-  if (! sndRegs.empty() || ! sndString.empty()) {
+  if (! analArgs.outDataRegs.empty() || ! analArgs.outString.empty()) {
     unsigned snd_regcount = FIRST_REG;
     unsigned curAlign = 0xfu;
 
@@ -342,7 +339,6 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 	emit_return_via_reg(outFile, eachChild, 4, snd_regcount);
 	snd_regcount += needRegs;
       }
-
       else if (symbol_IsVarSequenceType(argBaseType)) {
 	unsigned elemAlign = symbol_alignof(argBaseType);
 
@@ -361,7 +357,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
       }
     }
 
-    if (! sndString.empty()) {
+    if (! analArgs.outString.empty()) {
       do_indent(outFile, 4);
 
       if (sndIndirect)
@@ -486,21 +482,17 @@ msg_size(Symbol *s, bool output)
 
   case sc_operation:
     {
-      size_t rcvsz;
-      size_t sndsz;
-
-      std::vector<Symbol*> rcvString, sndString;
-      extract_string_arguments(s, false, rcvString);
-      extract_string_arguments(s,  true, sndString);
-
-      rcvsz = compute_direct_bytes(rcvString);
-      sndsz = compute_direct_bytes(sndString);
+      AnalyzedArgs analArgs;
+      analyze_arguments(s, analArgs);
+  
+      int rcvsz = compute_direct_bytes(analArgs.inString);
+      int sndsz = compute_direct_bytes(analArgs.outString);
 
       rcvsz = round_up(rcvsz, 8);
       sndsz = round_up(sndsz, 8);
 
-      rcvsz += compute_indirect_bytes(rcvString);
-      sndsz += compute_indirect_bytes(sndString);
+      rcvsz += compute_indirect_bytes(analArgs.inString);
+      sndsz += compute_indirect_bytes(analArgs.outString);
 
       sz = output ? sndsz : rcvsz;
 
@@ -527,12 +519,13 @@ size_server_buffer(Symbol *scope, bool output)
 
   /* Export subordinate packages first! */
   for (const auto eachChild : scope->children) {
-    if (eachChild->cls != sc_package && eachChild->isActiveUOC)
-      bufSz = max(bufSz, msg_size(eachChild, output));
-
     if (eachChild->cls == sc_package) {
       size_t msgsz = size_server_buffer(eachChild, output);
       bufSz = max(bufSz, msgsz);
+    }
+    else {
+      if (eachChild->isActiveUOC)
+        bufSz = max(bufSz, msg_size(eachChild, output));
     }
   }
 
