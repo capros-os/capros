@@ -325,9 +325,9 @@ void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs)
     
     if (symbol_IsInterface(fsym->type)) {   // a key
       if (fsym->isOutput)
-        analArgs.outRegs.push_back(fsym);
+        analArgs.outKeyRegs.push_back(fsym);
       else
-        analArgs.inRegs.push_back(fsym);
+        analArgs.inKeyRegs.push_back(fsym);
     }
     else {  // It's data.
       unsigned needRegs;
@@ -335,7 +335,7 @@ void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs)
         if ((needRegs = can_registerize(fsym->type, outNReg)) != 0) {
           // Data in OUT register(s)
           outNReg += needRegs;
-          analArgs.outRegs.push_back(fsym);
+          analArgs.outDataRegs.push_back(fsym);
         }
         else {
           analArgs.outString.push_back(fsym);
@@ -345,7 +345,7 @@ void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs)
         if ((needRegs = can_registerize(fsym->type, inNReg)) != 0) {
           // Data in IN register(s)
           inNReg += needRegs;
-          analArgs.inRegs.push_back(fsym);
+          analArgs.inDataRegs.push_back(fsym);
         }
         else {
           analArgs.inString.push_back(fsym);

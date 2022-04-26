@@ -51,6 +51,22 @@ extern const char* c_typename(Symbol *s);
 extern void output_c_type_trailer(Symbol *s, FILE *out, int indent);
 extern MP_INT compute_value(Symbol *s);
 
+// Names of the send key fields in the Message structure:
+const char * const sndKeyNames[] = {
+        "snd_key0",
+        "snd_key1",
+        "snd_key2",
+        "snd_rsmkey"
+};
+
+// Names of the rcv key fields in the Message structure:
+const char * const rcvKeyNames[] = {
+        "rcv_key0",
+        "rcv_key1",
+        "rcv_key2",
+        "rcv_rsmkey"
+};
+
 void
 emit_registerize(FILE *out, Symbol *child, int indent, unsigned regCount)
 {
@@ -706,31 +722,12 @@ c_if_needs_message_string(Symbol *s, SymClass sc)
 }
 #endif
 
-static unsigned rcv_capcount;
-static void
-loadRcvCap(FILE * out, int indent, const char * name)
-{
-  if (rcv_capcount >= 4)
-    diag_fatal(1, "Too many capabilities received\n");
-
-  do_indent(out, indent + 2);
-  if (rcv_capcount == 3)	// RESUME_SLOT
-    fprintf(out, "msg.rcv_rsmkey = %s;\n", 
-	    name);
-  else
-    fprintf(out, "msg.rcv_key%d = %s;\n", 
-	    rcv_capcount, name);
-  rcv_capcount++;
-}
-
 static void
 output_client_stub(FILE *out, Symbol *s, int indent)
 {
   AnalyzedArgs analArgs;
   analyze_arguments(s, analArgs);
   
-  unsigned snd_capcount = 0;
-  rcv_capcount = 0;
   unsigned snd_regcount = FIRST_REG;
   unsigned rcv_regcount = FIRST_REG;
 
@@ -860,66 +857,66 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   fprintf(out, "msg.snd_w3 = 0;\n");
   do_indent(out, indent + 2);
   fprintf(out, "msg.snd_len = 0;\n");
-  do_indent(out, indent + 2);
-  fprintf(out, "msg.snd_key0 = KR_VOID;\n");
-  do_indent(out, indent + 2);
-  fprintf(out, "msg.snd_key1 = KR_VOID;\n");
-  do_indent(out, indent + 2);
-  fprintf(out, "msg.snd_key2 = KR_VOID;\n");
-  do_indent(out, indent + 2);
-  fprintf(out, "msg.snd_rsmkey = KR_VOID;\n");
 
   fprintf(out, "\n");
 
   do_indent(out, indent + 2);
   fprintf(out, "msg.rcv_limit = 0;\n");
-  do_indent(out, indent + 2);
-  fprintf(out, "msg.rcv_key0 = KR_VOID;\n");
-  do_indent(out, indent + 2);
-  fprintf(out, "msg.rcv_key1 = KR_VOID;\n");
-  do_indent(out, indent + 2);
-  fprintf(out, "msg.rcv_key2 = KR_VOID;\n");
-  do_indent(out, indent + 2);
-  fprintf(out, "msg.rcv_rsmkey = KR_VOID;\n");
 
   fputc('\n', out);
 
   /* Reserve slot for the return type first, if it is registerizable: */
   rcv_regcount += can_registerize(s->type, rcv_regcount);
 
-  /* Sent registerizable arguments */
-  for (const auto eachSndReg : analArgs.inRegs) {
-    if (symbol_IsInterface(eachSndReg->type)) {
-      // Only 3 capabilities are available because the fourth is the resume key.
-      if (snd_capcount >= 3)
-	diag_fatal(1, "\n%s: Too many capabilities transmitted\n",
-                symbol_QualifiedName(s,'_'));
-
-      do_indent(out, indent + 2);
-      fprintf(out, "msg.snd_key%d = %s;\n", 
-	      snd_capcount++, eachSndReg->name);
-    }
-    else if ((needRegs = can_registerize(eachSndReg->type, snd_regcount))) {
+  // Send data registers
+  for (const auto eachSndReg : analArgs.inDataRegs) {
+    if ((needRegs = can_registerize(eachSndReg->type, snd_regcount))) {
       emit_registerize(out, eachSndReg, indent + 2, snd_regcount);
       snd_regcount += needRegs;
     }
   }
 
-  /* Received registerizable arguments */
-  for (const auto eachRcvReg : analArgs.outRegs) {
-    if (symbol_IsInterface(eachRcvReg->type)) {
-      loadRcvCap(out, indent, eachRcvReg->name);
-    }
-    else if ((needRegs = can_registerize(eachRcvReg->type, rcv_regcount))) {
+  // Send key registers
+  unsigned snd_capcount = 0;
+  for (const auto eachSndReg : analArgs.inKeyRegs) {
+    // Only 3 capabilities are available because the fourth is the resume key.
+    if (snd_capcount >= 3)
+      diag_fatal(1, "\n%s: Too many input capabilities\n",
+                symbol_QualifiedName(s,'_'));
+
+    do_indent(out, indent + 2);
+    fprintf(out, "msg.%s = %s;\n", 
+              sndKeyNames[snd_capcount++], eachSndReg->name);
+  }
+
+  // Unused send key registers:
+  while (snd_capcount < 4) {
+    do_indent(out, indent + 2);
+    fprintf(out, "msg.%s = KR_VOID;\n", sndKeyNames[snd_capcount++]);
+  }
+
+  // Received registerizable data arguments
+  for (const auto eachRcvReg : analArgs.outDataRegs) {
+    if ((needRegs = can_registerize(eachRcvReg->type, rcv_regcount))) {
       /* do nothing -- handled through registerization below */
       rcv_regcount += needRegs;
     }
   }
 
-  /* If the return type is a capability type, convert it to an out
-     parameter at the end of the parameter list */
-  if (symbol_IsInterface(s->type)) {
-    loadRcvCap(out, indent, "_resultCap");
+  // Received key arguments
+  unsigned rcv_capcount = 0;
+  for (const auto eachRcvReg : analArgs.outKeyRegs) {
+    if (rcv_capcount >= 4)
+      diag_fatal(1, "Too many capabilities received\n");
+
+    do_indent(out, indent + 2);
+    fprintf(out, "msg.%s = %s;\n", 
+            rcvKeyNames[rcv_capcount++], eachRcvReg->name);
+  }
+  // Unused key arguments
+  for (; rcv_capcount < 4; rcv_capcount++) {
+    do_indent(out, indent + 2);
+    fprintf(out, "msg.%s = KR_VOID;\n", rcvKeyNames[rcv_capcount]);
   }
 
   emit_send_string(analArgs.inString, out, indent+2);
@@ -940,7 +937,8 @@ output_client_stub(FILE *out, Symbol *s, int indent)
 
   /* Unpack the registers and the structure (if any) that contain the
      returned arguments (if any) */
-  emit_unpack_return_registers(analArgs.outRegs, out, indent);
+  emit_unpack_return_registers(analArgs.outDataRegs, out, indent);
+
   if (needRcvString)
     emit_unpack_return_string(analArgs.outString, out, indent + 2);
 

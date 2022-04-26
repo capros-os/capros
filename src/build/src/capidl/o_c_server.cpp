@@ -177,14 +177,14 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   fprintf(outFile, "/* Emit OP %s */\n", symbol_QualifiedName(s, '_'));
 
   /* Pass 1: emit the declarations for the direct variables */
-  if (! analArgs.inRegs.empty() || ! analArgs.inString.empty()) {
+  if (! analArgs.inDataRegs.empty() || ! analArgs.inString.empty()) {
     do_indent(outFile, 2);
     fprintf(outFile, "/* Incoming arguments */\n");
 
-    if (! analArgs.inRegs.empty()) {
+    if (! analArgs.inDataRegs.empty()) {
       unsigned rcv_regcount = FIRST_REG;
 
-      for (const auto eachRcvReg : analArgs.inRegs) {
+      for (const auto eachRcvReg : analArgs.inDataRegs) {
 	Symbol *argType = symbol_ResolveRef(eachRcvReg->type);
 
 	do_indent(outFile, 2);
@@ -215,7 +215,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
     fprintf(outFile, "\n");
   }
 
-  if (! analArgs.outString.empty() || ! analArgs.outRegs.empty()) {
+  if (! analArgs.outString.empty() || ! analArgs.outDataRegs.empty()) {
     do_indent(outFile, 2);
     fprintf(outFile, "/* Outgoing arguments */\n");
 
@@ -223,7 +223,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
        that we can pass pointers of the expected type. Casting the word
        fields as in "(char *) &msg.rcv_w0" could create problems on
        depending on byte sex */
-    for (const auto eachSndReg : analArgs.outRegs) {
+    for (const auto eachSndReg : analArgs.outDataRegs) {
       Symbol *argType = symbol_ResolveRef(eachSndReg->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
@@ -318,7 +318,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   fprintf(outFile, "\n");
 
   /* Pass 4: pack the outgoing return string */
-  if (! analArgs.outRegs.empty() || ! analArgs.outString.empty()) {
+  if (! analArgs.outDataRegs.empty() || ! analArgs.outString.empty()) {
     unsigned snd_regcount = FIRST_REG;
     unsigned curAlign = 0xfu;
 
@@ -339,7 +339,6 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 	emit_return_via_reg(outFile, eachChild, 4, snd_regcount);
 	snd_regcount += needRegs;
       }
-
       else if (symbol_IsVarSequenceType(argBaseType)) {
 	unsigned elemAlign = symbol_alignof(argBaseType);
 
