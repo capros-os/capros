@@ -365,7 +365,9 @@ emit_send_string(std::vector<StringArg> const & argVec, FILE *out, int indent)
   }
   else {
     unsigned align = 0xfu;
+#if 0
     unsigned indirAlign = 0xfu;
+#endif
 
     do_indent(out, indent);
     fprintf(out, "msg.snd_data = sndData;\n");
@@ -412,6 +414,7 @@ emit_send_string(std::vector<StringArg> const & argVec, FILE *out, int indent)
 	fprintf(out, "sndLen += sizeof(%s);\n", fsym->name);
 
 	if (symbol_IsVarSequenceType(argBaseType)) {
+#if 0
 	  do_indent(out, indent+2);
 
 	  indirAlign = emit_symbol_align("sndIndir", out, indent+2,
@@ -420,6 +423,7 @@ emit_send_string(std::vector<StringArg> const & argVec, FILE *out, int indent)
 	  fprintf(out, "_CAPIDL_arg->data = (");
 	  output_c_type(argBaseType->type, out, 0);
 	  fprintf(out, " *) (sndData + sndIndir);\n", fsym->name);
+#endif
 
 	  do_indent(out, indent+2);
 	  fprintf(out, "__builtin_memcpy(_CAPIDL_arg->data, %s.data, "
@@ -434,9 +438,9 @@ emit_send_string(std::vector<StringArg> const & argVec, FILE *out, int indent)
 	  fprintf(out, "((unsigned long) _CAPIDL_arg->data) = sndIndir;\n\n");
 
 	  do_indent(out, indent+2);
-#endif
 	  fprintf(out, "sndIndir += sizeof(%s.data) * %s.len;\n",
 		  fsym->name, fsym->name);
+#endif
 	}
 	  
       }
@@ -777,8 +781,10 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     fprintf(out, "unsigned char *sndData;\n");
     do_indent(out, indent + 2);
     fprintf(out, "unsigned sndLen = 0;\n");
+#if 0
     do_indent(out, indent + 2);
     fprintf(out, "unsigned sndIndir = 0;\n");
+#endif
   }
   if (needRcvString == 1) {
     do_indent(out, indent + 2);
@@ -799,8 +805,10 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     /* Align up to an 8 byte boundary to begin the indirect bytes */
     align = emit_symbol_align("sndLen", out, indent+2, 8, align);
 
+#if 0
     do_indent(out, indent + 2);
     fprintf(out, "sndIndir = sndLen;\n");
+#endif
     align = emit_indirect_byte_computation(analArgs.inString, out, indent+2,
 					   false, align);
     do_indent(out, indent + 2);
