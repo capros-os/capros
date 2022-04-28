@@ -135,7 +135,7 @@ emit_deregisterize(FILE *out, Symbol *child, int indent, unsigned regCount)
     regCount++;
   }
 }
-   
+
 /* The /align/ field is a bitmap representing which power of two
    alignments are known to be valid. */
 unsigned
@@ -184,10 +184,6 @@ emit_direct_symbol_size(const char *fullName, Symbol *s,
     }
 
   case sc_union:
-    {
-      assert(false);
-      return align;
-    }
   case sc_interface:
   case sc_absinterface:
     {
@@ -297,23 +293,23 @@ emit_indirect_symbol_size(const char *fullName, Symbol *s,
   return align;
 }
 
-unsigned
-emit_direct_byte_computation(std::vector<FormalSym*> const & symVec, FILE *out, int indent,
+static unsigned
+emit_direct_byte_computation(std::vector<StringArg> const & argVec, FILE *out, int indent,
 			     bool output, unsigned align)
 {
-  for (const auto eachSym : symVec) {
-    align = emit_direct_symbol_size(eachSym->name, eachSym, out, indent, output, align);
+  for (const auto & eachArg : argVec) {
+    align = emit_direct_symbol_size(eachArg.fsym->name, eachArg.fsym, out, indent, output, align);
   }
 
   return align;
 }
 
 unsigned
-emit_indirect_byte_computation(std::vector<FormalSym*> const & symVec, FILE *out, int indent,
+emit_indirect_byte_computation(std::vector<StringArg> const & argVec, FILE *out, int indent,
 			       bool output, unsigned align)
 {
-  for (const auto eachSym : symVec) {
-    align = emit_indirect_symbol_size(eachSym->name, eachSym, out, indent, output, align);
+  for (const auto eachArg : argVec) {
+    align = emit_indirect_symbol_size(eachArg.fsym->name, eachArg.fsym, out, indent, output, align);
   }
 
   return align;
@@ -325,15 +321,15 @@ extern const char* c_serializer(Symbol *s);
 Emit code to set up the string to be sent to the key.
 */
 void
-emit_send_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
+emit_send_string(std::vector<StringArg> const & argVec, FILE *out, int indent)
 {
-  if (symVec.empty())
+  if (argVec.empty())
     return;
 
   /* Choose strategy: */
-  if (symVec.size() == 1 &&
-      symbol_IsDirectSerializable(symVec[0]->type)) {
-    Symbol * s0 = symVec[0];
+  if (argVec.size() == 1 &&
+      symbol_IsDirectSerializable(argVec[0].fsym->type)) {
+    FormalSym * s0 = argVec[0].fsym;
     Symbol * s0BaseType = symbol_ResolveType(s0->type);
 
     do_indent(out, indent);
@@ -379,13 +375,14 @@ emit_send_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
     do_indent(out, indent);
     fprintf(out, "sndLen = 0;\n");
 
-    for (const auto arg : symVec) {
-      Symbol *argType = symbol_ResolveRef(arg->type);
-      Symbol *argBaseType = symbol_ResolveType(arg->type);
+    for (const auto & arg : argVec) {
+      FormalSym * fsym = arg.fsym;
+      Symbol *argType = symbol_ResolveRef(fsym->type);
+      Symbol *argBaseType = symbol_ResolveType(fsym->type);
       
       fprintf(out, "\n");
       do_indent(out, indent);
-      fprintf(out, "/* Serialize %s */\n", arg->name);
+      fprintf(out, "/* Serialize %s */\n", fsym->name);
       do_indent(out, indent);
       fprintf(out, "{\n");
       do_indent(out, indent+2);
@@ -406,13 +403,13 @@ emit_send_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
 
 	do_indent(out, indent+2);
 	fprintf(out, "__builtin_memcpy(_CAPIDL_arg, %s, %d * sizeof(*%s));\n",
-		arg->name, mpz_get_ui(&bound), arg->name);
+		fsym->name, mpz_get_ui(&bound), fsym->name);
       }
       else {
 	do_indent(out, indent+2);
-	fprintf(out, "*_CAPIDL_arg = %s;\n", arg->name);
+	fprintf(out, "*_CAPIDL_arg = %s;\n", fsym->name);
 	do_indent(out, indent+2);
-	fprintf(out, "sndLen += sizeof(%s);\n", arg->name);
+	fprintf(out, "sndLen += sizeof(%s);\n", fsym->name);
 
 	if (symbol_IsVarSequenceType(argBaseType)) {
 	  do_indent(out, indent+2);
@@ -422,12 +419,12 @@ emit_send_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
 
 	  fprintf(out, "_CAPIDL_arg->data = (");
 	  output_c_type(argBaseType->type, out, 0);
-	  fprintf(out, " *) (sndData + sndIndir);\n", arg->name);
+	  fprintf(out, " *) (sndData + sndIndir);\n", fsym->name);
 
 	  do_indent(out, indent+2);
 	  fprintf(out, "__builtin_memcpy(_CAPIDL_arg->data, %s.data, "
 		  "sizeof(*%s.data) * %s.len);\n",
-		  arg->name, arg->name, arg->name);
+		  fsym->name, fsym->name, fsym->name);
 
 	  fprintf(out, "\n");
 	  do_indent(out, indent+2);
@@ -439,7 +436,7 @@ emit_send_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
 	  do_indent(out, indent+2);
 #endif
 	  fprintf(out, "sndIndir += sizeof(%s.data) * %s.len;\n",
-		  arg->name, arg->name);
+		  fsym->name, fsym->name);
 	}
 	  
       }
@@ -451,15 +448,15 @@ emit_send_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
 }
 
 static void
-emit_receive_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
+emit_receive_string(std::vector<StringArg> const & argVec, FILE *out, int indent)
 {
-  if (symVec.empty())
+  if (argVec.empty())
     return;
   
   /* Choose strategy: */
-  if (symVec.size() == 1 &&
-      symbol_IsDirectSerializable(symVec[0]->type) ) {
-    Symbol * s0 = symVec[0];
+  if (argVec.size() == 1 &&
+      symbol_IsDirectSerializable(argVec[0].fsym->type) ) {
+    FormalSym * s0 = argVec[0].fsym;
 
     do_indent(out, indent);
     fprintf(out, "/* Using direct method */\n");
@@ -502,15 +499,14 @@ emit_unpack_return_registers(std::vector<FormalSym*> const & symVec, FILE *out, 
 }
 
 static void
-emit_unpack_return_string(std::vector<FormalSym*> const & symVec, FILE *out, int indent)
+emit_unpack_return_string(std::vector<StringArg> const & argVec, FILE *out, int indent)
 {
   bool isDirect;
   unsigned align = 0xfu;
   unsigned indirAlign = 0xfu;
 
   /* Choose strategy: */
-  isDirect = (symVec.size() == 1 &&
-	      symbol_IsDirectSerializable(symVec[0]->type));
+  isDirect = (argVec.size() == 1 && argVec[0].direct);
 
   if (isDirect)
     return;
@@ -518,13 +514,14 @@ emit_unpack_return_string(std::vector<FormalSym*> const & symVec, FILE *out, int
   do_indent(out, indent);
   fprintf(out, "rcvLen = 0;\n");
 
-  for (const auto arg : symVec) {
-    Symbol *argType = symbol_ResolveRef(arg->type);
-    Symbol *argBaseType = symbol_ResolveType(arg->type);
+  for (const auto & arg : argVec) {
+    FormalSym * fsym = arg.fsym;
+    Symbol *argType = symbol_ResolveRef(fsym->type);
+    Symbol *argBaseType = symbol_ResolveType(fsym->type);
       
     fprintf(out, "\n");
     do_indent(out, indent);
-    fprintf(out, "/* Deserialize %s */\n", arg->name);
+    fprintf(out, "/* Deserialize %s */\n", fsym->name);
     do_indent(out, indent);
     fprintf(out, "{\n");
     do_indent(out, indent+2);
@@ -545,17 +542,17 @@ emit_unpack_return_string(std::vector<FormalSym*> const & symVec, FILE *out, int
 
       do_indent(out, indent+2);
       fprintf(out, "__builtin_memcpy(%s, rcvData + rcvLen, %d * sizeof(*%s));\n",
-	      arg->name, mpz_get_ui(&bound), arg->name);
+	      fsym->name, mpz_get_ui(&bound), fsym->name);
 
       do_indent(out, indent+2);
       fprintf(out, "rcvLen += (%d * sizeof(*%s));\n",
-	      mpz_get_ui(&bound), arg->name);
+	      mpz_get_ui(&bound), fsym->name);
     }
     else {
       do_indent(out, indent+2);
-      fprintf(out, "*%s = *_CAPIDL_arg;\n", arg->name);
+      fprintf(out, "*%s = *_CAPIDL_arg;\n", fsym->name);
       do_indent(out, indent+2);
-      fprintf(out, "rcvLen += sizeof(*%s);\n", arg->name);
+      fprintf(out, "rcvLen += sizeof(*%s);\n", fsym->name);
 
       if (symbol_IsVarSequenceType(argBaseType)) {
 	MP_INT bound = compute_value(argBaseType->value);
@@ -568,20 +565,20 @@ emit_unpack_return_string(std::vector<FormalSym*> const & symVec, FILE *out, int
 
 	fprintf(out, "_CAPIDL_arg->data = (");
 	output_c_type(argBaseType->type, out, 0);
-	fprintf(out, " *) (rcvData + rcvIndir);\n", arg->name);
+	fprintf(out, " *) (rcvData + rcvIndir);\n", fsym->name);
 
 	do_indent(out, indent+2);
 	fprintf(out, "__builtin_memcpy(%s->data, _CAPIDL_arg->data, "
 		"sizeof(%s->data) * "
 		"(_CAPIDL_arg->len < %d ? _CAPIDL_arg->len : %d));\n",
-		arg->name, arg->name, ubound, ubound);
+		fsym->name, fsym->name, ubound, ubound);
 
 	fprintf(out, "\n");
 
 	do_indent(out, indent+2);
 	fprintf(out, "rcvIndir += sizeof(%s->data) * "
 		"(_CAPIDL_arg->len < %d ? _CAPIDL_arg->len : %d);\n",
-		arg->name, ubound, ubound);
+		fsym->name, ubound, ubound);
       }
 	  
     }
@@ -659,7 +656,7 @@ c_op_needs_exception_string(Symbol *op)
  *     2 if a message string is needed and can be serialized directly.
  */
 static unsigned
-c_op_needs_message_string(std::vector<FormalSym*> & stringArgs)
+c_op_needs_message_string(std::vector<StringArg> & stringArgs)
 {
   if (stringArgs.empty())
     return 0;
@@ -667,8 +664,8 @@ c_op_needs_message_string(std::vector<FormalSym*> & stringArgs)
   unsigned nDirectElem = 0;     // number that are fixed serializable
   unsigned nOtherElem = 0;      // number of others that go in the string
 
-  for (const auto fsym : stringArgs) {
-    if (symbol_IsDirectSerializable(fsym->type))
+  for (const auto & eachSA : stringArgs) {
+    if (eachSA.direct)
       nDirectElem ++;
     else
       nOtherElem ++;

@@ -1006,7 +1006,7 @@ symbol_IsLinearizable(Symbol *sym)
   }
     
   if (sym->type && 
-      !symbol_IsReferenceType(sym->type) && 
+      !symbol_IsInterface(sym->type) && 
       !symbol_IsLinearizable(sym->type)) {
     if (sym->cls != sc_symRef) 
       diag_printf("Symbol \"%s\" type is \"%s\"\n", 
@@ -1152,8 +1152,8 @@ symbol_IsFixedSerializable(Symbol *sym)
 
   sym = symbol_ResolveType(sym);
   
-  if (symbol_IsReferenceType(sym))
-    return true;
+  if (symbol_IsInterface(sym))
+    assert(false);
 
   if (sym->type && ! symbol_IsFixedSerializable(sym->type))
     return false;
@@ -1465,7 +1465,7 @@ symbol_directSize(Symbol *s)
   case sc_struct:
     {
       for (const auto eachChild : s->children) {
-	if (!symbol_IsTypeSymbol(eachChild)) {
+	if (! symbol_IsTypeSymbol(eachChild)) {
 	  len = round_up(len, symbol_alignof(eachChild));
 	  len += symbol_directSize(eachChild->type);
 	}
