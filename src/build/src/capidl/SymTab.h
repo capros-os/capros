@@ -335,13 +335,6 @@ static inline bool symbol_IsException(Symbol *sym)
   return (sym->cls == sc_exception);
 }
 
-/* Return TRUE if the symbol is a type that is passed by reference 
-   rather than by copy. */
-static inline bool symbol_IsReferenceType(Symbol *sym)
-{
-  return symbol_IsInterface(sym);
-}
-
 static inline bool symbol_IsVoidType(Symbol *sym)
 {
   sym = symbol_ResolveType(sym);

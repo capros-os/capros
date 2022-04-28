@@ -48,26 +48,28 @@ static Buffer *preamble;
 
 
 static unsigned
-compute_direct_bytes(std::vector<FormalSym*> const & symVec)
+compute_direct_bytes(std::vector<StringArg> const & stringVec)
 {
   unsigned sz = 0;
 
-  for (const auto eachSym : symVec) {
-    sz = round_up(sz, symbol_alignof(eachSym));
-    sz += symbol_directSize(eachSym);
+  for (const auto & eachArg : stringVec) {
+    FormalSym * fsym = eachArg.fsym;
+    sz = round_up(sz, symbol_alignof(fsym));
+    sz += symbol_directSize(fsym);
   }
 
   return sz;
 }
 
 static unsigned
-compute_indirect_bytes(std::vector<FormalSym*> const & symVec)
+compute_indirect_bytes(std::vector<StringArg> const & stringVec)
 {
   unsigned sz = 0;
 
-  for (const auto eachSym : symVec) {
-    sz = round_up(sz, symbol_alignof(eachSym));
-    sz += symbol_indirectSize(eachSym);
+  for (const auto & eachArg : stringVec) {
+    FormalSym * fsym = eachArg.fsym;
+    sz = round_up(sz, symbol_alignof(fsym));
+    sz += symbol_indirectSize(fsym);
   }
 
   return sz;
@@ -197,15 +199,16 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
       }
     }
 
-    for (const auto eachrcvString : analArgs.inString) {
-      Symbol *argType = symbol_ResolveRef(eachrcvString->type);
+    for (const auto & eachrcvString : analArgs.inString) {
+      FormalSym * fsym = eachrcvString.fsym;
+      Symbol *argType = symbol_ResolveRef(fsym->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
       rcvOffset = round_up(rcvOffset, symbol_alignof(argBaseType));
 
       do_indent(outFile, 2);
       output_c_type(argType, outFile, 0);
-      fprintf(outFile, " *%s = (", eachrcvString->name);
+      fprintf(outFile, " *%s = (", fsym->name);
       output_c_type(argType, outFile, 0);
       fprintf(outFile, " *) (msg->rcv_data + %d);\n", rcvOffset);
 
@@ -234,15 +237,16 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
       sndOffset += symbol_directSize(argBaseType);
     }
 
-    for (const auto eachSndString : analArgs.outString) {
-      Symbol *argType = symbol_ResolveRef(eachSndString->type);
+    for (const auto & eachSndString : analArgs.outString) {
+      FormalSym * fsym = eachSndString.fsym;
+      Symbol *argType = symbol_ResolveRef(fsym->type);
       Symbol *argBaseType = symbol_ResolveType(argType);
 
       sndOffset = round_up(sndOffset, symbol_alignof(argBaseType));
 
       do_indent(outFile, 2);
       output_c_type(argType, outFile, 0);
-      fprintf(outFile, " *%s = (", eachSndString->name);
+      fprintf(outFile, " *%s = (", fsym->name);
       output_c_type(argType, outFile, 0);
       fprintf(outFile, " *) (msg->snd_data + %d);\n", sndOffset);
 
@@ -253,13 +257,14 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
   }
 
   /* Pass 2: patch the indirect arg data pointers */
-  for (const auto eachrcvString : analArgs.inString) {
-    Symbol *argType = symbol_ResolveRef(eachrcvString->type);
+  for (const auto & eachrcvString : analArgs.inString) {
+    FormalSym * fsym = eachrcvString.fsym;
+    Symbol *argType = symbol_ResolveRef(fsym->type);
     Symbol *argBaseType = symbol_ResolveType(argType);
 
     if (symbol_IsVarSequenceType(argBaseType)) {
       do_indent(outFile, 2);
-      fprintf(outFile, "%s->data = (", eachrcvString->name);
+      fprintf(outFile, "%s->data = (", fsym->name);
 
       output_c_type(argBaseType->type, outFile, 0);
 
@@ -267,7 +272,7 @@ emit_op_dispatcher(Symbol *s, FILE *outFile)
 
       do_indent(outFile, 2);
       fprintf(outFile, "rcvIndir += (%s->len * sizeof(*%s->data));\n",
-	      eachrcvString->name, eachrcvString->name);
+	      fsym->name, fsym->name);
     }
   }
 

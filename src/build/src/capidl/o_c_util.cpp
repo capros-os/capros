@@ -271,9 +271,6 @@ can_registerize(Symbol *s, unsigned nReg)
       if (bits == 0)
         return 0;
 
-      if (nReg >= MAX_REGS)
-        return 0;
-
       if (bits <= REGISTER_BITS)
         return 1;
 
@@ -314,6 +311,15 @@ emit_symbol_align(const char *lenVar, FILE *out, int indent,
   return (elemAlign * 2) - 1;
 }
 
+StringArg
+makeStringArg(FormalSym * fsym)
+{
+  StringArg sa;
+  sa.fsym = fsym;
+  sa.direct = symbol_IsFixedSerializable(fsym->type);
+  return sa;
+}
+
 void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs)
 {
   unsigned  inNReg = FIRST_REG;  // first available  IN data register
@@ -338,7 +344,7 @@ void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs)
           analArgs.outDataRegs.push_back(fsym);
         }
         else {
-          analArgs.outString.push_back(fsym);
+          analArgs.outString.push_back(makeStringArg(fsym));
         }
       }
       else {    // input
@@ -348,7 +354,7 @@ void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs)
           analArgs.inDataRegs.push_back(fsym);
         }
         else {
-          analArgs.inString.push_back(fsym);
+          analArgs.inString.push_back(makeStringArg(fsym));
         }
       }
     }

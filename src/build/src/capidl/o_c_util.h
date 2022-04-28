@@ -38,15 +38,19 @@ extern unsigned emit_symbol_align(const char *lenVar, FILE *out, int indent,
 
 #define MAX_REGS  4     // Total number of data registers
 
+struct StringArg {
+  FormalSym * fsym;
+  bool direct;      // true iff it is fixed serializable
+};
 
-/* AnalyzedArgs captures our analysis of the args to an operation/method.
-*/
+
+// AnalyzedArgs captures our analysis of the args to an operation/method.
 struct AnalyzedArgs {
   std::vector<FormalSym*> inKeyRegs;
   std::vector<FormalSym*> outKeyRegs;
   std::vector<FormalSym*> inDataRegs;
   std::vector<FormalSym*> outDataRegs;
-  std::vector<FormalSym*> inString;
-  std::vector<FormalSym*> outString;
+  std::vector<StringArg> inString;
+  std::vector<StringArg> outString;
 };
 void analyze_arguments(Symbol * s, AnalyzedArgs & analArgs);
