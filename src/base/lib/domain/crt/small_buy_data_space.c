@@ -64,6 +64,7 @@ __rt_buy_data_space()
     result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_NEWPAGE);
     
     result = capros_Page_clone(KR_NEWPAGE, KR_OLDPAGE);
+    (void)result;   // not much we can do if it fails
     
     result = capros_GPT_setSlot(KR_MYSPACE, slot, KR_NEWPAGE);
 

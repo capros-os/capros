@@ -23,6 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <stddef.h>
 
 extern unsigned _end;
 static caddr_t heap_ptr = (caddr_t) &_end;
