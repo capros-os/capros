@@ -87,6 +87,7 @@ protospace_destroy_small_2(uint32_t krProto, uint32_t retCode,
       break;
 
     result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+    (void)result;   // not much we can do if it fails
   }
   /* Now we have freed all the data/bss pages except the first,
      which is in KR_TEMP0. */
