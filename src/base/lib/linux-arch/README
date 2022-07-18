@@ -1,11 +1,7 @@
-This directory contains headers from the include directory
+This directory contains headers from the arch directory 
 of Linux kernel version 2.6.30.5
 with minimal editing to work with Capros.
 
 The following files are not from Linux. They are here only to piggy-back on the mechanism for selecting the appropriate architecture to install in include/linux-arch.
- asm-generic/SCSICtrl32.h
- asm-generic/SCSICtrl64.h
- asm-generic/SCSIDev32.h
- asm-generic/SCSIDev64.h
- asm-generic/USBIntf32.h
- asm-generic/USBIntf64.h
+ arm/include/asm/DMA.h
+ x86/include/asm/DMA.h
