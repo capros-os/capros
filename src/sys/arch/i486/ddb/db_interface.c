@@ -167,8 +167,8 @@ kdb_trap(int type, int code, register db_regs_t *regs)
 }
 
 /* For now... */
-char *trap_type[0];
-int trap_types = 0;
+const int trap_types = 1;
+char * trap_type[1] = {"type 1"};
 
 /*
  * Print trap reason.
