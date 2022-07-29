@@ -82,7 +82,7 @@ $(BUILDDIR)/capidl: $(CAPIDL_OBJECTS) $(LIBS)
 	$(GPLUS) $(GPLUSFLAGS) -o $@ $(CAPIDL_OBJECTS) $(XENV_LIBDIR) $(LIBS) $(OTHER_LIBS)
 
 $(BUILDDIR)/idl.o: $(BUILDDIR)/idl.cpp
-	$(C_BUILD) 
+	$(GCC) $(GCCFLAGS) $(GCCWARN) -Wno-free-nonheap-object -c $< -o $@
 	$(C_DEP)
 
 $(BUILDDIR)/lex.o: lex.cpp $(BUILDDIR)/idl.h
