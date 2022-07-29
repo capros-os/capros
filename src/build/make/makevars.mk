@@ -58,8 +58,6 @@ endif
 ifeq ($(EROS_TARGET),i486)
 GOOD_TARGET=1
 # CapROS is still 32-bit only.
-TARGET_GCC_FLAGS+=-m32
-TARGET_LD_FLAGS+=-m elf_i386
 endif
 
 ifeq ($(EROS_TARGET),arm)
